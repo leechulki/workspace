@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[사무소별 교체예정 금액]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+       SUM(NETPR2) AS NETPR2,
+       SUM(NETPR_A) AS NETPR_A,
+       SUM(NETPR_B) AS NETPR_B,
+       SUM(CNT_A) AS CNT_A,
+       SUM(CNT_B) AS CNT_B,
+       C.CTEXT2 AS LGOBE1,
+       B.CTEXT2 AS LGOBE2,
+       A.ABR_NM AS LGOBE3
+  FROM
+       (
+        SELECT 
+               M136.MANDT AS MANDT,
+               M136.LGORT AS LGORT,
+               SUBSTR(M136.POSID,1,6) AS POSID,
+               SUM(M136.NETPR * 100) AS NETPR2,
+               SUM(CASE WHEN VALUE(M137.CNT_A,'') > '' THEN M136.NETPR * 100 ELSE 0 END) AS NETPR_A,
+               SUM(CASE WHEN VALUE(M137.CNT_B,'') > '' THEN M136.NETPR * 100 ELSE 0 END) AS NETPR_B,
+               MAX(DECODE(VALUE(M137.CNT_A,''),'','0',M137.CNT_A)) AS CNT_A,
+               MAX(DECODE(VALUE(M137.CNT_B,''),'','0',M137.CNT_B)) AS CNT_B
+          FROM 
+               SAPHEE.ZMMT136 AS M136
+                      LEFT OUTER JOIN SAPHEE.ZMMT137 AS M137 ON M136.MANDT = M137.MANDT
+                                                            AND M136.POSID = M137.POSID
+                                                            AND M136.MATNR = M137.MATNR
+         WHERE 
+               M136.MANDT = #G_MANDT#
+           AND M136.CHNGDT BETWEEN #CHNGDT_FM# AND #CHNGDT_TO#
+           AND M136.ZGUBN = 'X' 
+           AND M136.ZAPPLY = 'X'
+<isEqual col="GBN" value="A">
+           AND M136.LGORT = #G_VEND_CODE_R#
+</isEqual>
+<isEqual col="GBN" value="C">
+           AND M136.LGORT IN (SELECT M005.LGORT
+                                FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 M005
+                               WHERE B010.MANDT = M005.MANDT
+                                 AND B010.LIFNR = M005.LIFNR
+                                 AND B010.MANDT = #G_MANDT# 
+                                 AND B010.BSU_PM = #G_USER_ID#)
+</isEqual>
+<isEqual col="GBN" value="E">
+           AND M136.LGORT = #CB3#
+</isEqual>
+<isEqual col="GBN" value="G">
+           AND M136.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+                               WHERE B010.MANDT = MM005.MANDT
+                                 AND B010.LIFNR = MM005.LIFNR
+                                 AND B010.MANDT= #G_MANDT# 
+                                 AND B010.VKGRP LIKE #CB2# || '%')
+</isEqual>
+<isEqual col="GBN" value="I">
+           AND M136.LGORT = #CB3#
+</isEqual>
+<isEqual col="GBN" value="L">
+           AND M136.LGORT IN (SELECT LGORT FROM SAPHEE.ZMMT005 AS MM005
+                               WHERE MM005.MANDT = #G_MANDT# 
+                                 AND MM005.REGKZ = #CB2#)
+</isEqual>
+<isEqual col="GBN" value="M">
+           AND M136.LGORT = #CB3#
+</isEqual>
+<isEqual col="GBN" value="N">
+           AND M136.LGORT IN (SELECT LGORT FROM SAPHEE.ZMMT005 AS MM005
+                               WHERE MM005.MANDT = #G_MANDT# 
+                                 AND MM005.PERNR = #CB2#)
+</isEqual>
+<isEqual col="GBN" value="O">
+           AND M136.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+                               WHERE B010.MANDT = MM005.MANDT
+                                 AND B010.LIFNR = MM005.LIFNR
+                                 AND B010.MANDT= #G_MANDT# 
+                                 AND B010.VKGRP LIKE #CB2# || '%')
+</isEqual>
+<isEqual col="GBN" value="P">
+           AND M136.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005, SAPHEE.ZLCODE  ZC
+                               WHERE B010.MANDT = MM005.MANDT
+                                 AND B010.LIFNR = MM005.LIFNR
+                                 AND B010.MANDT = #G_MANDT#
+                                 AND ZC.CODE1 = 'VKGRP'
+                                 AND ZC.LANG = 'ko'
+                                 AND ZC.DTEXT1 = #CB2#
+                                 AND B010.VKGRP IN (ZC.CODE2)
+                                 #WQST+#  /* 부서 */ )
+</isEqual>
+<isEqual col="GBN" value="Q">
+           AND M136.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005, SAPHEE.ZLCODE  ZC
+                               WHERE B010.MANDT = MM005.MANDT
+                                 AND B010.LIFNR = MM005.LIFNR
+                                 AND B010.MANDT = #G_MANDT#
+                                 AND B010.VKGRP = #CB3# 
+                                 #WQST+# /* 부서 */ )
+</isEqual>
+        GROUP BY 
+               M136.MANDT,
+               M136.LGORT,
+               SUBSTR(M136.POSID,1,6)
+       ) AS M136 
+       LEFT OUTER JOIN SAPHEE.ZWBT010 AS A ON M136.MANDT = A.MANDT
+                                          AND M136.LGORT = A.LGORT
+       LEFT OUTER JOIN SAPHEE.ZLCODE AS B ON A.VKGRP = B.CODE2
+                                         AND B.CODE1 = 'VKGRP'
+       LEFT OUTER JOIN SAPHEE.ZLCODE AS C ON B.DTEXT1 = C.CODE2
+                                         AND C.CODE1 = 'VKBUR'	
+WHERE 1=1
+GROUP BY 
+       C.CTEXT2,
+       B.CTEXT2,
+       A.ABR_NM
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[MOD 공정관리 조회]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>1</result-count>
+    <statement>
+        SELECT 
+        
+        	   '' CHECK
+        	   ,SAPHEE.GET_VENDER_NAME(MAX(CS001.MANDT), MAX(CS001.BSU)) AS BSU
+        	   ,SAPHEE.CODE_CONV(MAX(CS001.MANDT), 'VKGRP', MAX(CS001.VKGRP)) AS VKGRP
+        	   ,MAX(CS001.MA_PSPID) UPN
+        	   ,CS001.PS_PSPID WBS
+        	   ,(SELECT MAX(CS121_SPT) FROM SAPHEE.ZCST121 WHERE MANDT = #G_MANDT# AND CS121_UPN = CS001.UPN AND CS121_CST = '') SPT
+        	   ,MAX(CR_DATE) PDMDAT
+        	   ,'' SHDAT
+        	   ,MIN(CS414.BEDAT) BEDAT
+        	   ,MAX(CS414.CPDAT) CPDAT
+        	   ,MAX(CS414.EXDAT) EXDAT	
+   	           ,MAX(CS414_1.PAC) PAC  
+        	   ,(SELECT MAX(A.CS412_NAM) FROM SAPHEE.ZCST412 A	INNER JOIN SAPHEE.ZCST414 B 
+        	           	           	  ON A.MANDT = B.MANDT AND B.WBS = CS414.WBS AND A.LIFNR = B.LIFNR  AND B.COD = 'CP') LIFNR
+   	           ,MAX(CS414_1.JOBNAM) JOBNAM
+   	           ,MAX(CS414_1.JOBHP)  JOBHP
+   	           ,MAX(CS414_1.ADNAM) ADNAM
+   	           ,MAX(CS414_1.ADHP) ADHP
+   	             
+        FROM SAPHEE.ZCST001 CS001
+          INNER JOIN SAPHEE.ZCST414 CS414
+                  ON CS001.MANDT = CS414.MANDT
+                 AND CS001.PS_PSPID = CS414.WBS
+                 
+          LEFT OUTER JOIN SAPHEE.ZCST414 CS414_1
+          	 	  ON CS414.MANDT = CS414_1.MANDT
+          	 	 AND CS414.WBS = CS414_1.WBS
+          	 	 AND CS414_1.COD = 'CP'
+          	 	 
+          LEFT OUTER JOIN SAPHEE.ZSDT0005 SD005
+          		   ON SD005.MANDT = CS414.MANDT
+          		  AND SD005.HOGI = CS414.WBS    
+          		        		  
+          LEFT OUTER JOIN SAPHEE.ZWBT010 WB010
+          		  ON CS001.MANDT = WB010.MANDT
+          		 AND CS001.BSU = WB010.LGORT
+          
+        WHERE CS001.MANDT= #G_MANDT#
+
+<isNotNull col="DATE_FM">
+		  AND CS414.BEDAT BETWEEN #DATE_FM# AND #DATE_TO#
+</isNotNull>
+<isNotNull col="UPN">
+		  AND CS001.UPN = #UPN#
+</isNotNull>
+<isNotNull col="ARA">
+   AND WB010.LGORT IN (SELECT LGORT FROM SAPHEE.ZMMT005 AS MM005
+                        WHERE MM005.MANDT = #G_MANDT# 
+                        AND MM005.REGKZ = #ARA#)
+</isNotNull>
+<isNotNull col="BSU">
+   AND WB010.LGORT = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+   AND WB010.BSU_PM = #BPM#
+</isNotNull>
+<isNull col="TEM">
+	<isNotNull col="DPT">
+	AND WB010.VKGRP IN (SELECT CODE2 AS CODE
+                       	FROM SAPHEE.ZLCODE
+                      	WHERE MANDT = #G_MANDT#
+                         AND LANG  = #G_LANG#
+                         AND CODE1 = 'VKGRP'
+                         AND DTEXT1 = #DPT#)
+	   		  </isNotNull>
+			</isNull>
+<isNotNull col="TEM">
+   AND WB010.VKGRP = #TEM#
+</isNotNull>
+GROUP BY CS001.PS_PSPID, CS001.UPN, CS414.WBS
+          FOR FETCH ONLY
+          WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_list">
+    </output>
+</query>

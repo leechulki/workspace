@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.lib.dao.ZSDTDUTYEXCPTDD"> 
+	<resultMap id="selectMap" type="hdel.lib.domain.ZSDTDUTYEXCPTD">
+		<id property="mandt" column="mandt"/>
+		<id property="ordno" column="ordno"/>
+		<id property="ordseq" column="ordseq"/>
+		<id property="orditem" column="orditem"/>
+		<id property="orditemnm" column="orditemnm"/>
+		<id property="blockno" column="blockno"/>
+		<id property="blocknm" column="blocknm"/>
+		<association property="tstmp" javaType="hdel.lib.domain.ZBCS_TIMESTAMP" resultMap="hdel.lib.dao.ZBCS_TIMESTAMP.TimeStampMap"/>
+	</resultMap>
+
+	<select id="select" parameterType="map" resultMap="selectMap">
+		select dutyexcptd.mandt, dutyexcptd.ordno, dutyexcptd.ordseq, dutyexcptd.orditem, value(cast(z1047.qtseq as char(9)), z91.hogi) as orditemnm,
+			duty.blockno, dutyt.blocknm,
+			dutyexcptd.erdat, dutyexcptd.erzet, dutyexcptd.ernam, dutyexcptd.aedat, dutyexcptd.aezet, dutyexcptd.aenam
+		from saphee.zsdtdutyexcptd as dutyexcptd
+			left join saphee.zsdtduty as duty on dutyexcptd.mandt=duty.mandt and dutyexcptd.blockno=duty.blockno
+			left join saphee.zsdtdutyt as dutyt on dutyexcptd.mandt=dutyt.mandt and dutyexcptd.blockno=dutyt.blockno and dutyt.spras = #{spras}
+			left join saphee.zsdt1047 as z1047 on dutyexcptd.mandt=z1047.mandt and dutyexcptd.ordno=z1047.qtnum and dutyexcptd.ordseq=z1047.qtser and dutyexcptd.orditem=z1047.qtseq
+			left join saphee.zsdt0091 as z91 on dutyexcptd.mandt=z91.mandt and dutyexcptd.ordno=z91.vbeln and dutyexcptd.ordseq=z91.seq and dutyexcptd.orditem=z91.posnr
+		where dutyexcptd.mandt=#{mandt}
+			and dutyexcptd.ordno=#{ordno}
+			and dutyexcptd.ordseq=#{ordseq}
+			<if test="!orditem.isInitial()">and dutyexcptd.orditem=#{orditem}</if>
+	</select>
+	<select id="selectAll" parameterType="map" resultMap="selectMap">
+		select dutyexcptd.mandt, dutyexcptd.ordno, dutyexcptd.ordseq, dutyexcptd.orditem, value(cast(z1047.qtseq as char(9)), z91.hogi) as orditemnm,
+			duty.blockno, dutyt.blocknm,
+			dutyexcptd.erdat, dutyexcptd.erzet, dutyexcptd.ernam, dutyexcptd.aedat, dutyexcptd.aezet, dutyexcptd.aenam
+		from saphee.zsdtdutyexcptd as dutyexcptd
+			left join saphee.zsdtduty as duty on dutyexcptd.mandt=duty.mandt and dutyexcptd.blockno=duty.blockno
+			left join saphee.zsdtdutyt as dutyt on dutyexcptd.mandt=dutyt.mandt and dutyexcptd.blockno=dutyt.blockno and dutyt.spras = #{spras}
+			left join saphee.zsdt1047 as z1047 on dutyexcptd.mandt=z1047.mandt and dutyexcptd.ordno=z1047.qtnum and dutyexcptd.ordseq=z1047.qtser and dutyexcptd.orditem=z1047.qtseq
+			left join saphee.zsdt0091 as z91 on dutyexcptd.mandt=z91.mandt and dutyexcptd.ordno=z91.vbeln and dutyexcptd.ordseq=z91.seq and dutyexcptd.orditem=z91.posnr
+		where dutyexcptd.mandt=#{mandt}
+			<if test="!ordno.isInitial()">and dutyexcptd.ordno=#{ordno}</if>
+			<if test="ordseq != null and ordseq != 0 ">and dutyexcptd.ordseq=#{ordseq}</if>
+			<if test="!orditem.isInitial()">and dutyexcptd.orditem=#{orditem}</if>
+	</select>
+	<update id="merge" parameterType="hdel.lib.domain.ZSDTDUTYEXCPTD">
+		merge into saphee.zsdtdutyexcptd as dutyExcptD
+		using (
+			select * from table(
+				values (#{mandt}, #{ordno}, #{ordseq}, #{orditem}, #{blockno})
+			) as dutyExcptDSet(mandt, ordno, ordseq, orditem, blockno)
+		) as dutyExcptDSet on dutyExcptD.mandt=dutyExcptDSet.mandt and dutyExcptD.ordno=dutyExcptDSet.ordno and dutyExcptD.ordseq=dutyExcptDSet.ordseq and dutyExcptD.orditem=dutyExcptDSet.orditem and dutyExcptD.blockno=dutyExcptDSet.blockno
+
+		when matched then
+			update
+			set
+				dutyExcptD.aedat = #{tstmp.aedat},
+				dutyExcptD.aezet = #{tstmp.aezet},
+				dutyExcptD.aenam = #{tstmp.aenam}
+
+		when not matched then
+			insert (mandt, ordno, ordseq, orditem, blockno, erdat, erzet, ernam, aedat, aezet, aenam)
+			values (dutyExcptDSet.mandt, dutyExcptDSet.ordno, dutyExcptDSet.ordseq, dutyExcptDSet.orditem, dutyExcptDSet.blockno, #{tstmp.erdat}, #{tstmp.erzet}, #{tstmp.ernam}, #{tstmp.aedat}, #{tstmp.aezet}, #{tstmp.aenam})
+	</update>
+	<delete id="delete" parameterType="hdel.lib.domain.ZSDTDUTYEXCPTD">
+		delete
+		from saphee.zsdtdutyexcptd
+		where mandt=#{mandt}
+			and ordno=#{ordno}
+			and ordseq=#{ordseq}
+			and orditem=#{orditem}
+			and blockno=#{blockno}
+	</delete>
+	<!--resultMap id="exceptionalBlockNoListMap" type="hdel.lib.domain.ZSDTDUTYEXCPTD">
+		<id property="blockno" column="blockno"/>
+	</resultMap-->
+	<select id="getExceptionalBlockNoList" parameterType="map" resultType="java.lang.String">
+		with z1046(mandt, qtnum, vbeln) as (
+			select distinct z1046.mandt, z1046.qtnum, vbak.vbeln
+			from saphee.zsdt1046 as z1046
+				left join saphee.vbak as vbak on z1046.mandt=vbak.mandt and z1046.vbeln=vbak.zzpjt_id and vbak.zzpjt_id &lt;&gt; ''
+			where z1046.mandt=#{mandt}
+			and z1046.qtnum=#{ordno}
+
+			union
+			select distinct z1046.mandt, z1046.qtnum, vbak.vbeln
+			from saphee.zsdt1046 as z1046
+				left join saphee.vbak as vbak on z1046.mandt=vbak.mandt and z1046.vbeln=vbak.zzpjt_id and vbak.zzpjt_id &lt;&gt; ''
+			where z1046.mandt=#{mandt}
+			and vbak.vbeln=#{ordno}
+		),
+		qtso(mandt, serno, ordno, ordseq) as (
+			select mandt,
+				row_number() over(order by type, ordno, ordseq) as serno,
+				ordno, ordseq
+			from (
+				select mandt, 'A' as type, qtnum as ordno, qtser as ordseq from saphee.zsdt1046 where (mandt, qtnum) in (select mandt, qtnum from z1046)
+				union all
+				select mandt, 'B' as type, vbeln as ordno, seq as ordseq from saphee.zsdt0090 where (mandt, vbeln) in (select mandt, vbeln from z1046)
+			) qtso
+		),
+		
+		excpth(mandt, blockno, serno) as (
+			select qtso.mandt, dutyexcptd.blockno, max(qtso.serno) as serno
+			from qtso
+				inner join saphee.zsdtdutyexcptd as dutyexcptd on qtso.mandt=dutyexcptd.mandt and qtso.ordno=dutyexcptd.ordno and qtso.ordseq=dutyexcptd.ordseq
+			<!-- where serno &lt;= (select serno from qtso where ordno=#{ordno} and ordseq=#{ordseq}) -->
+			where serno &lt;= (select MAX(serno) from qtso where ordno=#{ordno} and ordseq=#{ordseq})  <!--2020.08.24  jss -->
+			group by qtso.mandt, dutyexcptd.blockno
+		)
+		
+		select excptd.blockno
+		from qtso
+			inner join excpth on qtso.serno=excpth.serno
+			inner join saphee.zsdtdutyexcptd as excptd on qtso.mandt=excptd.mandt and qtso.ordno=excptd.ordno and qtso.ordseq=excptd.ordseq and excptd.orditem=#{orditem}
+				and excpth.blockno=excptd.blockno
+	</select>
+</mapper>

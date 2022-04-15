@@ -1,0 +1,172 @@
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT 			
+		M.REQSEQ
+		, M.DEG 
+		, M.TITLE 			
+		, M.FORMGBN
+		--, TO_NUMBER(SUBSTR(M.REQSEQ , 17, 2)) AS DEGREE
+        , DECODE(STATCD, 10, TO_CHAR(( SELECT COUNT(*) + 1
+                   FROM SAPHEE.ZQMT090 S 
+                  WHERE S.MANDT = M.MANDT
+                    AND SUBSTR(S.REQSEQ , 1, 15) = SUBSTR(M.REQSEQ , 1, 15)
+                    AND SUBSTR(S.REQSEQ , 17, 2) < SUBSTR(M.REQSEQ , 17, 2)
+                    AND S.STATCD = '99'
+                    AND S.RST = 'F'
+                    AND S.USEYN = '1'
+               )) , M.DEG )   AS DEGREE
+        , DECODE(M.STATCD, 20, DECODE(M.APP_PYN, '' ,   SUBSTR(M.RCTDT, 1, 4) || '년' || SUBSTR(M.RCTDT, 5, 2) || '월' || SUBSTR(M.RCTDT, 7, 2) || '일  ' ||  SUBSTR(M.RCTDT, 9, 2) || '시 ' ||  SUBSTR(M.RCTDT, 11, 2) || '분 ' ||  SUBSTR(M.RCTDT, 13, 2) || '초'  , '')
+                                    ,  40, SUBSTR(M.SBDT, 1, 4) || '년' || SUBSTR(M.SBDT, 5, 2) || '월' || SUBSTR(M.SBDT, 7, 2) || '일  ' ||  SUBSTR(M.SBDT, 9, 2) || '시 ' ||  SUBSTR(M.SBDT, 11, 2) || '분 ' ||  SUBSTR(M.SBDT, 13, 2) || '초'
+                                    ,  99, DECODE(M.RST, 'P' ,   SUBSTR(M.ENDDT, 1, 4) || '년' || SUBSTR(M.ENDDT, 5, 2) || '월' || SUBSTR(M.ENDDT, 7, 2) || '일  ' ||  SUBSTR(M.ENDDT, 9, 2) || '시 ' ||  SUBSTR(M.ENDDT, 11, 2) || '분 ' ||  SUBSTR(M.ENDDT, 13, 2) || '초'  
+                                                                 , 'F' ,   SUBSTR(M.ENDDT, 1, 4) || '년' || SUBSTR(M.ENDDT, 5, 2) || '월' || SUBSTR(M.ENDDT, 7, 2) || '일  ' ||  SUBSTR(M.ENDDT, 9, 2) || '시 ' ||  SUBSTR(M.ENDDT, 11, 2) || '분 ' ||  SUBSTR(M.ENDDT, 13, 2) || '초'
+                                                                 , '' )
+                                     , '' ) AS MAILDT
+        , DECODE( I.TESTPYMD, NULL, '', '', '' , SUBSTR(I.TESTPYMD, 1, 4) || '년 ' || SUBSTR(I.TESTPYMD, 5, 2) || '월 ' || SUBSTR(I.TESTPYMD, 7, 2) || '일' ) AS TESTPYMD_TXT                 
+		, M.TESTREV
+		, M.STATCD
+		, M.GOODSGBN
+		, M.REQDT
+		, M.REQGBN
+		, M.REQVENDNM
+		, M.REQID
+		, M.REQNM		
+		, M.REQCELL
+		, ( SELECT H.MAIL  FROM SAPHEE.ZHRT001 H WHERE M.REQID = SUBSTR(H.PSNO, 2)   ) AS REQMAIL-- 의뢰인 이메일
+		, ( SELECT H.MAIL
+              FROM SAPHEE.ZHRT011 A
+         LEFT JOIN SAPHEE.ZHRT001 H ON SUBSTR(A.MPSNO, 3) = SUBSTR(H.PSNO, 2)  
+             WHERE A.MANDT = M.MANDT
+               AND A.DEPT = HR01.DEPT  
+          ) AS HREQMAIL -- 팀장 이메일
+        , ( SELECT H.IRUM
+              FROM SAPHEE.ZHRT011 A
+         LEFT JOIN SAPHEE.ZHRT001 H ON SUBSTR(A.MPSNO, 3) = SUBSTR(H.PSNO, 2)  
+             WHERE A.MANDT = M.MANDT
+               AND A.DEPT = HR01.DEPT  
+          ) AS HREQNM -- 팀장명          
+        , ( SELECT HR02.DPT1_N
+             FROM SAPHEE.ZHRT001 AS HR02
+            WHERE HR02.MANDT  = M.MANDT
+               AND HR02.PSNO   = 'H' || M.TESTERID        
+          ) AS TESTERVENDNM
+        , ( SELECT H.MAIL  FROM SAPHEE.ZHRT001 H WHERE M.TESTERID = SUBSTR(H.PSNO, 2)   ) AS TESTERMAIL-- 시험자 이메일
+        
+        , ( SELECT A.USERNAME
+              FROM SAPHEE.ZUSERF A
+              WHERE A.MANDT = M.MANDT
+                  AND A.USERNUMB = M.SBID      
+          ) AS SBNM
+        , ( SELECT HR02.DPT1_N
+             FROM SAPHEE.ZHRT001 AS HR02
+            WHERE HR02.MANDT  = M.MANDT
+               AND HR02.PSNO   = 'H' || M.SBID        
+          ) AS SBVENDNM        
+                  
+		, M.BFMATNR			
+		, M.FTREPORTCD
+		, M.REQATTDCD
+		, M.TECHATTDCD
+		, M.TESTGBN			
+		, M.TESTGBN_ETCTXT	
+		, M.SMPCNT			
+		, M.CPNCD
+		, M.CPNNM			
+		, M.SMPQLT			
+		, M.MODELNM
+		, M.GOODSNM
+		, M.POSITIONNM
+		, M.LAWRQ_CODE      
+		, M.LAWRQ_CHKLSTYN	
+		, M.LAWRQ_CONTYN	
+		, M.LAWRQ_NAYN		
+		, M.ATT_CNFRMYN		
+		, M.ATT_SPECYN		
+		, M.ATT_BPYN		
+		, M.ATT_CHKLSTYN	
+		, M.ATT_PAXYN		
+		, M.ATT_KCSYN		
+		, M.ATT_FTFLOWYN	
+		, M.ATT_STRPTYN		
+		, M.ATT_IMPRPTYN	
+		, M.ATT_NAYN		
+		, M.HOGI			
+		, M.SPEC			
+		, M.CTESTYMD		
+		, M.BOSUCONTACT		
+		, M.ETC				
+		, M.THOGI			
+		, M.ATYPE			
+		, M.AUSE			
+		, M.PCNT			
+		, M.CAPA			
+		, M.STCNT			
+		, M.DOMETER			
+		, M.ABYN			
+		, M.TMSPEC			
+		, M.CONSOLE			
+		, M.INVERTER		
+		, M.ROPE_MG			
+		, M.ROPING			
+		, M.COMPENCHAIN		
+		, M.RAIL_CC			
+		, M.GUIDESHOE_CAR	
+		, M.GUIDESHOE_CWT	
+		, M.BRAKESPEC		
+		, M.REGULATOR		
+		, M.STOPEQP		
+		, M.USEYN			
+		, M.CREID
+		, M.CREDT			
+		, M.MODID
+		, M.MODDT
+	    , M.TESTERNM -- 시험자
+	    , M.TESTERID
+		, M.TESTERCELL -- 시험자 연락처
+		, M.RST -- 결과 
+		, M.RCTDT -- 접수일 
+		, I.TESTSYMD -- 시험 시작일 
+		, I.TESTPYMD -- 시험 완료 예정일
+		, CASE WHEN SUBSTR(M.REQDT, 1,8) < '20210121' THEN SUBSTR(M.ENDDT, 1,8) ELSE  M.TESTEYMD END AS TESTEYMD -- 시험 완료일 
+		, M.JIGCOST -- Jig제작비용
+		, M.TRSCOST -- 운반비
+		, M.TRVCOST-- 출장비
+		, M.TESTCOST-- 사외기관시험비
+		, M.TOTALCOST
+		, M.RTNRSN		
+		, I.CHNSRSN
+		, M.NFLLWRSN
+		, M.BIGO
+		, M.RST_FILENM
+		, M.RST_FILEPATH
+		, M.RST_FILENM_APP
+		, M.IMP_FILENM
+		, M.IMP_FILEPATH
+		, M.IMP_FILENM_APP
+		, M.VELOCITY
+		, M.BLOCKCD
+		, M.APP_PYN
+		, M.END_DOCU_NO
+ FROM SAPHEE.ZQMT090 M
+LEFT JOIN SAPHEE.ZQMT091 I 
+       ON M.REQSEQ = I.REQSEQ 
+      AND M.TESTREV = I.TESTREV
+LEFT JOIN SAPHEE.ZHRT001 AS HR01  
+       ON HR01.MANDT  = M.MANDT
+      AND HR01.PSNO   = 'H' || M.REQID
+    WHERE M.MANDT = #G_MANDT# 
+      AND M.REQSEQ = #REQSEQ#
+      AND M.USEYN = '1' 
+  WITH UR
+]]>
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_master">
+	</output>
+</query>

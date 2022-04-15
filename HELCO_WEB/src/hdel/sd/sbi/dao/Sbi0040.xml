@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.sbi.dao.Sbi0040D"> 
+
+	<resultMap id="sbi0040Map" type="hdel.sd.sbi.domain.Sbi0040" />
+	
+	<select id="searchAgentList" parameterType="hdel.sd.sbi.domain.Sbi0040" resultMap="sbi0040Map">
+		with zuserf(mandt, usernumb, usercode, userteam) as (
+			select mandt, usernumb, usercode, userteam
+			from saphee.zuserf
+			where mandt = #{mandt}
+				and usernumb like '9%'
+				and userleav = ''
+				<if test="kunnr != '0000000000'" >and usernumb=substr(#{kunnr},2,7)</if>
+		)
+		,zusert(mandt, usernumb, lifnr, vkgrp) as (
+			select zuserf.mandt, zuserf.usernumb, zuserf.usercode as lifnr, value(team.userteam, zuserf.userteam) as vkgrp
+			from zuserf
+				left join saphee.zusert as zusert on zuserf.mandt=zusert.mandt and zuserf.usernumb=zusert.usernumb
+			 	left join table (values(zusert.usernumb, zusert.userteam1),
+			                  (zusert.usernumb, zusert.userteam2),
+			                  (zusert.usernumb, zusert.userteam3),
+			                  (zusert.usernumb, zusert.userteam4),
+			                  (zusert.usernumb, zusert.userteam5),
+			                  (zusert.usernumb, zusert.userteam6),
+			                  (zusert.usernumb, zusert.userteam7),
+			                  (zusert.usernumb, zusert.userteam8),
+			                  (zusert.usernumb, zusert.userteam9))
+			            as team(usernumb, userteam) on zusert.usernumb=team.usernumb and team.userteam &lt;&gt; ''
+		)
+		,z168(mandt, kunnr, kunnrnm, vkbur, vkgrp, lifnr,entdt) as (													
+			select kna1.mandt, kna1.kunnr, kna1.name1 as kunnrnm, tvbvk.vkbur, zusert.vkgrp, zusert.lifnr, z168.entdt
+			from zusert
+				inner join saphee.kna1 as kna1 on zusert.mandt=kna1.mandt and 'A'||zusert.usernumb=kna1.kunnr and kna1.ktokd='Z201'
+																										 
+				inner join saphee.tvbvk as tvbvk on zusert.mandt=tvbvk.mandt and zusert.vkgrp=tvbvk.vkgrp
+				left join saphee.zsdt0168 as z168 on kna1.mandt=z168.mandt and kna1.kunnr=z168.kunnr
+							 
+			where zusert.vkgrp like 'B%'
+				<if test="fr_vkbur != '' and to_vkbur != ''">
+					and tvbvk.vkbur between #{fr_vkbur} and #{to_vkbur}
+				</if>
+				<if test="fr_vkbur != '' and to_vkbur == ''">
+					and tvbvk.vkbur = #{fr_vkbur} 
+				</if>
+				<if test="fr_vkbur == '' and to_vkbur != ''">
+					and tvbvk.vkbur = #{to_vkbur} 
+				</if>
+				<if test="fr_vkgrp != '' and to_vkgrp != ''" >
+					and tvbvk.vkgrp between #{fr_vkgrp} and #{to_vkgrp}
+				</if>
+				<if test="fr_vkgrp != '' and to_vkgrp == ''" >
+					and tvbvk.vkgrp = #{fr_vkgrp} 
+				</if>
+				<if test="fr_vkgrp == '' and to_vkgrp != ''" >
+					and tvbvk.vkgrp = #{to_vkgrp} 
+				</if>
+				<if test="fr_entdt != '00000000' and to_entdt != '00000000'">
+					and z168.entdt between #{fr_entdt} and #{to_entdt}
+				</if>
+				<if test="fr_entdt != '00000000' and to_entdt == '00000000'">
+					and z168.entdt = #{fr_entdt} 
+				</if>
+				<if test="fr_entdt == '00000000' and to_entdt != '00000000'">
+					and z168.entdt = #{to_entdt} 
+				</if>
+		)
+		,z85(mandt,kunnr,firstErdat) as (
+			select z168.mandt, z168.kunnr, min(z85.erdat) as firstErdat
+			from z168
+			inner join saphee.vbpa as vbpa on z168.mandt=vbpa.mandt and z168.kunnr=vbpa.kunnr and vbpa.parvw='Z2' and vbpa.posnr='000000'
+			inner join saphee.zsdt0085 as z85 on vbpa.mandt=z85.mandt and vbpa.vbeln=z85.vbeln
+			group by z168.mandt, z168.kunnr
+		)
+		select z168.mandt, z168.kunnr, z168.kunnrnm, z168.vkbur, z168.vkgrp, z168.lifnr, z168.entdt, z85.firstErdat
+		from z168
+			left join z85 on z168.mandt=z85.mandt and z168.kunnr=z85.kunnr
+		order by z168.kunnr, z168.vkbur, z168.vkgrp
+		with ur
+	</select>
+</mapper>

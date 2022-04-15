@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+       A.PJT,
+       A.HNO,
+       A.SPC,
+       A.TYP,
+       CASE WHEN A.TYN = 'AET' THEN '승강기방식'
+            WHEN A.TYN = 'ACT' THEN '평면왕복식'
+            WHEN A.TYN = 'AAN' THEN '다층순환식'
+            ELSE '다층순환식'
+       END AS TYN,
+       A.PL,
+       A.CPD,
+       A.RNO,
+       A.CNT,
+       A.HCNT,
+       A.DCNT,
+       A.FMT,
+       A.HMT,
+       A.DMT,
+       A.FMT + A.HMT + A.DMT AMT,
+       A.TOT
+  FROM
+       (
+        SELECT
+               X.PJT,
+               X.HNO,
+               X.SPC,
+               X.TYP,
+               X.TYN,
+               X.PL,
+               X.CPD,
+               X.RNO,
+               X.CNT,
+               X.HCNT,
+               X.DCNT,
+               CASE WHEN X.CNT = 0 THEN 0 ELSE ROUND((CASE WHEN X.CPD = 'A' THEN X.FMT WHEN X.CPD = 'B' THEN X.PMT ELSE X.FMT END) / X.CNT,0) END FMT,
+               CASE WHEN X.HCNT = 0 THEN 0 ELSE ROUND(X.HMT / X.HCNT,0) END HMT,
+               CASE WHEN X.DCNT = 0 THEN 0 ELSE ROUND(X.DMT / X.DCNT,0) END DMT,
+               CASE WHEN X.CPD = 'A' THEN X.FTOT WHEN X.CPD = 'B' THEN X.PTOT ELSE X.FTOT END TOT
+          FROM
+               (
+                SELECT
+                       A.CS302_PJT PJT,
+                       A.CS302_HNO HNO,
+                       B.ZSPEC12 SPC,
+                       B.ZSPEC2 TYP,
+                       MAX(A.CS302_TYN) TYN,
+                       MAX(B.ZSPEC9) PL,
+                       MAX(C.CS301_CPD) CPD,
+                       ROW_NUMBER() OVER() RNO,
+                       COUNT(*) CNT,
+                       (SELECT COUNT(*) FROM SAPHEE.ZCST302 WHERE MANDT = #G_MANDT# AND CS302_TEM = #TEM# AND CS302_RDT = #RDT# AND CS302_SEQ = #SEQ# AND CS302_SIR = #SIR# AND CS302_HMT > 0) HCNT,
+                       (SELECT COUNT(*) FROM SAPHEE.ZCST302 WHERE MANDT = #G_MANDT# AND CS302_TEM = #TEM# AND CS302_RDT = #RDT# AND CS302_SEQ = #SEQ# AND CS302_SIR = #SIR# AND CS302_DMT > 0) DCNT,
+                       SUM(A.CS302_FMT) FMT,
+                       SUM(A.CS302_PMT) PMT,
+                       SUM(A.CS302_HMT) HMT,
+                       SUM(A.CS302_DMT) DMT,
+                       SUM(A.CS302_FMT) + SUM(A.CS302_HMT) + SUM(A.CS302_DMT) FTOT,
+                       SUM(A.CS302_PMT) + SUM(A.CS302_HMT) + SUM(A.CS302_DMT) PTOT
+                  FROM
+                       SAPHEE.ZCST302 A,
+                       SAPHEE.ZMASTER02 B,
+                       SAPHEE.ZCST301 C
+                 WHERE
+                       A.MANDT = #G_MANDT#
+                   AND A.MANDT = B.MANDT
+                   AND A.CS302_PJT = B.POSID
+                   AND A.CS302_HNO = SUBSTR(B.POSID_1,7,3)
+                   AND A.MANDT = C.MANDT
+                   AND A.CS302_TEM = C.CS301_TEM
+                   AND A.CS302_RDT = C.CS301_RDT
+                   AND A.CS302_SEQ = C.CS301_SEQ
+                   AND A.CS302_SIR = C.CS301_SIR
+                   AND A.CS302_TEM = #TEM#
+                   AND A.CS302_RDT = #RDT#
+                   AND A.CS302_SEQ = #SEQ#
+                   AND A.CS302_SIR = #SIR#
+                   AND C.CS301_GBN = '2'
+                GROUP BY
+                       A.CS302_PJT,
+                       A.CS302_HNO,
+                       B.ZSPEC12,
+                       B.ZSPEC2
+               ) X
+       ) A
+ WHERE
+       A.RNO < 5
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_listR">
+	</output>
+</query>

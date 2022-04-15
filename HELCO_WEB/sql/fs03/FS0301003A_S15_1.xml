@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[SAP 수주품목 리스트 조회]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT  X.MANDT
+       ,X.OCNT_NUMB
+       ,Y.POSNR
+       ,Y.VBELN
+       ,Y.MATNR -- 자재 번호
+       ,Y.MATWA -- 입력된 자재
+       ,Y.ARKTX -- 자재 내역
+       ,Y.HOGI -- 작업 분석 구조 요소(WBS 요소)
+       ,Y.KWMENG -- 판매 단위의 누적 오더 수량
+       ,Y.VRKME -- 판매 단위
+       ,CASE WHEN Y.WAERK = 'KRW' THEN
+           Y.NETWR * 100
+        ELSE
+           Y.NETWR
+        END AS NETWR
+       ,Y.WAERK -- SD 문서 통화
+       ,Y.PSTYV -- 영업 문서 품목 범주
+FROM   SAPHEE.ZFST0301 AS X
+        INNER JOIN TABLE (
+            SELECT  A.MANDT
+                   ,CAST('HEOI20160621133' AS VARCHAR(60)) AS OCNT_NUMB
+                   ,B.POSNR
+                   ,B.VBELN
+                   ,B.PRSDT
+                   ,B.KURSK
+                   ,B.ZTERM
+                   ,B.INCO1
+                   ,B.INCO2
+                   ,A.ZZPJT_ID AS PSPID
+                   ,C.MATNR -- 자재 번호
+                   ,C.MATWA -- 입력된 자재
+                   ,C.ARKTX -- 자재 내역
+                   ,C.HOGI -- 작업 분석 구조 요소(WBS 요소)
+                   ,C.KWMENG -- 판매 단위의 누적 오더 수량
+                   ,C.VRKME -- 판매 단위
+                   ,C.NETWR -- 문서통화에서의 오더품목의 정가
+                   ,C.WAERK -- SD 문서 통화
+                   ,C.PSTYV -- 영업 문서 품목 범주
+            FROM   SAPHEE.VBAK A
+                   INNER JOIN SAPHEE.VBKD B ON A.MANDT = B.MANDT AND A.VBELN = B.VBELN
+                   INNER JOIN SAPHEE.VBAP C ON B.MANDT = C.MANDT AND B.VBELN = C.VBELN AND B.POSNR = C.POSNR
+             WHERE A.MANDT = #G_MANDT#
+              AND  A.VBELN = #VBELN#
+            ) AS Y ON X.MANDT = Y.MANDT AND X.OCNT_NUMB = Y.OCNT_NUMB
+WHERE X.MANDT = #G_MANDT#
+  AND X.OCNT_NUMB = #OCNT_NUMB#
+ORDER BY Y.VBELN, Y.POSNR
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_zfst0307_list">
+    </output>
+</query>

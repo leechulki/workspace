@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  PS0100A.LIFNR
+       ,(SELECT NAME1 FROM SAPHEE.ZMMT012 A WHERE A.MANDT = PS0100A.MANDT AND A.LIFNR = PS0100A.LIFNR) LIFNR_NM
+       ,PS0100A.NAMET
+       ,PS0100A.PSPID
+       ,PS0100A.BSTKD
+       ,PS0100A.KINDS
+       ,PS0100A.SPECT
+       ,PS0100A.POSID
+       ,PS0100A.GUBUN
+	   ,CASE WHEN PS0100A.GUBUN = '10' THEN 'EL'
+	         WHEN PS0100A.GUBUN = '11' THEN 'ES'
+	         WHEN PS0100A.GUBUN = '20' THEN '주차'
+		END GUBUN_NM
+       ,PS0100A.LAB_C
+       ,PS0100A.PROFIT
+       ,PS0100A.SAFE_C
+       ,PS0100A.SUP_C
+       ,PS0100A.BTRIP_C
+       ,PS0100A.PARK_C
+       ,PS0100A.ADLVR_C
+	   ,(
+         SELECT INT(COALESCE(SUM(B.NETWR),0))
+         FROM  SAPHEE.ZPST0101 B
+         WHERE PS0100A.MANDT = B.MANDT
+         AND   PS0100A.PSPID = B.PSPID
+         AND   PS0100A.POSID = B.POSID
+         AND   PS0100A.CHGNO = B.CHGNO
+	    ) NETWR
+       ,PS0100A.TOT
+       ,PS0100A.CHGNO
+       ,PS0100A.GJAHR||PS0100A.LFMON YYYYMM
+	   ,CASE WHEN PS0100B.CNF_GBN = 'A' THEN '설치' ELSE '양중' END CNF_GBN
+	   ,PS0100A.HEALTH
+	   ,PS0100A.PENSION
+                 ,PS0100A.HEALOLD
+FROM   SAPHEE.ZPST0100 PS0100A,
+       (
+        SELECT  PS0100.MANDT
+               ,PS0100.PSPID
+               ,PS0100.POSID
+               ,MAX(PS0100.CHGNO) CHGNO
+			   ,CNF_GBN
+        FROM  SAPHEE.ZPST0113 PS0113
+             ,SAPHEE.ZPST0100 PS0100
+        WHERE PS0113.MANDT = #G_MANDT#
+        AND   PS0113.GUBUN = '5'
+        AND   PS0113.STATE = 'Y'
+        AND   PS0113.CNF_GBN = 'A'
+        AND   PS0113.MANDT = PS0100.MANDT
+        AND   PS0113.PSPID = PS0100.PSPID
+        AND   PS0113.POSID = PS0100.POSID
+<isEqual col="GBN" value="B">
+        AND   PS0100.GJAHR||LFMON BETWEEN #YYYYMMF# AND #YYYYMMT#
+</isEqual>
+<isNotNull col="LIFNR">
+        AND   PS0100.LIFNR = #LIFNR#
+</isNotNull>
+<isEqual col="CHK_GBN" value="A">
+        AND   PS0100.GUBUN IN ('10','11','12','20')
+</isEqual>
+<isEqual col="CHK_GBN" value="B">
+        AND   PS0100.GUBUN IN (#CHK_10#,#CHK_11#,#CHK_20#)
+</isEqual>
+		GROUP BY PS0100.MANDT,PS0100.PSPID,PS0100.POSID,CNF_GBN
+       ) PS0100B
+WHERE PS0100A.MANDT = PS0100B.MANDT
+AND   PS0100A.PSPID = PS0100B.PSPID
+AND   PS0100A.POSID = PS0100B.POSID
+AND   PS0100A.CHGNO = PS0100B.CHGNO
+<isNotNull col="ZZACTSS">
+AND   PS0100A.ACTSS = #ZZACTSS#
+</isNotNull>
+<isNotNull col="PSPID">
+AND   PS0100A.PSPID = #PSPID#
+</isNotNull>
+ORDER BY PS0100B.CNF_GBN,PS0100A.LIFNR
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="YYYYMMF" size="255" type="VARCHAR" description="" /> 
+		<col name="YYYYMMT" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="CH_10" size="255" type="VARCHAR" description="" /> 
+		<col name="CH_11" size="255" type="VARCHAR" description="" /> 
+		<col name="CH_20" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="ADLVR_C" size="17" type="NUMERIC" description="" /> 
+		<col name="BSTKD" size="105" type="VARCHAR" description="" /> 
+		<col name="BTRIP_C" size="17" type="NUMERIC" description="" /> 
+		<col name="CHGNO" size="6" type="VARCHAR" description="" /> 
+		<col name="GUBUN" size="6" type="VARCHAR" description="" /> 
+		<col name="GUBUN_NM" size="6" type="VARCHAR" description="" /> 
+		<col name="KINDS" size="90" type="VARCHAR" description="" /> 
+		<col name="LAB_C" size="17" type="NUMERIC" description="" /> 
+		<col name="LIFNR" size="30" type="VARCHAR" description="" /> 
+		<col name="LIFNR_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="NAMET" size="60" type="VARCHAR" description="" /> 
+		<col name="NETWR" size="11" type="NUMERIC" description="" /> 
+		<col name="PARK_C" size="17" type="NUMERIC" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="PROFIT" size="17" type="NUMERIC" description="" /> 
+		<col name="PSPID" size="72" type="VARCHAR" description="" /> 
+		<col name="SAFE_C" size="17" type="NUMERIC" description="" /> 
+		<col name="SPECT" size="60" type="VARCHAR" description="" /> 
+		<col name="SUP_C" size="17" type="NUMERIC" description="" /> 
+		<col name="TOT" size="17" type="NUMERIC" description="" /> 
+		<col name="YYYYMM" size="18" type="VARCHAR" description="" /> 
+	</output>
+</query>

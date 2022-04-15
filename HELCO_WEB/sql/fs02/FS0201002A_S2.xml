@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[견적원가품목 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+WITH TREE_DATA( ROW_NUM, GROUP_NUM, MANDT, ESCS_NUMB, ESCS_NTIM, ESCS_ITSQ, ITEM_DIYN, ESCS_GROP, ESCS_UPGR, ESCS_ITEM, EXTN_ESCS, ESIT_SEQN, ESCE_NAME, MTRL_DIVS, MTRL_NUMB, PART_NAME, STAD, UNIT, QNTY, COST, WAERK, UKURS, ICDT_EPNS, IDRT_COST, SALE_COST, MRGN_RATE, ESMT_COST, NGTT_ESCS, PRES_COST, ESMT_EGRT, CRES_COST, NOTE, ESMT_CMPY, WORD_REFR, OCNT_NUMB, EBDG_MGSQ, EBDG_ITSQ ) AS (
+    SELECT ROW_NUMBER() OVER( ) AS ROW_NUM
+          ,ROW_NUMBER() OVER( PARTITION BY A.ESCS_UPGR ) AS GROUP_NUM
+          ,A.MANDT, A.ESCS_NUMB, A.ESCS_NTIM, A.ESCS_ITSQ, A.ITEM_DIYN, A.ESCS_GROP, A.ESCS_UPGR, A.ESCS_ITEM, A.EXTN_ESCS, A.ESIT_SEQN, A.ESCE_NAME, A.MTRL_DIVS, A.MTRL_NUMB, A.PART_NAME, A.STAD, A.UNIT, A.QNTY, A.COST, A.WAERK, A.UKURS, A.ICDT_EPNS, A.IDRT_COST, A.SALE_COST, A.MRGN_RATE, A.ESMT_COST, A.NGTT_ESCS, A.PRES_COST, A.ESMT_EGRT, A.CRES_COST, A.NOTE, A.ESMT_CMPY, A.WORD_REFR, A.OCNT_NUMB, A.EBDG_MGSQ, A.EBDG_ITSQ
+    FROM   TABLE (
+            SELECT *
+            FROM   SAPHEE.ZFST0201
+            WHERE  MANDT = #G_MANDT#
+              AND  ESCS_NUMB = #ESCS_NUMB#
+              AND  ESCS_NTIM = #ESCS_NTIM#
+            ORDER BY ESCS_ITEM, ESIT_SEQN
+            ) AS A
+    UNION ALL
+    SELECT 0 AS ROW_NUM
+          ,0
+          ,'' MANDT, '' ESCS_NUMB,0 ESCS_NTIM,0 ESCS_ITSQ, '' ITEM_DIYN, '' ESCS_GROP, '' ESCS_UPGR, '' ESCS_ITEM, '' EXTN_ESCS, 0 ESIT_SEQN, '' ESCE_NAME, '' MTRL_DIVS, '' MTRL_NUMB, '' PART_NAME, '' STAD, '' UNIT,0 QNTY,0 COST, '' WAERK,0 UKURS,0 ICDT_EPNS,0 IDRT_COST,0 SALE_COST,0 MRGN_RATE,0 ESMT_COST,0 NGTT_ESCS,0 PRES_COST,0 ESMT_EGRT,0 CRES_COST, '' NOTE, '' ESMT_CMPY, '' WORD_REFR, '' OCNT_NUMB,0 EBDG_MGSQ,0 EBDG_ITSQ
+    FROM   SYSIBM.SYSDUMMY1 AS A
+),
+TREE_LEVEL(LIST_INDEX, T_POS, LEVEL, ROW_NUM, GROUP_NUM, MANDT, ESCS_NUMB, ESCS_NTIM, ESCS_ITSQ, ITEM_DIYN, ESCS_GROP, ESCS_UPGR, ESCS_ITEM, EXTN_ESCS, ESIT_SEQN, ESCE_NAME, MTRL_DIVS, MTRL_NUMB, PART_NAME, STAD, UNIT, QNTY, COST, WAERK, UKURS, ICDT_EPNS, IDRT_COST, SALE_COST, MRGN_RATE, ESMT_COST, NGTT_ESCS, PRES_COST, ESMT_EGRT, CRES_COST, NOTE, ESMT_CMPY, WORD_REFR, OCNT_NUMB, EBDG_MGSQ, EBDG_ITSQ ) AS (
+    SELECT  CAST(A.GROUP_NUM AS VARCHAR(1000)) AS GROUP_NUM
+           ,CAST( LPAD( A.ROW_NUM, 4, '0') AS VARCHAR(1000)) AS T_POS
+           ,1, A.*
+    FROM    TREE_DATA A
+    WHERE   A.MANDT != ''
+      AND   A.ESCS_UPGR = ''
+    UNION   ALL
+    SELECT  B.LIST_INDEX || '.' || A.GROUP_NUM
+           ,B.T_POS || LPAD( A.ROW_NUM, 4, '0')  AS T_POS
+           ,B.LEVEL + 1 AS LEVEL
+           ,A.*
+    FROM    TREE_DATA A, TREE_LEVEL B
+    WHERE   A.MANDT = B.MANDT 
+      AND   A.ESCS_UPGR = B.ESCS_GROP
+      AND   A.MANDT != ''
+)
+SELECT
+      A.LIST_INDEX
+     ,'1' AS CHK
+     ,'1' AS FLAG
+     ,A.LEVEL
+     ,A.MANDT -- 클라이언트
+     ,A.ESCS_NUMB -- 견적원가번호
+     ,A.ESCS_NTIM -- 견적원가차수
+     ,A.ESCS_ITSQ -- 견적원가품목순번
+     ,A.ITEM_DIYN -- 세부품목여부
+     ,A.ESCS_GROP -- 견적원가그룹
+     ,A.ESCS_UPGR -- 상위견적원가그룹
+     ,A.ESCS_ITEM -- 견적원가항목
+     ,A.EXTN_ESCS -- 견적원가항목코드
+     ,A.ESIT_SEQN -- 견적원가항목순서
+     ,A.ESCE_NAME -- 견적원가명
+     ,A.MTRL_DIVS -- 부품원천구분
+     ,A.MTRL_NUMB -- 자재번/부품번호
+     ,A.PART_NAME -- 부품명
+     ,A.STAD -- 규격
+     ,A.UNIT -- 단위
+     ,A.QNTY -- 수량
+     ,A.COST -- 원가
+     ,A.WAERK -- 통화 키
+     ,A.UKURS -- 환율
+     ,A.ICDT_EPNS -- 부대비용
+     ,A.IDRT_COST -- 간접비
+     ,A.SALE_COST -- 매출원가
+     ,A.MRGN_RATE -- 실행율
+     ,A.ESMT_COST -- 견적원가
+     ,A.NGTT_ESCS -- 네고견적원가
+     ,A.PRES_COST -- 이전견적금액
+     ,A.ESMT_EGRT -- 견적환율
+     ,A.CRES_COST -- 통화견적원가
+     ,A.NOTE -- 비고
+     ,A.ESMT_CMPY -- 견적업체명
+     ,A.WORD_REFR -- 단어참조
+     ,A.OCNT_NUMB -- 수주번호
+     ,A.EBDG_MGSQ -- 시행예산관리순번
+     ,A.EBDG_ITSQ -- 시행예산품목순번
+     ,'' AS CH_FLAG -- 네고가격 변경여부 플래스 추가
+FROM  TREE_LEVEL A
+ORDER BY A.T_POS
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_zfst0201_list">
+    </output>
+</query>

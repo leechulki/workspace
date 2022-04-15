@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+/* TAB1 : 설치정보 */
+SELECT  
+        '' NO
+       ,A.POSID_1  
+       ,A.ZSPEC12
+       ,A.ZSPEC1
+       ,A.ZSPEC2
+       ,A.TEXT30
+       ,A.NAMET
+       ,(
+         SELECT CELLP
+         FROM SAPHEE.ZPST0011 AS P
+         WHERE P.MANDT = A.MANDT
+         AND P.NAMET = A.NAMET
+         AND P.RETIF = ''
+         AND P.ZZACTSS = A.ZZACTSS
+         FETCH FIRST 1 ROWS ONLY
+        ) AS CELLPT
+       ,M12.NAME1
+       ,A.LIFNR
+       ,A.ZZCHAKD
+       ,A.ZZCOMP2
+
+       ,(SELECT CASE WHEN TRIM(B.STATE) = '3' THEN 'Y'
+                    ELSE 'N'
+       	 END
+         FROM SAPHEE.ZPST0023 B
+         WHERE B.MANDT = A.MANDT
+         AND B.PSPID = A.POSID
+         AND B.POSID = A.POSID_1
+         AND B.ZTYPE = '2'
+       ) STATE2
+       ,A.TXT30
+       ,(SELECT SUM(PRO_R) PRO_R 
+               FROM SAPHEE.ZPST0112 B 
+         WHERE B.MANDT = A.MANDT
+         AND   B.PSPID = A.POSID
+         AND   B.POSID = A.POSID_1
+         GROUP BY B.MANDT,B.PSPID,B.POSID		
+        )  PRO_R
+       ,A.ZBOSUOUT
+--       ,ZBOSUIN
+       ,CASE WHEN CS101.CS101_ISD != '' THEN CS101.CS101_ISD ELSE ZBOSUIN END  ZBOSUIN
+       ,A.ZBEPJEO
+       ,A.ZQEGEMSA
+       ,(SELECT CASE WHEN B.DSCODE = 'A' OR B.DSCODE = 'B' OR B.DSCODE = 'C' OR 
+                                         B.DSCODE = 'D' OR B.DSCODE = 'H' OR B.DSCODE = 'E' THEN '합격'  
+	                   WHEN B.DSCODE = 'J' OR B.DSCODE = 'K' OR B.DSCODE = 'M' OR 
+                                         B.DSCODE = 'N' OR B.DSCODE = 'G'  OR B.DSCODE = 'R'  THEN '불합격'
+		                 ELSE '미판정'
+	                END  AS DSCODE  
+           FROM SAPHEE.ZQMT019 AS B
+          WHERE B.MANDT = A.MANDT
+	          AND B.WERKS = '1000'
+	          AND B.PSPID = A.POSID
+	          AND B.ART = '8960'
+	          AND B.HOGI = A.POSID_1			   
+          ORDER BY SEQ DESC
+        fetch first 1 rows only ) AS DSCODE
+       ,A.ZMUSAOCNT
+       ,A.ZMUSAOCNT2
+       ,C.BLD
+       ,E.CTEXT2 BLD_NM
+       ,C.UPN
+       ,D.HB_FROM
+       ,D.HB_TO
+       ,D.HB_STN
+                      ,CASE VALUE(D.HB_STN,'')
+                            WHEN '1' THEN '완성검사시'
+                            WHEN '2' THEN '입주시'
+                            WHEN '3' THEN '건물준공시'
+                            WHEN '4' THEN '고객인도시'
+                            WHEN '5' THEN '발행대상'
+                            ELSE ''
+                       END HB_STN_NAME
+       ,D.HB_PUB
+       ,F.MB_STN
+                      ,CASE VALUE(F.MB_STN,'')
+                            WHEN '1' THEN '완성검사시'
+                            WHEN '2' THEN '입주시'
+                            WHEN '3' THEN '건물준공시'
+                            WHEN '4' THEN '고객인도시'
+                            ELSE ''
+                       END MB_STN_NAME
+       ,F.GUAMO
+
+FROM  SAPHEE.ZMASTER02 A   LEFT OUTER JOIN SAPHEE.ZMMT012 AS M12
+                                   ON A.MANDT = M12.MANDT
+                                  AND A.LIFNR = M12.LIFNR
+                                  
+                           LEFT OUTER JOIN SAPHEE.ZCST111 C
+                                   ON A.MANDT = C.MANDT
+                                  AND A.POSID = C.PJT
+                                  AND A.POSID_1 = C.PJT||C.HNO
+                                  
+                           LEFT OUTER JOIN SAPHEE.ZMASTER01 D 
+                                   ON A.MANDT = D.MANDT
+                                  AND A.POSID = D.POSID
+                                  
+                           LEFT OUTER JOIN SAPHEE.ZLCODE E 
+                                   ON A.MANDT = E.MANDT
+                                  AND C.BLD = E.CODE2
+                                  AND E.CODE1 = 'CS123'
+                                  AND E.LANG = 'ko'
+                                  
+                           LEFT OUTER JOIN SAPHEE.VBAK F
+                                   ON A.MANDT = F.MANDT
+                                  AND A.POSID = F.ZZPJT_ID
+   
+                           LEFT OUTER  JOIN SAPHEE.ZCST101 AS CS101
+                                   ON A.MANDT = CS101.MANDT
+                                  AND A.POSID = CS101.CS101_PJT
+                                  AND A.POSID_1  =  CS101.CS101_PJT||CS101.CS101_HNO
+                                      
+                                  
+WHERE A.MANDT = #G_MANDT#
+
+<isEqual col="GBN" value="A">
+  AND A.POSID = #POSID#
+</isEqual>
+<isEqual col="GBN" value="B">
+  AND A.POSID_1 IN (
+                   SELECT CS122_PJT||CS122_HNO POSID_1
+                     FROM SAPHEE.ZCST122 
+                    WHERE MANDT = #G_MANDT#
+                      AND CS122_UPN = #UPN#
+                      AND CS122_CST = #CST#
+                 )
+</isEqual>
+
+ORDER BY A.POSID_1
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list2">
+	</output>
+</query>

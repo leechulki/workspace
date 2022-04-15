@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+      A.ACPT_NO                                                                      -- 고장접수번호
+     ,RTRIM(A.AREA_CD) AS AREA_CD                                                    -- 지역코드
+     ,HCSADM.FN_CODEBOOK('CST115',RTRIM(A.AREA_CD)) AS AREA_NM                       -- 지역명
+     ,RTRIM(A.PTNR_CD) AS PTNR_CD                                                    -- 업체코드
+     ,RTRIM(F.PTNR_NM) AS PTNR_NM                                                    -- 업체명
+     ,A.INTG_PRJ_NO                                                                  -- 통합프로젝트
+     ,A.DEAL_LINE_DIV                                                                -- 거래선
+     ,HCSADM.FN_PRJ_NM(A.INTG_PRJ_NO, A.DEAL_LINE_DIV) AS PRJ_NM                     -- 프로젝트명
+     ,A.PRJ_NO                                                                       -- 원프로젝트
+     ,A.HO_NO                                                                        -- 호기
+     ,E.HO_NM                                                                        -- 호기명
+     ,A.CUST_NM AS CALL_CUST_NM                                                      -- 신고자
+     ,E.PLF                                                                          -- 기종
+     ,B.ACPT_DATE || B.ACPT_TIME AS ACPT_DT                                          -- 접수일시
+     ,B.CALL_DATE || B.CALL_TIME AS CALL_DT                                          -- 호출일시
+     ,B.ARRG_DATE || B.ARRG_TIME AS ARRG_DT                                          -- 배치일시
+     ,B.ARRV_DATE || B.ARRV_TIME AS ARRV_DT                                          -- 도착일시
+     ,B.FIN_DATE  || B.FIN_TIME  AS FIN_DT                                           -- 완료일시
+     ,BKDN_FLOR_LCD || BKDN_FLOR_SCD AS BKDN_FLOR_CD                                 -- 고장층
+     ,A.CONSL_MCD                                                                    -- 접수유형
+     ,FN_CODEBOOK('CONSL_CD', CONSL_MCD) AS CONSL_MCD_NM                             -- 접수유형명
+     ,HCSADM.FN_CODEBOOK('040000', SUBSTR(C.BKDN_LOC_CD,1,4)||'00') AS BKDN_LOC_LCD  -- 고장부위1(대)
+     ,HCSADM.FN_CODEBOOK('040000', C.BKDN_LOC_CD) AS BKDN_LOC_MCD                    -- 고장부위2(소)
+     ,HCSADM.FN_CODEBOOK('020000',C.BKDN_CAU_CD)  AS BKDN_CAU_CD                     -- 고장원인
+     ,HCSADM.FN_USER(B.PROC_EGNR_USER_ID,'') AS PROC_EGNR_USER_ID                    -- 처리기사ID
+     ,HCSADM.FN_CODEBOOK('21000',B.PROC_STAT_CD) AS PROC_STAT_CD                     -- 처리상태
+     ,A.ACPT_CNTN                                                                    -- 접수내용
+     ,HCSADM.FN_CODEBOOK('030000',C.PROC_RSLT_CD) AS PROC_RSLT_CD                    -- 처리결과
+     ,E.REPR_HDOV_DATE                                                               -- 인수일
+     ,'' VKGRP_NM                                                           
+FROM  HCSADM.UC_ASS_BASE AS A
+      LEFT OUTER JOIN HCSADM.SAP_PTNR AS F ON A.PTNR_CD=F.PTNR_CD
+     ,HCSADM.UC_ASS_PROC_HIST AS B
+     ,HCSADM.UC_ASS_FIN_RPT   AS C
+     ,(
+        SELECT
+              A.INTG_PRJ_NO
+             ,A.DEAL_LINE_DIV
+             ,A.PRJ_NO
+             ,A.HO_NO
+             ,COUNT(A.HO_NO) AS CNT
+        FROM  HCSADM.UC_ASS_BASE AS A
+              INNER JOIN HCSADM.SAP_HO_INFO AS E ON  A.INTG_PRJ_NO  =E.INTG_PRJ_NO
+                                                 AND A.DEAL_LINE_DIV=E.DEAL_LINE_DIV
+                                                 AND A.PRJ_NO       =E.PRJ_NO
+                                                 AND A.HO_NO        =E.HO_NO
+        WHERE A.INTG_PRJ_NO > '000000'
+        AND  (A.VIR_PRJ_YN IS NULL OR A.VIR_PRJ_YN='N')
+        AND   A.PROC_TC!='07006'
+<isNotNull col="FMD">
+        AND   A.ACPT_DATE BETWEEN #FMD# AND #TOD#
+</isNotNull>
+<isNotNull col="ARA">
+        AND   E.REPR_AREA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+        AND   E.REPR_PTNR_CD = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+        AND   E.REPR_PM_EMP_NO = #BPM#
+</isNotNull>
+<isNotNull col="UPN">
+        AND   A.INTG_PRJ_NO = #UPN#
+</isNotNull>
+<isNotNull col="CST">
+        AND   A.DEAL_LINE_DIV = #CST#
+</isNotNull>
+        GROUP BY A.INTG_PRJ_NO, A.DEAL_LINE_DIV, A.PRJ_NO, A.HO_NO
+              HAVING COUNT(A.HO_NO) &gt;= 3
+      ) AS D
+     ,HCSADM.SAP_HO_INFO AS E
+WHERE A.ACPT_NO=B.ACPT_NO
+AND   B.ACPT_NO=C.ACPT_NO
+AND   B.PROC_EGNR_USER_ID=C.PROC_USER_ID
+AND   A.INTG_PRJ_NO=D.INTG_PRJ_NO
+AND   A.DEAL_LINE_DIV=D.DEAL_LINE_DIV
+AND   A.PRJ_NO=D.PRJ_NO
+AND   A.HO_NO=D.HO_NO
+AND   A.INTG_PRJ_NO  =E.INTG_PRJ_NO
+AND   A.DEAL_LINE_DIV=E.DEAL_LINE_DIV
+AND   A.PRJ_NO       =E.PRJ_NO
+AND   A.HO_NO        =E.HO_NO
+AND   A.INTG_PRJ_NO > '000000'
+AND  (A.VIR_PRJ_YN IS NULL OR A.VIR_PRJ_YN='N')
+AND   F.PTNR_TC='1'
+<isNotNull col="FMD">
+AND   A.ACPT_DATE BETWEEN #FMD# AND #TOD#
+</isNotNull>
+<isNotNull col="ARA">
+AND   E.REPR_AREA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+AND   E.REPR_PTNR_CD = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+AND   E.REPR_PM_EMP_NO = #BPM#
+</isNotNull>
+<isNotNull col="UPN">
+AND   A.INTG_PRJ_NO = #UPN#
+</isNotNull>
+<isNotNull col="CST">
+AND   A.DEAL_LINE_DIV = #CST#
+</isNotNull>
+
+UNION ALL
+
+SELECT
+      '99999999999'         AS ACPT_NO
+     ,RTRIM(SUB_A.AREA_CD)  AS AREA_CD
+     ,''                    AS AREA_NM
+     ,RTRIM(SUB_B.PTNR_CD ) AS PTNR_CD
+     ,''                    AS PTNR_NM
+     ,CASE WHEN SUB_A.AREA_CD_CNT = 1 THEN '지역합계'
+           WHEN SUB_A.PTNR_CD_CNT = 1 THEN '지역소계'
+                                      ELSE '협력사소계' END AS INTG_PRJ_NO
+     ,''                    AS DEAL_LINE_DIV
+     ,CASE WHEN SUB_A.AREA_CD_CNT = 1 THEN '전체합계'
+           WHEN SUB_A.PTNR_CD_CNT = 1 THEN HCSADM.FN_CODEBOOK('CST115',SUB_A.AREA_CD)
+                                      ELSE HCSADM.FN_CODEBOOK('CST115',SUB_A.AREA_CD)  || '(' || HCSADM.FN_PTNR_NM(SUB_A.PTNR_CD) || ')' END AS PRJ_NM
+     ,'호기수(' || RTRIM(CHAR(SUB_B.CNT)) || ')' AS PRJ_NO
+     ,''                    AS HO_NO
+     ,''                    AS HO_NM
+     ,'현장수(' || RTRIM(CHAR(SUB_A.CNT)) || ')' AS CALL_CUST_NM
+     ,'' AS PLF
+     ,'' AS ACPT_DT
+     ,'' AS CALL_DT
+     ,'' AS ARRG_DT
+     ,'' AS ARRV_DT
+     ,'' AS FIN_DT
+     ,'' AS BKDN_FLOR_CD
+     ,'' AS CONSL_MCD
+     ,'' AS CONSL_MCD_NM
+     ,'' AS BKDN_LOC_LCD
+     ,'' AS BKDN_LOC_MCD
+     ,'' AS BKDN_CAU_CD
+     ,'' AS PROC_EGNR_USER_ID
+     ,'' AS PROC_STAT_CD
+     ,'' AS ACPT_CNTN
+     ,'' AS PROC_RSLT_CD
+     ,'' AS REPR_HDOV_DATE
+     ,'' VKGRP_NM                                                           
+FROM (
+        SELECT
+              COALESCE(AREA_CD, 'YY')    AS AREA_CD
+             ,COALESCE(PTNR_CD, 'ZZZZZ') AS PTNR_CD
+             ,GROUPING(AREA_CD)          AS AREA_CD_CNT
+             ,GROUPING(PTNR_CD)          AS PTNR_CD_CNT
+             ,COUNT(INTG_PRJ_NO)         AS CNT
+        FROM (
+                SELECT
+                      MIN(A.ACPT_NO) AS ACPT_NO
+                     ,MIN(A.AREA_CD) AS AREA_CD
+                     ,MIN(A.PTNR_CD) AS PTNR_CD
+                     ,MIN(A.HO_NO  ) AS HO_NO
+                     ,A.INTG_PRJ_NO
+                FROM  HCSADM.UC_ASS_BASE AS A
+                      LEFT OUTER JOIN HCSADM.SAP_PTNR AS F ON A.PTNR_CD=F.PTNR_CD
+                     ,HCSADM.UC_ASS_PROC_HIST AS B
+                     ,HCSADM.UC_ASS_FIN_RPT AS C
+                     ,(
+                        SELECT
+                              A.INTG_PRJ_NO
+                             ,A.DEAL_LINE_DIV
+                             ,A.PRJ_NO
+                             ,A.HO_NO
+                             ,COUNT(A.HO_NO) AS CNT
+                        FROM  HCSADM.UC_ASS_BASE AS A
+                              INNER JOIN HCSADM.SAP_HO_INFO AS E ON  A.INTG_PRJ_NO  =E.INTG_PRJ_NO
+                                                                 AND A.DEAL_LINE_DIV=E.DEAL_LINE_DIV
+                                                                 AND A.PRJ_NO       =E.PRJ_NO
+                                                                 AND A.HO_NO        =E.HO_NO
+                        WHERE A.INTG_PRJ_NO > '000000'
+                        AND  (A.VIR_PRJ_YN IS NULL OR A.VIR_PRJ_YN='N')
+                        AND   A.PROC_TC!='07006'
+<isNotNull col="FMD">
+                        AND   A.ACPT_DATE BETWEEN #FMD# AND #TOD#
+</isNotNull>
+<isNotNull col="ARA">
+                        AND   E.REPR_AREA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+                        AND   E.REPR_PTNR_CD = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+                        AND   E.REPR_PM_EMP_NO = #BPM#
+</isNotNull>
+<isNotNull col="UPN">
+                        AND   A.INTG_PRJ_NO = #UPN#
+</isNotNull>
+<isNotNull col="CST">
+                        AND   A.DEAL_LINE_DIV = #CST#
+</isNotNull>
+                        GROUP BY A.INTG_PRJ_NO, A.DEAL_LINE_DIV, A.PRJ_NO, A.HO_NO
+                              HAVING COUNT(A.HO_NO) &gt;= 3
+                      ) AS D
+                WHERE A.ACPT_NO=B.ACPT_NO
+                AND   B.ACPT_NO=C.ACPT_NO
+                AND   B.PROC_EGNR_USER_ID=C.PROC_USER_ID
+                AND   A.INTG_PRJ_NO=D.INTG_PRJ_NO
+                AND   A.DEAL_LINE_DIV=D.DEAL_LINE_DIV
+                AND   A.PRJ_NO=D.PRJ_NO
+                AND   A.HO_NO=D.HO_NO
+                AND   A.INTG_PRJ_NO > '000000'
+                AND  (A.VIR_PRJ_YN IS NULL OR A.VIR_PRJ_YN='N')
+                AND   F.PTNR_TC='1'
+<isNotNull col="FMD">
+                AND   A.ACPT_DATE BETWEEN #FMD# AND #TOD#
+</isNotNull>
+<isNotNull col="UPN">
+                AND   A.INTG_PRJ_NO = #UPN#
+</isNotNull>
+<isNotNull col="CST">
+                AND   A.DEAL_LINE_DIV = #CST#
+</isNotNull>
+                GROUP BY A.INTG_PRJ_NO
+        ) AS SUB_T
+        GROUP BY ROLLUP(SUB_T.AREA_CD, SUB_T.PTNR_CD)
+      ) SUB_A
+     ,(
+        SELECT
+              COALESCE(A.AREA_CD, 'YY'   ) AS AREA_CD
+             ,COALESCE(A.PTNR_CD, 'ZZZZZ') AS PTNR_CD
+             ,GROUPING(A.AREA_CD         ) AS AREA_CD_CNT
+             ,GROUPING(A.PTNR_CD         ) AS PTNR_CD_CNT
+             ,COUNT(A.ACPT_NO) AS CNT
+        FROM  HCSADM.UC_ASS_BASE AS A
+              LEFT OUTER JOIN HCSADM.SAP_PTNR AS F ON A.PTNR_CD=F.PTNR_CD
+             ,HCSADM.UC_ASS_PROC_HIST AS B
+             ,HCSADM.UC_ASS_FIN_RPT AS C
+             ,(
+                 SELECT
+                       A.INTG_PRJ_NO
+                      ,A.DEAL_LINE_DIV
+                      ,A.PRJ_NO
+                      ,A.HO_NO
+                      ,COUNT(A.HO_NO) AS CNT
+                 FROM HCSADM.UC_ASS_BASE AS A
+                      INNER JOIN HCSADM.SAP_HO_INFO AS E ON  A.INTG_PRJ_NO  =E.INTG_PRJ_NO
+                                                         AND A.DEAL_LINE_DIV=E.DEAL_LINE_DIV
+                                                         AND A.PRJ_NO       =E.PRJ_NO
+                                                         AND A.HO_NO        =E.HO_NO
+                 WHERE A.INTG_PRJ_NO > '000000'
+                 AND  (A.VIR_PRJ_YN IS NULL OR A.VIR_PRJ_YN='N')
+                 AND   A.PROC_TC!='07006'
+<isNotNull col="FMD">
+                 AND   A.ACPT_DATE BETWEEN #FMD# AND #TOD#
+</isNotNull>
+<isNotNull col="ARA">
+                 AND   E.REPR_AREA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+                 AND   E.REPR_PTNR_CD = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+                 AND   E.REPR_PM_EMP_NO = #BPM#
+</isNotNull>
+<isNotNull col="UPN">
+                 AND   A.INTG_PRJ_NO = #UPN#
+</isNotNull>
+<isNotNull col="CST">
+                 AND   A.DEAL_LINE_DIV = #CST#
+</isNotNull>
+                 GROUP BY A.INTG_PRJ_NO, A.DEAL_LINE_DIV, A.PRJ_NO, A.HO_NO
+                       HAVING COUNT(A.HO_NO) &gt;= 3
+             ) AS D
+        WHERE A.ACPT_NO=B.ACPT_NO
+        AND   B.ACPT_NO=C.ACPT_NO
+        AND   B.PROC_EGNR_USER_ID=C.PROC_USER_ID
+        AND   A.INTG_PRJ_NO=D.INTG_PRJ_NO
+        AND   A.DEAL_LINE_DIV=D.DEAL_LINE_DIV
+        AND   A.PRJ_NO=D.PRJ_NO
+        AND   A.HO_NO=D.HO_NO
+        AND   A.INTG_PRJ_NO > '000000'
+        AND  (A.VIR_PRJ_YN IS NULL OR A.VIR_PRJ_YN='N')
+        AND   F.PTNR_TC='1'
+<isNotNull col="FMD">
+        AND   A.ACPT_DATE BETWEEN #FMD# AND #TOD#
+</isNotNull>
+<isNotNull col="UPN">
+        AND   A.INTG_PRJ_NO = #UPN#
+</isNotNull>
+<isNotNull col="CST">
+        AND   A.DEAL_LINE_DIV = #CST#
+</isNotNull>
+        GROUP BY ROLLUP(A.AREA_CD, A.PTNR_CD)
+      ) AS SUB_B
+WHERE SUB_A.AREA_CD=SUB_B.AREA_CD
+AND   SUB_A.PTNR_CD=SUB_B.PTNR_CD
+AND   SUB_A.AREA_CD_CNT=SUB_B.AREA_CD_CNT
+AND   SUB_A.PTNR_CD_CNT=SUB_B.PTNR_CD_CNT
+ORDER BY AREA_CD, PTNR_CD, INTG_PRJ_NO, HO_NM, ACPT_NO
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="FMD" size="255" type="VARCHAR" description="" /> 
+		<col name="TOD" size="255" type="VARCHAR" description="" /> 
+		<col name="ARA" size="255" type="VARCHAR" description="" /> 
+		<col name="BSU" size="255" type="VARCHAR" description="" /> 
+		<col name="BPM" size="255" type="VARCHAR" description="" /> 
+		<col name="UPN" size="255" type="VARCHAR" description="" /> 
+		<col name="CST" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

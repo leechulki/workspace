@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT  T1.GUBUN2
+       ,T1.GUBUN
+       ,VALUE(T2.DESU,0) DESU
+       ,VALUE(T2.AMT,0) AMT
+       ,VALUE(T2.DANGA,0) DANGA
+       ,VALUE(T2.SUJU_AMT,0) SUJU_AMT
+	   ,T2.TGB
+FROM   (
+        SELECT  M005.MANDT
+               ,M005.LGORT GUBUN2
+               ,M012.NAME1 GUBUN
+        FROM SAPHEE.ZWBT010 WB
+             ,SAPHEE.ZMMT012 M012
+        	 ,SAPHEE.ZMMT005 M005
+        WHERE WB.MANDT = #G_MANDT#
+        AND WB.BSU_ARA = #AREA_CODE#
+        AND WB.MANDT = M012.MANDT
+        AND WB.LIFNR = M012.LIFNR
+        AND M012.MANDT = M005.MANDT
+        AND M012.LIFNR = M005.LIFNR
+       ) T1
+       LEFT OUTER JOIN
+       (
+        SELECT  CS126.MANDT
+               ,CS126_BSU GUBUN2
+               ,COUNT(*) DESU
+               ,SUM(DOUBLE(CS126.CS126_AMT)) AMT
+               ,ROUND(SUM(DOUBLE(CS126.CS126_AMT))/COUNT(*),0) DANGA
+               ,SUM(DOUBLE(CS131.CS131_AMT)) SUJU_AMT
+        	   ,MAX(CS126_TGB) TGB
+        FROM   SAPHEE.ZCST126 CS126,
+               (SELECT  CS131A.MANDT
+                       ,CS131A.CS131_UPN
+                       ,CS131A.CS131_CST
+                       ,CS131A.CS131_PJT
+                       ,CS131A.CS131_HNO
+                       ,CS131A.CS131_SEQ
+                       ,SUM(CS131A.CS131_AMT) CS131_AMT
+                FROM SAPHEE.ZCST126 CS126A
+                     ,SAPHEE.ZCST131 CS131A
+                WHERE CS126A.MANDT = #G_MANDT#
+                AND CS126A.CS126_GND = 'D'
+                AND CS126A.CS126_ARA = #AREA_CODE#
+                AND CS126A.CS126_DDT = ''
+                AND CS126A.CS126_USD BETWEEN #YYYYMMF#||'01' AND #YYYYMMT#||'31'
+                AND CS126A.MANDT = CS131A.MANDT
+                AND CS126A.CS126_UPN = CS131A.CS131_UPN
+                AND CS126A.CS126_CST = CS131A.CS131_CST
+                AND CS126A.CS126_PJT = CS131A.CS131_PJT
+                AND CS126A.CS126_HNO = CS131A.CS131_HNO
+                AND CS126A.CS126_SEQ = CS131A.CS131_SEQ
+                AND CS131A.CS131_MYB = ''
+                GROUP BY CS131A.MANDT,CS131A.CS131_UPN,CS131A.CS131_CST
+                        ,CS131A.CS131_PJT,CS131A.CS131_HNO,CS131A.CS131_SEQ
+               ) CS131
+        WHERE CS126.MANDT = CS131.MANDT
+        AND CS126.CS126_UPN = CS131.CS131_UPN
+        AND CS126.CS126_CST = CS131.CS131_CST
+        AND CS126.CS126_PJT = CS131.CS131_PJT
+        AND CS126.CS126_HNO = CS131.CS131_HNO
+        AND CS126.CS126_SEQ = CS131.CS131_SEQ
+        GROUP BY CS126.MANDT,CS126.CS126_BSU
+       ) T2
+       ON T1.MANDT = T2.MANDT
+       AND T1.GUBUN2 = T2.GUBUN2
+  WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="AREA_CODE" size="255" type="VARCHAR" description="" /> 
+		<col name="YYYYMMF" size="255" type="VARCHAR" description="" /> 
+		<col name="YYYYMMT" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

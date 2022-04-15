@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	<![CDATA[
+		SELECT
+			A5.MANDT
+           	, HNO
+           	, GBU
+           	, KND
+           	, UMS
+           	, NMT + YMT + EMT AS NMT      --직접노무비(노무비 + 용역비 + 외주비)
+           	, JMT                         --직접재료비(자재비)
+           	, JMT2                        --직접재료비(추가자재비)
+           	, KMT + KMT2 AS KMT           --직접경비(경비 + 노무비경비)
+           	, HMT
+           	, DMT
+           	, ACMT
+           	, CMT                         --검사수수료
+           	, COSTB AS GMT
+           	, COSTB2 AS GMT2
+           	, COSTA + HMT + DMT + ACMT AS COS1   --간접비제외 총원가
+           	, COSTA2 + HMT + DMT + ACMT AS COS2  --간접비제외 총원가(투입예상자재)
+           	, COSTA + HMT + DMT + ACMT + COSTB AS COSTT    --총원가
+           	, COSTA2 + HMT + DMT + ACMT + COSTB AS COSTT2  --총원가(투입예상자재)
+           	, AMT
+           	, TAMT
+       	FROM
+           (
+			SELECT A4.*
+            	, (COSTA + HMT + DMT + ACMT) * CS604_US / 100 AS COSTB --간접비
+                , (COSTA2 + HMT + DMT + ACMT) * CS604_US / 100 AS COSTB2 --간접비(투입예상자재)
+           	  FROM 
+               	 (
+               	  SELECT A3.*
+                  		, NMT + KMT + YMT + EMT + KMT2 + JMT + CMT AS COSTA --직접비
+                    	, NMT + KMT + YMT + EMT + KMT2 + JMT2 + CMT AS COSTA2 --직접비(투입예상자재)
+               	    FROM 
+               	    (        
+                   	 SELECT A2.*
+                          -- 경비
+                          , CASE WHEN GBU = 'A' THEN NMT * J_RAT / 100
+                                 ELSE 0
+                               END AS KMT 
+                          --노무비경비
+                          , CASE WHEN GBU != 'A' THEN EMT * H_RAT / 100
+                                 ELSE 0
+                               END AS KMT2
+                          , HMT1 + HMT2 AS HMT
+                          , DMT1 + DMT2 AS DMT
+                          , ACMT1 AS ACMT     
+                      FROM              
+                      (
+                       SELECT A.*
+                             --노무비
+                             , CASE WHEN GBU = 'A' AND T502.RAT IS NOT NULL THEN
+                                     CASE WHEN UMS > 0 AND UMS <= 12 THEN T500.M_AMT * T502.RAT * T506.RAT * UMS
+                                          WHEN UMS > 12 AND UMS <=24 THEN (T500.M_AMT * T502.RAT * T506.RAT * 12) + (T500.M_AMT * T502.RAT * T506.RAT * 1.045 * (UMS-12))
+                                          WHEN UMS > 24 AND UMS <=36 THEN (T500.M_AMT * T502.RAT * T506.RAT * 12) + (T500.M_AMT * T502.RAT * T506.RAT * 1.045 * 12) + (T500.M_AMT * T502.RAT * T506.RAT * 1.045 * 1.045 * (UMS-24))
+                                          WHEN UMS > 36 AND UMS <=48 THEN (T500.M_AMT * T502.RAT * T506.RAT * 12) + (T500.M_AMT * T502.RAT * T506.RAT * 1.045 * 12) + (T500.M_AMT * T502.RAT * T506.RAT * 1.045 * 1.045 * 12) + (T500.M_AMT * T502.RAT * T506.RAT * 1.045 * 1.045 * 1.045 * (UMS-36))
+                                          WHEN UMS > 48 AND UMS <=60 THEN (T500.M_AMT * T502.RAT * T506.RAT * 12) + (T500.M_AMT * T502.RAT * T506.RAT * 1.045 * 12) + (T500.M_AMT * T502.RAT * T506.RAT * 1.045 * 1.045 * 12) + (T500.M_AMT * T502.RAT * T506.RAT * 1.045 * 1.045 * 1.045 * 12) + (T500.M_AMT * T502.RAT * T506.RAT * 1.045 * 1.045 * 1.045 * 1.045 * (UMS-48))
+                                          ELSE (T500.M_AMT * T502.RAT * T506.RAT * 12) + (T500.M_AMT * T502.RAT * T506.RAT * 1.045 * 12) + (T500.M_AMT * T502.RAT * T506.RAT * 1.045 * 1.045 * 12) + (T500.M_AMT * T502.RAT * T506.RAT * 1.045 * 1.045 * 1.045 * 12) + (T500.M_AMT * T502.RAT * T506.RAT * 1.045 * 1.045 * 1.045 * 1.045 * 12)
+                                       END
+                                    ELSE 0
+                                 END AS NMT
+                             --용역비
+                             , CASE WHEN GBU = 'A' AND KND = '1' THEN
+                                       CASE WHEN FLR > 15 THEN T503.MAN * ( T503.TIME + ( FLR - 15 ) * 0.17 ) * CS600_RAT * 1.5
+                                            ELSE T503.MAN * T503.TIME * CS600_RAT * 1.5
+                                         END
+                                    ELSE 0
+                                 END / 60 * UMS AS YMT
+                             --외주비
+                             --POG 기성 지급율 : 아파트 75.2%  , 빌딩 65.2% 
+                             --FM L/S/W 기성율 53% 20150511 전현정 SW 요청 
+                             , CASE WHEN GBU = 'A' THEN 0
+                                    ELSE
+                                       CASE WHEN KND = '1' AND AHNO = 'L' THEN A.AMT * 0.53 * UMS
+                                            WHEN KND = '1' AND (AHNO = 'S' OR AHNO = 'W') THEN A.AMT * 0.53 * UMS
+                                            WHEN KND != '1' AND AHNO = 'L' THEN
+                                               CASE WHEN ABG = 'A' THEN A.AMT * 0.752 * UMS
+                                                    ELSE A.AMT * 0.652 * UMS
+                                                 END         
+                                            WHEN KND != '1' AND (AHNO = 'S' OR AHNO = 'W') THEN A.AMT * 0.652 * UMS
+                                            ELSE 0
+                                         END
+                                 END AS EMT
+                             --자재비
+                             , CASE WHEN KND = '1' THEN
+                                       CASE WHEN BLD = 'A' THEN CS606_APT * UMS
+                                            WHEN BLD = 'B' THEN CS606_CVN * UMS
+                                            WHEN BLD = 'C' THEN CS606_MLT * UMS
+                                            ELSE CS606_ETC * UMS
+                                         END
+                                    ELSE 0
+                                 END AS JMT 
+                             --추가자재비
+                          	 , 0 AS JMT2
+                             --검사수수료
+                             , CASE WHEN KND = '1' AND T501.COMMI IS NOT NULL AND T501.INCRE IS NOT NULL THEN
+                                       CASE WHEN AHNO = 'L' AND FLR > 6 THEN (T501.COMMI + (( FLR - 6 ) * T501.INCRE)) * UMS / 12
+                                            WHEN AHNO = 'L' AND FLR <= 6 THEN T501.COMMI * UMS / 12
+                                            WHEN AHNO = 'S' OR AHNO = 'W' THEN T501.COMMI * UMS / 12
+                                            ELSE 0
+                                         END
+                                    ELSE 0    
+                                 END AS CMT
+                             --HRTS료
+                             -- HRTS 무선의 경우 설치비 + 자재비 + 통신료 + 가입비 18000
+                             , CASE WHEN AHNO = 'L' THEN
+             			                  CASE WHEN T601.CS601_TYP = 'B' THEN		--무선
+             			                          100000 + T601.CS601_JAMT + ( T601.CS601_TAMT * UMS ) + 18000                            		
+             			                       ELSE 0
+             			                  END
+             			                ELSE 0
+             			            END AS HMT1
+             			      --DIPBX료
+           			          , CASE WHEN T602.CS602_TYP = 'A' THEN
+           			                    T602.CS602_DAMT + T602.CS602_LP + ( T602.CS602_CP * ( 1 + ACD) ) + ( T602.CS602_MH * CS600_RAT ) + ( T602.CS602_TAMT * UMS )
+           			                 WHEN T602.CS602_TYP = 'B' THEN
+           			                    CS602_LP + ( T602.CS602_CP * ( 1 + ACD) ) + CS602_KEY  + ( T602.CS602_MH * CS600_RAT ) + (CASE WHEN FDPX = 0 THEN ( T602.CS602_TAMT * UMS ) ELSE 0 END)
+           			                 WHEN T602.CS602_TYP = 'C' THEN
+           			                    T602.CS602_DAMT + T602.CS602_LP + ( T602.CS602_CP * ( 2 + ACD) ) + ( T602.CS602_MH * CS600_RAT )  + ( T602.CS602_TAMT * UMS ) + CS602_JAMT_O
+           			                 ELSE 0
+           			            END AS DMT1
+           			          , CASE WHEN SUBSTR(HNO,1,1) = 'L' THEN
+                           			CASE WHEN HWR = 'A' AND TYN = 'Y' AND FHRU = 0 THEN  T601.CS601_TAMT * UMS
+                                		WHEN HWR = 'A' AND TYN = 'N' AND FHRU = 0 THEN  T601.CS601_TAMT * UMS + T601.CS601_JAMT
+                                		ELSE 0
+                                	END
+                                	ELSE 0
+                                END AS HMT2
+                              , CASE WHEN DND = 'B' AND FDPX = 0 THEN 8 * CS600_RAT + T507.AMT
+                              	  	 ELSE 0
+                              	END AS DMT2
+                              -- 공기청정기(A:기본형) 재료비 + 필터비 + 설치비 + 이자및간접비
+                              , CASE WHEN T608.CS608_TYP = 'A' THEN T608.CS608_JAMT + T608.CS608_FAMT + T608.CS608_SAMT + T608.CS608_INCAMT
+                              		 ELSE 0
+                              	END AS ACMT1
+                             --직영배부경비비율
+                             , T500.J_RAT
+                             --협력배부경비비율
+                             , T500.H_RAT    
+                             , (A.AMT + HRTS + DIPBX + AIR_PRF) * UMS AS TAMT
+                       FROM
+                           (
+                           SELECT A.* 
+                           		 , CASE 
+			                     	WHEN A.TBLD = '03' THEN 'A'
+			                        WHEN A.TBLD = '05' OR A.TBLD = '01' THEN 'B'
+			                        WHEN A.TBLD = '25' THEN 'C'
+			                        ELSE 'D'
+			                       END BLD -- 건물용도
+                                 , CASE
+                                       WHEN LENGTH(VALUE(V_FLR,'')) <= 0 OR INT(V_FLR) < 0 OR INT(V_FLR) >= 100 THEN 15
+                                       ELSE INT(V_FLR)
+                                     END FLR --층수
+                                 , CASE
+                                       WHEN LENGTH(VALUE(V_FDT,'')) <= 0 OR INT(V_FDT) < 0 OR INT(V_FDT) >= 20 THEN 20
+                                       ELSE INT(V_FDT)
+                                     END FDT --설치연령
+                                 , CASE WHEN AHNO = 'L' THEN 'E/L'
+                                      WHEN AHNO = 'S' OR AHNO = 'W' THEN 'E/S'
+                                      ELSE ''
+                                   END AS GHNO
+                                 , CASE
+                                     WHEN AHNO = 'L' THEN
+                                          CASE WHEN LENGTH(TRIM(V_SPD)) <= 0 THEN '60'
+                                               WHEN INT(V_SPD) > 0 AND INT(V_SPD) < 90 THEN '60'
+                                               WHEN INT(V_SPD) >= 90 AND INT(V_SPD) < 120 THEN '90'
+                                               WHEN INT(V_SPD) >= 120 AND INT(V_SPD) < 180 THEN '120'
+                                               WHEN INT(V_SPD) >= 180 THEN '180'
+                                               ELSE '60'
+                                            END
+                                     WHEN AHNO = 'S' OR AHNO = 'W' THEN 'E/S'
+                                     ELSE '60'
+                                   END SPD -- 속도
+                                 , CASE
+                                     WHEN SUBSTR(V_SPC,1,2) = 'LX' OR SUBSTR(V_SPC,1,2) = 'SS' OR SUBSTR(V_SPC,1,4) = 'WBLX' OR SUBSTR(V_SPC,1,4) = 'WBSS' THEN 'B' -- 2:1 Roping
+                                     ELSE 'A' -- 1:1 Roping
+                                   END SPC 
+                                 --공사임율
+                                 , CS600_RAT
+                               FROM
+                               (
+                                SELECT
+                                       CAST(#G_MANDT# AS VARCHAR(4)) AS MANDT 
+                                       , SAPHEE.MONTH_BETWEEN(#STD#,#ETD#,2) AS UMS --계약개월수
+                                       , CAST(#TEM# AS VARCHAR(12)) AS TEM --팀코드
+                                       , CAST(#HNO# AS VARCHAR(12)) AS HNO
+                                       , CAST(#AMT# AS INTEGER) AS AMT -- 계약단가
+                                       , CAST(#HMT# AS INTEGER) AS HRTS -- HRTS료
+                                       , CAST(#DMT# AS INTEGER) AS DIPBX -- DIPBX료
+                                       , CAST(#ACMT# AS INTEGER) AS AIR_PRF -- 공기청정기료
+                                       , CAST(#HEP# AS VARCHAR(1)) AS HEP
+                                       , CAST(#BLD# AS VARCHAR(2)) AS TBLD -- 건물구분 (자재비)
+                                       , CAST(#ABG# AS VARCHAR(2)) AS ABG -- 건물구분 (외주비)
+                                       , CAST(#MMN# AS INTEGER) AS MMN --무상개월수
+                                       , CAST(#GBU# AS VARCHAR(1)) AS GBU --직영구분
+                                       , CAST(#KND# AS VARCHAR(1)) AS KND --FM/POG 구분
+                                       , SUBSTR(CAST(#HNO# AS VARCHAR(12)), 1,1) AS AHNO --L OR B,W..
+                                       , CAST(#FDT# AS INTEGER) AS V_FDT --설치연령 
+                                       , CAST(#SPC# AS VARCHAR(30)) AS V_SPC
+                                       , CAST(#SPD# AS VARCHAR(5)) AS V_SPD
+                                       , CAST(#FLR# AS VARCHAR(5)) AS V_FLR
+                                       , CAST(#ACD# AS INTEGER) AS ACD
+                                       , CAST(#HWR# AS VARCHAR(5)) AS HWR
+                                       , CAST(#TYN# AS VARCHAR(5)) AS TYN
+                                       , CAST(#DND# AS VARCHAR(5)) AS DND
+                                       , CAST(#ACND# AS VARCHAR(5)) AS ACND -- 공기청정기 종류
+                                       , CAST(#CNT# AS INTEGER)  AS CNT  -- 전체 계약 대수
+                                       , CAST(#FHRM# AS INTEGER) AS FHRM -- HRTS 무선 최초
+                                       , CAST(#FHRU# AS INTEGER) AS FHRU -- HRTS 유선 최초
+                                       , CAST(#FDPX# AS INTEGER) AS FDPX -- DIPBX 최초
+                                  FROM sysibm.sysdummy1
+                               ) A    
+                               , SAPHEE.ZCST600 T600 --공사임율
+                               WHERE 1=1
+                                 AND A.MANDT = T600.MANDT
+                                 AND T600.CS600_YEAR = #ZYEAR#
+                           ) A /* 노무비 */
+                               LEFT OUTER JOIN SAPHEE.ZCST500 T500
+                                            ON T500.MANDT = #G_MANDT#
+                                           AND T500.ZYEAR = #ZYEAR#
+                                           AND A.TEM = T500.VKGRP
+                               /* 속도별요율 */
+                               LEFT OUTER JOIN SAPHEE.ZCST502 T502
+                                 ON T502.MANDT = #G_MANDT#
+                                 AND T502.ZYEAR = #ZYEAR#
+                                 AND A.SPD = T502.GUBUN
+                               /* 점검주기 */
+                               LEFT OUTER JOIN SAPHEE.ZCST506 T506
+                                  ON T506.MANDT = #G_MANDT#
+                                 AND T506.ZYEAR = #ZYEAR#
+                                 AND A.HEP = T506.GUBUN 
+                               /* Roping 방식 */
+                               LEFT OUTER JOIN SAPHEE.ZCST503 T503
+                                 ON T503.MANDT = #G_MANDT#
+                                 AND T503.ZYEAR = #ZYEAR#
+                                 AND A.SPC = T503.GUBUN
+                               /* 재료비 */
+                               LEFT OUTER JOIN SAPHEE.ZCST606 T606
+                                  ON T606.MANDT = #G_MANDT#
+                                 AND T606.CS606_YEAR = #ZYEAR#
+                                 AND T606.CS606_SEQ = INT(A.FDT)
+                               /* 검사비 */
+                               LEFT OUTER JOIN SAPHEE.ZCST501 T501
+                                 ON T501.MANDT = #G_MANDT# 
+                                AND T501.ZYEAR = #ZYEAR#
+                                AND T501.GUBUN = A.AHNO
+                               /* HRTS료 */
+    			               LEFT OUTER JOIN SAPHEE.ZCST601 T601
+    			                 ON T601.MANDT = #G_MANDT# 
+    			                AND T601.CS601_YEAR = #ZYEAR#
+    			                AND T601.CS601_TYP = A.HWR   --유/무선
+    			                AND T601.CS601_CRT = A.TYN	--감시반여부
+      			               /* DI-PBX료 */
+      			               LEFT OUTER JOIN SAPHEE.ZCST602 T602
+      			                 ON T602.MANDT = #G_MANDT# 
+      			          	    AND T602.CS602_YEAR = #ZYEAR#
+      			                AND T602.CS602_TYP = A.DND 
+      			               /* 공기청정기료 */
+      			               LEFT OUTER JOIN SAPHEE.ZCST608 T608
+      			                 ON T608.MANDT = #G_MANDT# 
+      			          	    AND T608.CS608_YEAR = #ZYEAR#
+      			                AND T608.CS608_TYP = A.ACND      			                
+      			               LEFT OUTER JOIN SAPHEE.ZCST507 T507
+					             ON T507.MANDT = #G_MANDT#
+					            AND T507.ZYEAR = #ZYEAR# 
+					            AND T507.GUBUN = LPAD(A.CNT,2,'0')    
+                        ) A2
+                    ) A3
+                ) A4
+                -- 간접비
+                , SAPHEE.ZCST604 T604
+           WHERE 1=1
+             AND T604.MANDT = A4.MANDT
+             AND T604.CS604_YEAR = #ZYEAR#
+           ) A5 
+		WITH UR
+	]]>
+	</statement>
+	<input default-name="ds_cost_i">
+	</input>
+	<output default-name="ds_cost_o">
+	</output>
+</query>

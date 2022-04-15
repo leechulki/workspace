@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.ses.dao.Ses0181D"> 
+  
+	<resultMap id="ZSDT1046ResultMap" type="hdel.sd.ses.domain.Ses0181">
+		<result property="MANDT" column="MANDT"/>
+		<result property="QTNUM" column="QTNUM"/>
+		<result property="QTSER" column="QTSER"/>
+		<result property="GSNAM" column="GSNAM"/>
+		<result property="ZKUNNR" column="ZKUNNR"/>
+		<result property="ZKUNNT" column="ZKUNNT"/>		
+		<result property="VKBUR" column="VKBUR"/>
+		<result property="VKGRP" column="VKGRP"/>
+		<result property="ZESTDAT" column="ZESTDAT"/>
+		<result property="DAYS" column="DAYS"/>
+	</resultMap>
+	
+	<select id="selectZSDT1046" parameterType="hdel.sd.ses.domain.Ses0181ParamVO" resultMap="ZSDT1046ResultMap">
+		-- Ses0181 입찰결과 미등록 현황 fn_Query()
+		SELECT sd1046.mandt, sd1046.qtnum, sd1046.qtser, sd1046.gsnam, sd1046.zkunnr 
+			   , ( SELECT name1 FROM saphee.kna1 WHERE mandt = sd1046.mandt AND kunnr = sd1046.zkunnr ) AS zkunnt
+			   , sd1046.vkbur, sd1046.vkgrp, sd1046.zestdat
+			   , days(CURRENT DATE) - days(TO_DATE(sd1046.zestdat, 'YYYY-MM-DD')) AS days
+		  FROM saphee.zsdt1046 AS sd1046 INNER JOIN (
+												SELECT mandt, qtnum, max(qtser) AS QTSER
+												  FROM saphee.zsdt1046 
+												 WHERE mandt  = #{MANDT}
+												   AND auart  IN ('ZS01', 'ZS02')
+	    <if test="QTNUM !=null and QTNUM !=''">    AND qtnum = #{QTNUM} </if>												   
+	    <if test="VKBUR !=null and VKBUR !=''">    AND vkbur = #{VKBUR} </if>
+	    <if test="VKGRP !=null and VKGRP !=''">    AND vkgrp = #{VKGRP} </if>
+	    <if test="ZKUNNR !=null and ZKUNNR !=''">  AND zkunnr = #{ZKUNNR} </if>												   
+												 GROUP BY mandt, qtnum ) AS fnlqt
+										    ON sd1046.mandt = fnlqt.mandt
+										   AND sd1046.qtnum = fnlqt.qtnum
+										   AND sd1046.qtser = fnlqt.qtser
+				 						  LEFT OUTER JOIN saphee.zsdt1055 AS sd1055
+				 						    ON sd1046.mandt = sd1055.mandt
+				 						   AND sd1046.qtnum = sd1055.qtnum
+				 						   AND sd1046.qtser = sd1055.qtser
+										INNER JOIN saphee.zsdt0167 as z0167 
+										ON sd1046.mandt=z0167.mandt 
+										AND sd1046.qtnum=z0167.qtnum 
+										AND z0167.tquot=''					   
+		 WHERE sd1046.mandt = #{MANDT}
+	    <if test="QTNUM !=null and QTNUM !=''">   AND sd1046.qtnum = #{QTNUM} </if>		 
+	    <if test="VKBUR !=null and VKBUR !=''">   AND sd1046.vkbur = #{VKBUR} </if>
+	    <if test="VKGRP !=null and VKGRP !=''">   AND sd1046.vkgrp = #{VKGRP} </if>
+	    <if test="ZKUNNR !=null and ZKUNNR !=''"> AND sd1046.zkunnr = #{ZKUNNR} </if>		 
+		   AND sd1046.qtgbn = 'A'
+		   AND sd1046.qtdat > '20201231'
+		   AND sd1046.zprgflg != '26'
+		   AND (days(CURRENT DATE) - days(TO_DATE(sd1046.zestdat, 'YYYY-MM-DD'))) > 0
+		   AND sd1046.zestdat > '19000101'
+		   AND sd1055.qtnum IS null
+		 ORDER BY sd1046.qtnum, sd1046.qtser
+		 WITH UR
+	</select>
+</mapper>  

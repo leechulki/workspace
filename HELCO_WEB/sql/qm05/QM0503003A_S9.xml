@@ -1,0 +1,390 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>	
+
+  SELECT 
+		 	  A.PSPID -- 프로젝트
+	       ,  ( SELECT S.ZSITE_NM FROM SAPHEE.ZMASTER01 S WHERE S.MANDT = M2.MANDT AND S.POSID = M2.POSID ) AS ZSITE_NM -- 현장명
+	       , M2.POSID_1		-- 호기
+	       , M2.POSID_OLD	-- 현장호기
+	       , M2.ZZACTSS		-- 사무소
+	       , ( SELECT S.TEXT30 FROM SAPHEE.J_1AACTT S WHERE S.MANDT = M2.MANDT AND S.J_1AACT =  M2.ZZACTSS AND S.SPRAS = '3' ) AS ZZACTSS_NM 
+	       , M2.ZSPEC1 		-- 기종
+	       , M2.ZSPEC2 		-- 사양 
+	       , M2.LIFNR 			-- 설치업체
+	       , ( SELECT S.NAME1 FROM SAPHEE.LFA1 S WHERE S.MANDT = M2.MANDT AND S.LIFNR = M2.LIFNR ) AS LIFNR_NM    
+		   , A.PERNO 			-- 작업자
+		   , ( SELECT S.NAMEE FROM SAPHEE.ZPST0001 S 
+		   	  WHERE S.MANDT = A.MANDT AND S.LIFNR = A.LIFNR AND S.PERNO = A.PERNO 
+		   		 AND S.GBN = 'A' 
+		   		 ) AS PERNM 
+		   , A.PAPRIDTX -- 검사자
+		   , A.DSKURZTEXT	-- 판정 
+		   , M2.ZQEGEMSA -- QC검사일
+		    ,A.PAPRDT
+		    , A.WERKS
+		   , A.SEQ
+		   , A.ART
+		   , ( SELECT MAX(S.SEQ)  FROM  SAPHEE.ZQMT019 S WHERE S.MANDT=A.MANDT AND S.WERKS = A.WERKS AND S.PSPID = A.PSPID AND S.ART = A.ART AND S.HOGI = A.HOGI   ) AS MAX_SEQ
+		   , (SELECT 
+   						--Z.VALUE
+   						TRUNC(NVL(Z.VALUE,0)/2)
+              FROM SAPHEE.ZSDT0005 AS Z 
+             WHERE Z.MANDT = M2.MANDT  
+               AND Z.HOGI  =  M2.POSID_1 
+               AND Z.CHARACTERISTIC = 'EL_ERBQ'  
+                     AND Z.SEQ = (SELECT MAX(X.SEQ) 
+                                    FROM SAPHEE.ZSDT0005 AS X 
+                                   WHERE X.MANDT = Z.MANDT 
+                                     AND X.HOGI = Z.HOGI 
+                                     AND X.CHARACTERISTIC = Z.CHARACTERISTIC)) AS EL_ERBQ        -- 레일단수        
+       , X1.IMPRO_YN AS X1_IMPRO_YN   -- JOINT단차 / 보완
+       , X1.MOD_YN   AS X1_MOD_YN          -- JOINT단차 / 수정
+       , ( SELECT SUM(CASE WHEN S.IMPRO = 'Y' THEN 1 ELSE 0 END) AS CNT
+            FROM SAPHEE.ZQMT056 S 
+          WHERE A.MANDT = S.MANDT
+              AND A.HOGI = S.POSID
+              AND S.EL_TYPE = 'RA'
+              AND S.LCD = '02'
+              AND S.SCD = '01'
+         ) AS X1_CNT                  -- JOINT단차 / 건수
+       , X2.IMPRO_YN AS X2_IMPRO_YN   -- 각도 / 보완
+       , X2.MOD_YN   AS X2_MOD_YN          -- 각도 / 수정
+       , ( SELECT SUM(CASE WHEN S.IMPRO = 'Y' THEN 1 ELSE 0 END) AS CNT
+            FROM SAPHEE.ZQMT056 S 
+          WHERE A.MANDT = S.MANDT
+              AND A.HOGI = S.POSID
+              AND S.EL_TYPE = 'RA'
+              AND S.LCD = '02'
+              AND S.SCD = '02'
+         ) AS X2_CNT                       -- 각도 / 건수 		
+       , X3.IMPRO_YN AS X3_IMPRO_YN          -- 센터 / 보완
+       , X3.MOD_YN   AS X3_MOD_YN            -- 센터 / 수정
+       , ( SELECT SUM(CASE WHEN S.IMPRO = 'Y' THEN 1 ELSE 0 END) AS CNT
+            FROM SAPHEE.ZQMT056 S 
+          WHERE A.MANDT = S.MANDT
+              AND A.HOGI = S.POSID
+              AND S.EL_TYPE = 'RA'
+              AND S.LCD = '02'
+              AND S.SCD = '03'
+         ) AS X3_CNT                   -- 센터 / 건수		  
+       , X4.IMPRO_YN AS X4_IMPRO_YN         -- B/G / 보완
+       , X4.MOD_YN   AS X4_MOD_YN           -- B/G / 수정
+       , ( SELECT SUM(CASE WHEN S.IMPRO = 'Y' THEN 1 ELSE 0 END) AS CNT
+            FROM SAPHEE.ZQMT056 S 
+          WHERE A.MANDT = S.MANDT
+              AND A.HOGI = S.POSID
+              AND S.EL_TYPE = 'RA'
+              AND S.LCD = '02'
+              AND S.SCD = '04'
+         ) AS X4_CNT                 -- B/G / 건수       
+       , X5.IMPRO_YN AS X5_IMPRO_YN           -- BRKT 수평 및 용접 / 보완
+       , X5.MOD_YN   AS X5_MOD_YN             -- BRKT 수평 및 용접 / 수정
+       , ( SELECT SUM(CASE WHEN S.IMPRO = 'Y' THEN 1 ELSE 0 END) AS CNT
+            FROM SAPHEE.ZQMT056 S 
+          WHERE A.MANDT = S.MANDT
+              AND A.HOGI = S.POSID
+              AND S.EL_TYPE = 'RA'
+              AND S.LCD = '02'
+              AND S.SCD = '05'
+         ) AS X5_CNT                   -- BRKT 수평 및 용접 / 건수
+       , X6.IMPRO_YN AS X6_IMPRO_YN           -- 레일 대각거리 편차 / 보완
+       , X6.MOD_YN   AS X6_MOD_YN             -- 레일 대각거리 편차 / 수정
+       , ( SELECT SUM(CASE WHEN S.IMPRO = 'Y' THEN 1 ELSE 0 END) AS CNT
+            FROM SAPHEE.ZQMT056 S 
+          WHERE A.MANDT = S.MANDT
+              AND A.HOGI = S.POSID
+              AND S.EL_TYPE = 'RA'
+              AND S.LCD = '02'
+              AND S.SCD = '06'
+         ) AS X6_CNT                   -- 레일 대각거리 편차 / 건수
+       , X7.IMPRO_YN AS X7_IMPRO_YN           -- 라이너 취부 / 보완
+       , X7.MOD_YN   AS X7_MOD_YN             -- 라이너 취부 / 수정
+       , ''      AS X7_CNT            -- 라이너 취부 / 건수
+       , X8.IMPRO_YN AS X8_IMPRO_YN           -- 중간BEAM 설치상태 / 보완
+       , X8.MOD_YN   AS X8_MOD_YN             -- 중간BEAM 설치상태 / 수정
+       , ''      AS X8_CNT            -- 중간BEAM 설치상태 / 건수
+       , X9.IMPRO_YN AS X9_IMPRO_YN           -- TOP RAIL / 보완
+       , X9.MOD_YN   AS X9_MOD_YN             -- TOP RAIL / 수정
+       , ''       AS X9_CNT            -- TOP RAIL / 건수
+       , X10.IMPRO_YN AS X10_IMPRO_YN           -- 양카 BOLT 설치상태 / 보완
+       , X10.MOD_YN   AS X10_MOD_YN             -- 양카 BOLT 설치상태 / 수정
+       , ''      AS X10_CNT                -- 양카 BOLT 설치상태 / 건수
+       , X11.IMPRO_YN AS X11_IMPRO_YN           -- 레일 브라캣 간격 / 보완
+       , X11.MOD_YN   AS X11_MOD_YN             -- 레일 브라캣 간격 / 수정
+       , ''      AS X11_CNT                -- 레일 브라캣 간격 / 건수       
+FROM SAPHEE.ZQMT019 A
+   LEFT JOIN SAPHEE.ZMASTER02 M2
+            ON A.MANDT = M2.MANDT
+           AND A.PSPID = M2.POSID
+           AND A.HOGI  = M2.POSID_1
+   LEFT JOIN (
+                        SELECT X.MANDT
+                                , X.POSID
+                                , SUM(CASE WHEN X.IMPRO = 'Y'
+                                            THEN 1
+                                            ELSE 0
+                                            END) AS CNT                                
+                                , DECODE(MAX(X.IMPRO), 'Y', 'v', NULL) AS IMPRO_YN
+                                , DECODE(MAX(X.MOD), 'Y', 'v', NULL) AS MOD_YN
+                            FROM  SAPHEE.ZQMT056 X
+                          WHERE  X.MANDT = #G_MANDT#
+                              AND X.EL_TYPE = 'RA'
+                              AND X.LCD = '01'
+                              AND X.MCD = '01'
+                              AND X.SCD = '01'
+                          GROUP BY X.MANDT, X.POSID
+                      ) AS X1
+                   ON A.MANDT  = X1.MANDT
+                  AND A.HOGI = X1.POSID
+           -- 각도
+   LEFT JOIN (
+                        SELECT X.MANDT
+                                , X.POSID
+                                , SUM(CASE WHEN X.IMPRO = 'Y'
+                                            THEN 1
+                                            ELSE 0
+                                            END) AS CNT
+                                , DECODE(MAX(X.IMPRO), 'Y', 'v', NULL) AS IMPRO_YN
+                                , DECODE(MAX(X.MOD), 'Y', 'v', NULL) AS MOD_YN
+                            FROM  SAPHEE.ZQMT056 X
+                          WHERE  X.MANDT = #G_MANDT#
+                              AND X.EL_TYPE = 'RA'
+                              AND X.LCD = '01'
+                              AND X.MCD = '02'
+                              AND X.SCD = '01'
+                          GROUP BY X.MANDT, X.POSID
+                      ) AS X2
+                   ON A.MANDT  = X2.MANDT
+                  AND A.HOGI = X2.POSID
+           -- 센터
+   LEFT JOIN (
+                        SELECT X.MANDT
+                                , X.POSID
+                                , SUM(CASE WHEN X.IMPRO = 'Y'
+                                            THEN 1
+                                            ELSE 0
+                                            END) AS CNT
+                                , DECODE(MAX(X.IMPRO), 'Y', 'v', NULL) AS IMPRO_YN
+                                , DECODE(MAX(X.MOD), 'Y', 'v', NULL) AS MOD_YN
+                            FROM  SAPHEE.ZQMT056 X
+                          WHERE  X.MANDT = #G_MANDT#
+                              AND X.EL_TYPE = 'RA'
+                              AND X.LCD = '01'
+                              AND X.MCD = '03'
+                              AND X.SCD = '01'
+                          GROUP BY X.MANDT, X.POSID
+                      ) AS X3
+                   ON A.MANDT  = X3.MANDT
+                  AND A.HOGI = X3.POSID
+           -- B/G
+   LEFT JOIN (
+                        SELECT X.MANDT
+                                , X.POSID
+                                , SUM(CASE WHEN X.IMPRO = 'Y'
+                                            THEN 1
+                                            ELSE 0
+                                            END) AS CNT
+                                , DECODE(MAX(X.IMPRO), 'Y', 'v', NULL) AS IMPRO_YN
+                                , DECODE(MAX(X.MOD), 'Y', 'v', NULL) AS MOD_YN
+                            FROM  SAPHEE.ZQMT056 X
+                          WHERE  X.MANDT = #G_MANDT#
+                              AND X.EL_TYPE = 'RA'
+                              AND X.LCD = '01'
+                              AND X.MCD = '04'
+                              AND X.SCD = '01'
+                          GROUP BY X.MANDT, X.POSID
+                      ) AS X4
+                   ON A.MANDT  = X4.MANDT
+                  AND A.HOGI = X4.POSID
+           -- B/K 수평 및 용접상태
+   LEFT JOIN (
+                        SELECT X.MANDT
+                                , X.POSID
+                                , SUM(CASE WHEN X.IMPRO = 'Y'
+                                            THEN 1
+                                            ELSE 0
+                                            END) AS CNT
+                                , DECODE(MAX(X.IMPRO), 'Y', 'v', NULL) AS IMPRO_YN
+                                , DECODE(MAX(X.MOD), 'Y', 'v', NULL) AS MOD_YN
+                            FROM  SAPHEE.ZQMT056 X
+                          WHERE  X.MANDT = #G_MANDT#
+                              AND X.EL_TYPE = 'RA'
+                              AND X.LCD = '01'
+                              AND X.MCD = '05'
+                              AND X.SCD = '01'
+                          GROUP BY X.MANDT, X.POSID
+                      ) AS X5
+                   ON A.MANDT  = X5.MANDT
+                  AND A.HOGI = X5.POSID
+           -- 레일 대각거리 편차
+   LEFT JOIN (
+                        SELECT X.MANDT
+                                , X.POSID
+                                , SUM(CASE WHEN X.IMPRO = 'Y'
+                                            THEN 1
+                                            ELSE 0
+                                            END) AS CNT
+                                , DECODE(MAX(X.IMPRO), 'Y', 'v', NULL) AS IMPRO_YN
+                                , DECODE(MAX(X.MOD), 'Y', 'v', NULL) AS MOD_YN
+                            FROM  SAPHEE.ZQMT056 X
+                          WHERE  X.MANDT = #G_MANDT#
+                              AND X.EL_TYPE = 'RA'
+                              AND X.LCD = '01'
+                              AND X.MCD = '06'
+                              AND X.SCD = '01'
+                          GROUP BY X.MANDT, X.POSID
+                      ) AS X6
+                   ON A.MANDT  = X6.MANDT
+                  AND A.HOGI = X6.POSID
+           -- 레일과 B/K 사이의 라이너 두께
+   LEFT JOIN (
+                        SELECT X.MANDT
+                                , X.POSID
+                                , SUM(CASE WHEN X.IMPRO = 'Y'
+                                            THEN 1
+                                            ELSE 0
+                                            END) AS CNT
+                                , DECODE(MAX(X.IMPRO), 'Y', 'v', NULL) AS IMPRO_YN
+                                , DECODE(MAX(X.MOD), 'Y', 'v', NULL) AS MOD_YN
+                            FROM  SAPHEE.ZQMT056 X
+                          WHERE  X.MANDT = #G_MANDT#
+                              AND X.EL_TYPE = 'RA'
+                              AND X.LCD = '01'
+                              AND X.MCD = '07'
+                              AND X.SCD = '01'
+                          GROUP BY X.MANDT, X.POSID
+                      ) AS X7
+                   ON A.MANDT  = X7.MANDT
+                  AND A.HOGI = X7.POSID      
+	-- 중간 BEAM 설치 상태
+   LEFT JOIN (
+                        SELECT X.MANDT
+                                , X.POSID
+                                , SUM(CASE WHEN X.IMPRO = 'Y'
+                                            THEN 1
+                                            ELSE 0
+                                            END) AS CNT
+                                , DECODE(MAX(X.IMPRO), 'Y', 'v', NULL) AS IMPRO_YN
+                                , DECODE(MAX(X.MOD), 'Y', 'v', NULL) AS MOD_YN
+                            FROM  SAPHEE.ZQMT056 X
+                          WHERE  X.MANDT = #G_MANDT#
+                              AND X.EL_TYPE = 'RA'
+                              AND X.LCD = '01'
+                              AND X.MCD = '08'
+                              AND X.SCD = '01'
+                          GROUP BY X.MANDT, X.POSID
+                      ) AS X8
+                   ON A.MANDT  = X8.MANDT
+                  AND A.HOGI = X8.POSID
+                  -- TOP RAIL
+   LEFT JOIN (
+                        SELECT X.MANDT
+                                , X.POSID
+                                , SUM(CASE WHEN X.IMPRO = 'Y'
+                                            THEN 1
+                                            ELSE 0
+                                            END) AS CNT
+                                , DECODE(MAX(X.IMPRO), 'Y', 'v', NULL) AS IMPRO_YN
+                                , DECODE(MAX(X.MOD), 'Y', 'v', NULL) AS MOD_YN
+                            FROM  SAPHEE.ZQMT056 X
+                          WHERE  X.MANDT = #G_MANDT#
+                              AND X.EL_TYPE = 'RA'
+                              AND X.LCD = '01'
+                              AND X.MCD = '09'
+                              AND X.SCD = '01'
+                          GROUP BY X.MANDT, X.POSID
+                      ) AS X9
+                   ON A.MANDT  = X9.MANDT
+                  AND A.HOGI = X9.POSID
+                  -- 앙카 BOLT 삽입 상태
+   LEFT JOIN (
+                        SELECT X.MANDT
+                                , X.POSID
+                                , SUM(CASE WHEN X.IMPRO = 'Y'
+                                            THEN 1
+                                            ELSE 0
+                                            END) AS CNT
+                                , DECODE(MAX(X.IMPRO), 'Y', 'v', NULL) AS IMPRO_YN
+                                , DECODE(MAX(X.MOD), 'Y', 'v', NULL) AS MOD_YN
+                            FROM  SAPHEE.ZQMT056 X
+                          WHERE  X.MANDT = #G_MANDT#
+                              AND X.EL_TYPE = 'RA'
+                              AND X.LCD = '01'
+                              AND X.MCD = '10'
+                              AND X.SCD = '01'
+                          GROUP BY X.MANDT, X.POSID
+                      ) AS X10
+                   ON A.MANDT  = X10.MANDT
+                  AND A.HOGI = X10.POSID
+                  -- 레일 브라켓 간격
+   LEFT JOIN (
+                        SELECT X.MANDT
+                                , X.POSID
+                                , SUM(CASE WHEN X.IMPRO = 'Y'
+                                            THEN 1
+                                            ELSE 0
+                                            END) AS CNT
+                                , DECODE(MAX(X.IMPRO), 'Y', 'v', NULL) AS IMPRO_YN
+                                , DECODE(MAX(X.MOD), 'Y', 'v', NULL) AS MOD_YN
+                            FROM  SAPHEE.ZQMT056 X
+                          WHERE  X.MANDT = #G_MANDT#
+                              AND X.EL_TYPE = 'RA'
+                              AND X.LCD = '01'
+                              AND X.MCD = '11'
+                              AND X.SCD = '01'
+                          GROUP BY X.MANDT, X.POSID
+                      ) AS X11
+                   ON A.MANDT  = X11.MANDT
+                  AND A.HOGI = X11.POSID                  
+	   WHERE A.ART = '8950'
+	   AND A.WERKS = '1000'
+	   AND A.SEQ = ( SELECT MAX(S.SEQ)  FROM  SAPHEE.ZQMT019 S WHERE S.MANDT=A.MANDT AND S.WERKS = A.WERKS AND S.PSPID = A.PSPID AND S.ART = A.ART AND S.HOGI = A.HOGI   )
+	   <isEqual col="CHK_RSLT" value="A">
+	   AND A.DSCODE IN ('A', 'C', 'E', 'H', 'J', 'K', 'M', 'N', 'O', 'R')
+	   </isEqual>
+	   <isEqual col="CHK_RSLT" value="B">
+	   AND A.DSCODE IN ('A', 'C', 'E', 'H', 'G', 'J', 'K', 'M', 'N', 'O', 'P', 'R')
+	   </isEqual>
+	   <isEqual col="CHK_RSLT" value="C">
+	   AND A.DSCODE IN ('A', 'B', 'C', 'D', 'E', 'H', 'J', 'K', 'M', 'N', 'O', 'R')
+	   </isEqual>
+	   <isEqual col="CHK_RSLT" value="D">
+	   AND A.DSCODE IN ('A', 'B', 'C', 'D', 'E', 'H', 'G', 'J', 'K', 'M', 'N', 'O', 'P', 'R')
+	   </isEqual>	   
+	   <isEqual col="EL_TYPE" value="A">
+	   AND M2.ZZGUBUN IN ('10', '13')
+	   </isEqual>
+	   <isEqual col="EL_TYPE" value="B">
+	   AND M2.ZZGUBUN IN ('11', '12', '14')
+	   </isEqual>
+	   <isNotNull col="PSPID">
+	   AND A.PSPID = #PSPID#
+	   </isNotNull>
+	   <isNotNull col="FR_DATE">
+	   AND A.PAPRDT BETWEEN #FR_DATE# AND #TO_DATE#
+	   </isNotNull>
+	   <isNotNull col="ZZACTSS">
+	   AND M2.ZZACTSS = #ZZACTSS#
+	   </isNotNull>
+	   <isNotNull col="LIFNR">
+	   AND M2.LIFNR = #LIFNR#
+	   </isNotNull>
+	   <isNotNull col="TMCD">
+	   AND M2.TEMNO2 = #TMCD#
+	   </isNotNull>
+ORDER BY A.PSPID, A.SEQ, M2.POSID_1
+WITH UR	   
+ 
+
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

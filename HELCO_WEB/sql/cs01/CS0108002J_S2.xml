@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[WBS별 MOD공정항목 내역]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>1</result-count>
+    <statement>
+        SELECT  
+        	    COD.CTEXT2 COD, 
+        	    CS414.WBS,
+        	    CS414.LIFNR,
+        	    CS412.CS412_NAM LIFNR_NM,
+        	    CS414.CYN,
+        	    CS414.JOBNAM,
+        	    CS414.JOBHP,
+        	    CS414.BEDAT,
+        	    CS414.CPDAT,
+        	    CS414.EXDAT,
+        	    CS414.RMK,
+        	    (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = CS414.MANDT AND USERNUMB = CS414.CID) CID,
+        	    CS414.CDT
+        FROM SAPHEE.ZCST001 CS001
+          INNER JOIN SAPHEE.ZCST414 CS414
+                  ON CS001.MANDT = CS414.MANDT
+                  AND CS001.PS_PSPID = CS414.WBS
+          INNER JOIN SAPHEE.ZCST412 CS412
+          		  ON CS414.MANDT = CS412.MANDT
+          		 AND CS414.LIFNR = CS412.LIFNR
+          INNER JOIN SAPHEE.ZLCODE COD
+                  ON CS414.MANDT = COD.MANDT 
+                  AND COD.LANG = 'ko'
+                  AND COD.CODE1 = 'CSPROC'
+                  AND COD.CODE2 = CS414.COD
+          LEFT OUTER JOIN SAPHEE.ZWBT010 WB010
+                  ON CS001.MANDT = WB010.MANDT
+                  AND CS001.BSU = WB010.LGORT          		             
+        WHERE CS001.MANDT= #G_MANDT#
+<isNotNull col="DATE_FM">
+		  AND CS414.BEDAT BETWEEN #DATE_FM# AND #DATE_TO#
+</isNotNull>
+<isNotNull col="UPN">
+		  AND CS001.UPN = #UPN#
+</isNotNull>
+<isNotNull col="ARA">
+   AND WB010.LGORT IN (SELECT LGORT FROM SAPHEE.ZMMT005 AS MM005
+                        WHERE MM005.MANDT = #G_MANDT# 
+                        AND MM005.REGKZ = #ARA#)
+</isNotNull>
+<isNotNull col="BSU">
+   AND WB010.LGORT = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+   AND WB010.BSU_PM = #BPM#
+</isNotNull>
+<isNull col="TEM">
+	<isNotNull col="DPT">
+	AND WB010.VKGRP IN (SELECT CODE2 AS CODE
+                       	FROM SAPHEE.ZLCODE
+                      	WHERE MANDT = #G_MANDT#
+                         AND LANG  = #G_LANG#
+                         AND CODE1 = 'VKGRP'
+                         AND DTEXT1 = #DPT#)
+	   		  </isNotNull>
+			</isNull>
+<isNotNull col="TEM">
+   AND WB010.VKGRP = #TEM#
+</isNotNull>
+ORDER BY CS414.WBS, COD.DTEXT4
+          FOR FETCH ONLY
+          WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_list2">
+    </output>
+</query>

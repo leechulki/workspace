@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.lib.dao.ZSDT0095D"> 
+	<resultMap id="selectMap" type="hdel.lib.domain.ZSDT0095">
+		<id property="mandt" column="mandt"/>
+		<id property="vbeln" column="vbeln"/>
+		<id property="lockflag" column="lockflag"/>
+		<id property="username" column="username"/>
+		<association property="tstmp" javaType="hdel.lib.domain.ZBCS_TIMESTAMP" resultMap="hdel.lib.dao.ZBCS_TIMESTAMP.TimeStampMap"/>
+	</resultMap>
+	<select id="select" parameterType="hdel.lib.domain.ZSDT0095" resultMap="selectMap">
+		select z95.mandt, z95.vbeln, z95.lockflag, z95.erdat, z95.erzet, z95.ernam, z95.aedat, z95.aezet, z95.aenam, zuserf.username
+		from saphee.zsdt0095 as z95
+			left join saphee.zuserf as zuserf on z95.mandt=zuserf.mandt and z95.aenam=zuserf.usernumb
+		where z95.mandt = #{mandt}
+		  and z95.vbeln = #{vbeln}
+		with ur
+	</select>
+	<update id="merge" parameterType="hdel.lib.domain.ZSDT0095">
+		merge into saphee.zsdt0095 as z095
+		using (
+			select * from table(
+				values (#{mandt}, #{vbeln}, #{lockflag})
+			) as (mandt, vbeln, lockflag)
+		) as z095set on z095.mandt=z095set.mandt and z095.vbeln=z095set.vbeln
+
+		when matched then
+			update
+			set
+				z095.lockflag = #{lockflag},
+				z095.aedat = #{tstmp.aedat},
+				z095.aezet = #{tstmp.aezet},
+				z095.aenam = #{tstmp.aenam}
+
+		when not matched then
+			insert (mandt, vbeln, lockflag, erdat, erzet, ernam, aedat, aezet, aenam)
+			values (z095set.mandt, z095set.vbeln, z095set.lockflag, #{tstmp.erdat}, #{tstmp.erzet}, #{tstmp.ernam}, #{tstmp.aedat}, #{tstmp.aezet}, #{tstmp.aenam})
+	</update>
+</mapper>

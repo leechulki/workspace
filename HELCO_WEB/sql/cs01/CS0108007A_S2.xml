@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[정합성 디테일 조회]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>1</result-count>
+    <statement>
+		SELECT A.MANDT
+		      ,A.CTYPE
+		      ,A.TYPE
+		      ,A.BLOCKNO AS BLOCKNO 
+		      ,A.MESSAGE AS MESSAGE
+		      ,B.BLOCKNOSEQ AS BLOCKNOSEQ
+		      ,B.ZORDER AS ZORDER
+		      ,B.SPEC AS SPEC
+		      ,B.CALCULAT AS CALCULAT
+		      ,B.CALCULATCK AS CALCULATCK
+		      ,B.DFLAG AS DFLAG
+		      ,A.TRANS AS TRANS
+        FROM   SAPHEE.ZCSTMATCHMS A
+               INNER JOIN SAPHEE.ZCSTMATCHDT B ON A.MANDT = B.MANDT
+                                              AND A.CTYPE = B.CTYPE
+                                              AND A.TYPE  = B.TYPE
+                                              AND A.BLOCKNO = B.BLOCKNO
+        WHERE  A.MANDT = #G_MANDT#
+        <isNotNull col="CTYPE">
+          AND  A.CTYPE = #CTYPE#
+        </isNotNull>
+        <isNotNull col="TYPE">
+          AND  A.TYPE = #TYPE#
+        </isNotNull>
+        <isNotNull col="TRANS">
+			<isEqual col="TRANS" value="N">
+			AND  A.TRANS = ''
+			</isEqual>
+			<isEqual col="TRANS" value="Y">
+			AND  A.TRANS = 'Y'
+			</isEqual>
+        </isNotNull>
+        <isNotNull col="DFLAG">
+			<isEqual col="DFLAG" value="Y">
+			AND  A.DFLAG = ''
+			</isEqual>
+			<isEqual col="DFLAG" value="N">
+			AND  A.DFLAG = 'N'
+			</isEqual>
+			<isEqual col="DFLAG" value="D">
+			AND  A.DFLAG = 'D'
+			</isEqual>
+        </isNotNull>
+        <isNotNull col="BLOCKNO">
+          AND  A.BLOCKNO LIKE '%' || #BLOCKNO# || '%'
+        </isNotNull>
+        <isNotNull col="MESSAGE">
+          AND  A.MESSAGE LIKE '%' || #MESSAGE# || '%'
+        </isNotNull>
+        <isNotNull col="BLOCKNOSEQ">
+          AND  B.BLOCKNOSEQ LIKE '%' || #BLOCKNOSEQ# || '%'
+        </isNotNull>
+        <isNotNull col="SPEC">
+          AND  A.CTYPE||A.BLOCKNO IN(
+                           SELECT X.CTYPE||Y.BLOCKNO 
+                           FROM   SAPHEE.ZCSTMATCHMS X
+                                  INNER JOIN SAPHEE.ZCSTMATCHDT Y ON X.MANDT = Y.MANDT AND X.CTYPE = Y.CTYPE AND X.TYPE = Y.TYPE AND X.BLOCKNO = Y.BLOCKNO
+                           WHERE  X.MANDT = #G_MANDT#
+					        <isNotNull col="CTYPE">
+					          AND X.CTYPE = #CTYPE#
+					        </isNotNull>
+					        <isNotNull col="TYPE">
+					          AND X.TYPE = #TYPE#
+					        </isNotNull>
+					          AND Y.SPEC LIKE '%' || #SPEC# || '%'
+				           GROUP BY X.CTYPE||Y.BLOCKNO 
+				           )
+        </isNotNull>
+        ORDER BY A.CTYPE, A.TYPE, A.BLOCKNO, B.BLOCKNOSEQ, B.ZORDER
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_zcstmatchdt">
+    </output>
+</query>

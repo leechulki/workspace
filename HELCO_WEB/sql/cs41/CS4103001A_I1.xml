@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>insert</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+INSERT
+       INTO SAPHEE.ZPST0305
+       (
+        MANDT,
+        POSID,
+        SPMON,
+        ZTYPE,
+        ISMNW,
+        LTXA1,
+        CDATE,
+        CNAME,
+        ZFLAG,
+        BSU
+       )
+
+       SELECT
+              MANDT                           MANDT,
+              POSID                           POSID,
+              CAST(#YYMM# AS CHAR(6))         SPMON,
+              ZTYPE                           ZTYPE,
+              DEC(ROUND(SUM(ISMNW),1),10,1)   ISMNW,
+              ''                              LTXA1,
+              HEX(CURRENT DATE)               CDATE,
+              CAST(#G_USER_NAME# AS CHAR(12)) CNAME,
+              ''                              ZFLAG,
+              BSU                             BSU
+         FROM 
+              (
+		           SELECT
+                   		MANDT                MANDT,
+                   		CS126_GNO            POSID,
+                   		--SUM(CS126_MLT)       ISMNW,
+                      SUM(CASE CS126_HEP WHEN '01' THEN CS126_MLT
+                                         WHEN '02' THEN CS126_MLT*0.5
+                                         WHEN '03' THEN CS126_MLT*0.33
+                                         ELSE CS126_MLT
+                               END )       ISMNW,
+                   		'3'                  ZTYPE,
+                   		MAX(CS126.CS126_BSU) BSU
+		             FROM 
+		                  SAPHEE.ZCST126 CS126
+		            WHERE 
+		                  MANDT = #G_MANDT#
+		              AND CS126_TGB = '1'
+		              AND CS126_GNO > ''
+		              AND CS126_DDT = ''
+		              AND CS126_PST = 'A6'
+		              AND CS126_SLA = 'N'
+                  AND SUBSTR(CS126_HNO,1,1) NOT IN ('J','G')
+		              AND CS126_UGS &lt; #YYMM# || '32'
+		              AND CS126_UHJ > #YYMM# || '00'
+		              AND CS126_PJT||CS126_HNO NOT IN (SELECT CS200_PJT||CS200_HNO FROM SAPHEE.ZCST200 WHERE MANDT = #G_MANDT# AND CS200_FSG = 'Y' AND CS200_MLT > 0 AND CS200_YMD = #YYMM#)
+		           GROUP BY 
+		                  MANDT,
+		                  CS126_GNO
+
+		           UNION ALL
+
+		           SELECT
+                   		MANDT                MANDT,
+                   		CS116_GNO            POSID,
+                   		SUM(CS116_MLT)       ISMNW,
+                   		'2'                  ZTYPE,
+                   		MAX(CS116.CS116_BSU) BSU
+		             FROM 
+		                  SAPHEE.ZCST116 CS116
+		            WHERE 
+		                  MANDT = #G_MANDT#
+		              AND CS116_TGB = '1'
+		              AND CS116_GNO > ''
+		              AND CS116_PST = 'A6'
+                  AND SUBSTR(CS116_HNO,1,1) NOT IN ('J','G')
+		              AND CS116_BGT &lt; #YYMM# || '32'
+		              AND CS116_BHD > #YYMM# || '00'
+		              AND CS116_PJT||CS116_HNO NOT IN (SELECT CS200_PJT||CS200_HNO FROM SAPHEE.ZCST200 WHERE MANDT = #G_MANDT# AND CS200_FSG = 'Y' AND CS200_MLT > 0 AND CS200_YMD = #YYMM#)
+		           GROUP BY 
+		                  MANDT,
+		                  CS116_GNO
+
+		           UNION ALL
+
+		           SELECT
+                   		MANDT                MANDT,
+                   		CS116_GNO            POSID,
+                   		SUM(CS116_MLT * 0.2) ISMNW,
+                   		'2'                  ZTYPE,
+                   		MAX(CS116.CS116_BSU) BSU
+		             FROM 
+		                  SAPHEE.ZCST116 CS116,
+		                  (
+                       SELECT
+                              A.PJT,
+                              A.HNO,
+                              A.BGT
+                         FROM
+                              (
+                               SELECT
+                                      CS116_PJT PJT,
+                                      CS116_HNO HNO,
+                                      MIN(CS116_BGT) BGT
+                                 FROM
+                                      SAPHEE.ZCST116
+                                WHERE
+                                      MANDT = #G_MANDT#
+                                  AND CS116_TGB = '1'
+                                  AND CS116_GNO > ''
+                                  AND CS116_PST = 'A6'
+                                  AND CS116_GND = 'B'
+                                  AND SUBSTR(CS116_HNO,1,1) IN ('L','S','W')
+                                  AND CS116_BGT &lt; #YYMM# || '32'
+                                  AND CS116_BMT > #YYMM# || '00'
+                               GROUP BY
+                                      CS116_PJT,
+                                      CS116_HNO
+                              ) A,
+                              SAPHEE.ZCST116 B
+                        WHERE
+                              B.MANDT = #G_MANDT#
+                          AND B.CS116_PJT = A.PJT
+                          AND B.CS116_HNO = A.HNO
+                          AND B.CS116_BGT = A.BGT
+                          AND B.CS116_TGB = '1'
+                          AND B.CS116_GNO > ''
+                          AND B.CS116_PST = 'A6'
+                          AND B.CS116_GND = 'B'
+                          AND SUBSTR(B.CS116_HNO,1,1) IN ('L','S','W')
+                          AND B.CS116_BGT &lt; #YYMM# || '32'
+                          AND B.CS116_BMT > #YYMM# || '00'
+                          AND SAPHEE.MONTH_BETWEEN(B.CS116_BGT,HEX(DATE(SAPHEE.GET_DATE_FORMAT(#YYMM#||'01')) + 1 MONTH - 1 DAY),'2') &lt;= 3
+		                  ) A
+		            WHERE 
+		                  MANDT = #G_MANDT#
+		              AND CS116_PJT = A.PJT
+		              AND CS116_HNO = A.HNO
+		              AND CS116_BGT = A.BGT
+		              AND CS116_TGB = '1'
+		              AND CS116_GNO > ''
+		              AND CS116_PST = 'A6'
+		              AND CS116_BGT &lt; #YYMM# || '32'
+		              AND CS116_BHD > #YYMM# || '00'
+		              AND CS116_PJT||CS116_HNO NOT IN (SELECT CS200_PJT||CS200_HNO FROM SAPHEE.ZCST200 WHERE MANDT = #G_MANDT# AND CS200_FSG = 'Y' AND CS200_MLT > 0 AND CS200_YMD = #YYMM#)
+		           GROUP BY 
+		                  MANDT,
+		                  CS116_GNO
+
+		           UNION ALL
+
+		           SELECT
+		                  A.MANDT,
+		                  A.POSID,
+		                  SUM(A.ISMNW) ISMNW,
+		                  A.ZTYPE,
+		                  A.BSU
+		             FROM
+		                  (
+		                   SELECT
+                         		  CS126.MANDT                         MANDT,
+                         		  CS126_GNO                           POSID,
+                         		  CS126_PJT                           PJT,
+                         		  CS126_HNO                           HNO,
+                         		  CS126_MLT + (CS126_MLT * CS200_MLT) ISMNW,
+                         		  '3'                                 ZTYPE,
+                         		  CS126.CS126_BSU                     BSU
+		                     FROM 
+		                          SAPHEE.ZCST126 CS126,
+		                          SAPHEE.ZCST200 CS200
+		                    WHERE 
+		                          CS126.MANDT = #G_MANDT#
+		                      AND CS126_TGB = '1'
+		                      AND CS126_GNO > ''
+		                      AND CS126_DDT = ''
+		                      AND CS126_PST = 'A6'
+		                      AND CS126_SLA = 'N'
+		                      AND CS126_UGS &lt; #YYMM# || '32'
+		                      AND CS126_UHJ > #YYMM# || '00'
+		                      AND CS126.MANDT = CS200.MANDT
+		                      AND CS126.CS126_PJT = CS200.CS200_PJT
+		                      AND CS126.CS126_HNO = CS200.CS200_HNO
+		                      AND CS200_FSG = 'Y'
+		                      AND CS200_MLT > 0
+		                      AND CS200_YMD = #YYMM#
+		                  ) A
+		           GROUP BY 
+		                  A.MANDT,
+		                  A.POSID,
+		                  A.ZTYPE,
+		                  A.BSU
+
+		           UNION ALL
+
+		           SELECT
+		                  A.MANDT,
+		                  A.POSID,
+		                  SUM(A.ISMNW) ISMNW,
+		                  A.ZTYPE,
+		                  A.BSU
+		             FROM
+		                  (
+		                   SELECT
+                         		  CS116.MANDT                         MANDT,
+                         		  CS116_GNO                           POSID,
+                         		  CS116_PJT                           PJT,
+                         		  CS116_HNO                           HNO,
+                         		  CS116_MLT + (CS116_MLT * CS200_MLT) ISMNW,
+                         		  '3'                                 ZTYPE,
+                         		  CS116.CS116_BSU                     BSU
+		                     FROM SAPHEE.ZCST116 CS116,
+		                          SAPHEE.ZCST200 CS200
+		                    WHERE 
+		                          CS116.MANDT = #G_MANDT#
+		                      AND CS116_TGB = '1'
+		                      AND CS116_GNO > ''
+		                      AND CS116_PST = 'A6'
+		                      AND CS116_BGT &lt; #YYMM# || '32'
+		                      AND CS116_BHD > #YYMM# || '00'
+		                      AND CS116.MANDT = CS200.MANDT
+		                      AND CS116.CS116_PJT = CS200.CS200_PJT
+		                      AND CS116.CS116_HNO = CS200.CS200_HNO
+		                      AND CS200_FSG = 'Y'
+		                      AND CS200_MLT > 0
+		                      AND CS200_YMD = #YYMM#
+		                  ) A
+		           GROUP BY 
+		                  A.MANDT,
+		                  A.POSID,
+		                  A.ZTYPE,
+		                  A.BSU
+	            ) AS CS126
+	     GROUP BY
+	            CS126.MANDT,
+	            CS126.POSID,
+	            CS126.ZTYPE,
+	            CS126.BSU	</statement>
+	<input default-name="ds_cond_copy">
+		<col name="YYMM" size="255" type="VARCHAR" description="" /> 
+		<col name="G_USER_NAME" size="255" type="VARCHAR" description="" /> 
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

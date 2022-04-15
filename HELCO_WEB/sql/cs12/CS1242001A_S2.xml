@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+       A.FLAG,
+       A.CHK,
+       A.GNO,
+       A.HIS,
+       A.MDT,
+       MAX(A.ARA) ARA,
+       MAX(A.ARA_NM) ARA_NM,
+       MAX(A.TEM) TEM,
+       MAX(A.TEM_NM) TEM_NM,
+       MAX(A.BSU) BSU,
+       MAX(A.BSU_NM) BSU_NM,
+       MAX(A.SPT) SPT,
+       MAX(A.NAM) NAM,
+       MAX(A.GKD) GKD,
+       (CASE MIN(A.GKD) WHEN '0' THEN '갱신계약' WHEN '1' THEN '전환계약' WHEN '4' THEN '실패회수' WHEN '5' THEN '타사신규' ELSE MIN(A.GKD) END) GKD_NM,
+       MAX(A.CNT) CNT,
+       MAX(A.ADT) ADT,
+       MAX(A.USD) USD,
+       MAX(A.UMR) UMR,
+       MAX(A.AMT) AMT,
+       MAX(A.PST) PST,
+       MAX(A.PST_NM) PST_NM,
+       MAX(A.GBN_NM) GBN_NM,
+       MAX(A.RMK) RMK,
+       A.DOCNO,
+       A.APSTAT,
+       MAX(A.BDGBN) AS BDGBN
+  FROM
+       (
+        SELECT
+               '' FLAG,
+               '' CHK,
+               A.CS402_GNO GNO,
+               A.CS402_HIS HIS,
+               A.CS402_MDT MDT,
+               MAX(B.CS126_ARA) ARA,
+               MAX(D.CTEXT2) ARA_NM,
+               MAX(F.CODE2) TEM,
+               MAX(F.CTEXT2) TEM_NM,
+               MAX(B.CS126_BSU) BSU,
+               MAX(E.ABR_NM) BSU_NM,
+               MAX(C.CS121_SPT) SPT,
+               MAX(C.CS121_NAM) NAM,
+               (CASE B.CS126_GKD WHEN '2' THEN '0' ELSE B.CS126_GKD END) GKD,
+               (SELECT COUNT(*) FROM SAPHEE.ZCST402 B WHERE B.MANDT = #G_MANDT# AND B.CS402_GNO = A.CS402_GNO AND B.CS402_HIS = A.CS402_HIS) CNT,
+               MAX(B.CS126_ADT) ADT,
+               MAX(B.CS126_USD) USD,
+               MAX(B.CS126_UMR) UMR,
+               SUM(A.CS402_AMT+A.CS402_HMT+A.CS402_DMT+A.CS402_ACMT) AMT,
+               MAX(A.CS402_PST) PST,
+               CASE MAX(A.CS402_PST) WHEN 'A1' THEN '작성' WHEN 'A6' THEN '승인' WHEN 'A7' THEN '삭제' END PST_NM,
+               (SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = #G_MANDT# AND CODE1 = 'CS184' AND LANG = 'ko' AND CODE2 = MAX(A.CS402_GBN)) GBN_NM,
+               '' RMK,
+               G.DOCNO,
+               G.APSTAT,
+               MAX(DECODE(B.CS126_BDGBN,'X','1','')) AS BDGBN
+          FROM
+               SAPHEE.ZCST402 A
+               		  LEFT OUTER JOIN SAPHEE.ZWBAP01 G
+                                   ON A.MANDT = G.MANDT
+                                  AND A.CS402_DOC = G.DOCNO,
+               SAPHEE.ZCST126 B,
+               SAPHEE.ZCST121 C,
+               SAPHEE.ZLCODE D,
+               SAPHEE.ZWBT010 E
+                      LEFT OUTER JOIN SAPHEE.ZLCODE F
+                                   ON E.MANDT = F.MANDT
+                                  AND E.VKGRP = F.CODE2
+                                  AND F.CODE1 = 'VKGRP'
+                                  AND F.LANG = 'ko' 
+         WHERE
+               A.MANDT = #G_MANDT#
+           AND A.MANDT = B.MANDT
+           AND A.CS402_GNO = B.CS126_GNO
+           AND A.CS402_UPN = B.CS126_UPN
+           AND A.CS402_CST = B.CS126_CST
+           AND A.CS402_PJT = B.CS126_PJT
+           AND A.CS402_HNO = B.CS126_HNO
+           AND B.MANDT = C.MANDT
+           AND B.CS126_UPN = C.CS121_UPN
+           AND B.CS126_CST = C.CS121_CST
+           AND B.MANDT = D.MANDT
+           AND B.CS126_ARA = D.CODE2
+           AND D.CODE1 = 'CS115'
+           AND D.LANG = #G_LANG#
+           AND B.MANDT = E.MANDT
+           AND B.CS126_BSU = E.LGORT
+           AND B.CS126_DDT = ''
+           AND B.CS126_PST = 'A6'
+           AND B.CS126_GND IN ('C','D')
+           AND A.CS402_USE = 'Y'
+           AND A.CS402_PST != 'A7'
+           AND A.CS402_PST = 'A1'
+           AND G.APSTAT NOT IN ('2', '5')
+        <isNotNull col="GNO">
+           AND A.CS402_GNO = #GNO#
+        </isNotNull>
+        <isNotNull col="UPN">
+           AND A.CS402_UPN = #UPN#
+        </isNotNull>
+        <isNotNull col="CST">
+           AND A.CS402_CST = #CST#
+        </isNotNull>
+        <isNotNull col="ARA">
+           AND B.CS126_ARA = #ARA#
+        </isNotNull>
+        <isNotNull col="BSU">
+           AND B.CS126_BSU = #BSU#
+        </isNotNull>
+        <isNotNull col="BPM">
+           AND B.CS126_BPM = #BPM#
+        </isNotNull>
+        <isNotNull col="TEM">
+           AND E.VKGRP = #TEM#
+        </isNotNull>
+        <isEqual col="JPGBN" value="1">
+           AND SUBSTR(A.CS402_HNO,1,1) IN ('L','S','W')
+        </isEqual>
+        <isEqual col="JPGBN" value="2">
+           AND SUBSTR(A.CS402_HNO,1,1) IN ('J','G')
+        </isEqual>
+        GROUP BY
+               A.CS402_GNO,
+               A.CS402_HIS,
+               A.CS402_MDT,
+               B.CS126_GKD,
+               G.DOCNO,
+               G.APSTAT
+       ) A
+GROUP BY
+       A.FLAG,
+       A.CHK,
+       A.GNO,
+       A.HIS,
+       A.MDT,
+       A.DOCNO,
+       A.APSTAT
+ORDER BY A.MDT
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

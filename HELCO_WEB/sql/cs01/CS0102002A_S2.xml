@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[자재 청구별 승인 조회-detail]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--2020.09.18 srm에서 실행시와  sql 유틸리티에서 동일 sql을 실행시 실행시간이 상이하여 튜닝이 불가함	
+SELECT * 
+FROM (
+	SELECT 
+        '' AS CHECK
+		, (SELECT MAX(M31.REQNO) FROM SAPHEE.ZMMT031 AS M31
+								WHERE M31.MANDT = #G_MANDT#
+								AND M31.REQNR = MM001.REQNR) AS REQNO
+		, MM001.REQNR AS REQNR
+		, MM001.BANFN AS BANFN
+		, MM001.BNFPO AS BNFPO
+		--, SAPHEE.GET_ZERODATE(MM001.BUDAT) AS BUDAT
+		, SAPHEE.GET_ZERODATE(MM017.BUDAT) AS BUDAT -- 2021.06.24 입고일 대상 테이블 변경. 지사입고일이 아닌 현대입고일임. 서비스 자재팀 김태한 요청. Han JH
+		, MM001.BUSSI AS BUSSI
+		, MM001.BWTAR AS BWTAR
+		, MM001.CHAR1 AS CHAR1
+		, SAPHEE.GET_ZERODATE(MM001.DEL_DATE) AS DEL_DATE
+		, SAPHEE.GET_ZERODATE(MM001.DEL_TIME) AS DEL_TIME
+		, MM001.LGORT AS LGORT
+		, SAPHEE.GET_VENDER_NAME(MM001.MANDT, MM001.LGORT) AS LGORT1
+		, SAPHEE.GET_VENDER_NAME(MM001.MANDT,MM001.LIFNR) AS LIFNR
+		, MM001.MAKTX AS MAKTX
+		, MM001.MANDT AS MANDT
+		, MM001.MATNR AS MATNR
+		, MM001.MBLNR AS MBLNR
+		, MM001.MBLNR2 AS MBLNR2
+		, MM001.MBLNR3 AS MBLNR3
+		, MM001.MBLNR4 AS MBLNR4
+		, MM001.MBLNR5 AS MBLNR5
+		, MM001.MBLNR6 AS MBLNR6
+		, MM001.MBLNR7 AS MBLNR7
+		, MM001.MBLNR8 AS MBLNR8
+		, MM001.MBLNR9 AS MBLNR9
+		, MM001.MEINS AS MEINS
+		, MM001.MENGE AS MENGE
+		, MM001.MMPR_DEL AS MMPR_DEL
+		, MM001.MMPR_REL AS MMPR_REL
+		, MM001.MTART AS MTART
+		, CASE WHEN VALUE(QM.JQPRNO,'') = '' THEN MM001.POSID ELSE QM.JQPRNO END AS POSID
+		, MM001.POSID2 AS POSID2
+		, MM001.POSID7 AS POSID7
+		, MM001.PRICE AS PRICE
+		, MM001.PS_PSP_PNR AS PS_PSP_PNR
+		, MM001.RDATE AS RDATE -- 2021.06.18 출고요청일로 명칭 변경. 서비스자재팀 김태한 요청. J.H Han 
+		, SAPHEE.GET_ZERODATE(MM001.REQDATE) AS REQDATE
+		, SAPHEE.GET_ZERODATE(MM001.RECE_DATE) AS RECE_DATE
+		, MM001.RECE_F AS RECE_F
+		, SAPHEE.GET_ZERODATE(MM001.RECE_TIME) AS RECE_TIME
+		, MM001.REQITEM AS REQITEM
+		, MM001.REQKIND AS REQKIND
+		, MM001.REQKIND2 AS REQKIND2
+		, MM001.STATE AS STATE
+		, SAPHEE.GET_ZERODATE(MM001.YDATE) AS YDATE
+		, SAPHEE.GET_ZERODATE(MM001.BUDAT3) AS BUDAT3
+		, SAPHEE.GET_ZERODATE(MM001.BUDAT4) AS BUDAT4
+		, SAPHEE.GET_ZERODATE(MM001.BUDAT5) AS BUDAT5
+		, SAPHEE.GET_ZERODATE(MM001.BUDAT6) AS BUDAT6
+		, MM001.SERIO AS SERIO
+		, CASE WHEN ( 
+ 		        SELECT MM004A.MATNR FROM SAPHEE.ZMMT004 AS MM004A
+		               WHERE MM004A.MANDT = MM001.MANDT 
+		               AND MM004A.MATNR = MM001.MATNR
+		               AND MM004A.WERKS != '') IS NULL THEN '0' ELSE '1' END AS BANNAB -- 2019.07.24 ZMMT004 반납자재 듀플로 인한 조인조건 보완
+		, VALUE((SELECT SUM(PRLAB) FROM SAPHEE.ZMMT018 AS MM018 
+		      WHERE MM018.MANDT = MM001.MANDT 
+                                             AND MM018.WERKS = '2000'
+			   AND MM018.LGORT ='9000'
+			   AND MM018.MATNR = MM001.MATNR 
+			   AND MM018.CHARG = MM001.BWTAR 
+			   GROUP BY MM018.MATNR, MM001.BWTAR),0) AS PRLAB1
+		, VALUE((SELECT SUM(PRLAB) FROM SAPHEE.ZMMT018 AS MM018 
+		      WHERE MM018.MANDT = MM001.MANDT 
+                                             AND MM018.WERKS IN (SELECT WERKS FROM SAPHEE.ZMMT005 WHERE MANDT= MM001.MANDT AND LGORT = MM001.LGORT ) 
+			   AND MM018.LGORT =MM001.LGORT
+			   AND MM018.MATNR = MM001.MATNR 
+			   AND MM018.CHARG = MM001.BWTAR 
+			   GROUP BY MM018.MATNR, MM001.BWTAR), 0) AS PRLAB2
+		, EA.EBELN AS EBELN
+    , (SELECT MAX(CS121_SPT) FROM SAPHEE.ZCST121 WHERE MANDT = '183' 
+ 	         AND SUBSTR(MM001.POSID,1,6) = CS121_UPN
+ 	         AND CS121_CST = ''	) AS SPT
+ 	  , (SELECT MAX(USER.USERNAME) FROM SAPHEE.ZMMT031 AS M31
+ 	               LEFT OUTER JOIN SAPHEE.ZUSERF AS USER ON M31.MANDT= USER.MANDT
+ 	                                                    AND M31.CREID = USER.USERNUMB 	       
+	                         WHERE M31.MANDT = #G_MANDT#
+	                           AND M31.REQNR = MM001.REQNR
+	                           AND M31.REQITEM = MM001.REQITEM) AS CREID_N
+		, CASE
+		    WHEN MM013.LIFNR = '2148898192' THEN TO_CHAR((TO_DATE(MM013M.UDATE,'YYYYMMDD') + 2 DAYS),'YYYYMMDD')  -- 마운트직발주 납기일 + 2일
+	        ELSE TO_CHAR((TO_DATE(MM013.UDATE,'YYYYMMDD') + 2 DAYS),'YYYYMMDD')                                   -- 현대직발주   납기일 + 2일
+	      END AS CBSDT -- 출고가능일	                           
+	 FROM SAPHEE.ZMMT001 AS MM001
+	 LEFT OUTER JOIN SAPHEE.EBAN AS EA ON MM001.MANDT = EA.MANDT
+	                AND MM001.BANFN = EA.BANFN
+	                AND MM001.BNFPO = EA.BNFPO
+	 LEFT OUTER JOIN SAPHEE.ZMMT013 AS MM013 ON MM013.MANDT = EA.MANDT -- 20210618 출고가능일을 구하기 위한 PO 테이블 조인 추가. 서비스자재팀 김태한 요청. J.H Han
+	                AND MM013.EBELN = EA.EBELN
+	                AND MM013.EBELP = EA.EBELP
+	                AND MM013.STATE &lt;&gt; '3'
+ 	 LEFT OUTER JOIN SAPHEE.ZMMT013_M AS MM013M ON MM013M.MANDT = MM013.MANDT -- 20210618 출고가능일을 구하기 위한 PO 테이블 조인 추가. 서비스자재팀 김태한 요청. J.H Han
+ 	                AND MM013M.EBELN = MM013.EBELN
+ 	                AND MM013M.EBELP = MM013.EBELP
+ 	                AND MM013M.STATE &lt;&gt; '3'
+	 LEFT OUTER JOIN SAPHEE.ZMMT017 AS MM017 ON MM017.MANDT = EA.MANDT -- 20210624 입고일을 구하기 위한 테이블 조인 추가. 전성우 책임 조언. 서비스자재팀 김태한 요청. J.H Han
+	                AND MM017.EBELN = EA.EBELN
+	                AND MM017.EBELP = EA.EBELP
+	                AND MM017.DEL_DATE = '00000000' -- 20210726 삭제된 데이터 필터링 처리. 정연재 사원 조언. 서비스자재팀 김석화 요청. J.H Han 	                	                
+	 LEFT OUTER JOIN SAPHEE.ZQMT007 AS QM ON MM001.MANDT = QM.MANDT
+	               AND MM001.REQNR = QM.REQNR
+	               AND QM.JQPRNUM LIKE '_%'
+
+	 WHERE MM001.MANDT = #G_MANDT#
+	
+	 <isNotNull col="REQNO">
+	    AND MM001.REQNR = ( SELECT MAX(REQNR) FROM SAPHEE.ZMMT031 
+	                 WHERE MANDT = #G_MANDT# 
+	                  AND REQNO = #REQNO# GROUP BY REQNR )
+	 </isNotNull>
+
+	 <isNull col="REQNO">
+	    AND MM001.REQNR LIKE '_%'
+	 </isNull>
+
+	 <isNotNull col="RECE_F">
+                   AND MM001.RECE_F = #RECE_F#
+	 </isNotNull>
+	
+	<isEqual col="GBN" value="A">
+	   AND MM001.LGORT = #G_VEND_CODE_R#
+	</isEqual>
+	<isEqual col="GBN" value="B">
+	   AND MM001.LGORT = #CB3#
+	</isEqual>
+	<isEqual col="GBN" value="C">
+	   AND MM001.LGORT IN (SELECT LGORT FROM SAPHEE.ZMMT005 
+	                      WHERE MANDT = #G_MANDT# 
+	                      AND PERNR = #CB2#)
+	</isEqual>
+	<isEqual col="GBN" value="D">
+	   AND MM001.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+		                      WHERE B010.MANDT = MM005.MANDT
+		                      AND B010.LIFNR = MM005.LIFNR
+                                                  AND B010.MANDT= #G_MANDT# 
+		                      AND B010.VKGRP  LIKE #CB2# || '%')
+	</isEqual>
+	<isEqual col="GBN" value="E">
+	   AND MM001.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+		                      WHERE B010.MANDT = MM005.MANDT
+		                      AND B010.LIFNR = MM005.LIFNR
+                                                  AND B010.MANDT= #G_MANDT# 
+		                      AND B010.VKGRP  LIKE #CB2# || '%')
+	</isEqual>
+
+
+--===============================	
+	<isEqual col="GBN" value="F">
+	   AND MM001.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+		                      WHERE B010.MANDT = MM005.MANDT
+		                      AND B010.LIFNR = MM005.LIFNR
+                                                  AND B010.MANDT= #G_MANDT# 
+		                      AND SUBSTR(B010.VKGRP,1,2) = SUBSTR(#CB2#,1,2) )
+	</isEqual>	
+
+	<isEqual col="GBN" value="G">
+	   AND MM001.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+		                      WHERE B010.MANDT = MM005.MANDT
+		                      AND B010.LIFNR = MM005.LIFNR
+                                                  AND B010.MANDT= #G_MANDT# 
+		                      AND B010.VKGRP = #CB3# )
+	</isEqual>
+--=================================	
+
+	
+	 <isNotNull col="MATNR">
+	    AND MM001.MATNR LIKE  '%'||#MATNR#||'%'
+	 </isNotNull>
+	
+	 <isNotNull col="APDAT_TO">
+	    AND MM001.RECE_DATE BETWEEN  #APDAT_FM# AND #APDAT_TO#
+	 </isNotNull>
+	
+	 <isNotNull col="BWTAR">
+	    AND MM001.BWTAR =  #BWTAR#
+	 </isNotNull>
+	
+	 <isNotNull col="REQDATE_TO">
+	    AND MM001.REQDATE BETWEEN  #REQDATE_FM# AND #REQDATE_TO#
+	 </isNotNull>
+	
+	 <isNotNull col="REQKIND">
+	    AND MM001.REQKIND =  #REQKIND#
+	 </isNotNull>
+	
+	 <isNotNull col="PJT">
+	    AND MM001.POSID LIKE '%'||#PJT#||'%'
+	 </isNotNull>
+	
+	 <isNotNull col="STATE">
+	    AND MM001.STATE = #STATE#
+	 </isNotNull>
+	
+	<isEqual col="STPO" value="1">
+	    AND EA.LOEKZ = 'X'   AND EA.EBELN = ''
+	</isEqual>
+	<isEqual col="STPO" value="2">
+	    AND EA.LOEKZ &lt;&gt; 'X'   AND EA.EBELN = ''
+	</isEqual>
+	<isEqual col="STPO" value="3">
+	    AND EA.LOEKZ &lt;&gt; 'X'   AND EA.EBELN &lt;&gt; ''
+	</isEqual>
+	<isEqual col="STPO" value="4">
+	    AND MM001.MBLNR &lt;&gt; ''
+	</isEqual>
+
+	 <isNotNull col="POSID">
+	    AND (MM001.REQNR,MM001.REQITEM) IN (
+                              SELECT REQNR,REQITEM 
+                                 FROM SAPHEE.ZMMT031 
+                               WHERE MANDT = #G_MANDT# AND POSID LIKE '%'||#POSID#||'%')
+	 </isNotNull>
+
+) AS T
+ WHERE 1=1
+	 <isNotNull col="CREID_N">
+	    AND T.CREID_N =  #CREID_N#
+	 </isNotNull>
+ <isNotNull col="BANNAB">
+    AND T.BANNAB =  #BANNAB#
+ </isNotNull>
+  FOR FETCH ONLY
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="REQNO" size="255" type="VARCHAR" description="" /> 
+		<col name="RECE_F" size="255" type="VARCHAR" description="" /> 
+		<col name="G_VEND_CODE" size="255" type="VARCHAR" description="" /> 
+		<col name="CB3" size="255" type="VARCHAR" description="" /> 
+		<col name="CB2" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="255" type="VARCHAR" description="" /> 
+		<col name="APDAT_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="APDAT_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="BWTAR" size="255" type="VARCHAR" description="" /> 
+		<col name="REQDATE_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="REQDATE_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="REQKIND" size="255" type="VARCHAR" description="" /> 
+		<col name="PJT" size="255" type="VARCHAR" description="" /> 
+		<col name="STATE" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="BANNAB" size="255" type="VARCHAR" description="" /> 
+		<col name="GBN" size="255" type="VARCHAR" description="" /> 
+		<col name="STPO" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="BANFN" size="30" type="VARCHAR" description="" /> 
+		<col name="BANNAB" size="1" type="VARCHAR" description="" /> 
+		<col name="BNFPO" size="15" type="VARCHAR" description="" /> 
+		<col name="BUDAT" size="8" type="VARCHAR" description="" /> 
+		<col name="BUDAT3" size="8" type="VARCHAR" description="" /> 
+		<col name="BUDAT4" size="8" type="VARCHAR" description="" /> 
+		<col name="BUDAT5" size="8" type="VARCHAR" description="" /> 
+		<col name="BUDAT6" size="8" type="VARCHAR" description="" /> 
+		<col name="BUSSI" size="3" type="VARCHAR" description="" /> 
+		<col name="BWTAR" size="30" type="VARCHAR" description="" /> 
+		<col name="CHAR1" size="300" type="VARCHAR" description="" /> 
+		<col name="DEL_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="DEL_TIME" size="8" type="VARCHAR" description="" /> 
+		<col name="EBELN" size="30" type="VARCHAR" description="" /> 
+		<col name="LGORT" size="12" type="VARCHAR" description="" /> 
+		<col name="LGORT1" size="100" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="100" type="VARCHAR" description="" /> 
+		<col name="MAKTX" size="120" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MBLNR" size="30" type="VARCHAR" description="" /> 
+		<col name="MBLNR2" size="30" type="VARCHAR" description="" /> 
+		<col name="MBLNR3" size="30" type="VARCHAR" description="" /> 
+		<col name="MBLNR4" size="30" type="VARCHAR" description="" /> 
+		<col name="MBLNR5" size="30" type="VARCHAR" description="" /> 
+		<col name="MBLNR6" size="30" type="VARCHAR" description="" /> 
+		<col name="MBLNR7" size="30" type="VARCHAR" description="" /> 
+		<col name="MBLNR8" size="30" type="VARCHAR" description="" /> 
+		<col name="MBLNR9" size="30" type="VARCHAR" description="" /> 
+		<col name="MEINS" size="9" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="15" type="NUMERIC" description="" /> 
+		<col name="MMPR_DEL" size="3" type="VARCHAR" description="" /> 
+		<col name="MMPR_REL" size="3" type="VARCHAR" description="" /> 
+		<col name="MTART" size="12" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POSID2" size="72" type="VARCHAR" description="" /> 
+		<col name="POSID7" size="72" type="VARCHAR" description="" /> 
+		<col name="PRICE" size="3" type="VARCHAR" description="" /> 
+		<col name="PRLAB1" size="33" type="NUMERIC" description="" /> 
+		<col name="PRLAB2" size="33" type="NUMERIC" description="" /> 
+		<col name="PS_PSP_PNR" size="72" type="VARCHAR" description="" /> 
+		<col name="RDATE" size="24" type="VARCHAR" description="" /> 
+		<col name="RECE_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="RECE_F" size="3" type="VARCHAR" description="" /> 
+		<col name="RECE_TIME" size="8" type="VARCHAR" description="" /> 
+		<col name="REQDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="REQITEM" size="15" type="VARCHAR" description="" /> 
+		<col name="REQKIND" size="3" type="VARCHAR" description="" /> 
+		<col name="REQKIND2" size="3" type="VARCHAR" description="" /> 
+		<col name="REQNR" size="30" type="VARCHAR" description="" /> 
+		<col name="SERIO" size="150" type="VARCHAR" description="" /> 
+		<col name="STATE" size="3" type="VARCHAR" description="" /> 
+		<col name="YDATE" size="8" type="VARCHAR" description="" /> 
+	</output>
+</query>

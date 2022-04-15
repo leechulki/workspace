@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	<![CDATA[
+		  SELECT TOT_AMT
+		      , REQ_AMT
+		      , TOT_AMT - REQ_AMT + CA AS REM_AMT
+		      --, ROUND((1 - ((TOT_AMT + CA) * 1.000) / TOT_AMT  ) * 100, 1) AS PER_AMT
+			  , CASE
+			  	  WHEN TOT_AMT != '0' THEN ROUND((1 - ((TOT_AMT + CA) * 1.000) / TOT_AMT  ) * 100, 1)
+				  ELSE  CAST('0' AS INTEGER)
+				END AS PER_AMT -- 인하율 구할때 총금액을 0으로 나누면 에러나는 현상 해결. 2019.07.04 Han J.H
+		  	FROM (
+					SELECT SUM(TOT_AMT) AS TOT_AMT
+					      , SUM(REQ_AMT) AS REQ_AMT
+					      , CAST(#CA# AS INTEGER) AS CA
+					  FROM
+						  (SELECT 
+							    A.CS126_GNO AS GNO
+							  	, A.CS126_UPN AS UPN 
+							  	, A.CS126_CST AS CST 
+							    , A.CS126_HNO
+							    , (CS126_AMT + CS126_HMT + CS126_DMT + CS126_ACMT) * CS126_UMS AS TOT_AMT -- 공기청정기 추가 20200515 Han.JH
+							    , VALUE(B.REQ_AMT,0) AS REQ_AMT
+							  FROM SAPHEE.ZCST126 AS A 
+							          LEFT OUTER JOIN (  SELECT SUM(CS131_AMT + CS131_HMT + CS131_DMT + CS131_ACMT) AS REQ_AMT -- 공기청정기 추가 20200515 Han.JH
+								                                , CS131_GNO 
+								                                , CS131_PJT
+								                                , CS131_HNO
+								                           FROM SAPHEE.ZCST131 
+							                              WHERE MANDT = #G_MANDT# 
+							                                AND CS131_UPN = #UPN# 
+							                                AND CS131_CST = #CST# 
+							                                AND CS131_GND = 'D'
+							                                AND CS131_MYB = ''
+							                                AND CS131_TIS > ''
+							                              GROUP BY CS131_GNO, CS131_PJT, CS131_HNO) B
+							                         ON A.CS126_GNO = B.CS131_GNO
+							                        AND A.CS126_PJT = B.CS131_PJT
+							                        AND A.CS126_HNO = B.CS131_HNO
+							  WHERE A.MANDT = #G_MANDT# 
+							    AND A.CS126_UPN = #UPN# 
+							    AND A.CS126_CST = #CST# 
+							    AND SUBSTR(A.CS126_USD,1,6) >= #USD#
+							    AND SUBSTR(A.CS126_UMR,1,6) <= #UMR#	
+							    AND A.CS126_DDT = ''
+							    AND A.CS126_PST = 'A6'
+						) A   
+				) A
+		WITH UR	
+	]]>
+	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="UPN" size="255" type="VARCHAR" description="" /> 
+		<col name="CST" size="255" type="VARCHAR" description="" /> 
+		<col name="PJT" size="255" type="VARCHAR" description="" /> 
+		<col name="USD" size="255" type="VARCHAR" description="" /> 
+		<col name="UMR" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

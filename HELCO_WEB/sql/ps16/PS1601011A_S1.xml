@@ -1,0 +1,896 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[PS1601010A_S1]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>1</result-count>
+    <statement>
+WITH TEMP AS (
+SELECT substr(HOLIDAY_YMD,1,6) AS HOLIDAY_YMD
+     , INTEGER(RIGHT(LAST_DAY( CAST(LEFT(substr(HOLIDAY_YMD,1,6),4)||'-'||substr(substr(HOLIDAY_YMD,1,6),5,2)||'-'||'01' AS DATE)),2) ) - COUNT(*) AS CNT
+ FROM DB2WEB.TB_HOLIDAY
+GROUP BY  substr(HOLIDAY_YMD,1,6)
+)
+ 
+   SELECT Q.MANDT
+        , Q.PAPRYYYYMM
+        , L.TEAM_CD
+        , L.TEAM_NM
+        , L.ZZACTSS_CD
+        , L.ZZACTSS_NM
+        , Q.LIFNR
+        , C.NAME1 
+        , J.NAMEC AS PRST_PERNO
+        , ' ' AS TEMNO
+        , CASE WHEN Q.QC_RT IS NULL THEN 0 ELSE Q.QC_RT END AS QC_RT          --QC합격률
+        , CASE WHEN Q.QC_POINT IS NULL THEN 0 ELSE Q.QC_POINT END AS QC_POINT      --환산점수
+        , CASE WHEN Q.JQPR_CNT IS NULL THEN 0 ELSE Q.JQPR_CNT END AS JQPR_CNT      --JQPR
+        , CASE WHEN Q.JQPR_POINT IS NULL THEN 0 ELSE Q.JQPR_POINT END AS JQPR_POINT
+        , CASE WHEN Q.AVG_PER_CNT IS NULL THEN 0 ELSE Q.AVG_PER_CNT END AS AVG_PER_CNT    --평균인원
+        , CASE WHEN Q.AVG_PER_POINT IS NULL THEN 0 ELSE Q.AVG_PER_POINT END AS AVG_PER_POINT  --인원관리 환산점수
+        , CASE WHEN Q.INP_RT IS NULL THEN 0 ELSE Q.INP_RT END AS INP_RT --투입률
+        , CASE WHEN Q.INP_POINT IS NULL THEN 0 ELSE Q.INP_POINT END AS INP_POINT  --작업일보 환산점수
+       ,  CASE WHEN Q.PER_INST_CNT IS NULL THEN 0 ELSE Q.PER_INST_CNT END AS PER_INST_CNT --설치실적 인당설치기성대수
+       ,  CASE WHEN Q.PER_INST_POINT IS NULL THEN 0 ELSE Q.PER_INST_POINT END AS PER_INST_POINT --설치실적 환산점수
+        , CASE WHEN Q.SAF_ACCT_CNT IS NULL THEN 0 ELSE Q.SAF_ACCT_CNT END AS SAF_ACCT_CNT     --안전사고건수
+        , CASE WHEN Q.SAF_ACCT_POINT IS NULL THEN 0 ELSE Q.SAF_ACCT_POINT END AS SAF_ACCT_POINT   --안전경고(사고)
+        , CASE WHEN Q.EVAL_IMNO_CNT IS NULL THEN 0 ELSE Q.EVAL_IMNO_CNT END AS EVAL_IMNO_CNT   -- 안전점검 중대위반건수
+        , CASE WHEN Q.EVAL_IMNO_POINT IS NULL THEN 0 ELSE Q.EVAL_IMNO_POINT END AS EVAL_IMNO_POINT  --안전점검 환산점수
+       ,  CASE WHEN Q.PER_PER_CNT IS NULL THEN 0 ELSE Q.PER_PER_CNT END AS PER_PER_CNT --준공관리 인당대수
+       ,  CASE WHEN Q.PER_PER_POINT IS NULL THEN 0 ELSE Q.PER_PER_POINT END AS PER_PER_POINT --준공관리 환산점수
+        , CASE WHEN Q.MINWON_CNT IS NULL THEN 0 ELSE Q.MINWON_CNT END AS MINWON_CNT      --민원건수합계
+        , CASE WHEN Q.MINWON_POINT IS NULL THEN 0 ELSE Q.MINWON_POINT END AS MINWON_POINT   --환산점수9
+     FROM (
+       SELECT MANDT, PAPRYYYYMM, LIFNR
+             , SUM(QC_RT) AS QC_RT           --QC합격률
+             , SUM(QC_POINT) AS QC_POINT    --   환산점수
+             , SUM(JQPR_CNT) AS JQPR_CNT
+             , SUM(JQPR_POINT) AS JQPR_POINT
+             , SUM(AVG_PER_CNT) AS AVG_PER_CNT   --평균인원
+             , SUM(AVG_PER_POINT) AS AVG_PER_POINT  --인원관리 환산점수
+             , SUM(INP_RT) AS INP_RT   --투입률
+             , SUM(INP_POINT) AS INP_POINT  --작업일보 환산점수
+             , SUM(PER_INST_CNT) AS PER_INST_CNT  --설치실적 인당설치기성대수
+             , SUM(PER_INST_POINT) AS PER_INST_POINT  --설치실적 환산점수
+             , SUM(SAF_ACCT_CNT) AS SAF_ACCT_CNT  --안전경고(사고) 안전사고건수
+             , SUM(SAF_ACCT_POINT) AS SAF_ACCT_POINT  --안전경고(사고) 환산점수
+             , SUM(EVAL_IMNO_CNT) AS EVAL_IMNO_CNT  --안전점검 중대위반건수
+             , SUM(EVAL_IMNO_POINT) AS EVAL_IMNO_POINT  --안전점검 환산점수
+             , SUM(PER_PER_CNT) AS PER_PER_CNT   --준공관리 인당대수
+             , SUM(PER_PER_POINT) AS PER_PER_POINT --준공관리 환산점수
+             , SUM(MINWON_CNT) AS MINWON_CNT  --민원건수합계
+             , SUM(MINWON_POINT) AS MINWON_POINT  --민원관리 환산점수9
+         FROM (
+              SELECT MANDT, PAPRYYYYMM, LIFNR
+                       , NULLIF(DEC(DEC((dec(APPROVED_SUM,10,1)/nullif(dec(FIRSTEXAM_SUM,10,1),0)) * 100,10,1),10,1),0)  AS QC_RT           -- QC합격률
+                       , NULLIF(DEC(DEC((dec(APPROVED_SUM,10,1)/nullif(dec(FIRSTEXAM_SUM,10,1),0)) * 100,10,1)*0.15,10,1),0) AS QC_POINT    -- 환산점수
+                       , 0 AS JQPR_CNT
+                       , 0 AS JQPR_POINT
+                       , 0 AS AVG_PER_CNT   --평균인원
+                       , 0 AS AVG_PER_POINT  --인원관리 환산점수
+                       , 0 AS INP_RT
+                       , 0 AS INP_POINT
+                       , 0 AS PER_INST_CNT  --설치실적 인당설치기성대수
+                       , 0 AS PER_INST_POINT  --설치실적 환산점수
+                       , 0 AS SAF_ACCT_CNT  --안전경고(사고) 안전사고건수
+                       , 0 AS SAF_ACCT_POINT  --안전경고(사고) 환산점수
+                       , 0 AS EVAL_IMNO_CNT  --안전점검 중대위반건수
+                       , 0 AS EVAL_IMNO_POINT  --안전점검 환산점수
+                       , 0 AS PER_PER_CNT   --준공관리 인당대수
+                       , 0 AS PER_PER_POINT --준공관리 환산점수
+                       , 0 AS MINWON_CNT  --민원건수합계
+                       , 0 AS MINWON_POINT  --민원관리 환산점수9
+               FROM (
+                      SELECT  MANDT, PAPRYYYYMM, LIFNR
+                       , SUM(FIRSTEXAM) AS FIRSTEXAM_SUM
+                       , SUM(APPROVED)  AS APPROVED_SUM
+                  FROM (
+                    SELECT  MANDT, PAPRYYYYMM ,LIFNR
+                       , SUM(FIRSTEXAM) AS FIRSTEXAM
+                       , SUM(APPROVED) AS APPROVED
+                      FROM (
+                          SELECT
+                                 A.MANDT
+                                ,substr(A.PAPRDT,1,6)  AS PAPRYYYYMM
+                                ,A.LIFNR
+                                ,(CASE WHEN A.seq = '01' THEN COUNT(*) ELSE 0 END)  AS FIRSTEXAM
+                                ,(CASE WHEN (A.DSCODE = 'A' OR A.DSCODE = 'B' OR A.DSCODE = 'C' OR A.DSCODE = 'D') THEN COUNT(*) ELSE 0 END)  AS APPROVED 
+                            FROM SAPHEE.ZQMT019 AS A             
+                          INNER JOIN SAPHEE.ZPST0034  AS C ON A.MANDT = C.MANDT AND A.LIFNR = C.LIFNR AND C.GBN = 'A' AND (C.SO = 'X' OR C.SO3 = 'X')            
+                          LEFT OUTER JOIN SAPHEE.ZMASTER02 M02 ON M02.MANDT = A.MANDT AND M02.POSID = A.PSPID AND M02.POSID_1 =  A.HOGI
+                           WHERE A.MANDT = #G_MANDT#
+                             AND A.ART = '8960'
+                             AND A.SEQ = '01'
+                             AND (substr(A.PAPRDT,1,6) = #YYYYMMF#  ) 
+                             AND A.ZZGUBUN = '10'
+                             AND ( A.VDATUM       <![CDATA[  <> ]]>     '00000000' AND A.VDATUM   >   '')
+                             AND A.LIFNR       <![CDATA[  <> ]]>     '0000008001'
+                        GROUP BY A.MANDT, substr(A.PAPRDT,1,6), A.LIFNR, A.PSPID, A.HOGI, A.SEQ, A.DSCODE
+               )  GROUP BY MANDT,PAPRYYYYMM, LIFNR
+          ) GROUP BY MANDT, PAPRYYYYMM, LIFNR
+     )  -- 품질관리  END  1
+     UNION ALL  -- 자재관리  START 2
+     (
+     
+     SELECT MANDT, PAPRYYYYMM, LIFNR
+          , 0 AS QC_RT
+          , 0 AS QC_POINT
+          , DEC(CNT, 10,1) AS JQPR_CNT  --귀책건수
+          , CASE WHEN DEC((QC+POINT), 5,1) IS NULL THEN 0 
+                WHEN DEC((QC+POINT), 5,1)     <![CDATA[  < ]]>      0 THEN 0
+                WHEN DEC((QC+POINT), 5,1)    <![CDATA[  > ]]>      10 THEN 10
+           ELSE DEC((QC+POINT), 5,1)  END  AS JQPR_POINT     --환산점수
+          , 0 AS AVG_PER_CNT   --평균인원
+          , 0 AS AVG_PER_POINT  --인원관리 환산점수
+          , 0 AS INP_RT   --투입률
+          , 0 AS INP_POINT  --작업일보 환산점수
+          , 0 AS PER_INST_CNT  --설치실적 인당설치기성대수
+          , 0 AS PER_INST_POINT  --설치실적 환산점수
+          , 0 AS SAF_ACCT_CNT  --안전경고(사고) 안전사고건수
+          , 0 AS SAF_ACCT_POINT  --안전경고(사고) 환산점수
+          , 0 AS EVAL_IMNO_CNT  --안전점검 중대위반건수
+          , 0 AS EVAL_IMNO_POINT  --안전점검 환산점수
+          , 0 AS PER_PER_CNT   --준공관리 인당대수
+          , 0 AS PER_PER_POINT --준공관리 환산점수
+          , 0 AS MINWON_CNT  --민원건수합계
+          , 0 AS MINWON_POINT  --민원관리 환산점수9
+       FROM (
+                SELECT  MANDT, PAPRYYYYMM, LIFNR
+                     , SUM(CNT) AS CNT, SUM(OCCAMT) AS OCCAMT
+                     , dec(5 - (CASE WHEN  SUM(OCCAMT)        <![CDATA[ <= ]]>       0  THEN 0.0  
+                                       WHEN  SUM(OCCAMT)      <![CDATA[ <= ]]>       250000  THEN 0.5  
+                                       WHEN  SUM(OCCAMT)      <![CDATA[ <= ]]>       500000  THEN 1.0 
+                                       WHEN  SUM(OCCAMT)      <![CDATA[ <= ]]>       750000  THEN 1.5
+                                       WHEN  SUM(OCCAMT)      <![CDATA[ <= ]]>       1000000 THEN 2.0 
+                                       WHEN  SUM(OCCAMT)      <![CDATA[ <= ]]>       1250000  THEN 2.5 
+                                       WHEN  SUM(OCCAMT)      <![CDATA[ <= ]]>      1500000 THEN 3.0 
+                                       WHEN  SUM(OCCAMT)      <![CDATA[ <= ]]>       1750000 THEN 3.5 
+                                       WHEN  SUM(OCCAMT)      <![CDATA[ <= ]]>      2000000  THEN 4.0 
+                                       WHEN  SUM(OCCAMT)      <![CDATA[ <= ]]>      2500000  THEN 4.5 
+                                       WHEN  SUM(OCCAMT)      <![CDATA[ >= ]]>      2500001  THEN 5.0 
+                                       ELSE 0 END), 10,1) AS QC
+                    , DEC(5 - (dec(SUM(CNT),10,1) * 0.5), 10, 1) AS POINT
+                  FROM (
+                         SELECT
+                               A.MANDT
+                              ,substr(A.CREDT,1,6)  AS PAPRYYYYMM
+                              ,A.LIFNR
+                              ,COUNT(*) AS CNT --건수
+                              ,(SUM(A.IWBTR) + SUM(A.OWBTR))*100 AS OCCAMT     -- 발생금액  
+                           FROM SAPHEE.ZQMT007 AS A                        
+                            INNER JOIN SAPHEE.ZPST0034 AS C ON A.MANDT = C.MANDT AND A.LIFNR = C.LIFNR AND C.GBN = 'A' AND (C.SO = 'X' OR C.SO3 = 'X')  
+                       LEFT OUTER JOIN SAPHEE.ZMASTER02 M02 ON M02.MANDT = A.MANDT AND M02.POSID = A.PSPID AND M02.POSID_1 =  A.HOGI
+                       LEFT OUTER JOIN SAPHEE.KNA1 AS K 
+				                    ON A.MANDT  = K.MANDT 
+				                   AND A.IMPLFN = K.KUNNR
+                          WHERE A.MANDT = #G_MANDT#
+                            AND (A.LIFNR IS NOT NULL OR A.LIFNR != '' OR A.LIFNR != ' ')
+                            AND A.WERKS BETWEEN '1000' AND '3110'
+		  					AND A.STATUS IN ('3','4','5','6')
+                            AND A.LIFNR   <![CDATA[ <> ]]>   '0000008098'
+                            AND A.GUBUN = 'J'
+                            AND (substr(A.CREDT,1,6) = #YYYYMMF#)
+                            AND A.LIFNR = K.STCD2 -- 설치귀책만 조회되도록
+                           --   AND A.LIFNR = '2168114582'      
+                                   AND M02.ZZGUBUN = '10'
+                           <isNotNull col="CHK_GBN">
+                           AND A.ZZGUBUN = #CHK_GBN#
+                           </isNotNull>
+                              GROUP BY  A.MANDT, substr(A.CREDT,1,6), A.LIFNR, A.PSPID, A.HOGI, A.JQPRNUM
+                        <isNotNull col="YYYYMMDD0" >
+                        UNION ALL
+                        (
+                         SELECT   MANDT
+                                , substr(#YYYYMMDD0#,1,6) AS PAPRYYYYMM
+                                , LIFNR
+                                , 0 AS CNT
+                                , 0 AS OCCAMT 
+                         FROM SAPHEE.ZPST0034 
+                         WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+                        )
+                        </isNotNull>
+                                                
+                   ) GROUP BY MANDT, PAPRYYYYMM, LIFNR
+        )
+     )   --자재관리 UNION END 2
+     UNION ALL  --인원관리 START 3
+     (
+         SELECT   MANDT, PAPRYYYYMM, LIFNR
+                  ,  0 AS QC_RT           --QC합격률
+                  , 0 AS QC_POINT    --   환산점수
+                  , 0 AS JQPR_CNT
+                  , 0 AS JQPR_POINT
+                , CNT4_SUM  AS AVG_PER_CNT --인원
+                , CASE WHEN DEC(nullif(CNT4_SUM,0), 10,1)       <![CDATA[ <= ]]>       14 THEN 2
+                       WHEN DEC(nullif(CNT4_SUM,0), 10,1)       <![CDATA[ <= ]]>       19 THEN 3
+                       WHEN DEC(nullif(CNT4_SUM,0), 10,1)       <![CDATA[ <= ]]>      24 THEN 4
+                       WHEN DEC(nullif(CNT4_SUM,0), 10,1)       <![CDATA[ <= ]]>       29 THEN 5
+                       WHEN DEC(nullif(CNT4_SUM,0), 10,1)       <![CDATA[ <= ]]>       34 THEN 6
+                       WHEN DEC(nullif(CNT4_SUM,0), 10,1)       <![CDATA[ <= ]]>       39 THEN 7
+                       WHEN DEC(nullif(CNT4_SUM,0), 10,1)       <![CDATA[ <= ]]>       44 THEN 8
+                       WHEN DEC(nullif(CNT4_SUM,0), 10,1)       <![CDATA[ <= ]]>       49 THEN 9
+                       WHEN DEC(nullif(CNT4_SUM,0), 10,1)       <![CDATA[ >= ]]>       50 THEN 10
+                       ELSE 0
+                  END AS AVG_PER_POINT 
+                , 0 AS INP_RT   --투입률
+                , 0 AS INP_POINT  --작업일보 환산점수
+                , 0 AS PER_INST_CNT  --설치실적 인당설치기성대수
+                , 0 AS PER_INST_POINT  --설치실적 환산점수
+                , 0 AS SAF_ACCT_CNT  --안전경고(사고) 안전사고건수
+                , 0 AS SAF_ACCT_POINT  --안전경고(사고) 환산점수
+                , 0 AS EVAL_IMNO_CNT  --안전점검 중대위반건수
+                , 0 AS EVAL_IMNO_POINT  --안전점검 환산점수
+                , 0 AS PER_PER_CNT   --준공관리 인당대수
+                , 0 AS PER_PER_POINT --준공관리 환산점수
+                , 0 AS MINWON_CNT  --민원건수합계
+                , 0 AS MINWON_POINT  --민원관리 환산점수9
+             FROM ( 
+                    SELECT MANDT,PAPRYYYYMM, LIFNR
+                         , SUM( CNT4 )   AS CNT4_SUM  --인원
+                    FROM (
+                             <isNotNull col="YYYYMMDD0" >
+                                  (
+                                     SELECT MANDT, substr(#YYYYMMDD0#,1,6)  AS PAPRYYYYMM, LIFNR
+                                           , COUNT(PERKEY) AS CNT4
+                                        FROM (
+                                            SELECT MANDT, LIFNR, PERNO, PERKEY
+                                              FROM SAPHEE.ZPST0001
+                                            WHERE 1=1 
+                                              AND MANDT = #G_MANDT#
+                                              AND ENTER   <![CDATA[ <= ]]>   #YYYYMMDD0#
+                                              AND GBN = 'A'
+                                              AND TYPE = '1'
+                                              AND GUBUN = '01'
+                                          GROUP BY MANDT, LIFNR, PERNO, PERKEY
+                                       EXCEPT
+                                            SELECT MANDT, LIFNR , PERNO, PERKEY
+                                              FROM (
+                                            SELECT P.MANDT, P.LIFNR, P.PERNO, P.PERKEY
+                                              FROM SAPHEE.ZPST0001  P
+                                               WHERE 1=1 
+                                                 AND P.MANDT = #G_MANDT#
+                                                 AND (P.RETID  <![CDATA[ <= ]]>  #YYYYMMDD0#  AND P.RETID <![CDATA[ <> ]]> '00000000' AND P.RETID <![CDATA[ <> ]]> '')
+                                                 AND P.GBN = 'A'
+                                                 AND P.TYPE = '1'
+                                                 AND P.GUBUN = '01'
+                                                 --   AND P.LIFNR = '1321110475'
+                                                  ) GROUP BY MANDT, LIFNR, PERNO, PERKEY 
+                                           ) GROUP BY MANDT, LIFNR
+                                   )
+                                  </isNotNull>
+              ) GROUP BY MANDT, PAPRYYYYMM, LIFNR
+          )
+     )  -- 인원관리 UNION END 3
+     UNION ALL  --작업일보 START 9
+     (
+    
+         SELECT 
+                MANDT,PAPRYYYYMM, LIFNR
+             ,  0 AS QC_RT           --QC합격률
+             , 0 AS QC_POINT    --   환산점수
+             , 0 AS JQPR_CNT
+             , 0 AS JQPR_POINT
+             , 0 AS AVG_PER_CNT   --평균인원
+             , 0 AS AVG_PER_POINT  --인원관리 환산점수
+             , NULLIF(DEC((dec(CNT2_SUM,10,1)/nullif(dec(CNT_SUM,10,1),0))* 100,10,1),0) AS INP_RT
+              , (NULLIF(DEC((dec(CNT2_SUM,10,1)/nullif(dec(CNT_SUM,10,1),0))* 100,10,1),0)*0.1) AS INP_POINT
+             , 0 AS PER_INST_CNT  --설치실적 인당설치기성대수
+             , 0 AS PER_INST_POINT  --설치실적 환산점수
+             , 0 AS SAF_ACCT_CNT  --안전경고(사고) 안전사고건수
+             , 0 AS SAF_ACCT_POINT  --안전경고(사고) 환산점수
+             , 0 AS EVAL_IMNO_CNT  --안전점검 중대위반건수
+             , 0 AS EVAL_IMNO_POINT  --안전점검 환산점수
+             , 0 AS PER_PER_CNT   --준공관리 인당대수
+             , 0 AS PER_PER_POINT --준공관리 환산점수
+             , 0 AS MINWON_CNT  --민원건수합계
+             , 0 AS MINWON_POINT  --민원관리 환산점수9
+          FROM (
+          
+
+ 
+          SELECT 
+                 MANDT,PAPRYYYYMM,  LIFNR
+                , SUM( CNT21 )  AS CNT2_SUM
+                , SUM( CNT )    AS CNT_SUM
+          FROM (
+          SELECT 
+                 MANDT,PAPRYYYYMM,  LIFNR
+                 , (SELECT CNT FROM TEMP WHERE HOLIDAY_YMD = PAPRYYYYMM) AS test
+                , SUM(CNT) AS CNT  --보유
+                , SUM(CNT2) AS CNT2
+                , DEC((nullif(SUM(CNT2),0)/nullif((SELECT CNT FROM TEMP WHERE HOLIDAY_YMD = PAPRYYYYMM),0)) / 10 , 10, 1) AS CNT21  --투입인원
+          FROM (
+                   (
+                       SELECT substr(a.inp_dt,1,6) AS PAPRYYYYMM
+                            , a.MANDT                                         
+                            , a.LIFNR
+                            , 0 AS CNT
+                            , SUM(c.M_MH)+ SUM(c.A_MH) + SUM(c.N_MH) AS CNT2   
+                            , 0 AS CNT3
+                         FROM SAPHEE.zpstw0301 AS a
+                         LEFT OUTER JOIN SAPHEE.zpstw0302 AS c
+                                      ON a.inp_dt = c.inp_dt
+                                     AND a.lifnr = c.lifnr
+                                     AND a.perno = c.perno
+                         LEFT OUTER JOIN  SAPHEE.ZMASTER02 M02 
+                                      ON M02.MANDT = c.MANDT  AND M02.POSID = c.PSPID AND M02.POSID_1 =  c.POSID
+                         WHERE substr(a.inp_dt,1,6) = '201912'  
+                          --  AND  A.LIFNR = '1198673742'
+                           AND ( a.tuip_chka = 'X' OR (a.tuip_chkb = 'X' AND a.sayu = 'H' AND a.sayu = 'J' AND a.sayu = 'F') )     
+                     --    AND A.LIFNR = '1058192177'      
+                           AND M02.ZZGUBUN = '10'
+                         --AND c.pspid IS NOT NULL AND c.posid IS NOT NULL
+                           GROUP BY substr(a.inp_dt,1,6), A.MANDT, A.LIFNR
+                             
+                          ) 
+                         <isNotNull col="YYYYMMDD0" >
+                         UNION ALL
+                        (
+                                     SELECT  substr(#YYYYMMDD0#,1,6)  AS PAPRYYYYMM, MANDT, LIFNR
+                                         , COUNT(PERKEY) AS CNT, 0 AS CNT2,0 AS CNT3
+                                        FROM (
+                                            SELECT  MANDT, LIFNR, PERNO, PERKEY
+                                             FROM SAPHEE.ZPST0001 
+                                                WHERE 1=1 
+                                                  AND MANDT = #G_MANDT#
+                                                  AND ENTER   <![CDATA[ <= ]]>   #YYYYMMDD0#
+                                                  AND GBN = 'A'
+                                                  AND TYPE = '1'
+                                                  AND MANDT = #G_MANDT#
+                                                  AND GUBUN = '01'
+                                         --    AND LIFNR = '1321110475'      
+                                           GROUP BY MANDT, LIFNR, PERNO, PERKEY
+                                           EXCEPT
+                                            SELECT  MANDT, LIFNR , PERNO, PERKEY
+                                            FROM (
+                                                 SELECT MANDT, LIFNR, PERNO, PERKEY
+                                                   FROM SAPHEE.ZPST0001
+                                                  WHERE 1=1 
+                                                    AND MANDT = #G_MANDT#
+                                                    AND (RETID  <![CDATA[ <= ]]>  #YYYYMMDD0#  AND RETID <![CDATA[ <> ]]> '00000000' AND RETID <![CDATA[ <> ]]> '')
+                                                    AND GBN = 'A'
+                                                    AND TYPE = '1'
+                                                    AND GUBUN = '01'
+                                                 --   AND LIFNR = '1321110475'
+                                                ) GROUP BY MANDT, LIFNR, PERNO, PERKEY 
+                                       )  
+                                       GROUP BY MANDT, LIFNR
+                            )
+                             </isNotNull>
+                        )  GROUP BY PAPRYYYYMM, MANDT, LIFNR
+                ) GROUP BY MANDT,PAPRYYYYMM, LIFNR
+              )
+     ) --작업일보 END 9  
+     UNION ALL   -- 설치실적 START 5
+     (
+       SELECT 
+              MANDT,PAPRYYYYMM, LIFNR
+             ,  0 AS QC_RT           --QC합격률
+             , 0 AS QC_POINT    --   환산점수
+             , 0 AS JQPR_CNT
+             , 0 AS JQPR_POINT
+             , 0 AS AVG_PER_CNT   --평균인원
+             , 0 AS AVG_PER_POINT  --인원관리 환산점수
+             , 0 AS INP_RT
+             , 0 AS INP_POINT
+        , CASE WHEN CNT1_SUM IS NULL THEN 0 ELSE CNT1_SUM END  AS PER_INST_CNT
+        , CASE WHEN NULLIF(CNT1_SUM,0)       <![CDATA[ <= ]]>      0.55 THEN 1
+               WHEN NULLIF(CNT1_SUM,0)       <![CDATA[ <= ]]>     0.60 THEN 2
+               WHEN NULLIF(CNT1_SUM,0)       <![CDATA[ <= ]]>     0.65 THEN 3
+               WHEN NULLIF(CNT1_SUM,0)       <![CDATA[ <= ]]>     0.70 THEN 4
+               WHEN NULLIF(CNT1_SUM,0)       <![CDATA[ <= ]]>     0.75 THEN 5
+               WHEN NULLIF(CNT1_SUM,0)       <![CDATA[ <= ]]>     0.80 THEN 6
+               WHEN NULLIF(CNT1_SUM,0)       <![CDATA[ <= ]]>     0.85 THEN 7
+               WHEN NULLIF(CNT1_SUM,0)       <![CDATA[ <= ]]>     0.90 THEN 8
+               WHEN NULLIF(CNT1_SUM,0)       <![CDATA[ <= ]]>     0.95 THEN 9
+               WHEN NULLIF(CNT1_SUM,0)       <![CDATA[ <= ]]>     1.00 THEN 10
+               WHEN NULLIF(CNT1_SUM,0)       <![CDATA[ <= ]]>     1.05 THEN 11
+               WHEN NULLIF(CNT1_SUM,0)       <![CDATA[ <= ]]>     1.10 THEN 12
+               WHEN NULLIF(CNT1_SUM,0)       <![CDATA[ <= ]]>     1.05 THEN 13
+               WHEN NULLIF(CNT1_SUM,0)       <![CDATA[ <= ]]>     1.20 THEN 14
+               WHEN NULLIF(CNT1_SUM,0)       <![CDATA[ > ]]>      1.20 THEN 15
+          ELSE 0
+          END AS PER_INST_POINT 
+           , 0 AS SAF_ACCT_CNT  --안전경고(사고) 안전사고건수
+           , 0 AS SAF_ACCT_POINT  --안전경고(사고) 환산점수
+           , 0 AS EVAL_IMNO_CNT  --안전점검 중대위반건수
+           , 0 AS EVAL_IMNO_POINT  --안전점검 환산점수
+           , 0 AS PER_PER_CNT   --준공관리 인당대수
+           , 0 AS PER_PER_POINT --준공관리 환산점수
+           , 0 AS MINWON_CNT  --민원건수합계
+           , 0 AS MINWON_POINT  --민원관리 환산점수9
+        FROM (
+        
+
+              SELECT 
+                   MANDT 
+                   , PAPRYYYYMM
+                  , LIFNR
+                  , CNT_SUM
+                  , TOT_MH_SUM
+                  , CNT2_SUM   --투입인원
+                 , NULLIF(DEC(DEC(TOT_MH_SUM/ NULLIF(CNT2_SUM,0), 10, 2) / (DEC(CNT_SUM, 10,1)),10,2),0) AS CNT1_SUM  --평균 인당설치기성대수
+          FROM (
+            SELECT 
+                 MANDT  
+                 ,PAPRYYYYMM
+              , LIFNR
+              , SUM(TOT_MH)    AS TOT_MH_SUM
+              , SUM(CNT2)    AS CNT2_SUM
+              , SUM(CNT)    AS CNT_SUM
+               FROM (
+
+                    SELECT 
+                    PAPRYYYYMM, MANDT,  LIFNR
+                   , SUM(INP_TOT_MH) AS INP_TOT_MH
+                   , ((SELECT CNT FROM TEMP WHERE HOLIDAY_YMD = PAPRYYYYMM) * 10 ) AS CNT
+                   , SUM(TOT_MH) AS TOT_MH
+                   , DEC(SUM(CNT2), 10, 1) AS CNT2  --투입인원
+                 FROM (
+                   (
+                       SELECT substr(a.inp_dt,1,6) AS PAPRYYYYMM
+                            , a.MANDT                                         
+                            , a.LIFNR
+                            , SUM(c.M_MH)+ SUM(c.A_MH) + SUM(c.N_MH) AS INP_TOT_MH
+                            ,  DEC((nullif(SUM(c.M_MH)+ SUM(c.A_MH) + SUM(c.N_MH),0)/(SELECT CNT FROM TEMP WHERE HOLIDAY_YMD =  substr(a.inp_dt,1,6))) / 10, 10, 1) AS CNT2  --투입인원   
+                            , 0 AS TOT_MH
+                         FROM SAPHEE.zpstw0301 AS a
+                         LEFT OUTER JOIN SAPHEE.zpstw0302 AS c
+                                ON a.inp_dt = c.inp_dt
+                               AND a.lifnr = c.lifnr
+                               AND a.perno = c.perno
+                            LEFT OUTER JOIN  SAPHEE.ZMASTER02 M02 
+                            ON M02.MANDT = c.MANDT  AND M02.POSID = c.PSPID AND M02.POSID_1 =  c.POSID
+                                   WHERE SUBSTR(a.inp_dt,1,6) = #YYYYMMF#
+                                    AND A.MANDT = #G_MANDT# 
+                                    AND ( a.tuip_chka = 'X' OR (a.tuip_chkb = 'X' AND a.sayu = 'H' AND a.sayu = 'J' AND a.sayu = 'F') )     
+                                    AND c.pspid IS NOT NULL AND c.posid IS NOT null
+                                    AND M02.ZZGUBUN = '10'
+                                GROUP BY SUBSTR(a.inp_dt,1,6), A.MANDT, A.LIFNR
+                          ) 
+                          UNION ALL
+                          (
+                              SELECT
+                                    TAXDATE AS PAPRYYYYMM  
+                                    , MANDT 
+                                    , LIFNR 
+                                    , 0  AS INP_TOT_MH
+                                    , 0  AS CNT2   
+                                    , SUM(TOT_MH) AS TOT_MH
+                                  FROM (  
+                                         SELECT
+                                              MANDT
+                                            , TAXDATE   
+                                            , PSPID
+                                            , POSID
+                                            , SEQNO
+                                            , LIFNR  
+                                            , DEC(DEC(SUM(PRO_R)/100,10,3) * (CASE WHEN MAX(WSCALE) = 0
+                                            									   THEN 0
+                                            									   ELSE DEC(MAX(TOT)/MAX(WSCALE), 10,3)
+                                            									   END), 10,2) AS TOT_MH
+                                            FROM (
+                                              SELECT 
+                                                    A.MANDT
+                                                   ,substr(A.TAXDATE,1,6) AS TAXDATE
+                                                   , A.PSPID
+                                                   , A.POSID 
+                                                   , A.SEQNO 
+                                                   , B.CHGNO
+                                                   , A.LIFNR 
+                                                   , A.PRO_R
+                                                   , B.LABMH
+                                                   , B.TOT
+                                                   , B.WSCALE
+                                                FROM SAPHEE.ZPST0116 AS A 
+                                                INNER JOIN SAPHEE.ZPST0100 AS B
+                                                  ON A.MANDT = B.MANDT
+                                                 AND A.PSPID = B.PSPID
+                                                 AND A.POSID = B.POSID
+                                               INNER JOIN (
+                                                SELECT S.MANDT, S.PSPID, S.POSID,  S.CHGNO
+                                                    FROM (
+                                                        SELECT MANDT, PSPID, POSID, MAX(CHGNO)  AS CHGNO
+                                                          FROM saphee.ZPST0113 WHERE CNF_GBN='A' AND GUBUN='5' AND STATE='Y'
+                                                      GROUP BY MANDT, PSPID, POSID
+                                                 ) S
+                                            ) AS P
+                                             ON A.MANDT = P.MANDT
+                                              AND A.PSPID = P.PSPID
+                                              AND A.POSID = P.POSID
+                                              AND B.CHGNO = P.CHGNO
+                                             INNER JOIN SAPHEE.ZMASTER02 AS C
+                                                     ON A.MANDT = C.MANDT
+                                                    AND A.PSPID = C.POSID
+                                                    AND A.POSID = C.POSID_1
+                                           WHERE A.MANDT = #G_MANDT#  
+                                             AND (SUBSTR(A.TAXDATE,1,6) = #YYYYMMF# ) 
+                                             AND A.BELNR > '0000000000'    
+                                             AND  A.GUBUN = '10'
+                                               --  AND A.LIFNR = '1058192177'
+                                             --    AND A.POSID = '167242L08  '
+                                           --   ORDER BY  A.MANDT, A.LIFNR, A.POSID , A.POSID,substr(A.TAXDATE,1,6),  A.SEQNO, B.CHGNO
+                                            )  
+                                            GROUP BY MANDT, TAXDATE, LIFNR, PSPID , POSID,  SEQNO
+                                              
+                                    ) AS E GROUP BY MANDT, TAXDATE, LIFNR
+                          )
+                   ) AS J GROUP BY PAPRYYYYMM, MANDT, LIFNR
+           )  GROUP BY  MANDT,PAPRYYYYMM, LIFNR
+           )
+           )
+     )  --설치실적 END 5 
+     UNION ALL  --안전경고(사고) START   4
+     (
+          SELECT  MANDT,PAPRYYYYMM,  LIFNR
+              ,  0 AS QC_RT           --QC합격률
+              , 0 AS QC_POINT    --   환산점수
+              , 0 AS JQPR_CNT
+              , 0 AS JQPR_POINT
+              , 0 AS AVG_PER_CNT   --평균인원
+              , 0 AS AVG_PER_POINT  --인원관리 환산점수
+              , 0 AS INP_RT
+              , 0 AS INP_POINT
+              , 0 AS PER_INST_CNT  --설치실적 인당설치기성대수
+              , 0 AS PER_INST_POINT  --설치실적 환산점수
+              , ITEM_CNT2_SUM AS SAF_ACCT_CNT  --안전경고(사고) 안전사고건수
+              ,   10- dec(( dec(ITEM_CNT1_SUM,10,1) * 0.5)+( dec(ITEM_CNT2_SUM,10,1)* 3.0)+( dec(ITEM_CNT3_SUM,10,1) * 7.0),10,1)  AS SAF_ACCT_POINT  --안전경고(사고) 환산점수
+              , 0 AS EVAL_IMNO_CNT  --안전점검 중대위반건수
+              , 0 AS EVAL_IMNO_POINT  --안전점검 환산점수
+              , 0 AS PER_PER_CNT   --준공관리 인당대수
+              , 0 AS PER_PER_POINT --준공관리 환산점수
+              , 0 AS MINWON_CNT  --민원건수합계
+              , 0 AS MINWON_POINT  --민원관리 환산점수9
+             FROM (
+          SELECT  MANDT,PAPRYYYYMM,  LIFNR
+                , SUM(ITEM_CNT1)   AS ITEM_CNT1_SUM
+                , SUM(ITEM_CNT2)   AS ITEM_CNT2_SUM
+                , SUM(ITEM_CNT3)   AS ITEM_CNT3_SUM
+             FROM (
+               SELECT  MANDT,  PAPRYYYYMM, LIFNR
+                  , CASE WHEN SUM(ITEM_CNT1) IS NULL THEN 0 ELSE SUM(ITEM_CNT1) END AS ITEM_CNT1
+                  , CASE WHEN SUM(ITEM_CNT2) IS NULL THEN 0 ELSE SUM(ITEM_CNT2) END AS ITEM_CNT2
+                  , CASE WHEN SUM(ITEM_CNT3) IS NULL THEN 0 ELSE SUM(ITEM_CNT3) END AS ITEM_CNT3
+                FROM (
+                 SELECT
+                        A.MANDT
+                      , substr(A.OCURDATE,1,6)  AS PAPRYYYYMM
+                      , A.LIFNR             
+                      , C.NAME1
+                      , (CASE WHEN A.ITEM = 'A' THEN COUNT(*) ELSE 0 END)  AS ITEM_CNT1
+                      , (CASE WHEN A.ITEM = 'C' THEN COUNT(*) ELSE 0 END)  AS ITEM_CNT2
+                      , (CASE WHEN A.ITEM = 'D' THEN COUNT(*) ELSE 0 END)  AS ITEM_CNT3
+                    FROM SAPHEE.ZPST0154 AS A       
+                     INNER JOIN SAPHEE.ZPST0034 AS C ON A.MANDT = C.MANDT AND A.LIFNR = C.LIFNR AND C.GBN = 'A' AND (C.SO = 'X' OR C.SO3 = 'X')                 
+                    LEFT OUTER JOIN  SAPHEE.ZMASTER02 M02 ON M02.MANDT = A.MANDT AND M02.POSID = A.PSPID AND M02.POSID_1 =  A.POSID
+                 --   LEFT OUTER JOIN SAPHEE.ZPST0002 AS B ON A.MANDT = B.MANDT AND A.TEMNO = B.TEMNO AND B.DELEF = ''
+                 WHERE A.MANDT = #G_MANDT#
+                   AND (substr(A.OCURDATE,1,6) = #YYYYMMF# ) 
+                   AND  M02.ZZGUBUN = '10'
+                   GROUP BY  A.MANDT, substr(A.OCURDATE,1,6), A.LIFNR,C.NAME1, A.PSPID, A.POSID, A.ITEM
+                        <isNotNull col="YYYYMMDD0" >
+                         UNION ALL
+                        (
+                         SELECT   MANDT
+                                , substr(#YYYYMMDD0#,1,6) AS PAPRYYYYMM
+                                , LIFNR
+                                , NAME1
+                                , 0 AS ITEM_CNT1
+                                , 0 AS ITEM_CNT2
+                                , 0 AS ITEM_CNT3 
+                         FROM SAPHEE.ZPST0034 
+                         WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+                        )
+                        </isNotNull>
+                                   ) GROUP BY MANDT, PAPRYYYYMM,  LIFNR
+        ) GROUP BY MANDT,PAPRYYYYMM, LIFNR
+      )
+     )   --안전경고(사고) END 4  
+     UNION ALL  --안전점검 START 6
+     (
+      SELECT MANDT,PAPRYYYYMM, LIFNR
+           , 0 AS QC_RT           --QC합격률
+           , 0 AS QC_POINT    --   환산점수
+           , 0 AS JQPR_CNT
+           , 0 AS JQPR_POINT
+           , 0 AS AVG_PER_CNT   --평균인원
+           , 0 AS AVG_PER_POINT  --인원관리 환산점수
+           , 0 AS INP_RT
+           , 0 AS INP_POINT
+           , 0 AS PER_INST_CNT  --설치실적 인당설치기성대수
+           , 0 AS PER_INST_POINT  --설치실적 환산점수
+           , 0 AS SAF_ACCT_CNT  --안전경고(사고) 안전사고건수
+           , 0 AS SAF_ACCT_POINT  --안전경고(사고) 환산점수
+           , IMPTCNT_SUM AS EVAL_IMNO_CNT   --안전점검 중대재해위반
+           , dec(dec(nullif(EVAL_GRADE_SUM,0)/nullif(CNT_SUM,0),10,1)/10,10,1) AS EVAL_IMNO_POINT -- 환산점수
+           , 0 AS PER_PER_CNT   --준공관리 인당대수
+           , 0 AS PER_PER_POINT --준공관리 환산점수
+           , 0 AS MINWON_CNT  --민원건수합계
+           , 0 AS MINWON_POINT  --민원관리 환산점수9
+       FROM (
+             SELECT MANDT,PAPRYYYYMM, LIFNR 
+                  , SUM(EVAL_GRADE)   AS EVAL_GRADE_SUM
+                  , SUM(CNT)          AS CNT_SUM
+                  , SUM(IMPTCNT)      AS IMPTCNT_SUM
+               FROM (
+                     SELECT MANDT, PAPRYYYYMM, LIFNR
+                          , SUM(CHKCNT) AS CNT
+                          , SUM(EVAL_IMNO) AS IMPTCNT
+                          , SUM(EVAL_GRADE)  AS EVAL_GRADE
+                      FROM (
+                          SELECT
+                               A.MANDT
+                             , substr(A.CHKDAT,1,6)  AS PAPRYYYYMM
+                             , Left(A.POSID, 6)
+                             , A.POSID
+                             , M02.LIFNR
+                             , SUM(A.EVAL_IMNO) AS EVAL_IMNO 
+                             , SUM(A.EVAL_GRADE) AS EVAL_GRADE 
+                             , COUNT(*) AS CHKCNT 
+                            FROM SAPHEE.ZPSTW1902 AS A                        
+                     LEFT OUTER JOIN  SAPHEE.ZMASTER02 M02 ON M02.MANDT = A.MANDT AND M02.POSID = Left(A.POSID, 6)   AND M02.POSID_1 =  A.POSID
+                      --  LEFT OUTER JOIN SAPHEE.ZPST0002 AS B ON A.MANDT = B.MANDT AND M02.TEMNO2 = B.TEMNO AND B.DELEF = ''
+                  WHERE A.MANDT = #G_MANDT#
+                    AND (substr(A.CHKDAT,1,6) = #YYYYMMF#) 
+                    AND A.ZZGUBUN = 'A'
+                    GROUP BY A.MANDT, substr(A.CHKDAT,1,6), M02.LIFNR, Left(A.POSID, 6), A.POSID
+               ) GROUP BY MANDT, PAPRYYYYMM, LIFNR
+            ) GROUP BY MANDT,PAPRYYYYMM,  LIFNR
+         )
+     )  -- 안전점검 END 6-- 여기까지
+    UNION ALL  -- 준공관리 START 7
+     (
+
+          SELECT 
+                MANDT,PAPRYYYYMM, LIFNR
+                     , 0 AS QC_RT           --QC합격률
+                     , 0 AS QC_POINT    --   환산점수
+                     , 0 AS JQPR_CNT
+                     , 0 AS JQPR_POINT
+                     , 0 AS AVG_PER_CNT   --평균인원
+                     , 0 AS AVG_PER_POINT  --인원관리 환산점수
+                     , 0 AS INP_RT
+                     , 0 AS INP_POINT
+                     , 0 AS PER_INST_CNT  --설치실적 인당설치기성대수
+                     , 0 AS PER_INST_POINT  --설치실적 환산점수
+                     , 0 AS SAF_ACCT_CNT  --안전경고(사고) 안전사고건수
+                     , 0 AS SAF_ACCT_POINT  --안전경고(사고) 환산점수
+                     , 0 AS EVAL_IMNO_CNT   -- 중대재해위반
+                     , 0 AS EVAL_IMNO_POINT -- 환산점수
+                     , PERCNT3_SUM AS PER_PER_CNT    --준공관리 인당대수
+                     , CASE WHEN PERCNT3_SUM      <![CDATA[ >= ]]>     1.0 THEN 10 
+                            WHEN PERCNT3_SUM       <![CDATA[ >= ]]>     0.9 THEN 9
+                            WHEN PERCNT3_SUM       <![CDATA[ >= ]]>     0.85 THEN 8 
+                            WHEN PERCNT3_SUM       <![CDATA[ >= ]]>     0.80 THEN 7 
+                            WHEN PERCNT3_SUM       <![CDATA[ >= ]]>     0.75 THEN 6 
+                            WHEN PERCNT3_SUM       <![CDATA[ >= ]]>     0.7 THEN 5 
+                            WHEN PERCNT3_SUM       <![CDATA[ >= ]]>     0.6 THEN 4 
+                            WHEN PERCNT3_SUM       <![CDATA[ >= ]]>     0.5 THEN 3
+                            WHEN PERCNT3_SUM       <![CDATA[ >= ]]>     0.4 THEN 2
+                            WHEN PERCNT3_SUM       <![CDATA[ < ]]>      0.4 THEN 1
+                      END PER_PER_POINT    -- 준공관리 환산점수
+                     , 0 AS MINWON_CNT  --민원건수합계
+                     , 0 AS MINWON_POINT  --민원관리 환산점수9
+          FROM (
+          SELECT 
+                  MANDT,PAPRYYYYMM, LIFNR
+               , JUNGCNT_SUM
+               , PERCNT2_SUM    
+                , dec( NULLIF(JUNGCNT_SUM / (dec(NULLIF(PERCNT2_SUM,0) ,10,2)),0),10,2)  AS PERCNT3_SUM  
+          FROM (
+          SELECT 
+                  MANDT,PAPRYYYYMM, LIFNR
+               , SUM(JUNGCNT) AS JUNGCNT_SUM
+               , SUM(PERCNT2) AS PERCNT2_SUM
+              -- , CAST(REPLACE('6', ' ', '0') AS INT) AS DIFF_MON 
+          FROM (
+                SELECT 
+                       PAPRYYYYMM--준공월
+                     , MANDT
+                     , LIFNR 
+                     , SUM(CNT1)  AS JUNGCNT
+                     , SUM(CNT2)  AS PERCNT
+                     , SUM(CNT3)  AS ZZCOMP2
+                     , NULLIF(SUM(CNT2)/ NULLIF(SUM(CNT3),0),0)   AS PERCNT2
+                  
+                     , dec( NULLIF(SUM(CNT1) / (dec(NULLIF(SUM(CNT2)/ NULLIF(SUM(CNT3),0) ,0) ,10,2)),0),10,2)  AS PERCNT3
+              FROM (
+              
+               SELECT 
+                       substr(A.ZBOSUOUT,1,6)  AS PAPRYYYYMM--준공월
+                     , A.MANDT
+                     , A.LIFNR 
+                     , COUNT(*)  AS CNT1  -- 준공대수 
+                     , 0 AS CNT2
+                      , 0 AS CNT3
+                FROM SAPHEE.ZMASTER02 AS A
+                WHERE A.MANDT = #G_MANDT# 
+                  AND (substr(A.ZBOSUOUT,1,6) = #YYYYMMF# ) 
+                              --  AND A.ZZACTSS          <![CDATA[ >= ]]>      '01'  AND A.ZZACTSS       <![CDATA[ <= ]]>         '21'
+                              --  AND A.ZZGUBUN IN ('10', '11', '12', '13', '14', '20')
+                --  AND A.PRART   IN ('01','02', '11')  --승강기(01)/주차기(02)/교체공사(11)
+                --  AND A.ZZCOMP2    >=   '20190731' --준공예정일
+                --  AND A.ZZCOMP2    >=   '20080901'
+                  AND A.TXT04          <![CDATA[ <> ]]>      'C'
+                  --   AND A.LIFNR = '2168114582'
+                 -- AND A.LIFNR = '1058192177'      
+                  AND  A.ZZGUBUN = '10'                 
+                  GROUP BY substr(A.ZBOSUOUT,1,6), A.MANDT, A.LIFNR
+                                        
+       UNION ALL 
+              
+                     SELECT  
+                          substr(a.inp_dt,1,6) AS PAPRYYYYMM
+                          ,a.MANDT
+                           , a.LIFNR
+                           , 0 AS CNT1 
+                           , COUNT(a.PERNO) AS CNT2
+                           , 0 AS CNT3
+                            FROM SAPHEE.zpstw0301 AS a
+                 LEFT OUTER JOIN SAPHEE.zpstw0302 AS c
+                              ON a.inp_dt = c.inp_dt
+                             AND a.lifnr = c.lifnr
+                             AND a.perno = c.perno
+                 INNER JOIN SAPHEE.ZMASTER02 M02 
+                              ON M02.MANDT = c.MANDT  AND M02.POSID = c.PSPID 
+                         AND M02.POSID_1 =  c.POSID
+                   WHERE a.MANDT = #G_MANDT# AND substr(a.inp_dt,1,6)  = #YYYYMMF#
+                     AND ( a.tuip_chka = 'X' OR (a.tuip_chkb = 'X' AND a.sayu = 'H' AND a.sayu = 'J' AND a.sayu = 'F') )                     
+                     AND c.pspid IS NOT NULL AND c.posid IS NOT null
+                    -- AND a.LIFNR='1098169566'
+                 --    AND A.LIFNR = '1058192177'      
+                     AND  M02.ZZGUBUN = '10'   
+                    GROUP BY  substr(a.inp_dt,1,6) ,a.MANDT, a.LIFNR
+                              
+              UNION ALL
+               
+                   SELECT  substr(a.inp_dt,1,6) AS PAPRYYYYMM
+                             ,a.MANDT
+                             , a.LIFNR                
+                             , 0 AS CNT1 
+                             , 0 AS CNT2
+                             , COUNT(DISTINCT a.inp_dt) AS CNT3
+                        FROM SAPHEE.zpstw0301 AS a
+                         LEFT OUTER JOIN SAPHEE.zpstw0302 AS c
+                                ON a.inp_dt = c.inp_dt
+                               AND a.lifnr = c.lifnr
+                               AND a.perno = c.perno
+                          INNER JOIN  SAPHEE.ZMASTER02 M02 
+                            ON M02.MANDT = c.MANDT  AND M02.POSID = c.PSPID AND M02.POSID_1 =  c.POSID
+                         --    LEFT OUTER JOIN SAPHEE.lfa1 AS l
+                          --     ON a.lifnr = l.lifnr
+                              WHERE 1=1 
+                               AND a.MANDT = #G_MANDT# AND substr(a.inp_dt,1,6)  = #YYYYMMF#
+                          AND ( a.tuip_chka = 'X' OR (a.tuip_chkb = 'X' AND a.sayu = 'H' AND a.sayu = 'J' AND a.sayu = 'F') )                  
+                           AND c.pspid IS NOT NULL AND c.posid IS NOT null
+                      --     AND A.LIFNR = '1058192177'      
+                          AND  M02.ZZGUBUN = '10'
+                    -- AND a.LIFNR='2168114582'
+                     GROUP BY substr(a.inp_dt,1,6), a.MANDT,  a.LIFNR
+             ) 
+             GROUP BY  MANDT, PAPRYYYYMM, LIFNR 
+           --  HAVING  SUM(CNT1)   >   0 
+             ) GROUP BY  MANDT,PAPRYYYYMM, LIFNR
+           )
+         )    
+     )  -- 준공관리 END 7
+     UNION ALL  --민원관리 START 8
+     (
+       SELECT  MANDT,PAPRYYYYMM, LIFNR
+           , 0 AS QC_RT           --QC합격률
+           , 0 AS QC_POINT    --   환산점수
+           , 0 AS JQPR_CNT
+           , 0 AS JQPR_POINT
+           , 0 AS AVG_PER_CNT   --평균인원
+           , 0 AS AVG_PER_POINT  --인원관리 환산점수
+           , 0 AS INP_RT
+           , 0 AS INP_POINT
+           , 0 AS PER_INST_CNT  --설치실적 인당설치기성대수
+           , 0 AS PER_INST_POINT  --설치실적 환산점수
+           , 0 AS SAF_ACCT_CNT  --안전경고(사고) 안전사고건수
+           , 0 AS SAF_ACCT_POINT  --안전경고(사고) 환산점수
+           , 0 AS EVAL_IMNO_CNT   -- 중대재해위반
+           , 0 AS EVAL_IMNO_POINT -- 환산점수
+           , 0 AS PER_PER_CNT   --준공관리 인당대수
+           , 0 AS PER_PER_POINT --준공관리 환산점수
+           , CNT_SUM  AS MINWON_CNT                        --민원건수합계
+           , DEC((CNT_SUM * (-1)), 10, 1) AS MINWON_POINT  --환산점수9
+   FROM (      
+  SELECT  MANDT,PAPRYYYYMM, LIFNR
+        , SUM(CNT)  AS CNT_SUM  --민원건수합계
+    FROM (
+      
+        SELECT   
+           MANDT,
+           PAPRYYYYMM,  /*검사일자*/
+           LIFNR,   --업체번호
+            SUM(CNT) AS CNT,  --민원건수
+             DEC((SUM(CNT) * (-1)), 10, 1) AS POINT
+         FROM   (
+                   SELECT  A.RDATE ,
+                           A.MANDT, 
+                           A.PSPID,  
+                           A.SEQNO , 
+                           substr(A.RDATE,1,6)  AS PAPRYYYYMM,
+                           ROWNUMBER() OVER(PARTITION BY A.PSPID) AS CNT,
+                          A.LIFNR,
+                          A.TEMNO    --팀장  M02.NAMET2 
+                      FROM SAPHEE.ZPSTW1307 AS A
+                         INNER JOIN  SAPHEE.ZMASTER01 M01 ON M01.MANDT = A.MANDT AND M01.POSID = A.PSPID
+                   --    LEFT OUTER JOIN  SAPHEE.ZMASTER01 M01 ON M01.MANDT = A.MANDT AND M01.POSID = A.PSPID 
+                  --  LEFT OUTER JOIN  SAPHEE.ZMASTER02 M02 ON M02.MANDT = A.MANDT AND M02.POSID = Left(A.PSPID, 6)   AND M02.POSID_1 =  A.PSPID
+       WHERE A.MANDT = #G_MANDT#
+             AND A.STATE    <![CDATA[ <> ]]>    'D'                
+             AND (substr(A.RDATE,1,6) = #YYYYMMF# ) 
+             AND M01.PRART = '01'
+             AND A.LIFNR    <![CDATA[ <> ]]>   ' '
+    UNION ALL
+                   SELECT  A.RDATE ,
+                           A.MANDT, 
+                           A.PSPID,  
+                           A.SEQNO , 
+                           substr(A.RDATE,1,6)  AS PAPRYYYYMM,
+                           ROWNUMBER() OVER(PARTITION BY A.PSPID, A.SUPR_DT) AS CNT,
+                           A.LIFNR,
+                           A.TEMNO    
+                FROM SAPHEE.ZPSTW1307B AS A
+                   --   LEFT OUTER JOIN  SAPHEE.ZMASTER01 M01 ON M01.MANDT = A.MANDT AND M01.POSID = A.PSPID 
+                      INNER JOIN  SAPHEE.ZMASTER01 M01 ON M01.MANDT = A.MANDT AND M01.POSID = A.PSPID
+      WHERE A.MANDT = #G_MANDT#
+             AND A.STATE    <![CDATA[ <> ]]>    'D'                
+             AND (substr(A.RDATE,1,6) = #YYYYMMF# ) 
+             AND M01.PRART = '01'
+             AND A.LIFNR    <![CDATA[ <> ]]>   ' '
+                  )    GROUP BY MANDT, PAPRYYYYMM, LIFNR
+             ) GROUP BY MANDT,PAPRYYYYMM,  LIFNR
+       )   
+    )  --민원관리 END
+)  GROUP BY MANDT,PAPRYYYYMM, LIFNR
+) AS Q
+INNER JOIN SAPHEE.ZPST0034 AS C 
+        ON Q.MANDT = C.MANDT AND Q.LIFNR = C.LIFNR AND C.GBN = 'A' AND (C.SO = 'X' OR C.SO3 = 'X')
+
+ LEFT OUTER JOIN SAPHEE.ZWBT010 W
+              ON Q.MANDT = W.MANDT
+             AND Q.LIFNR = W.LIFNR
+     INNER JOIN  
+     (
+     SELECT        
+           MANDT
+         , DTEXT3 AS TEAM_CD     --팀코드
+         , DTEXT4 AS TEAM_NM     --팀명
+         , CODE2 AS ZZACTSS_CD   --지사코드
+         , CTEXT2 AS ZZACTSS_NM  --지사명
+      FROM SAPHEE.ZLCODE N 
+       WHERE N.CODE1 = 'PS003' AND N.DTEXT3    <![CDATA[ <> ]]>   '' 
+         AND N.LANG = 'ko' 
+     ) L ON W.MANDT = L.MANDT
+        AND W.ZZACTSS = L.ZZACTSS_CD
+  
+     INNER JOIN  
+     (
+     SELECT MANDT, LIFNR, POSIC, NAMEC 
+       FROM SAPHEE.ZPST0001 
+      WHERE MANDT = #G_MANDT# 
+      AND POSIC = 'X' AND GBN = 'A' AND TYPE = '1' 
+      AND RETIF    <![CDATA[ <> ]]>   'X'  
+      GROUP BY MANDT, LIFNR, POSIC, NAMEC
+     ) AS J ON J.MANDT = Q.MANDT
+        AND J.LIFNR = Q.LIFNR
+
+  WHERE 1=1 
+    AND (W.ZZACTSS IS NOT NULL OR W.ZZACTSS != '' )
+    AND C.LIFNR    <![CDATA[ <> ]]>   '0000008001'
+FOR FETCH ONLY
+WITH UR     
+
+  
+    </statement>
+    <input default-name="_none">
+    </input>
+
+    <output default-name="_none">
+    </output>
+
+</query>

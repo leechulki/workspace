@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[견적원가 을지 품목 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+WITH TREE_DATA( ROW_NUM, GROUP_NUM, MANDT, ESCS_NUMB, ESCS_NTIM, ESCS_ITSQ, ITEM_DIYN, ESCS_GROP, ESCS_UPGR, ESCS_ITEM, EXTN_ESCS, ESIT_SEQN, ESCE_NAME, MTRL_DIVS, MTRL_NUMB, PART_NAME, STAD, UNIT, QNTY, COST, WAERK, UKURS, ICDT_EPNS, IDRT_COST, SALE_COST, MRGN_RATE, ESMT_COST, NGTT_ESCS, PRES_COST, ESMT_EGRT, CRES_COST, NOTE, ESMT_CMPY, WORD_REFR, OCNT_NUMB, EBDG_MGSQ, EBDG_ITSQ ) AS (
+    SELECT ROW_NUMBER() OVER( ) AS ROW_NUM
+          ,ROW_NUMBER() OVER( PARTITION BY A.ESCS_UPGR ) AS GROUP_NUM
+          ,A.MANDT, A.ESCS_NUMB, A.ESCS_NTIM, A.ESCS_ITSQ, A.ITEM_DIYN, A.ESCS_GROP, A.ESCS_UPGR, A.ESCS_ITEM, A.EXTN_ESCS, A.ESIT_SEQN, A.ESCE_NAME, A.MTRL_DIVS, A.MTRL_NUMB, A.PART_NAME, A.STAD, A.UNIT, A.QNTY, A.COST, A.WAERK, A.UKURS, A.ICDT_EPNS, A.IDRT_COST, A.SALE_COST, A.MRGN_RATE, A.ESMT_COST, A.NGTT_ESCS, A.PRES_COST, A.ESMT_EGRT, A.CRES_COST, A.NOTE, A.ESMT_CMPY, A.WORD_REFR, A.OCNT_NUMB, A.EBDG_MGSQ, A.EBDG_ITSQ
+    FROM   TABLE (
+            SELECT *
+            FROM   SAPHEE.ZFST0201
+            WHERE  MANDT = #G_MANDT#
+              AND  ESCS_NUMB = #ESCS_NUMB#
+              AND  ESCS_NTIM = #ESCS_NTIM#
+            ORDER BY ESIT_SEQN
+            ) AS A
+    UNION ALL
+    SELECT 0 AS ROW_NUM
+          ,0
+          ,'' MANDT, '' ESCS_NUMB,0 ESCS_NTIM,0 ESCS_ITSQ, '' ITEM_DIYN, '' ESCS_GROP, '' ESCS_UPGR, '' ESCS_ITEM, '' EXTN_ESCS, 0 ESIT_SEQN, '' ESCE_NAME, '' MTRL_DIVS, '' MTRL_NUMB, '' PART_NAME, '' STAD, '' UNIT,0 QNTY,0 COST, '' WAERK,0 UKURS,0 ICDT_EPNS,0 IDRT_COST,0 SALE_COST,0 MRGN_RATE,0 ESMT_COST,0 NGTT_ESCS,0 PRES_COST,0 ESMT_EGRT,0 CRES_COST, '' NOTE, '' ESMT_CMPY, '' WORD_REFR, '' OCNT_NUMB,0 EBDG_MGSQ,0 EBDG_ITSQ
+    FROM   SYSIBM.SYSDUMMY1 AS A
+),
+TREE_LEVEL(LIST_INDEX, T_POS, LEVEL, ROW_NUM, GROUP_NUM, MANDT, ESCS_NUMB, ESCS_NTIM, ESCS_ITSQ, ITEM_DIYN, ESCS_GROP, ESCS_UPGR, ESCS_ITEM, EXTN_ESCS, ESIT_SEQN, ESCE_NAME, MTRL_DIVS, MTRL_NUMB, PART_NAME, STAD, UNIT, QNTY, COST, WAERK, UKURS, ICDT_EPNS, IDRT_COST, SALE_COST, MRGN_RATE, ESMT_COST, NGTT_ESCS, PRES_COST, ESMT_EGRT, CRES_COST, NOTE, ESMT_CMPY, WORD_REFR, OCNT_NUMB, EBDG_MGSQ, EBDG_ITSQ ) AS (
+    SELECT  CAST(A.GROUP_NUM AS VARCHAR(1000)) AS GROUP_NUM
+           ,CAST( LPAD( A.ROW_NUM, 4, '0') AS VARCHAR(1000)) AS T_POS
+           ,1, A.*
+    FROM    TREE_DATA A
+    WHERE   A.MANDT != ''
+      AND   A.ESCS_UPGR = ''
+    UNION   ALL
+    SELECT  B.LIST_INDEX || '.' || A.GROUP_NUM
+           ,B.T_POS || LPAD( A.ROW_NUM, 4, '0')  AS T_POS
+           ,B.LEVEL + 1 AS LEVEL
+           ,A.*
+    FROM    TREE_DATA A, TREE_LEVEL B
+    WHERE   A.MANDT = B.MANDT 
+      AND   A.ESCS_UPGR = B.ESCS_GROP
+      AND   A.MANDT != ''
+)
+SELECT
+        '' AS CHK
+       ,A.MANDT -- 클라이언트
+       ,CAST( #ESMT_NUMB# AS VARCHAR(60) ) AS ESMT_NUMB -- 견적원가번호
+       ,CAST( A.ESIT_SEQN +1 AS INTEGER ) AS ESMT_ITSQ -- 견적원가품목순번
+       ,0 AS ESMT_SBSQ -- 견적상세순번
+       ,0 AS ESMT_PGSQ -- 견적서을지페이지번호
+       ,CAST( CASE WHEN A.ITEM_DIYN = 'M' THEN A.ESCE_NAME 
+                   ELSE A.PART_NAME END AS VARCHAR(700) ) AS CNTS -- 내역
+       ,A.STAD -- 규격
+       ,A.UNIT -- 단위
+       ,A.QNTY -- 수량
+       ,CAST( #WAERK# AS VARCHAR(15) ) AS WAERK -- 통화단위
+       ,CASE WHEN A.ITEM_DIYN = 'M' THEN 0 ELSE A.ESMT_COST END AS ESMT_COST -- 견적원가
+       ,ROUND( CASE WHEN A.ITEM_DIYN = 'M' OR A.ESMT_COST = 0 THEN 0.0 
+                    ELSE A.ESMT_COST / CAST( #UKURS# AS DECIMAL(9,5) ) / CAST( #OT_UKURS# AS DECIMAL(9,5) ) END , 2 ) AS CRES_COST -- 통화견적원가
+       ,A.NOTE -- 비고
+FROM    TREE_LEVEL A
+ORDER   BY A.T_POS
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+        <col name="MANDT" size="9" type="VARCHAR" description="클라이언트" />
+        <col name="ESMT_NUMB" size="60" type="VARCHAR" description="견적서번호" />
+        <col name="ESCS_NUMB" size="60" type="VARCHAR" description="견적원가번호" />
+        <col name="ESCS_NTIM" size="2" type="SMALLINT" description="견적원가차수" />
+        <col name="WAERK" size="15" type="VARCHAR" description="통화 키"/>
+        <col name="OT_UKURS" size="2" type="SMALLINT" description="환율 자릿수"/>
+        <col name="UKURS" size="9" type="DECIMAL" description="환율"/>
+    </input>
+    <output default-name="ds_zfst0201">
+        <col name="CHK" size="3" type="VARCHAR" description="선택" />
+        <col name="MANDT" size="9" type="VARCHAR" description="클라이언트" />
+        <col name="ESMT_NUMB" size="60" type="VARCHAR" description="견적서번호" />
+        <col name="ESMT_ITSQ" size="2" type="SMALLINT" description="견적서품목순번" />
+        <col name="ESMT_SBSQ" size="2" type="SMALLINT" description="견적상세순번" />
+        <col name="ESMT_PGSQ" size="2" type="SMALLINT" description="견적서을지페이지번호" />
+        <col name="CNTS" size="600" type="VARCHAR" description="내역" />
+        <col name="STAD" size="300" type="VARCHAR" description="규격" />
+        <col name="UNIT" size="9" type="VARCHAR" description="단위" />
+        <col name="QNTY" size="4" type="INTEGER" description="수량" />
+        <col name="WAERK" size="15" type="VARCHAR" description="통화 키" />
+        <col name="ESMT_COST" size="17" type="DECIMAL" description="견적원가" />
+        <col name="CRES_COST" size="17" type="DECIMAL" description="통화견적원가" />
+        <col name="NOTE" size="12000" type="DBCLOB" description="비고" />
+        <col name="WRIT_DATE" size="24" type="VARCHAR" description="작성일자" />
+        <col name="WRIT_TIME" size="18" type="VARCHAR" description="작성시간" />
+        <col name="WRIT_USER" size="36" type="VARCHAR" description="작성자" />
+    </output>
+</query>

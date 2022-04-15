@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="352" Id="CommWSErrorForm" Left="8" OnLoadCompleted="fn_OnLoadCompleted" PidAttrib="7" Title="에러정보&#32;표시" Top="8" Ver="1.0" Width="800" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="_ds_errList"></Dataset>
+			<Dataset DataSetType="Dataset" Id="_ds_errList_0"></Dataset>
+		</Datasets>
+		<Image FillType="STRETCH" Height="36" Id="Image0" ImageID="popup_title_back" TabOrder="1" Width="800"></Image>
+		<Static Color="user5" Font="굴림,10,Bold" Height="20" Id="Static0" Left="28" TabOrder="3" Text="Error&#32;Information" Top="8" VAlign="Middle" Width="192"></Static>
+		<Image Height="36" Id="Image1" ImageID="form_bl_title_main" Left="8" TabOrder="2" Width="15"></Image>
+		<Grid AutoFitEndLine="Hide" BkColor2="default" BoldHead="true" Border="Flat" Bottom="340" ColSizing="TRUE" Enable="true" EndLineColor="default" FixedColSizing="TRUE" HeadBorder="Flat" HeadHeight="20" Height="272" Id="grd_errList" InputPanel="FALSE" Left="8" LineColor="user20" LineType="ExHORZ" Right="792" RowHeight="20" Style="sty_grid" TabOrder="4" TabStop="true" Top="68" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="FALSE" VLineColor="default" WheelScrollRow="1" Width="784">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col width="49"/>
+						<col width="364"/>
+					</columns>
+				</format>
+			</contents>
+		</Grid>
+		<Static Align="Right" Height="20" Id="Static4" Left="8" Style="sty_lb_form_basic" TabOrder="5" Text="발생건수&#32;" Top="44" VAlign="Middle" Width="80"></Static>
+		<Edit Border="Flat" Enable="FALSE" Height="20" Id="ed_cnt" Left="90" LeftMargin="4" RightMargin="4" Style="sty_ipt_form" TabOrder="6" Top="44" Width="95"></Edit>
+		<Image Cursor="HAND" Font="돋움,9,Bold" Height="20" Id="img_close" Left="777" OnClick="img_close_OnClick" Static="FALSE" TabOrder="7" Text="X" Top="8" Transparent="TRUE" Width="20"></Image>
+	</Form>
+	<Script><![CDATA[﻿﻿﻿﻿﻿﻿﻿/*
+ ******************************************************************************************
+ * 기      능   : 
+ * 작  성  자   : 
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+#include "LIB::commons.js";	// 공통 스크립트 
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) {
+	gfn_initForm();
+
+	var grdObj = object(fa_grdName);
+	var dsObj = object(fa_dsName);
+	var errDsObj = object(fa_errDsName);
+	var flagColNm = fa_flagNm;
+
+	// 그리드 내용 복사 
+	var str = grdObj.GetCurContents();
+	var colStr = "<col width=\"450\"/></columns>";
+	var headStr = "<cell rowspan=\"" + grdObj.GetCellProp("head",0,"rowspan") + "\" col=\"" + grdObj.getColCount() + "\" text=\"error\" /></head>";
+	var bodyStr = "<cell col=\"" + grdObj.getColCount() + "\" bkcolor2=\"user22\" colid=\"ERRMSG\" /></body>";
+	str = replace(str, "</columns>", colStr);
+	str = replace(str, "</head>", headStr);
+	str = replace(str, "</body>", bodyStr);
+	
+	grd_errList.contents = str;
+
+	// Error 정보 찾기 
+	_ds_errList.copy(dsObj);
+	_ds_errList.addColumn("ERRMSG", "STRING", 400);
+	_ds_errList.addColumn("DISP", "STRING", 1);
+
+	_ds_errList.fireevent = false;
+	
+	for ( var r = 0; r < _ds_errList.rowCount(); r++ ) {
+		if( dsObj.getColumn(r, flagColNm) == "I"
+			|| dsObj.getColumn(r, flagColNm) == "U"
+			|| dsObj.getColumn(r, flagColNm) == "D"
+			|| dsObj.getColumn(r, flagColNm) == "1" ) {
+			_ds_errList.setColumn(r, "DISP", "N");
+			//isEx = true;
+		}
+	}
+
+	gfn_copyDs(_ds_errList,_ds_errList_0,"DISP=='N'");
+
+ 	var txCnt = 1;
+	var errIdx = 0;
+	for( var i = 0; i < errDsObj.rowCount(); i++ ) {
+		errIdx = errDsObj.getColumn(i, "IDX");
+
+		for ( var r = i; r < _ds_errList_0.rowCount(); r++ ) {
+			if( errIdx == txCnt++ ) {
+				_ds_errList_0.setColumn(r, "DISP", "Y"); 
+				_ds_errList_0.setColumn(r, "ERRMSG", errDsObj.getColumn(i, "ERRMSG"));
+				break;
+			}	
+		}
+	}
+
+	_ds_errList_0.filter("DISP=='Y'");
+	_ds_errList_0.fireevent = true;
+	grd_errList.bindDataset = "_ds_errList_0";
+	grd_errList.Visible = true;
+	
+	ed_cnt.value = _ds_errList_0.rowCount();
+}
+/********************************************************************************
+* 기      능   : 공통코드가 조회된 후의 Callback 함수 
+********************************************************************************/
+function fn_completeInit(sCode, sDsObj, sCodeType) {
+
+}
+/********************************************************************************
+* 기      능   : form UnloadCompleted 
+********************************************************************************/
+function fn_OnUnloadCompleted(obj) {
+
+}
+//=========================================================================================
+// [ PART 3 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,form닫기)
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 4]
+// Callback 함수 정의 : callback 함수명은 메인 함수의 fn_xxxx() 에서 xxxx 부분은 fn_afterXXXX()
+// 형태가 되도록 작성 
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+// 사용자 정의 함수는 ufn_xxxx() 형태로 작성 
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 사용자 정의 함수  
+********************************************************************************/
+
+
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 : 각 Component 별 이벤트 
+//=========================================================================================
+function img_close_OnClick(obj,nX,nY)
+{
+	close();
+}
+]]></Script>
+</Window>

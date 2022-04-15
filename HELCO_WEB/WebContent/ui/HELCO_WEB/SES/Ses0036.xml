@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="224" Id="Ses0035" Left="8" OnLoadCompleted="fn_OnLoadCompleted" OnUnloadCompleted="fn_OnUnloadCompleted" PidAttrib="7" Title="견적요청" Top="8" Ver="1.0" Width="464" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_zrqflg">
+				<Contents>
+					<colinfo id="CODE" size="256" type="STRING"/>
+					<colinfo id="CODE_NAME" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_zapflg">
+				<Contents>
+					<colinfo id="CODE" size="256" type="STRING"/>
+					<colinfo id="CODE_NAME" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_list">
+				<Contents>
+					<colinfo id="QTNUM" size="256" type="STRING"/>
+					<colinfo id="QTSER" size="3" type="INT"/>
+					<colinfo id="ZRQSEQ" size="256" type="STRING"/>
+					<colinfo id="ZRQCN" size="256" type="STRING"/>
+					<record>
+						<QTNUM></QTNUM>
+						<QTSER/>
+						<ZRQCN></ZRQCN>
+						<ZRQSEQ></ZRQSEQ>
+					</record>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_error">
+				<Contents>
+					<colinfo id="IDX" size="256" type="STRING"/>
+					<colinfo id="ERRMSG" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Shape BKColor="user0" Bottom="216" Height="168" Id="Shape0" Left="4" LineColor="user1" Right="456" TabOrder="2" Top="48" Type="Rectangle" Width="452"></Shape>
+		<Div Height="36" Id="div_btn" Left="3" TabOrder="3" Text="Div0" Top="6" Url="WB01::CommBtnForm.xml" Width="453">
+			<Contents></Contents>
+		</Div>
+		<Static Align="Right" Height="20" Id="Static4" Left="16" Style="sty_lb_search" TabOrder="4" Text="요청내용&#32;" Top="56" VAlign="Middle" Width="80"></Static>
+		<Button Appearance="FLAT" ButtonStyle="TRUE" Color="user5" Cursor="HAND" DomainID="btn.save" Height="22" Id="btn_save" ImageID="btn_comm_save_k" Left="351" LeftMargin="20" OnClick="fn_OnClick_btn" TabOrder="5" Text="저장" Top="12" Width="52"></Button>
+		<TextArea BindDataset="ds_list" CheckLength="Byte" Column="ZRQCN" Height="152" Id="ta_zrqcn" Left="104" MaxLength="100" Style="sty_ipt_form" TabOrder="0" Top="56" Width="328"></TextArea>
+	</Form>
+	<Script><![CDATA[/*
+ ******************************************************************************************
+ * 기      능   : 
+ * 작  성  자   : 
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+#include "LIB::commons.js";	// 공통 스크립트 
+#include "LIB::nsfRequest.js";	// 공통 스크립트 
+#include "LIB::common_hdel.js";	// 공통 스크립트  /* GNY 추가 */
+
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+
+var F_FRM_TITLE = "원가요청";	// 공통코드 화면명
+var F_MANDT = "";
+var F_QTNUM = "";
+var F_QTSER = "";
+
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) {
+
+	gfn_initForm(false);// Form 로드 이벤트 맨 첫줄에 기술 
+
+	//fn_init_form(); 	// 폼 초기화
+
+	div_btn.fn_loadUseBtn("", F_FRM_TITLE, "", "");
+	
+	F_MANDT = fa_mandt;  
+	F_QTNUM = fa_qtnum;
+	F_QTSER = fa_qtser;
+}
+
+/********************************************************************************
+* 기      능   : form UnloadCompleted 
+********************************************************************************/
+function fn_OnUnloadCompleted(obj) {
+	return gfn_isFormUnload(obj);
+}
+
+/********************************************************************************
+* 기      능   : 폼 초기화
+********************************************************************************/
+function fn_init_form() {
+
+	var codeArr  = ["SD103", "SD102"];
+	var dsObjArr = [ds_zrqflg , ds_zapflg];
+	var addTypeArr = [G_CODE_ALL,G_CODE_ALL,G_CODE_ALL];
+	gfn_searchCommCode2(codeArr, dsObjArr, addTypeArr);
+} 
+
+/********************************************************************************
+* 기      능   : 닫기  
+********************************************************************************/
+function fn_close() {
+	close();
+}
+
+/********************************************************************************
+* 기      능   : 조회
+********************************************************************************/
+function fn_OnClick_btn(obj) {
+	var fncName = "fn_" + substr(obj.id, 4); 
+	eval( fncName + "()");
+}
+
+//=========================================================================================
+// [ PART 3 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,form닫기)
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 저장 1
+********************************************************************************/
+function fn_save() { 
+
+	if ( length(trim(ta_zrqcn.Text)) == 0)	{
+		gfn_showAlert("CW00208","요청내용");
+		gfn_SetFocus(ta_zrqcn, "");
+		return false;
+	}
+
+	if(! gfn_showConfirm("CW10025", "원가산출요청을 의뢰 하시겠습니까?") )
+	{
+		return false;
+	}
+
+	fn_createWait("",this);     // 처리중입니다. 메시지 처리
+
+	ds_list.SetColumn(0, "QTNUM",  F_QTNUM);
+	ds_list.SetColumn(0, "QTSER",  F_QTSER);
+	ds_list.SetColumn(0, "ZRQSEQ", "");
+	ds_list.SetColumn(0, "ZRQCN",  trim(ta_zrqcn.Text));
+
+	nsfRequest("save"
+			 , "ses0036/save"
+			 , "ds_list=ds_list"
+			 , "ds_error=ds_error"
+			 , ""
+			 , "fn_afterSave");
+}
+
+/********************************************************************************
+* 기      능   : 저장 Callback
+********************************************************************************/
+function fn_afterSave(svcId, errCode, errMsg) {
+
+	fn_destroyWait();
+	
+	if (ds_error.RowCount() > 0)
+	{
+		gfn_showAlert("CE00002", "원가산출요청");
+		return false;
+	}
+	else
+	{
+		if (svcId = "save")
+		{
+			gfn_showAlert("CW10025", "정상적으로 원가산출요청이 처리되었습니다.");
+			parent.fn_visible("costRequest");
+			close();
+		}
+	}
+}
+
+]]></Script>
+</Window>

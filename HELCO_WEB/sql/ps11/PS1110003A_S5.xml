@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+
+SELECT A.MANDT , SD.GSNAM, D.KUNNR, A.QTNUM,
+              SD.VBELN,             D.NAME1,                  
+               '' AS MESGACCP,
+              '교체현장 실측치 접수' AS MESGTITL ,
+             '' AS MESGDESC,
+             'N' AS MESGCHEK,
+             'N' AS MESGACDE,
+             'N' AS MESGSEDE,
+              '' AS PERNO,
+              ('helco' || CAST(#G_USER_ID# AS CHAR(7)) || '@hdel.co.kr') AS USER,
+              VALUE((
+              	SELECT VALUE(X.USERMAIL,'') AS USERMAIL
+              	  FROM SAPHEE.ZUSERF AS X
+              	 WHERE X.MANDT = D.MANDT
+              	   AND X.USERNUMB = SUBSTR(D.KUNNR,2,7)
+              	 FETCH FIRST 1 ROW ONLY
+              ),'') AS KUNNR_MAIL,
+              
+              SUBSTR(E.ZMAN,2,8) AS SD_MAN1,
+              (SELECT Z.USERMAIL  FROM SAPHEE.ZUSERF AS Z WHERE Z.MANDT = E.MANDT AND  Z.USERNUMB = SUBSTR(E.ZMAN,2,8)) AS SD_MAIL1,
+              (
+              		SELECT SUBSTR(KNA1.KUNNR,2,7) AS SD_MAN2
+					FROM SAPHEE.VBAK AS VBAK
+					  INNER JOIN SAPHEE.VBPA AS VBPA
+					      ON VBAK.MANDT=VBPA.MANDT
+					       AND VBAK.VBELN=VBPA.VBELN
+					       AND VBPA.POSNR='000000'
+					       AND VBPA.PARVW='Z2'
+					LEFT JOIN SAPHEE.ZSDT0149 AS Z149
+					       ON VBPA.MANDT=Z149.MANDT
+					        AND VBPA.KUNNR=Z149.DEALER
+					     AND Z149.SDFIELD = (CASE VBAK.SPART WHEN '20' THEN 'PRK' ELSE (CASE SUBSTR(VBAK.AUART,1,2) WHEN 'ZN' THEN 'REM' ELSE 'NI' END)   END)
+					LEFT JOIN SAPHEE.KNA1 AS KNA1
+					      ON Z149.MANDT=KNA1.MANDT
+					    AND Z149.MANAGER=KNA1.KUNNR
+					LEFT JOIN SAPHEE.ZUSERF AS ZUSERF
+					       ON KNA1.MANDT=ZUSERF.MANDT
+					        AND KNA1.KUNNR='H'||ZUSERF.USERNUMB
+			
+					WHERE VBAK.MANDT    = #G_MANDT#
+					  AND VBAK.ZZPJT_ID = VK.ZZPJT_ID
+					FETCH FIRST 1 ROWS ONLY
+              ) AS SD_MAN2,
+              (
+              		  SELECT ZUSERF.USERMAIL
+						FROM SAPHEE.VBAK AS VBAK
+						  INNER JOIN SAPHEE.VBPA AS VBPA
+						      ON VBAK.MANDT=VBPA.MANDT
+						       AND VBAK.VBELN=VBPA.VBELN
+						       AND VBPA.POSNR='000000'
+						       AND VBPA.PARVW='Z2'
+						LEFT JOIN SAPHEE.ZSDT0149 AS Z149
+						       ON VBPA.MANDT=Z149.MANDT
+						        AND VBPA.KUNNR=Z149.DEALER
+						     AND Z149.SDFIELD = (CASE VBAK.SPART WHEN '20' THEN 'PRK' ELSE (CASE SUBSTR(VBAK.AUART,1,2) WHEN 'ZN' THEN 'REM' ELSE 'NI' END)   END)
+						LEFT JOIN SAPHEE.KNA1 AS KNA1
+						      ON Z149.MANDT=KNA1.MANDT
+						    AND Z149.MANAGER=KNA1.KUNNR
+						LEFT JOIN SAPHEE.ZUSERF AS ZUSERF
+						       ON KNA1.MANDT=ZUSERF.MANDT
+						        AND KNA1.KUNNR='H'||ZUSERF.USERNUMB
+				
+						WHERE VBAK.MANDT    = #G_MANDT#
+						  AND VBAK.ZZPJT_ID = VK.ZZPJT_ID
+						FETCH FIRST 1 ROWS ONLY
+              ) AS SD_MAIL2
+              
+              
+			 
+FROM SAPHEE.ZPST1113 AS A
+   INNER JOIN  SAPHEE.ZSDT1046 AS  SD
+                ON A.MANDT = SD.MANDT 
+               AND A.QTNUM = SD.QTNUM
+	 AND SD.QTSER = (SELECT MAX(X.QTSER) 
+                       FROM SAPHEE.ZSDT1046 AS X  
+                     WHERE SD.MANDT = X.MANDT 
+                         AND SD.QTNUM = X.QTNUM )
+											   
+
+  LEFT OUTER  JOIN  SAPHEE.VBAK AS VK
+                ON SD.MANDT = VK.MANDT 
+          --  AND SD.VBELN = right(VK.VBELN,6)
+               AND SD.VBELN = VK.VBELN	
+               AND VK.VTWEG = '10' -- 유통경로 (신규/교체)
+	
+  LEFT OUTER JOIN SAPHEE.VBPA AS C 
+                ON VK.MANDT = C.MANDT 
+               AND VK.VBELN = C.VBELN 
+               AND C.PARVW = 'Z3'
+      
+  LEFT OUTER JOIN SAPHEE.KNA1 AS D 
+                ON C.MANDT= D.MANDT
+               AND C.KUNNR = D.KUNNR
+
+  LEFT OUTER JOIN SAPHEE.ZMASTER01 AS E
+               ON E.MANDT = VK.MANDT
+              AND E.POSID = VK.ZZPJT_ID	
+	
+WHERE A.MANDT =  #G_MANDT#
+  AND A.QTNUM = #QTNUM#
+  WITH UR     
+
+  	]]></statement>
+	<input default-name="ds_cond2">
+	</input>
+	<output default-name="ds_trans">
+	</output>
+</query>

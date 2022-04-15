@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[화면 메인 조회쿼리]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  ETIME 	 ,LIFNR     ,Z.MANDT    ,MDATE     ,MTIME     ,NAMET    ,NAMET2    ,Z.POSID
+             ,Z.POSID_1   ,POSID_M   ,POSID_OLD    ,PRART    ,TEMNO   ,TEMNO2   ,TEXT30    ,TXT04
+       		 ,TXT30       ,VDATU    ,ZBEPJEO    ,ZBOSUIN    ,ZBOSUOUT    ,ZFLAG01    ,ZGUBUN
+       		 ,ZMUSAOCNT    ,ZMUSAOCNT2   ,ZMUSAUCNT   ,ZMUSAUCNT2   ,ZOIPSU   ,ZQEGEMSA
+       		 ,ZQEMIDDL   ,ZSPEC1    ,ZSPEC10    ,ZSPEC2    ,ZSPEC3   ,ZSPEC4   ,ZSPEC5   ,ZSPEC6
+       		 ,ZSPEC7   ,ZSPEC8   ,ZSPEC9   ,ZZACTSS    ,ZZBPM    ,ZZBSU    ,ZZCHAKD    ,ZZCHAKG
+       		 ,ZZCOMP2    ,ZZDAT01    ,ZZFKEYD    ,ZZFKEYP    ,ZZFKEYP2   ,ZZFMAGA      ,ZZGUBUN
+       		 ,CASE WHEN ZZILSIC = 'X' THEN 'O' ELSE '' END ZZILSIC
+       		 ,ZZINTER  ,ZZJUNGD  ,ZZJUNGO  ,ZZPMJID   ,ZZSHIP1  ,ZZSHIP2   ,ZZSHIP3    ,ZZSHIP4
+       		 ,ZZSHIP5   ,ZZSHIP6    ,ZZSTAN1   ,ZZSTAN2
+       		 ,(SELECT NAME1 FROM SAPHEE.ZMMT012 B WHERE B.MANDT= Z.MANDT AND B.LIFNR = Z.LIFNR) LIF_NAME
+       		 ,Y.PRO_R    ,C.PROWRK   
+       		 ,(SELECT M.ZSITE_NM FROM SAPHEE.ZMASTER01 M WHERE M.MANDT = Z.MANDT AND M.POSID = Z.POSID) ZSITE_NM
+         	 
+			 
+			 , CASE WHEN ZZGUBUN = '10' AND  ZSPEC1 = 'DW' OR ZSPEC1 = 'STVF' OR ZSPEC1 = 'LXVF' OR ZSPEC1 = 'HSVF' OR ZSPEC1 = 'SUVF' OR ZSPEC1 = 'HYD' THEN 'MR'
+                     	 WHEN  ZZGUBUN = '10' AND  ZSPEC1 = 'SSVF'  AND ZSPEC1 = 'WBSS' OR ZSPEC12 &lt;&gt; 'WBSS2' THEN 'MRL'
+				   		 WHEN ZZGUBUN = '10' AND ZSPEC1 = 'WBSS' AND  ZSPEC12 = 'WBSS2' THEN 'NEW MRL'
+				   		 ELSE '' 
+			   END ZSPEC  
+			   
+			   
+			 ,Z.TYPE               ---추가  
+			 ,Z.BFTYPE
+			 
+			 ,CASE WHEN Z.BFTYPE = 'X' THEN '이전공정표' 
+			             ELSE ( CASE WHEN Z.TYPE = '' THEN '없음'
+						                      ELSE (SELECT X.TYPENM    FROM SAPHEE.ZPST1105 AS X
+											                                            WHERE X.MANDT = Z.MANDT 
+																						     AND X.GUBUN = Z.ZZGUBUN       
+																							 AND X.TYPE = Z.TYPE)
+									 END )      
+			   END AS TYPENM
+	
+						 
+						 
+   FROM  SAPHEE.ZMASTER02 Z
+     LEFT OUTER JOIN
+						        (SELECT  B.MANDT
+						                ,B.PSPID
+						                ,B.POSID
+						                ,MAX(B.GUBUN) GUBUN
+						                ,MAX(B.PRONR) PRONR
+						                ,SUM(PRO_R) PRO_R
+						        FROM SAPHEE.ZPST0112 B ,SAPHEE.ZMASTER02 AS Z1
+						        WHERE Z1.MANDT = #G_MANDT#
+						        AND   Z1.ZZCHAKG = 'X'
+						        AND   Z1.ZZGUBUN IN ('10','11','12','20')
+						        AND   Z1.PRART IN ('01','02','11')
+						        AND   Z1.TXT04 NOT IN ('C','B','R7')
+						        <isNotNull col="UPN">
+						            AND   Z1.POSID = #UPN#
+						        </isNotNull>
+								<isNull col="UPN">
+						            AND   Z1.ZZDAT01 BETWEEN #FROM_DT# AND #TO_DT#
+						        </isNull>
+						        <isNotNull col="COMBO2">
+						            AND   Z1.TEMNO = #COMBO2#
+						        </isNotNull>
+						        <isNotNull col="COMBO1">
+						            AND   Z1.ZZACTSS = #COMBO1#
+						        </isNotNull>
+						        <isNotNull col="COMBO3">
+						            AND   Z1.LIFNR = #COMBO3#
+						        </isNotNull>
+						         <isEqual col="SO7" value="1">
+						           AND RTRIM(Z1.ZZILSIC) = 'X'
+						       </isEqual>
+						        AND   B.MANDT= Z1.MANDT
+						        AND   B.PSPID = Z1.POSID
+						        AND   B.POSID = Z1.POSID_1
+						        GROUP BY B.MANDT,B.PSPID,B.POSID
+						        ) Y
+		  ON  Z.MANDT = Y.MANDT  AND Y.PSPID = Z.POSID  AND Z.POSID_1 = Y.POSID 
+		 AND Y.GUBUN LIKE '_%' AND Y.PRONR LIKE '_%'
+		 
+	   LEFT OUTER JOIN SAPHEE.ZPST0112 AS C
+	      ON C.MANDT= Z.MANDT AND C.PSPID = Z.POSID AND C.POSID = Z.POSID_1 
+		 AND C.GUBUN LIKE '_%' AND C.PRONR = Y.PRONR
+     
+       LEFT OUTER JOIN SAPHEE.ZPST0112C AS F
+        ON Z.MANDT = F.MANDT
+	   AND Z.POSID = F.PSPID
+	   AND Z.POSID_1 = F.POSID
+
+WHERE Z.MANDT = #G_MANDT#
+--AND   Z.ZZCHAKG = 'X'
+AND  (Z.ZZCHAKG = 'X' OR F.POSID IS NOT NULL) 
+AND   Z.ZZGUBUN IN ('10','11','12','20')
+AND   Z.PRART IN ('01','02','11')
+AND   Z.TXT04 NOT IN ('C','B','R7')
+<isNotNull col="UPN">
+   AND   Z.POSID = #UPN#
+</isNotNull>
+<isNull col="UPN">
+   AND   Z.ZZDAT01 BETWEEN #FROM_DT# AND #TO_DT#
+</isNull>
+<isNotNull col="COMBO2">
+   AND   Z.TEMNO = #COMBO2#
+</isNotNull>
+<isNotNull col="COMBO1">
+   AND   Z.ZZACTSS = #COMBO1#
+</isNotNull>
+<isNotNull col="COMBO3">
+   AND Z.LIFNR = #COMBO3#
+</isNotNull>
+<isEqual col="SO7" value="1">
+   AND RTRIM(Z.ZZILSIC) = 'X'
+</isEqual>
+
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+    <type>insert</type>
+    <description><![CDATA[사업적용기준그룹관리 저장 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement><![CDATA[
+INSERT INTO SAPHEE.ZFST0102
+(
+     MANDT -- 클라이언트
+    ,BSNS_YEAR -- 사업년도
+    ,STAD_DIVS -- 기준구분
+    ,STAD_SEQN -- 기준순번
+    ,STAD_UNIT -- 기준단위
+    ,STUN_DTIL -- 세부기준단위
+    ,CNTS_DTIL1 -- 세부내역1
+    ,CNTS_DTIL2 -- 세부내역2
+    ,CNTS_DTIL3 -- 세부내역3
+    ,CNTS_DTIL4 -- 세부내역4
+    ,CNTS_DTIL5 -- 세부내역5
+    ,WRIT_DATE -- 작성일자
+    ,WRIT_TIME -- 작성시간
+    ,WRIT_USER -- 작성자
+) 
+SELECT 
+        #G_MANDT# -- 클라이언트
+	   ,CAST( #BSNS_YEAR# AS VARCHAR(12)) -- 사업년도
+	   ,A.STAD_DIVS -- 기준구분
+       ,ROW_NUMBER() OVER (PARTITION BY A.STAD_DIVS ORDER BY A.STAD_SEQN ) STAD_SEQN -- 기준순번
+	   ,A.STAD_UNIT -- 기준단위
+	   ,A.STUN_DTIL -- 세부기준단위
+	   ,A.CNTS_DTIL1 -- 세부내역1
+	   ,A.CNTS_DTIL2 -- 세부내역2
+	   ,A.CNTS_DTIL3 -- 세부내역3
+	   ,A.CNTS_DTIL4 -- 세부내역4
+	   ,A.CNTS_DTIL5 -- 세부내역5
+	   ,HEX( CURRENT DATE ) -- 작성일자
+	   ,HEX( CURRENT TIME ) -- 작성시간
+	   ,#G_USER_ID# -- 작성자
+FROM    SAPHEE.ZFST0102 A 
+WHERE   A.MANDT = #G_MANDT#
+AND     A.BSNS_YEAR = (
+                        SELECT  MAX( TO_NUMBER( B.BSNS_YEAR ) )  
+                        FROM    SAPHEE.ZFST0102 B
+                        WHERE   B.MANDT = #G_MANDT#
+                        AND     TO_NUMBER( B.BSNS_YEAR ) < CAST( COALESCE( NULLIF( TRIM( #BSNS_YEAR# ||'' ) , '' ) , '-1')  AS INTEGER ) 
+                      )
+WITH UR
+    ]]></statement>
+    <input default-name="ds_cond_m">
+        <col name="MANDT" size="9" type="VARCHAR" description="클라이언트" />
+        <col name="BSNS_YEAR" size="12" type="VARCHAR" description="사업년도" />
+    </input>
+    <output default-name="_none">
+    </output>
+</query>

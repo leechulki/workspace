@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[무상청구 현황 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT 
+--	  MM001.POSID
+	  MM031.POSID
+	, MM031.MATNR
+	, MM011.MAKTX
+	, MM031.BWTAR
+--	, MM001.MENGE
+	, MM031.MENGE		/* 수량 */
+	, MM031.MEINS
+	, SAPHEE.GET_CURRDATA('KRW',MM011.SAMT1) * MM031.MENGE AS SAMT1
+--	, SAPHEE.GET_CURRDATA('KRW',MM011.SAMT2) * MM031.MENGE AS SAMT2
+    , SAPHEE.GET_CURRDATA('KRW',CASE WHEN SUBSTR(MM031.BWTAR,2) = 'A' THEN (CASE WHEN MM031.MTART = 'PALB' THEN (  SELECT STPRS * MM031.MENGE
+																			                                         FROM SAPHEE.MBEW
+																		                                            WHERE MANDT = #G_MANDT#  AND MATNR = MM031.MATNR AND BWKEY = '1000')
+                                     ELSE (SELECT CASE WHEN B.KONWA = 'KRW' THEN (B.KBETR * MM031.MENGE)
+                                     				   WHEN B.KONWA = 'USD' THEN (B.KBETR * MM031.MENGE * 10.7)
+                                                       WHEN B.KONWA = 'EUR' THEN (B.KBETR * MM031.MENGE * 14.87)  
+                                                       WHEN B.KONWA = 'JPY' THEN (B.KBETR * MM031.MENGE * 0.1316) ELSE 0 END
+						                     FROM (SELECT MANDT, KNUMH, MATNR, DATAB, DATBI
+                                                     FROM SAPHEE.A017
+								                    WHERE MANDT = #G_MANDT#
+								  	                      AND KAPPL = 'M'
+								  	                      AND KSCHL = 'PB00'
+								  	                      AND EKORG = '1000'
+								  	                      AND WERKS = '2000'
+								  	                ORDER BY DATBI DESC,DATAB DESC) AS A
+						  	                        INNER JOIN SAPHEE.KONP AS B ON B.MANDT = A.MANDT
+						  	                                                   AND B.KNUMH = A.KNUMH
+						  	                 WHERE A.MATNR = MM031.MATNR FETCH FIRST 1 ROWS ONLY ) END)
+						  	                            
+                                     WHEN SUBSTR(MM031.BWTAR,2) = 'B' THEN MM004.EXBWR * MM031.MENGE / 100  END) AS SAMT2
+
+     , SAPHEE.GET_CURRDATA('KRW',CASE WHEN SUBSTR(MM031.BWTAR,2) = 'A' THEN MM011.SAMT1 * MM031.MENGE
+       								  WHEN SUBSTR(MM031.BWTAR,2) = 'B' THEN INT(MM011.SAMT1 * 0.4 * MM031.MENGE)  END) AS NETPR
+     , SAPHEE.GET_ZERODATE(MM031.SENDAT) AS SENDAT
+     , '' AS YEAR				/* 개월차이 */
+     , CS111.TYP				/* 기종 */
+     , USER.USERNAME AS USERNAME  -- 작성자명
+     , USER.USERMBPN AS USERMBPN  -- 작성자 휴대폰
+ FROM SAPHEE.ZMMT031 AS MM031
+	  LEFT OUTER JOIN SAPHEE.ZCST111 AS CS111 ON MM031.MANDT= CS111.MANDT
+	              AND SUBSTR(MM031.POSID,1,6) = CS111.PJT
+	              AND SUBSTR(MM031.POSID,7,3) = CS111.HNO
+	  LEFT OUTER JOIN SAPHEE.ZMMT011 AS MM011 ON MM031.MANDT = MM011.MANDT
+	              AND MM031.MATNR = MM011.MATNR
+	              AND MM031.MTART = MM011.MTART
+	  LEFT OUTER JOIN SAPHEE.ZMMT001 AS MM001 ON MM001.MANDT = MM031.MANDT
+	              AND MM001.REQNR = MM031.REQNR
+	              AND MM001.REQITEM = MM031.REQITEM
+	  LEFT OUTER JOIN SAPHEE.ZMMT004 AS MM004 ON MM004.MANDT = MM031.MANDT 
+	              AND MM004.MATNR = MM031.MATNR
+	  LEFT OUTER JOIN SAPHEE.ZUSERF AS USER ON MM031.MANDT= USER.MANDT
+                  AND MM031.CREID = USER.USERNUMB
+ WHERE  MM031.MANDT = #G_MANDT#
+        AND MM031.REQNO = #REQNO#
+        AND MM031.REQKIND IN ('A')
+        --AND MM031.MANDT = CS126.MANDT
+        --AND MM031.POSID = (CS126.CS126_PJT || CS126.CS126_HNO)
+		--AND CS126.CS126_UPN = #UPN#
+		--AND CS126.CS126_CST = #CST#
+		--AND #CUDAT# BETWEEN CS126.CS126_USD AND CS126.CS126_UMR
+    	--AND MM031.REQDATE   >  #USD#
+    	--AND MM031.RECE_F IN ('0','1','2','3','4')    
+  FOR FETCH ONLY
+  WITH UR	]]></statement>
+	<input default-name="ds_head">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

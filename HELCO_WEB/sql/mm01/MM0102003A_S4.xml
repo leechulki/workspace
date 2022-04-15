@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[작업명령서 상세(상세)-생산]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+ 1 AS GUBN
+,CASE SPEC_TYP WHEN '1' THEN '1 LEVEL' WHEN '2' THEN '2 LEVEL' WHEN '3' THEN '보수' ELSE '' END TYPE
+,IDNRK
+,TEXT
+,CRDAT
+,ROW_NUMBER() OVER (ORDER BY MANDT, CRDAT, SEQNO, WOKNUM, MATNR, IDNRK, SPEC_TYP, SERIAL) AS RNB
+,0 SEQ
+,ITEM_SEQ
+FROM SAPHEE.ZPPT008
+WHERE (MANDT,CRDAT,SEQNO,WOKNUM,MATNR,IDNRK,ITEM_SEQ,MATKL) IN (
+
+         SELECT
+          MANDT
+         ,CRDAT
+         ,SEQNO
+         ,WOKNUM
+         ,MATNR
+         ,IDNRK
+         ,ITEM_SEQ
+         ,MATKL
+         FROM (
+
+            SELECT
+             MANDT
+            ,CRDAT
+            ,SEQNO
+            ,WOKNUM
+            ,MATNR
+            ,IDNRK
+            ,ITEM_SEQ
+            ,PRCTYP
+            ,MATKL
+            ,ROW_NUMBER() OVER(PARTITION BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,MATKL ORDER BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,CRDAT DESC,SEQNO DESC) AS ROWNO
+            FROM SAPHEE.ZPPT004
+            WHERE MANDT  = #G_MANDT#
+              AND WOKNUM = #HOGIN#
+              AND MATKL  = #MATNR2#
+<isNotEqual col="ITEM_SEQ" value="">
+              AND ITEM_SEQ = #ITEM_SEQ#
+</isNotEqual>
+
+         ) AS PP004
+         WHERE ROWNO=1
+           AND PRCTYP&lt;&gt;'D'
+           
+   )
+  AND TEXT &lt;&gt; ''
+  AND SPEC_TYP &lt;&gt; '3'
+
+UNION  -- 공백추가
+
+SELECT
+2 AS GUBN
+,'' AS TYPE
+,'' AS IDNRK
+,''AS TEXT
+,'' AS CRDAT
+,999 AS RNB
+,0 AS SEQ
+,'' AS ITEM_SEQ
+FROM SYSIBM.SYSDUMMY1
+
+
+UNION  -- 하위블럭
+
+SELECT
+ 3              AS GUBN 
+,' '            AS TYPE
+,MM011.BLOCK_NO AS IDNRK
+,MM011.MAKTX || ' | ' || MM011.SPEC || ' | ' || MM011.ZSIZE || ' | ' || PP004.DZEINR AS TEXT
+,''             AS CRDAT
+,1000           AS RNB
+,0              AS SEQ
+,''             AS ITEM_SEQ
+FROM SAPHEE.ZMMT011 AS MM011
+	 ,(
+         SELECT
+          MANDT
+         ,WOKNUM
+         ,IDNRK
+         ,DZEINR
+         ,ROW_NUMBER() OVER(PARTITION BY MANDT,WOKNUM,IDNRK ORDER BY MANDT,WOKNUM,IDNRK,CRDAT DESC) AS ROWN 
+         FROM SAPHEE.ZPPT004
+         WHERE MANDT  = #G_MANDT#
+           AND WOKNUM = #HOGIN#
+           AND MATKL  &lt;&gt; #MATNR#
+           AND MATKL IN  ( SELECT BLOCK_NO2 FROM SAPHEE.ZPPT032 WHERE MANDT = #G_MANDT# AND BLOCK_NO LIKE #MATNR# || '%')
+           AND PRCTYP &lt;&gt; 'D' 
+	 
+	 ) AS PP004
+WHERE PP004.MANDT = MM011.MANDT
+  AND PP004.IDNRK = MM011.MATNR 
+  AND PP004.ROWN = 1
+  AND MM011.MANDT  = #G_MANDT#
+
+
+<isEqual col="MATNR" value="D375S">
+
+UNION  -- 공백추가
+
+SELECT
+4 AS GUBN
+,'' AS TYPE
+,'' AS IDNRK
+,''AS TEXT
+,'' AS CRDAT
+,999 AS RNB
+,0 AS SEQ
+,'' AS ITEM_SEQ
+FROM SYSIBM.SYSDUMMY1
+
+UNION  -- D375S(P) 하위자재 450J-BRKT표시건
+
+SELECT
+ 5              AS GUBN 
+,' '            AS TYPE
+,P4_1.IDNRK AS IDNRK
+,'450J BRKT: ' || P4_1.IDNRK || ' - ' || MA.DZEINR AS TEXT
+,''             AS CRDAT
+,1000           AS RNB
+,0              AS SEQ
+,''             AS ITEM_SEQ
+FROM SAPHEE.ZPPT004 AS P4_1
+   LEFT OUTER JOIN SAPHEE.MARA AS MA ON MA.MANDT = P4_1.MANDT AND MA.MATNR = P4_1.IDNRK
+WHERE P4_1.MANDT  = #G_MANDT#
+       AND P4_1.WOKNUM = #HOGIN#
+       AND P4_1.MATKL  &lt;&gt; #MATNR#
+       AND P4_1.PRCTYP &lt;&gt; 'D' 
+       AND (MA.DZEINR LIKE '37500008%' OR
+               MA.DZEINR LIKE '37500152%' OR
+               MA.DZEINR LIKE '375C220%' )
+</isEqual>
+
+
+<isEqual col="MATNR" value="D375P">
+
+UNION  -- 공백추가
+
+SELECT
+4 AS GUBN
+,'' AS TYPE
+,'' AS IDNRK
+,''AS TEXT
+,'' AS CRDAT
+,999 AS RNB
+,0 AS SEQ
+,'' AS ITEM_SEQ
+FROM SYSIBM.SYSDUMMY1
+
+UNION  -- D375S(P) 하위자재 450J-BRKT표시건
+
+SELECT
+ 5              AS GUBN 
+,' '            AS TYPE
+,P4_1.IDNRK AS IDNRK
+,'450J BRKT: ' || P4_1.IDNRK || ' - ' || MA.DZEINR AS TEXT
+,''             AS CRDAT
+,1000           AS RNB
+,0              AS SEQ
+,''             AS ITEM_SEQ
+FROM SAPHEE.ZPPT004 AS P4_1
+   LEFT OUTER JOIN SAPHEE.MARA AS MA ON MA.MANDT = P4_1.MANDT AND MA.MATNR = P4_1.IDNRK
+WHERE P4_1.MANDT  = #G_MANDT#
+       AND P4_1.WOKNUM = #HOGIN#
+       AND P4_1.MATKL  &lt;&gt; #MATNR#
+       AND P4_1.PRCTYP &lt;&gt; 'D' 
+       AND (MA.DZEINR LIKE '37500008%' OR
+               MA.DZEINR LIKE '37500152%' OR
+               MA.DZEINR LIKE '375C220%' )
+</isEqual>
+
+<isBetween col="MATNR" start="D161A" end="D161B"> 
+-- D161A,B 일경우 D162A09표기
+UNION
+
+SELECT
+ 1 AS GUBN
+,CASE SPEC_TYP WHEN '1' THEN '1 LEVEL' WHEN '2' THEN '2 LEVEL' WHEN '3' THEN '보수' ELSE '' END TYPE
+,IDNRK
+,TEXT
+,CRDAT
+,ROW_NUMBER() OVER (ORDER BY MANDT, CRDAT, SEQNO, WOKNUM, MATNR, IDNRK, SPEC_TYP, SERIAL) AS RNB
+,0 SEQ
+,ITEM_SEQ
+FROM SAPHEE.ZPPT008
+WHERE (MANDT,CRDAT,SEQNO,WOKNUM,MATNR,IDNRK,ITEM_SEQ,MATKL) IN (
+
+         SELECT
+          MANDT
+         ,CRDAT
+         ,SEQNO
+         ,WOKNUM
+         ,MATNR
+         ,IDNRK
+         ,ITEM_SEQ
+         ,MATKL
+         FROM (
+
+            SELECT
+             MANDT
+            ,CRDAT
+            ,SEQNO
+            ,WOKNUM
+            ,MATNR
+            ,IDNRK
+            ,ITEM_SEQ
+            ,PRCTYP
+            ,MATKL
+            ,ROW_NUMBER() OVER(PARTITION BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,MATKL ORDER BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,CRDAT DESC,SEQNO DESC) AS ROWNO
+            FROM SAPHEE.ZPPT004
+            WHERE MANDT  = #G_MANDT#
+              AND WOKNUM = #HOGIN#
+              AND MATKL  = 'D162A09'
+<isNotEqual col="ITEM_SEQ" value="">
+              AND ITEM_SEQ = #ITEM_SEQ#
+</isNotEqual>
+
+         ) AS PP004
+         WHERE ROWNO=1
+           AND PRCTYP&lt;&gt;'D'
+           
+   )
+  AND TEXT &lt;&gt; ''
+  AND SPEC_TYP &lt;&gt; '3'
+</isBetween>
+
+
+  
+ORDER BY GUBN, RNB, IDNRK
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

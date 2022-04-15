@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	
+--매년 화면에 년도를 추가 해주면서 수정을 한것 같으나  2014년 이후 부터는 추가를 하지 않았으며  일부 조건에 not in 건이 있어서 인덱스는 타지 않으며 	
+--인덱스를 걸어도 전체 데이터를 가져오는 로직으로 일부 튜닝만 가능함  .  현재 화면에 추가된 2014년 이후 데이터만 가져오도록 튜닝함
+--현업과 협의하여 사용유무 판단 후 매뉴에서 제외 여부 결경
+SELECT VALUE(SAPHEE.CODE_CONV('183','CS115',A.ARA),'') ARA_NM,
+       VALUE(SAPHEE.GET_VENDER_N_NAME('183',A.BSU),'') BSU_NM,
+       A.UPN UPN,
+       CASE WHEN B.HST IS NULL THEN 'F' ELSE B.HST END HST,
+       VALUE(B.BLD,'') BLD,
+       A.NAM NAM,
+       VALUE(B.FDT,'') IGD,
+       B.CNT QTY,
+--       A.QTY QTY,
+       A.A99 A99,
+       A.A00 A00,
+       A.A01 A01,
+       A.A02 A02,
+       A.A03 A03,
+       A.A04 A04,
+       A.A05 A05,
+       A.A06 A06,
+       A.A07 A07,
+       A.A08 A08,
+       A.A09 A09,
+       A.A10 A10,
+       A.A11 A11,
+       A.A12 A12,
+       A.A13 A13,
+       A.A14 A14
+  FROM (
+        SELECT A.ARA,
+               A.BSU,
+               A.UPN,
+               MAX(A.NAM) NAM,
+               MAX(A.QTY) QTY,
+               SUM(A.A99) A99,
+               SUM(A.A00) A00,
+               SUM(A.A01) A01,
+               SUM(A.A02) A02,
+               SUM(A.A03) A03,
+               SUM(A.A04) A04,
+               SUM(A.A05) A05,
+               SUM(A.A06) A06,
+               SUM(A.A07) A07,
+               SUM(A.A08) A08,
+               SUM(A.A09) A09,
+               SUM(A.A10) A10,
+               SUM(A.A11) A11,
+               SUM(A.A12) A12,
+               SUM(A.A13) A13,
+               SUM(A.A14) A14
+          FROM (
+                SELECT SUBSTR(A.CEYUICOD,2,2) ARA,
+                       A.BSU,
+                       A.CEYUIPJT UPN,
+                       MAX(B.CEYUASPT) NAM,
+                       MAX(A.CEYUIQTY) QTY,
+                       SUM(CASE WHEN SUBSTR(A.CEYUISUJ,1,4) &lt;= '1999' THEN A.CEYUIAMT+A.CEYUIVAT ELSE 0 END) A99,
+                       SUM(CASE WHEN SUBSTR(A.CEYUISUJ,1,4)  = '2000' THEN A.CEYUIAMT+A.CEYUIVAT ELSE 0 END) A00,
+                       SUM(CASE WHEN SUBSTR(A.CEYUISUJ,1,4)  = '2001' THEN A.CEYUIAMT+A.CEYUIVAT ELSE 0 END) A01,
+                       SUM(CASE WHEN SUBSTR(A.CEYUISUJ,1,4)  = '2002' THEN A.CEYUIAMT+A.CEYUIVAT ELSE 0 END) A02,
+                       SUM(CASE WHEN SUBSTR(A.CEYUISUJ,1,4)  = '2003' THEN A.CEYUIAMT+A.CEYUIVAT ELSE 0 END) A03,
+                       SUM(CASE WHEN SUBSTR(A.CEYUISUJ,1,4)  = '2004' THEN A.CEYUIAMT+A.CEYUIVAT ELSE 0 END) A04,
+                       SUM(CASE WHEN SUBSTR(A.CEYUISUJ,1,4)  = '2005' THEN A.CEYUIAMT+A.CEYUIVAT ELSE 0 END) A05,
+                       SUM(CASE WHEN SUBSTR(A.CEYUISUJ,1,4)  = '2006' THEN A.CEYUIAMT+A.CEYUIVAT ELSE 0 END) A06,
+                       SUM(CASE WHEN SUBSTR(A.CEYUISUJ,1,4)  = '2007' THEN A.CEYUIAMT+A.CEYUIVAT ELSE 0 END) A07,
+                       SUM(CASE WHEN SUBSTR(A.CEYUISUJ,1,4)  = '2008' AND A.CEYUISUJ &lt;= '20080831' THEN A.CEYUIAMT+A.CEYUIVAT ELSE 0 END) A08,
+                       0 A09,
+                       0 A10,
+                       0 A11,
+                       0 A12,
+                       0 A13,
+                       0 A14
+                  FROM SAPHEE.ZCST990 A LEFT OUTER JOIN SAPHEE.ZWBT010 D
+                                                ON D.MANDT = A.MANDT
+                                               AND D.LGORT = A.BSU
+                                               AND D.LGORT > ''
+                                        INNER JOIN SAPHEE.ZSDT0099 B
+                                                ON A.MANDT = B.MANDT
+                                               AND A.CEYUIMO1 = B.CEYUAMO1
+                                               AND A.CEYUIMO2 = B.CEYUAMO2
+                                               AND A.CEYUIMO4 = B.CEYUAMO4
+                 WHERE A.MANDT = #G_MANDT#
+                   AND A.CEYUICHK = ''
+                   AND A.CEYUIMO3 NOT LIKE 'NM%'
+                   AND A.CEYUIMO3 NOT LIKE 'NF%'
+                   AND A.CEYUIMO3 NOT LIKE 'D%'
+                   
+                   and A.CEYUISUJ &lt;= '20080831' --화면에 보여지는 부분까지 나오게 튜닝
+        <isNotNull col="PROJ">
+                   AND A.CEYUIPJT = #PROJ#
+        </isNotNull>
+        <isNotNull col="ARA">
+                   AND SUBSTR(A.CEYUICOD,2,2) = #ARA#
+        </isNotNull>
+        <isNotNull col="BSU">
+                   AND A.BSU = #BSU#
+        </isNotNull>
+        <isNotNull col="TEM">
+                   AND D.VKGRP = #TEM#
+        </isNotNull>             
+                 GROUP BY SUBSTR(A.CEYUICOD,2,2),
+                          A.BSU,
+                          A.CEYUIPJT
+                 
+                UNION ALL
+                
+                SELECT D.BSU_ARA ARA,
+                       D.LGORT BSU,
+                       SUBSTR(A.ZZPJT_ID,1,6) UPN,
+                       MAX(A.BSTNK) NAM,
+                       MAX(INT(A.ZQNTY)) QTY,
+                       0 A99,
+                       0 A00,
+                       0 A01,
+                       0 A02,
+                       0 A03,
+                       0 A04,
+                       0 A05,
+                       0 A06,
+                       0 A07,
+                       SUM(CASE WHEN SUBSTR(A.BSTDK,1,4)  = '2008' AND A.BSTDK &gt;= '20080901' THEN B.NETWR*100 ELSE 0 END) A08,
+                       SUM(CASE WHEN SUBSTR(A.BSTDK,1,4)  = '2009' THEN B.NETWR*100 ELSE 0 END) A09,
+                       SUM(CASE WHEN SUBSTR(A.BSTDK,1,4)  = '2010' THEN B.NETWR*100 ELSE 0 END) A10,
+                       SUM(CASE WHEN SUBSTR(A.BSTDK,1,4)  = '2011' THEN B.NETWR*100 ELSE 0 END) A11,
+                       SUM(CASE WHEN SUBSTR(A.BSTDK,1,4)  = '2012' THEN B.NETWR*100 ELSE 0 END) A12,
+                       SUM(CASE WHEN SUBSTR(A.BSTDK,1,4)  = '2013' THEN B.NETWR*100 ELSE 0 END) A13,
+                       SUM(CASE WHEN SUBSTR(A.BSTDK,1,4)  = '2014' THEN B.NETWR*100 ELSE 0 END) A14
+                  FROM SAPHEE.VBAK A INNER JOIN SAPHEE.VBAP B
+                                             ON A.MANDT = B.MANDT
+                                            AND A.VBELN = B.VBELN
+                                     INNER JOIN SAPHEE.VBPA C
+                                             ON A.MANDT = C.MANDT
+                                            AND A.VBELN = C.VBELN
+                                            AND C.PARVW = 'Z1'
+                                     INNER JOIN SAPHEE.ZWBT010 D
+                                             ON C.MANDT = D.MANDT
+                                            AND C.LIFNR = D.LIFNR
+                 WHERE A.MANDT = #G_MANDT#
+                   AND A.AUART IN ('ZR12','ZR13')
+                   AND (A.ZZPJT_ID LIKE '%NB%' OR A.ZZPJT_ID LIKE '%NS%')
+                   AND A.NETWR &lt;&gt; 0
+                   
+                   and A.BSTDK &lt;= '20141231' --화면에 보여지는 부분까지 나오게 튜닝
+                   
+        <isNotNull col="PROJ">
+                   AND SUBSTR(A.ZZPJT_ID,1,6) = #PROJ#
+        </isNotNull>
+        <isNotNull col="ARA">
+                   AND D.BSU_ARA = #ARA#
+        </isNotNull>
+        <isNotNull col="BSU">
+                   AND D.LGORT = #BSU#
+        </isNotNull>
+        <isNotNull col="TEM">
+                   AND D.VKGRP = #TEM#
+        </isNotNull>               
+                 GROUP BY D.BSU_ARA,
+                          D.LGORT,
+                          SUBSTR(A.ZZPJT_ID,1,6)
+                ) A
+          GROUP BY A.ARA,
+                   A.BSU,
+                   A.UPN
+        ) A LEFT OUTER JOIN (
+                             SELECT A.UPN,
+                                    MAX(A.HST) HST,
+                                    MAX(VALUE(C.CTEXT2,'')) BLD,
+                                    MAX(A.FDT) FDT,
+                                    COUNT(*) CNT
+                               FROM SAPHEE.ZCST111 A LEFT OUTER JOIN SAPHEE.ZCST121 B
+                                                                  ON A.MANDT = B.MANDT
+                                                                 AND A.UPN = B.CS121_UPN
+                                                                 AND A.CST = B.CS121_CST
+                                                     LEFT OUTER JOIN SAPHEE.ZLCODE C
+                                                                  ON B.MANDT = C.MANDT
+                                                                 AND B.CS121_BLD = C.CODE2
+                                                                 AND C.LANG = #G_LANG#
+                                                                 AND C.CODE1 = 'CS123'            
+                              WHERE A.MANDT = #G_MANDT#
+                              GROUP BY UPN
+                            ) B
+                         ON A.UPN = B.UPN
+
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

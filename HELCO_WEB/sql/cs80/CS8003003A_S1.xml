@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[청구,납기일 관리-detail]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+	  CHECK,
+	  FLAG,
+	  MANDT,
+	  REQNR,
+	  REQITEM,
+	  REQKIND,
+	  REQDATE,
+	  LGORT1,
+	  POSID,
+	  MATNR,
+	  MAKTX,
+	  BWTAR,
+	  MTART,
+	  PLAN_DAT,
+	  MENGE,
+	  MEINS,
+	  RDATE,
+	  YDATE, -- 선조치일자
+	  CASE WHEN IN_DT != '' AND YDATE != '' THEN ---------------------- /* 선조치일자 컬럼 추가. 입고일과 선조치일자를 비교하여 MIN 값으로 표현. 해외서비스 정우성 GJ 요청 */-------------------------- 
+					  CASE WHEN IN_DT &lt; YDATE THEN IN_DT -- 입고일이 선조치일자보다 이전이면
+					  	   		WHEN IN_DT > YDATE THEN YDATE -- 입고일이 선조치일자보다 이후면
+								WHEN IN_DT = YDATE THEN IN_DT -- 입고일이 선조치일자와 같다면
+								ELSE ''
+					  END
+				WHEN YDATE != '' THEN
+					 CASE WHEN YDATE > IN_DT THEN YDATE -- 선조치일자만 존재시
+					 	  	   ELSE ''
+					 END
+				WHEN IN_DT != '' THEN
+					 CASE WHEN IN_DT > YDATE THEN IN_DT -- 입고일자만 존재시
+					 	  	   ELSE ''
+					 END
+	  END AS IN_DT,  ---------------------- /* 선조치일자 컬럼 종료 */--------------------------	  
+	  BUDAT, -- 입고완료일
+	  CASE WHEN BUDAT != '' THEN DAYS(DATE(INSERT(INSERT(COALESCE(BUDAT, ''),5,0,'-'),8,0,'-'))) - DAYS(DATE(INSERT(INSERT(COALESCE(REQDATE, ''),5,0,'-'),8,0,'-'))) 
+	  	   		ELSE '0'
+	  END AS LT1, -- 입고완료일 - 청구생성일자
+	  CHAR1,
+	  SERIO,
+	  SPT,
+	  --BUDAT2,
+	  IPGO_GBU,
+	  QTNUM,
+	  QTNAM,
+	  LAND1,
+	  LAND1_NM, -- 국가명
+	  YIPGOYDT,
+	  PACKING_S,
+	  --PACKINGDT_RQ,
+	  HSTSDT, -- 화성이송일. 2019.02.03 이지원 요청으로 인한 추가. Han J.H
+	  PACKINGDT, -- packing 일자
+	  CASE WHEN PACKINGDT != '' THEN DAYS(DATE(INSERT(INSERT(COALESCE(PACKINGDT, ''),5,0,'-'),8,0,'-'))) - DAYS(DATE(INSERT(INSERT(COALESCE(REQDATE, ''),5,0,'-'),8,0,'-'))) 
+	  	   		ELSE '0'
+	  END AS LT2, -- packing일자 - 청구생성일자
+	  SHIPPINGDT,
+	  CASE WHEN SHIPPINGDT != '' THEN DAYS(DATE(INSERT(INSERT(COALESCE(SHIPPINGDT, ''),5,0,'-'),8,0,'-'))) - DAYS(DATE(INSERT(INSERT(COALESCE(REQDATE, ''),5,0,'-'),8,0,'-'))) 
+	  	   		ELSE '0'
+	  END AS LT3, -- 선적일 - 청구생성일자	  
+
+
+--====================================================	  
+	  CASE WHEN SHDAT != '' THEN DAYS(DATE(INSERT(INSERT(COALESCE(SHDAT, ''),5,0,'-'),8,0,'-'))) - DAYS(DATE(INSERT(INSERT(COALESCE(REQDATE, ''),5,0,'-'),8,0,'-'))) 
+	  	   		ELSE '0'
+	  END AS LT4, -- 고객납기요청일 - 청구생성일자	  
+--====================================================	
+
+	  REMARK,
+	  IMG,
+	  LIFNRM,
+	  LIFNRM_NM,
+	  SHDAT,
+	  BOMDAT,
+	  CRDAT,
+	  CASE WHEN (BOMDAT IS NOT NULL AND BOMDAT != '') AND (CRDAT IS NOT NULL AND CRDAT != '') THEN---------------------- /* Signal 표기 시작. 해외서비스 이지원 DL 요청 */--------------------------
+					   CASE WHEN BOMDAT >= CRDAT THEN '1'
+					   		WHEN TO_CHAR((TO_DATE(BOMDAT,'YYYYMMDD') + 2 DAYS),'YYYYMMDD') >= CRDAT THEN '2'
+					    	WHEN TO_CHAR((TO_DATE(BOMDAT,'YYYYMMDD') + 2 DAYS),'YYYYMMDD') &lt; CRDAT THEN '3'
+					   		ELSE ''
+					   END
+	       WHEN CRDAT IS NOT NULL AND CRDAT != '' THEN
+				  	   CASE WHEN BOMDAT >= CRDAT THEN '1'
+					   		WHEN BOMDAT > HEX(CURRENT DATE) AND BOMDAT &lt;= HEX(CURRENT DATE + 2 DAY) THEN '2'
+							WHEN BOMDAT > HEX(CURRENT DATE) AND BOMDAT > HEX(CURRENT DATE + 2 DAY) THEN '3'
+							ELSE ''
+					   END
+		   WHEN CRDAT IS NULL AND BOMDAT != '' THEN
+				  	   CASE WHEN BOMDAT >= HEX(CURRENT DATE) THEN '1'                                                                                            -- 현재일자보다 예정일이 크다면 1
+					        WHEN BOMDAT &lt; HEX(CURRENT DATE) AND TO_CHAR((TO_DATE(BOMDAT,'YYYYMMDD') + 2 DAYS),'YYYYMMDD') >= HEX(CURRENT DATE) THEN '2'  -- 현재일자보다 예정일이 이전이고, 예정일에 2일을 더하여 현재일자보다 예정일이 크거나 같다면 2
+							WHEN BOMDAT &lt; HEX(CURRENT DATE) AND TO_CHAR((TO_DATE(BOMDAT,'YYYYMMDD') + 2 DAYS),'YYYYMMDD') &lt; HEX(CURRENT DATE) THEN '3'-- 현재일자보다 예정일이 이전이고, 예정일에 2일을 더하여 현재일자보다  예정일이 작다면 
+							ELSE ''
+					   END
+	  ELSE ''
+	  END AS LAYOUT_S,---------------------- /* Signal 표기 종료 */--------------------------
+	  SHIPPINGDT_RQ, -- 출하일
+	  EMYN,
+	  LNAME, -- 마운트 지앤디 발주업체 
+      RELEASEDT,
+      SDATE, -- 현대발주일
+      DESIGNSPECYN, -- 설계사양완료여부
+      SPECFIXDT, -- 사양확정일
+      YIPGOYDT_DLY, -- 지연 입고예정일
+	  WERKS, -- 자재 플랜트
+	  LGORT, -- 자재 저장위치
+	  (SAPHEE.GET_CURRDATA(WAERS, NETPR)) AS NETPR -- 2020.12.18 자재 판매단가 추가. 해외서비스 이지원 요청. Han J.H      
+FROM
+(
+	SELECT 
+      '' AS CHECK
+    , '' AS FLAG
+		, MM001.MANDT                      AS MANDT
+		, MM001.REQNR                      AS REQNR
+		, MM001.REQITEM                    AS REQITEM
+		, MM001.REQKIND                    AS REQKIND
+    , MM001.REQDATE                    AS REQDATE
+		, EP01.ABR_NM                      AS LGORT1
+		, MM001.POSID                      AS POSID
+		, MM001.MATNR                      AS MATNR
+		, MM001.MAKTX                      AS MAKTX
+		, MM001.BWTAR                      AS BWTAR
+	--	, MM001.MTART                      AS MTART
+	    , CASE WHEN MM001.MTART = 'HALB' OR MM001.MTART = 'PALB' OR MM001.MTART = 'Z001' THEN '내작' ELSE '외주' END AS MTART
+	--  , CASE WHEN MM001.MTART = 'HALB' OR MM001.MTART = 'PALB' OR MM001.MTART = 'Z001' THEN SAPHEE.GET_WORKINGDAY(CS01.SHDAT,-3) ELSE VALUE(CS31.YIPGOYDT,'') END AS PLAN_DAT
+	    , CASE WHEN LENGTH(VALUE(MM001.RDATE,'')) = 8 THEN SAPHEE.GET_WORKINGDAY(MM001.RDATE,-3) ELSE '' END AS PLAN_DAT 
+		, MM001.MENGE                      AS MENGE
+		, MM001.MEINS                      AS MEINS
+		, MM001.RDATE                      AS RDATE		
+		, SAPHEE.GET_ZERODATE(MM001.YDATE) AS YDATE		
+		, SAPHEE.GET_ZERODATE(MM001.BUDAT) AS BUDAT		
+		, MM001.CHAR1                      AS CHAR1
+		, MM001.SERIO                      AS SERIO
+    , ZM01.ZSITE_NM                    AS SPT
+    --, CASE WHEN YDATE > BUDAT THEN (CASE WHEN BUDAT = '00000000' THEN YDATE ELSE BUDAT END ) 
+    --       ELSE (CASE WHEN YDATE = '00000000' THEN BUDAT ELSE YDATE END ) 
+    --  END AS BUDAT2
+    , (SELECT MAX(CRT_DTE)  FROM SAPHEE.ZLET037 WHERE MANDT = #G_MANDT# AND REQNR = MM001.REQNR AND REQITEM = MM001.REQITEM) AS QR_DATE
+    , CASE WHEN SAPHEE.GET_ZERODATE(MM001.YDATE) = '' AND SAPHEE.GET_ZERODATE(MM001.BUDAT) = '' THEN '2' ELSE '1' END AS IPGO_GBU
+    , CS01.QTNUM
+    , CS01.QTNAM
+    , EP01.LAND1
+    , EP01.LAND1_NM -- 국가명
+    , value(CS31.YIPGOYDT,'')                AS YIPGOYDT
+    , value(CS31.PACKING_STAT,'')            AS PACKING_S
+    --, value(CS31.PACKINGDT_RQ,'')            AS PACKINGDT_RQ
+    , value(CS31.HSTSDT,'')            AS HSTSDT
+    , value(CS31.PACKINGDT,'')               AS PACKINGDT
+    , SAPHEE.GET_SHIPPING_DATE(MM001.MANDT , MM001.POSID)               AS SHIPPINGDT
+    , value(CS31.REMARK,'')                  AS REMARK
+    , 'status0'||value(CS31.PACKING_STAT,'') AS IMG
+    ,EKO.LIFNR   AS LIFNRM     --공급업체명
+    ,ZM12.NAME1  AS LIFNRM_NM  --공급업체명
+    ,CS01.SHDAT AS SHDAT -- 고객 납기요청일 
+    ,CASE WHEN CS01.BOMF = 'Y' THEN ( CASE WHEN MM001.MTART = 'PALB' OR MM001.MTART = 'HALB' THEN SAPHEE.GET_WORKINGDAY(MM001.REQDATE,5) ELSE SAPHEE.GET_WORKINGDAY(MM001.REQDATE,3) END)
+          ELSE '' END AS BOMDAT 
+    ,CASE WHEN CS01.BOMF = 'Y' THEN ( CASE WHEN MM001.MTART = 'ROH' THEN (SELECT CRDAT FROM SAPHEE.ZPPT004 WHERE MANDT = MM001.MANDT AND WOKNUM = MM001.POSID AND IDNRK = MM001.MATNR AND PRCTYP != 'D' AND PRCTYP = 'A') -- PDM 데이터 상태값이 신규 및 변경 일때 듀플로 인해 신규만 가져오도록 변경. 2019.12.13 해외서비스 최다솔 요청. Han J.H  
+                                                                    ELSE (SELECT MAX(CRDAT) FROM SAPHEE.ZPPT004 WHERE MANDT = MM001.MANDT AND WOKNUM = MM001.POSID AND PRCTYP != 'D' AND PRCTYP = 'A'  ) END) -- PDM 데이터 상태값이 신규 및 변경 일때 듀플로 인해 신규만 가져오도록 변경. 2019.12.13 해외서비스 최다솔 요청. Han J.H
+          ELSE '' END AS CRDAT 
+    ,CASE WHEN CS31.PACKINGDT != '' 
+		  	   		THEN TO_CHAR((TO_DATE(CS31.PACKINGDT,'YYYYMMDD') + 8 DAYS),'YYYYMMDD') 
+					ELSE '' 
+			   END AS SHIPPINGDT_RQ
+    ,CASE WHEN VALUE(CS01.EMYN,'') = 'Y' THEN 'O' ELSE '' END AS EMYN
+    , MM013_M.LNAME AS LNAME -- 마운트 지앤디 발주업체
+    , value(CS31.RELEASEDT,'')                AS RELEASEDT
+    , MM013_M.SDATE AS SDATE -- 현대발주일
+    , CASE WHEN value(DESIGNSPECYN,'') = '' THEN '1' ELSE value(DESIGNSPECYN,'') END AS DESIGNSPECYN -- 설계사양완료여부(1 OR 0)
+    , value(CS31.SPECFIXDT,'')                AS SPECFIXDT -- 사양확정일
+    , value(CS31.YIPGOYDT_DLY,'')                AS YIPGOYDT_DLY -- 지연 입고예정일
+ 	, CASE WHEN VALUE(MM017.IN_DT,'') > VALUE(MM017.CA_DT,'') THEN VALUE(MM017.IN_DT,'') ELSE '' END AS IN_DT -- 입고일
+	, EPO.WERKS AS WERKS -- 자재 플랜트
+	, EPO.LGORT AS LGORT -- 자재 저장위치
+	, MX01.WAERS AS WAERS	
+	, MX01.NETPR AS NETPR	
+	 FROM
+	 (
+	  	 SELECT MANDT, QTNUM, SEQ, MATNR, NETPR, WAERS
+		 FROM
+		 	 SAPHEE.ZCST002G
+		 WHERE
+		 	   MANDT = #G_MANDT#
+		 GROUP BY
+		 	   MANDT, QTNUM, SEQ, MATNR, NETPR, WAERS
+	 ) MX01, -- 2020.12.18 자재 판매단가 추가. 해외서비스 이지원 요청. Han J.H			  
+	 SAPHEE.ZMMT001 AS MM001
+	                               LEFT OUTER JOIN SAPHEE.ZCST031 AS CS31 
+	                                            ON MM001.MANDT   = CS31.MANDT
+	                                           AND MM001.REQNR   = CS31.REQNR
+	                                           AND MM001.REQITEM = CS31.REQITEM
+	                                           
+	                               LEFT OUTER JOIN SAPHEE.ZCST001G AS CS01 
+	                                            ON MM001.MANDT = CS01.MANDT
+	                                           AND MM001.POSID = CS01.PS_PSPID
+	                                              
+	                               LEFT OUTER JOIN SAPHEE.ZCSTEP01 AS EP01 
+	                                            ON MM001.MANDT = EP01.MANDT
+	                                           AND CS01.LIFNR  = EP01.LIFNR
+	                                              
+	                               LEFT OUTER JOIN SAPHEE.ZMASTER01 AS ZM01 
+	                                            ON MM001.MANDT             = ZM01.MANDT
+	                                           AND SUBSTR(MM001.POSID,1,6) = ZM01.POSID
+	                                           
+	                               LEFT OUTER JOIN SAPHEE.EBAN AS EBN 
+	                                            ON MM001.MANDT = EBN.MANDT
+	                                           AND MM001.MATNR = EBN.MATNR
+	                                           AND EBN.IDNLF =  MM001.REQNR||'+'|| MM001.REQITEM
+	                                           
+	                               LEFT OUTER JOIN SAPHEE.EKPO AS EPO 
+	                                            ON MM001.MANDT = EPO.MANDT
+	                                           AND EBN.BANFN = EPO.BANFN
+	                                           AND EBN.BNFPO = EPO.BNFPO
+	                                           AND EPO.LOEKZ = ''
+	                                           
+								   LEFT OUTER JOIN SAPHEE.ZMMT013_M AS MM013_M
+								                ON EPO.MANDT = MM013_M.MANDT 
+								   			   AND EPO.EBELN = MM013_M.EBELN
+	                                           AND EPO.EBELP = MM013_M.EBELP
+	                                           AND MM013_M.DDATE = '' -- M사 PO 취소건을 제외하기 위한 Join
+	                                           
+								   LEFT OUTER JOIN SAPHEE.ZMMT017 AS MM017 -- 자재 입출고현황 입고완료일 컬럼 추가를 위한 Join
+								   			  	ON EPO.MANDT = MM017.MANDT 
+                                       		   AND EPO.EBELN = MM017.EBELN
+                                       		   AND EPO.EBELP = MM017.EBELP 
+                                       		   AND MM017.PRO_F = '4'	                                           	                                           
+	                                           
+	                               LEFT OUTER JOIN SAPHEE.EKKO AS EKO 
+	                                            ON EKO.MANDT = ZM01.MANDT
+	                                           AND EKO.EBELN = EPO.EBELN
+	                                           
+	                               LEFT OUTER JOIN SAPHEE.ZMMT012 AS ZM12 
+	                                            ON ZM12.MANDT = ZM01.MANDT
+	                                           AND ZM12.LIFNR = EKO.LIFNR
+	                               LEFT OUTER JOIN SAPHEE.VBAK    AS AK
+                                              ON MM001.MANDT = AK.MANDT
+                                             AND MM001.POSID = AK.ZZPJT_ID            
+	                                           
+	 WHERE MM001.MANDT = #G_MANDT#
+	 	 <!-- 자재 판매단가 구하기 추가 시작-->
+		 AND MX01.MANDT = CS01.MANDT
+		 AND MX01.QTNUM = CS01.QTNUM
+		 AND MX01.SEQ = CS01.SEQ
+		 AND MX01.MATNR = MM001.MATNR
+		 <!-- 자재 판매단가 구하기 추가 종료-->
+	       	<!-- 국내/해외 분리 -->
+	   --AND MM001.LGORT BETWEEN '9501' AND '9999'  자회사 관련 수정
+	   --AND MM001.LGORT BETWEEN '9501' AND '9799'
+	   AND ((MM001.LGORT BETWEEN '9501' AND '9799') OR (MM001.LGORT = '9999')) -- 2020.09.16 기존 사용하던 저장위치 있어 추가 Han J.H
+	       	<!-- 국내/해외 분리 -->
+	 	 AND MM001.RECE_F != '4' -- 2021.06.15 자재에서 승인삭제된 내용은 제외처리 Han J.H. 선적일 구할 시 듀플에러 발생됨
+	 	
+
+	 <isNotNull col="LAND1"> 	<!-- 국가키 -->
+	 	   AND EP01.LAND1 = #LAND1# 
+	 </isNotNull>
+	 <isNotNull col="LIFNR">
+	 	   AND CS01.LIFNR = #LIFNR#
+	 </isNotNull>	  
+	 <isNotNull col="QTNAM">
+	 	   AND CS01.QTNAM = #QTNAM#
+	 </isNotNull>	    
+
+	 <isNotNull col="REQNO">
+	    AND MM001.REQNR LIKE  '%'||#REQNO#||'%'
+	 </isNotNull>
+
+	 <isNotNull col="MATNR">
+	    AND MM001.MATNR LIKE  '%'||#MATNR#||'%'
+	 </isNotNull>
+	 
+	 <isNotNull col="MAKTX">
+	    AND MM001.MAKTX LIKE  '%'||#MAKTX#||'%'
+	 </isNotNull>	 
+
+	 <isNotNull col="BWTAR">
+	    AND MM001.BWTAR =  #BWTAR#
+	 </isNotNull>
+ 	AND MM001.REQDATE BETWEEN #BUDAT_FM# AND #BUDAT_TO# 
+ 	AND VALUE(AK.NETWR,0) > 0
+
+	<isEqual col="GUBN01" value="1">
+		AND ( MM001.YDATE BETWEEN #BUDAT_FM# AND #BUDAT_TO# OR 
+              MM001.BUDAT BETWEEN #BUDAT_FM# AND #BUDAT_TO# )
+	</isEqual>
+
+	<isEqual col="GUBN01" value="2">
+	    AND MM001.REQDATE BETWEEN #BUDAT_FM# AND #BUDAT_TO# 
+	    AND SAPHEE.GET_ZERODATE(MM001.YDATE) = ''
+	    AND SAPHEE.GET_ZERODATE(MM001.BUDAT) = ''
+	</isEqual>
+	
+	<isNotNull col="REQKIND">
+	   AND MM001.REQKIND =  #REQKIND#
+	</isNotNull>
+
+	<isNotNull col="PJT">
+	   AND MM001.POSID LIKE '%'||#PJT#||'%'
+	</isNotNull>
+
+	<isNotNull col="POSID">
+		  AND MM001.POSID LIKE '%'||#POSID#||'%'
+	</isNotNull>
+)
+	WITH UR
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

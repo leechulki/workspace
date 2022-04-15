@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[견적서 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT
+        A.MANDT -- 클라이언트
+       ,A.ESMT_NUMB -- 견적서번호
+       ,A.BSNS_NAME -- 사업명
+       ,A.ORCU_NAME -- 발주처명
+       ,A.ESMT_TAMT -- 견적총금액
+       ,A.NGTT_TAMT -- 네고총금액
+       ,A.ESMT_CNTR -- 견적국가
+       ,COALESCE( NULLIF( TRIM( B.LANDX ) , '' ) , B.LANDX50 ) AS ESMT_CNTR_NAME -- 견적국가명
+       ,A.WAERK -- 통화 키
+       ,C.CODE_NAME AS WAERK_NAME -- 화폐단위
+       ,A.UKURS -- 환율
+       ,A.CRES_TAMT -- 통화견적총금액
+       ,A.CRNG_TAMT -- 통화네고총금액
+       ,A.NGTT_DPYN -- 네고표시여부
+       ,A.DLIV -- 납기
+       ,A.DLIV_IVIC -- 인도조건송장
+       ,D.CODE_NAME  AS DLIV_IVIC_NAME -- 인도조건송장 명
+       ,A.DLIV_OTHR -- 인도조건기타
+       ,A.PAYT_TERM -- 지불조건
+       ,A.WRNT_CNDT -- 보증조건
+       ,A.INSP_CDT -- 검사조건
+       ,A.ESMT_PROD -- 견적서유효기간
+       ,VALUE( NULLIF( A.ESMT_EPDT , '00000000' ), '') AS ESMT_EPDT -- 견적서유효일자
+       ,VALUE( NULLIF( A.ESMT_DATE , '00000000' ), '') AS ESMT_DATE -- 견적서발행일자
+       ,A.REMK -- 특기사항
+       ,VALUE( NULLIF( A.ESMT_APDT , '00000000' ), '') AS ESMT_APDT -- 견적서승인일자
+       ,A.ESMT_STAT -- 견적서상태
+       ,E.CODE_NAME AS ESMT_STAT_NAME -- 견적서 상태 명
+       
+       ,CASE   WHEN    AP.APPR_STAT NOT IN ('040', '390') 
+               THEN    CASE WHEN AP.ADIT_STAT NOT IN ('040', '250', '290') THEN AP.DRAF ELSE AP.ADIT END 
+               ELSE    AP.APPR END AS ESMT_APPR -- 결재자
+       ,AU.USERNAME AS ESMT_APPR_NAME -- 결재자명
+        
+       ,CASE   WHEN    AP.APPR_STAT NOT IN ('040', '390') 
+               THEN    CASE WHEN AP.ADIT_STAT NOT IN ('040', '250', '290') THEN AP.DRAF_STAT ELSE AP.ADIT_STAT END 
+               ELSE    AP.APPR END AS ESMT_APST -- 결재상태
+       ,AT.CODE_NAME AS ESMT_APST_NAME -- 결재상태 명 
+       
+       ,A.ESCS_NUMB -- 견적원가번호
+       ,A.ESCS_NTIM -- 견적원가차수
+       ,A.OCNT_NUMB -- 수주번호
+       ,VALUE( NULLIF( A.WRIT_DATE , '00000000' ), '') AS WRIT_DATE -- 작성일자
+       ,VALUE( NULLIF( A.WRIT_TIME , '000000' ), '') AS WRIT_TIME -- 작성시간
+       ,A.WRIT_USER -- 작성자
+       ,G.KUNNR -- 견적원가고객
+       ,G.ORDR_TYPE -- 오더유형
+       ,G.SALE_PRSN -- 영업담당자
+       ,H.CODE_NAME AS ORDR_TYPE_NAME -- 오더 유형명
+       ,I.USERNAME AS SALE_PRSN_NAME -- 영업담당자명
+FROM    SAPHEE.ZFST0202 A
+            LEFT JOIN SAPHEE.T005T B ON ( B.MANDT =  A.MANDT AND B.SPRAS = '3' AND B.LAND1 = A.ESMT_CNTR )
+            LEFT JOIN SAPHEE.ZFST0100 C ON ( C.MANDT =  A.MANDT AND C.CODE_GROP = 'S04' AND C.CODE = A.WAERK )
+            LEFT JOIN SAPHEE.ZFST0100 D ON ( D.MANDT =  A.MANDT AND D.CODE_GROP = 'S06' AND D.CODE = A.DLIV_IVIC )
+            LEFT JOIN SAPHEE.ZFST0100 E ON ( E.MANDT =  A.MANDT AND E.CODE_GROP = 'A02' AND E.CODE = A.ESMT_STAT )
+            LEFT OUTER JOIN SAPHEE.ZFST0103 AP ON (AP.MANDT = A.MANDT AND AP.ADOC_CLAS = 'ES' AND AP.ADOC_NUMB = A.ESMT_NUMB AND AP.ADOC_NTIM = 1 )
+            LEFT OUTER JOIN SAPHEE.ZFST0100 AT ON (AT.MANDT = AP.MANDT AND AT.CODE_GROP = 'A01' 
+                AND AT.CODE = CASE  WHEN    AP.APPR_STAT NOT IN ('040', '390') 
+                                    THEN    CASE WHEN AP.ADIT_STAT NOT IN ('040', '250', '290') THEN AP.DRAF_STAT ELSE AP.ADIT_STAT END 
+                                    ELSE    AP.APPR_STAT END )
+            LEFT OUTER JOIN SAPHEE.ZUSERF AU ON ( AU.MANDT = AP.MANDT 
+                AND AU.USERNUMB = CASE  WHEN    AP.APPR_STAT NOT IN ('040', '390') 
+                                        THEN    CASE WHEN AP.ADIT_STAT NOT IN ('040', '250', '290') THEN AP.DRAF ELSE AP.ADIT END 
+                                        ELSE    AP.APPR END)
+            LEFT JOIN SAPHEE.ZFST0200 G ON ( G.MANDT = A.MANDT AND G.ESCS_NUMB = A.ESCS_NUMB AND G.ESCS_NTIM = A.ESCS_NTIM )
+            LEFT JOIN SAPHEE.ZFST0100 H ON ( H.MANDT = G.MANDT AND H.CODE_GROP = 'A03' AND H.CODE = G.ORDR_TYPE )
+            LEFT JOIN SAPHEE.ZUSERF I ON ( I.MANDT = G.MANDT AND I.USERNUMB = G.SALE_PRSN )
+WHERE   A.MANDT     = #G_MANDT#
+AND     DECODE( G.OCNT_PDYN , 'Y', 'Y', 'N' ) != 'Y'
+<isNotNull col="ESMT_NUMB">
+AND     A.ESMT_NUMB LIKE #ESMT_NUMB# || '%'
+</isNotNull>
+<isNotNull col="BSNS_NAME">
+AND     A.BSNS_NAME LIKE '%' || #BSNS_NAME# || '%'
+</isNotNull>
+<isNotNull col="KUNNR">
+AND     G.KUNNR = #KUNNR#
+</isNotNull>
+<isEqual col="KUNNR" value="">
+    <isNotEqual col="ORCU_NAME" value="">
+    AND     A.ORCU_NAME LIKE '%' || #ORCU_NAME# || '%'
+    </isNotEqual>
+</isEqual>
+<isNotNull col="ESMT_CNTR">
+AND     A.ESMT_CNTR = #ESMT_CNTR#
+</isNotNull>
+<isNotNull col="ESMT_STAT">
+AND     A.ESMT_STAT = #ESMT_STAT#
+</isNotNull>
+<isNotNull col="ESCS_NUMB">
+AND     A.ESCS_NUMB LIKE #ESCS_NUMB# || '%'
+</isNotNull>
+<isNotNull col="ORDR_TYPE">
+AND     G.ORDR_TYPE = #ORDR_TYPE#
+</isNotNull>
+<isNotNull col="SALE_PRSN">
+AND     G.SALE_PRSN = #SALE_PRSN#
+</isNotNull>
+AND     A.WRIT_DATE BETWEEN #WRIT_STDT# AND #WRIT_ENDT#
+ORDER BY A.WRIT_DATE DESC, A.WRIT_TIME DESC
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+        <col name="MANDT" size="9" type="VARCHAR" description="클라이언트" />
+        <col name="ESMT_NUMB" size="60" type="VARCHAR" description="견적서번호" />
+        <col name="BSNS_NAME" size="300" type="VARCHAR" description="사업명" />
+        <col name="ORCU_NAME" size="300" type="VARCHAR" description="발주처명" />
+        <col name="ESMT_CNTR" size="9" type="VARCHAR" description="견적국가" />
+        <col name="ESMT_STAT" size="30" type="VARCHAR" description="견적서상태" />
+        <col name="ESCS_NUMB" size="60" type="VARCHAR" description="견적원가번호" />
+        <col name="ESCS_NTIM" size="2" type="SMALLINT" description="견적원가차수" />
+        <col name="WRIT_DATE" size="24" type="VARCHAR" description="작성일자" />
+        <col name="WRIT_STDT" size="24" type="VARCHAR" description="시작일자" />
+        <col name="WRIT_ENDT" size="24" type="VARCHAR" description="종료일자" />
+        <col name="WRIT_USER" size="36" type="VARCHAR" description="작성자" />
+        <col name="ORDR_TYPE" size="30" type="VARCHAR" description="오더유형" />
+        <col name="SALE_PRSN" size="60" type="VARCHAR" description="영업담당자" />
+    </input>
+    <output default-name="ds_zfst0202">
+        <col name="MANDT" size="9" type="VARCHAR" description="클라이언트" />
+        <col name="ESMT_NUMB" size="60" type="VARCHAR" description="견적서번호" />
+        <col name="BSNS_NAME" size="300" type="VARCHAR" description="사업명" />
+        <col name="ORCU_NAME" size="300" type="VARCHAR" description="발주처명" />
+        <col name="ESMT_TAMT" size="17" type="DECIMAL" description="견적총금액" />
+        <col name="NGTT_TAMT" size="17" type="DECIMAL" description="네고총금액" />
+        <col name="ESMT_CNTR" size="9" type="VARCHAR" description="견적국가" />
+        <col name="ESMT_CNTR_NAME" size="256" type="VARCHAR" description="견적국가명" />
+        <col name="WAERK" size="15" type="VARCHAR" description="통화 키" />
+        <col name="WAERK_NAME" size="15" type="VARCHAR" description="화폐단위" />
+        <col name="UKURS" size="11" type="DECIMAL" description="환율" />
+        <col name="CRES_TAMT" size="17" type="DECIMAL" description="통화견적총금액" />
+        <col name="CRNG_TAMT" size="17" type="DECIMAL" description="통화네고총금액" />
+        <col name="NGTT_DPYN" size="3" type="VARCHAR" description="네고표시여부" />
+        <col name="DLIV" size="600" type="VARCHAR" description="납기" />
+        <col name="DLIV_IVIC" size="30" type="VARCHAR" description="인도조건송장" />
+        <col name="DLIV_IVIC_NAME" size="256" type="VARCHAR" description="인도조건송장명" />
+        <col name="DLIV_OTHR" size="300" type="VARCHAR" description="인도조건기타" />
+        <col name="PAYT_TERM" size="300" type="VARCHAR" description="지불조건" />
+        <col name="WRNT_CNDT" size="300" type="VARCHAR" description="보증조건" />
+        <col name="INSP_CDT" size="300" type="VARCHAR" description="검사조건" />
+        <col name="ESMT_PROD" size="300" type="VARCHAR" description="견적서유효기간" />
+        <col name="ESMT_EPDT" size="24" type="VARCHAR" description="견적서유효일자" />
+        <col name="ESMT_DATE" size="24" type="VARCHAR" description="견적서발행일자" />
+        <col name="REMK" size="1073741824" type="DBCLOB" description="특기사항" />
+        <col name="ESMT_APDT" size="24" type="VARCHAR" description="견적서승인일자" />
+        <col name="ESMT_STAT" size="30" type="VARCHAR" description="견적서상태" />
+        <col name="ESMT_STAT_NAME" size="256" type="VARCHAR" description="견적서 상태 명" />
+        <col name="ESMT_APPR" size="36" type="VARCHAR" description="결재자" />
+        <col name="ESMT_APPR_NAME" size="256" type="VARCHAR" description="결재자 명" />
+        <col name="ESMT_APST" size="30" type="VARCHAR" description="결재상태" />
+        <col name="ESMT_APST_NAME" size="256" type="VARCHAR" description="결재상태 명" />
+        <col name="ESCS_NUMB" size="60" type="VARCHAR" description="견적원가번호" />
+        <col name="ESCS_NTIM" size="2" type="SMALLINT" description="견적원가차수" />
+        <col name="OCNT_NUMB" size="60" type="VARCHAR" description="수주번호" />
+        <col name="WRIT_DATE" size="24" type="VARCHAR" description="작성일자" />
+        <col name="WRIT_TIME" size="18" type="VARCHAR" description="작성시간" />
+        <col name="WRIT_USER" size="36" type="VARCHAR" description="작성자" />
+        <col name="KUNNR" size="30" type="VARCHAR" description="견적원가고객" />
+        <col name="ORDR_TYPE" size="30" type="VARCHAR" description="오더유형" />
+        <col name="ORDR_TYPE_NAME" size="256" type="VARCHAR" description="오더유형명" />
+        <col name="SALE_PRSN" size="60" type="VARCHAR" description="영업담당자" />
+        <col name="SALE_PRSN_NAME" size="256" type="VARCHAR" description="영업담당자명" />
+    </output>
+</query>

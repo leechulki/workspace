@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.com.dao.Coms01AD"> 
+
+	<resultMap id="brandTypeMap" type="hdel.sd.com.domain.Coms01A"/> 
+
+	<select id="selectBrandGtypeList" parameterType="hdel.sd.com.domain.Coms01A" resultMap="brandTypeMap">
+SELECT X.MANDT
+      ,NVL(Y.BRNDSEQ, '000') AS BRNDSEQ
+      ,NVL(Y.ZPRDGBN, 'ELV_01') AS ZPRDGBN
+      ,X.BRNDCD
+      , NVL((
+		SELECT ATWTB
+		FROM                SAPHEE.KSML AS A
+		INNER JOIN          SAPHEE.CABN AS B	ON A.MANDT = B.MANDT	AND A.IMERK = B.ATINN
+		LEFT OUTER JOIN	    SAPHEE.CABNT AS C	ON B.MANDT = C.MANDT	AND B.ATINN = C.ATINN	AND C.SPRAS = '3'
+		INNER JOIN          SAPHEE.KLAH AS D	ON A.MANDT = D.MANDT	AND A.CLINT = D.CLINT
+		LEFT OUTER JOIN     SAPHEE.CAWN AS E	ON B.MANDT = E.MANDT	AND B.ATINN = E.ATINN
+		LEFT OUTER JOIN     SAPHEE.CAWNT AS F	ON A.MANDT = F.MANDT AND E.ATINN = F.ATINN AND E.ATZHL = F.ATZHL AND F.SPRAS = '3'
+		WHERE   A.MANDT = #{MANDT}
+			AND A.KLART = '300'
+			AND D.CLASS = NVL(Y.ZPRDGBN, 'ELV_01')
+			AND B.ATNAM = 'EL_ABRAND'
+			AND E.ATWRT = X.BRNDCD
+        ), X.BRNDCD) BRNDNM           -- 브랜드명
+      ,X.GTYPE
+      ,X.BRNDDAY AS BRNDDAY
+      ,NVL(Y.FRDAT, X.FRDAT) AS FRDAT
+      ,NVL(Y.TODAT, X.TODAT) AS TODAT
+      ,NVL(Y.SNDSYS, 'PDM') AS SNDSYS
+FROM  (
+      SELECT MANDT
+            ,SEQ
+            ,BRNDCD
+            ,NVL(BRNDCD, 'NOBRND') AS NOBRNDCD
+--            ,HEX(CURRENT DATE) AS BRNDDAY
+			, #{CDATE} AS BRNDDAY   
+            ,GTYPE
+            ,'00000000' AS FRDAT
+            ,'99991231' AS TODAT
+            ,'PDM' AS SNDSYS
+      FROM   SAPHEE.ZSDT1144
+      WHERE  MANDT = #{MANDT}
+<if test="BRNDCD != null and BRNDCD != '' ">AND BRNDCD = #{BRNDCD}</if>         
+      ) X
+      LEFT OUTER JOIN TABLE (
+                            SELECT A.MANDT
+                                  ,A.BRNDSEQ
+                                  ,A.ZPRDGBN
+                                  ,A.BRNDCD
+                                  ,A.FRDAT
+                                  ,A.TODAT
+                                  ,A.SNDSYS
+                            FROM   SAPHEE.ZSDT1140 A
+                                   INNER JOIN (
+                                               SELECT MANDT
+                                                     ,MAX(BRNDSEQ) AS BRNDSEQ
+                                                     ,ZPRDGBN
+                                                     ,BRNDCD
+                                               FROM   SAPHEE.ZSDT1140
+                                               WHERE  MANDT = #{MANDT}
+                                                AND   ZPRDGBN = #{ZPRDGBN}
+                                                AND   FRDAT <![CDATA[ <= ]]> #{CDATE}
+                                               GROUP BY MANDT
+                                                       ,ZPRDGBN
+                                                       ,BRNDCD
+                                   ) B ON B.MANDT = A.MANDT AND B.BRNDSEQ = A.BRNDSEQ AND B.ZPRDGBN = A.ZPRDGBN AND B.BRNDCD = A.BRNDCD
+                            WHERE  A.MANDT = #{MANDT}
+      ) Y ON X.MANDT = Y.MANDT AND X.NOBRNDCD = Y.BRNDCD
+WHERE  X.BRNDDAY BETWEEN NVL(Y.FRDAT, X.FRDAT) AND NVL(Y.TODAT, X.TODAT)
+<if test="GTYPE != null and GTYPE != '' ">AND X.GTYPE LIKE '%'||#{GTYPE}||'%' </if>
+ORDER BY X.SEQ
+WITH UR
+	</select>
+
+	<select id="selectBrandFlag" parameterType="hdel.sd.com.domain.Coms01A" resultType="String">
+	<![CDATA[
+SELECT CASE WHEN COUNT(*) > 0 THEN
+           'Y'
+       ELSE 
+           'N' 
+       END AS  F_BRND_FLAG   
+FROM   SAPHEE.ZSDT1140
+WHERE  MANDT = #{MANDT}
+  AND  BRNDSEQ NOT IN ('000')
+  AND  (SELECT DECODE( NVL(MIN(CDATE), '00000000' ), '00000000', HEX(CURRENT DATE), MIN(CDATE)) FROM SAPHEE.ZSDT1046 WHERE MANDT = #{MANDT} AND QTNUM = #{QTNUM} )  BETWEEN FRDAT AND TODAT
+WITH UR
+    ]]>
+	</select>
+	
+	<resultMap id="ComboResultMap" type="hdel.sd.com.domain.ComboVO">
+	    <result property="code"     column="CODE"/>
+	    <result property="codeName" column="CODENAME"/>
+	</resultMap>
+	<select id="selectAtwrt" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+	<![CDATA[
+	SELECT	E.ATWRT AS CODE
+		 ,	F.ATWTB AS CODENAME
+	  FROM	SAPHEE.KSML AS A
+			INNER JOIN			SAPHEE.CABN AS B	ON A.MANDT = B.MANDT	AND A.IMERK = B.ATINN
+			LEFT OUTER JOIN	SAPHEE.CABNT AS C	ON B.MANDT = C.MANDT	AND B.ATINN = C.ATINN	AND C.SPRAS = '3'
+			INNER JOIN			SAPHEE.KLAH AS D	ON A.MANDT = D.MANDT	AND A.CLINT = D.CLINT
+			LEFT OUTER JOIN	SAPHEE.CAWN AS E	ON B.MANDT = E.MANDT	AND B.ATINN = E.ATINN	
+			LEFT OUTER JOIN   SAPHEE.CAWNT AS F	ON A.MANDT = F.MANDT AND E.ATINN = F.ATINN AND E.ATZHL = F.ATZHL AND F.SPRAS = '3'
+	 WHERE	A.MANDT	= #{mandt}
+	   AND	A.KLART	= '300'
+	   AND	D.CLASS	= 'ELV_01'
+	   AND	B.ATNAM	= #{vkbur}
+	 ORDER BY	A.CLINT, A.POSNR, E.ATZHL
+    ]]>
+	</select>
+
+	<select id="selectsSyangPrd" parameterType="hashMap" resultType="hdel.sd.com.domain.BrndSayang">
+	<![CDATA[
+    SELECT A.BRNDCD
+         , A.PRH
+         , CASE E.ATWRT WHEN '' THEN 
+             CHAR(INTEGER(VALUE(E.ATFLV,0)))
+           ELSE 
+             E.ATWRT 
+           END AS PRD
+         , DECODE(E.ATWRT, NULL, 'Y', 'N') AS KEYIN
+     FROM  SAPHEE.ZSDT1141 AS A
+           INNER JOIN SAPHEE.CABN AS B ON A.MANDT = B.MANDT AND A.PRH = B.ATNAM
+ 	       LEFT OUTER JOIN SAPHEE.ZSDT1073 AS C ON C.MANDT = A.MANDT AND C.CLASS = A.ZPRDGBN  AND C.ATNAM = A.PRH
+ 	       LEFT OUTER JOIN SAPHEE.ZSDT1142  AS D ON A.MANDT = D.MANDT AND A.BRNDSEQ = D.BRNDSEQ AND A.ZPRDGBN = D.ZPRDGBN AND A.BRNDCD = D.BRNDCD AND A.PRH = D.PRH AND D.DIPSDAT > HEX(CURRENT DATE)
+ 	       LEFT OUTER JOIN	SAPHEE.CAWN AS E ON A.MANDT = E.MANDT AND B.ATINN = E.ATINN AND B.ADZHL = E.ADZHL AND D.PRD = E.ATWRT
+ 	       LEFT OUTER JOIN SAPHEE.ZSDT1072 AS F ON A.MANDT = F.MANDT AND B.ATNAM = F.ATNAM AND E.ATWRT = F.ATWRT
+     WHERE A.MANDT = #{MANDT}
+      AND  A.BRNDSEQ = #{BRNDSEQ} 
+      AND  A.ZPRDGBN = #{ZPRDGBN}
+      AND  A.BRNDCD  = #{BRNDCD}
+      AND  A.DIPSDAT > HEX(CURRENT DATE)
+      AND  C.ATNAM IS NULL
+      AND  F.ATWRT IS NULL
+     ORDER BY A.PRH, D.PRD
+     WITH UR
+    ]]>
+	</select>
+
+	<select id="selectGroupTitList" parameterType="hashMap" resultType="hdel.sd.sbi.domain.ZSDT1143">
+		SELECT MANDT
+		      ,ZPRDGBN
+		      ,GRPPRH
+		      ,GRPDESC
+		      ,AEDAT
+		      ,AENAM
+		FROM   SAPHEE.ZSDT1143
+		WHERE  MANDT   = #{MANDT}
+		 AND   ZPRDGBN = #{ZPRDGBN}
+		ORDER BY  GRPPRH
+		WITH UR
+	</select>
+
+	<select id="selectMinCdateQt" parameterType="hdel.sd.com.domain.Coms01A" resultType="String">
+		SELECT DECODE( NVL(MIN(CDATE), '00000000' ), '00000000', HEX(CURRENT DATE), MIN(CDATE)) AS CDATE
+		  FROM SAPHEE.ZSDT1046
+		 WHERE MANDT = #{MANDT}
+		   AND QTNUM = #{QTNUM}
+		   WITH UR
+	</select>
+
+</mapper>

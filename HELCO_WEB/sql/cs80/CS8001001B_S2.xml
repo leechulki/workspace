@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[보수자재관리-견적작성-자재정보조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+	SELECT '0' AS CHK,																--체크구분
+		   MM011A.BISMT AS BISMT ,                                                  --기존자재번호
+		   '1' AS RGBN, 															--청구유형(보수/BOM)
+		   '보수자재' AS RGBNNM,     													--청구유형명
+	       MM011A.BLOCK_NO AS BLOCK_NO ,                                            --Block No
+	       MM011A.BRGEW AS BRGEW ,                                                  --총중량
+	       MM011A.DZEINR AS DZEINR ,                                                --도면번호
+	       MM011A.EXEDT AS EXEDT ,                                                  --저장일자
+	       MM011A.EXEID AS EXEID ,                                                  --저장ID
+	       MM011A.EXETM AS EXETM ,                                                  --실행ID
+	       MM011A.EXTWG AS EXTWG ,                                                  --외부자재그룹
+	       MM011A.GEWEI AS GEWEI ,                                                  --중량단위
+	       MM011A.JOBHOUR AS JOBHOUR,                                               --표준공수(시간단위)
+	       MM011A.MAKTX AS MAKTX ,                                                  --자재내역
+	       MM011A.MAN AS MAN ,                                                      --투입인원
+	       MM011A.MATKL AS MATKL ,                                                  --자재그룹
+	       MM011A.MATNR AS MATNR ,                                                  --자재번호
+	       MM011A.MATNR_NM AS MATNRNM ,                                             --품명
+	       MM011A.MATNR_NM2 AS MATNRNM2 ,                                           --보수품명
+	       MM011A.MEINS AS MEINS ,                                                  --기본단위
+	       MM011A.MTART AS MTART ,                                                  --자재유형
+	       MM011A.NTGEW AS NTGEW ,                                                  --순중량
+	       
+	       VALUE(MR01.MAT_CODE,'') AS MAT_CODE,
+	       VALUE(MSTRAT.MRRAT   ,0.00) AS MRRAT   ,
+	       VALUE(MR02.MRGUBUN ,'') AS MRGUBUN ,
+	       SD0013.KRWUSD AS KRWUSD  ,
+	       SD0013.KRWEUR AS KRWEUR  , 
+	       <isEqual col="WAERS" value="KRW">
+	       MM011A.SAMTG2*100 * VALUE(MSTRAT.MRRAT,1)                                       AS SAMT1,   --판매단가
+	       MM011A.SAMTG2*100                                                    AS SAMT2 ,           --정품원가
+	       MM011A.SAMTG2*100                                                    AS UCOST ,           --정품원가                   
+	       </isEqual>
+         <isEqual col="WAERS" value="USD">
+	       ROUND(CASE WHEN  MSTRAT.MRRAT IS NULL THEN MM011A.SAMTG2*100/SD0013.KRWUSD
+             ELSE MM011A.SAMTG2*100/SD0013.KRWUSD * MSTRAT.MRRAT END,2)            AS SAMT1,         --판매단가
+	       MM011A.SAMTG2*100                                                    AS SAMT2 ,           --정품원가
+	       ROUND(MM011A.SAMTG2*100 / SD0013.KRWUSD,2)                                    AS UCOST ,  --정품원가                      
+	       </isEqual>
+         <isEqual col="WAERS" value="EUR">
+	       ROUND(CASE WHEN  MSTRAT.MRRAT IS NULL THEN MM011A.SAMTG2*100/SD0013.KRWEUR
+             ELSE MM011A.SAMTG2*100/SD0013.KRWEUR * MSTRAT.MRRAT END,2)            AS SAMT1,         --판매단가
+	       MM011A.SAMTG2*100                                                    AS SAMT2 ,           --정품원가
+	       ROUND(MM011A.SAMTG2*100 / SD0013.KRWEUR,2)                                   AS UCOST ,   --정품원가                         
+	       </isEqual>        
+         <isEqual col="WAERS" value="MYR">
+	       ROUND(CASE WHEN  MSTRAT.MRRAT IS NULL THEN MM011A.SAMTG2*100/SD0013.KRWMYR
+             ELSE MM011A.SAMTG2*100/SD0013.KRWMYR * MSTRAT.MRRAT END,2)            AS SAMT1,         --판매단가
+	       MM011A.SAMTG2*100                                                    AS SAMT2 ,           --정품원가
+	       ROUND(MM011A.SAMTG2*100 / SD0013.KRWMYR,2)                                   AS UCOST ,   --정품원가                         
+	       </isEqual>          
+         <isEqual col="WAERS" value="CNY">
+	       ROUND(CASE WHEN  MSTRAT.MRRAT IS NULL THEN MM011A.SAMTG2*100/SD0013.KRWCNY
+             ELSE MM011A.SAMTG2*100/SD0013.KRWCNY * MSTRAT.MRRAT END,2)            AS SAMT1,         --판매단가
+	       MM011A.SAMTG2*100                                                    AS SAMT2 ,           --정품원가
+	       ROUND(MM011A.SAMTG2*100 / SD0013.KRWCNY,2)                                   AS UCOST ,   --정품원가                         
+	       </isEqual>          
+	               
+	       MM011A.SAMTG2 * 100 AS SAMT3 ,                                            --수리품원가       
+	       MM011A.SAMTG2 * 40 AS SAMT4 ,                                             --수리품단가
+	       MM011A.UPR AS UPR ,                                                      --인상율
+	       MM011A.SPEC AS SPEC ,                                                    --Spec.
+	       MM011A.VOLEH AS VOLEH ,                                                  --부피단위
+	       MM011A.VOLUM AS VOLUM ,                                                  --볼륨
+	       MM011A.WAERS AS WAERS,                                                   --통화키
+	       MM011A.WRKST AS WRKST ,                                                  --기본자재
+	       MM011A.ZSIZE AS ZSIZE ,                                                  --사이즈
+	       CASE
+	           WHEN
+	               (SELECT MM004A.MATNR
+	                 FROM SAPHEE.ZMMT004 AS MM004A --T:반납대상자재
+	                WHERE MM004A.MANDT = MM011A.MANDT
+	                      AND MM004A.MATNR = MM011A.MATNR
+	                      AND MM004A.WERKS != ''
+	               ) IS NULL
+	           THEN '0'
+	           ELSE '1'
+	       END AS BANNAB ,                                                          --반납대상자재
+	       MA.LVORM AS LVORM ,                                                      --클라이언트레벨 삭제자재
+	       MC.LGFSB ,                                                               --모름
+	       0 AS ILSIC_AMT ,                                                         --일식외주비용
+	       MC.WEBAZ                                                                 --자재 LEADTIME
+	  FROM SAPHEE.ZMMT011 AS MM011A --T:WEB I/F 자재마스터 전송정보
+	                                  
+	                                  LEFT OUTER JOIN SAPHEE.MARA AS MA --T:일반자재데이터
+	                                       ON MM011A.MANDT = MA.MANDT
+	                                      AND MM011A.MATNR = MA.MATNR
+	                                      
+	                                  LEFT OUTER JOIN SAPHEE.MARC AS MC --T:모름
+	                                       ON MM011A.MANDT = MC.MANDT
+	                                      AND MM011A.MATNR = MC.MATNR
+	                                      AND MC.WERKS = '2000'
+                               
+                                    LEFT OUTER JOIN  (
+                                                      SELECT     AA.MANDT
+                                                               , SUBSTR(HEX(CURRENT DATE),1,4) AS ZYEAR
+                                                       		     , CAST(MAX(AA.KRWJPY) AS DECIMAL(10,5)) AS KRWJPY
+                                                       		     , CAST(MAX(AA.KRWEUR) AS DECIMAL(12,3)) AS KRWEUR
+                                                       		     , CAST(MAX(AA.KRWUSD) AS DECIMAL(12,3)) AS KRWUSD
+                                                  		         , CAST(MAX(AA.KRWMYR) AS DECIMAL(12,3)) AS KRWMYR
+                                                  		         , CAST(MAX(AA.KRWCNY) AS DECIMAL(12,3)) AS KRWCNY
+                                                       FROM (
+                                                       				SELECT  A.MANDT
+                                                       				      , CASE WHEN A.FCURR = 'JPY' THEN A.UKURS / 100.00000 END AS KRWJPY
+                                                       					    , CASE WHEN A.FCURR = 'EUR' THEN A.UKURS END AS KRWEUR
+                                                       					    , CASE WHEN A.FCURR = 'USD' THEN A.UKURS END AS KRWUSD
+                                                  					        , CASE WHEN A.FCURR = 'MYR' THEN A.UKURS END AS KRWMYR
+                                                  					        , CASE WHEN A.FCURR = 'CNY' THEN A.UKURS END AS KRWCNY
+                                                       				  FROM (
+                                                       						     SELECT MANDT, FCURR, UKURS
+                                                       						       FROM SAPHEE.ZTCURR
+                                                       						      WHERE MANDT = #G_MANDT#
+                                                       						        AND TCURR = 'KRW'
+                                                       						        AND KURST = 'Q'
+                                                       						        AND HEX(CURRENT DATE) BETWEEN FRDAT AND TODAT
+                                                       						 ) AS A
+                                                       				)AS AA
+                                                       GROUP BY AA.MANDT
+                                                       
+                                              ) AS SD0013
+                                            ON SD0013.MANDT = #G_MANDT#  
+                                    
+                                    LEFT OUTER JOIN SAPHEE.MBEW AS MBEW
+                                            ON MBEW.MANDT = #G_MANDT#    
+                                           AND MBEW.MATNR = MM011A.MATNR 
+                                           AND MBEW.BWKEY = '1000'
+                                                             
+                                   LEFT OUTER JOIN SAPHEE.ZCSTMR01 AS MR01
+                                           ON MM011A.MANDT = MR01.MANDT
+                                          AND MA.MAT_CODE = MR01.MAT_CODE
+                                          
+                                   LEFT OUTER JOIN SAPHEE.ZCSTMR02 AS MR02
+                                           ON MM011A.MANDT = MR02.MANDT
+                                          AND MR01.MRGUBUN = MR02.MRGUBUN
+	                                 <isNotNull col="LGORT">
+	                                    AND MR02.LGORT = #LGORT#
+	                                 </isNotNull>
+                                   LEFT OUTER JOIN (
+                                                      SELECT MR01.MANDT
+                                                            ,MR01.MAT_CODE
+                                                            ,MR01.MRGUBUN
+                                                            ,MR01.MRTEXT
+                                                            ,CASE WHEN MR02.INCGBN = '3' THEN MR01.MRRAT_A ELSE MRRAT_C END AS MRRAT     
+                                                        FROM SAPHEE.ZCSTMR01 AS MR01 INNER JOIN SAPHEE.ZCSTMR02 AS MR02
+                                                                                             ON MR01.MANDT = MR02.MANDT
+                                                                                            AND MR01.MRGUBUN = MR02.MRGUBUN
+                                                      WHERE MR01.MANDT = #G_MANDT#  
+	                                                   <isNotNull col="LGORT">
+	                                                      AND MR02.LGORT = #LGORT#
+	                                                   </isNotNull>  
+                                                   ) AS MSTRAT
+                                           ON MM011A.MANDT = MSTRAT.MANDT
+                                          AND MA.MAT_CODE = MSTRAT.MAT_CODE
+        
+	       
+	 WHERE MM011A.MANDT = #G_MANDT#
+	   AND MM011A.MATNR = #MATNR#
+ 	  <isNotNull col="MTART">
+     AND MM011A.MTART = #MTART#
+    </isNotNull>
+    FOR FETCH ONLY
+	WITH UR		
+
+	</statement>
+	<input default-name="ds_ma_cond">
+	</input>
+	<output default-name="ds_ma_list">
+	</output>
+</query>

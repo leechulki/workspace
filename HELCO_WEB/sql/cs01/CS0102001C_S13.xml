@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[총 수주금액 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT MANDT, UPN, CST, MAX(GNO) GNO, MAX(KND) KND, MAX(CHASU_1) CHASU_1, MIN(SDATE) SDATE, MIN(UGS) UGS, MAX(EDATE) EDATE, SUM(UMS) UMS, SUM(AMT) AMT, MAX(CS121_GNO) CS121_GNO, MAX(ADT) ADT, FMY, CHASU, MIN(SDATE)|| '~' ||MAX(EDATE) DATE, 
+      MAX(CNT) CNT
+      ,MAX(ZSPEC3/(CNT+#CNT_S#)) ZSPEC3
+      ,MAX(INT(ZSPEC7)) ZSPEC7
+FROM (
+SELECT
+       CS121B.MANDT,
+       CS121B.CS121_UPN UPN,
+       CS121B.CS121_CST CST,
+       COALESCE(X.GNO,'') GNO,
+       CASE WHEN COALESCE(MAX(X.KND),'') > '' THEN 'FM' ELSE '' END KND,
+       CASE 
+            WHEN COALESCE(MAX(X.KND),'') > ''
+--            THEN SUBSTR(COALESCE(MAX(X.AYM),''),1,4) || '년' || '-' || COALESCE(MAX(X.FMS),'') || '년차'
+            THEN SUBSTR(COALESCE(MAX(X.FMY),''),1,4) || '년' || '-' || COALESCE(MAX(X.FMS),'') || '년차'
+            ELSE ''
+       END CHASU_1,
+       COALESCE((X.USD),'') AS SDATE,
+       COALESCE((X.UGS),'') UGS,
+       COALESCE((X.UHJ),'') AS EDATE,
+       COALESCE((X.UMS),0) UMS,
+       COALESCE(MAX(X.AMT),0)*UMS AMT,
+--       COALESCE(MAX(X.AMT),0) AMT,
+       CS121B.CS121_GNO CS121_GNO,
+       COALESCE(MAX(X.ADT),'') ADT,
+--       TRIM(CHAR(ROWNUMBER() OVER(PARTITION BY CS121B.CS121_UPN, CS121B.CS121_CST, CASE WHEN COALESCE(MAX(X.KND),'') > '' THEN 'FM' ELSE '' END, COALESCE(MAX(X.AYM),'') ORDER BY CASE --WHEN COALESCE(MAX(X.KND),'') > '' THEN 'FM' ELSE '' END, COALESCE(MAX(X.AYM),''), COALESCE(X.GNO,'') ASC))) || '년차' AS CHASU,
+       COALESCE(MAX(X.FMS),'')  || '년차' AS CHASU,
+       COALESCE((X.USD),'')|| '~' ||COALESCE((X.UHJ),'') AS DATE,
+       COALESCE(MAX(X.FMY),'') FMY,
+	   MAX(X.CNT) CNT,
+	   MAX(X.ZSPEC3)+(1.82*COALESCE(#CNT_S#,0)) ZSPEC3,
+	   MAX(X.ZSPEC7) ZSPEC7
+                 
+  FROM
+       SAPHEE.ZCST121 CS121B
+              LEFT OUTER JOIN (
+                               SELECT
+                                      '' CHK,
+                                      '' FLAG,
+                                      CS126B.MANDT,
+                                      CS126B.CS126_UPN UPN,
+                                      CS126B.CS126_CST CST,
+                                      CS126B.CS126_GNO GNO,
+                                      COUNT(*) CNT,
+                                      SUM(CASE WHEN DECODE(ZM02.ZSPEC3, '' , 0, ZM02.ZSPEC3) < 90 THEN 1.72
+						                WHEN DECODE(ZM02.ZSPEC3, '' , 0, ZM02.ZSPEC3) > 89 AND DECODE(ZM02.ZSPEC3, '' , 0, ZM02.ZSPEC3) < 120 THEN 1.76
+						                WHEN DECODE(ZM02.ZSPEC3, '' , 0, ZM02.ZSPEC3) > 119 AND DECODE(ZM02.ZSPEC3, '' , 0, ZM02.ZSPEC3) < 180 THEN 1.82
+						                WHEN DECODE(ZM02.ZSPEC3, '' , 0, ZM02.ZSPEC3) = 0 OR DECODE(ZM02.ZSPEC3, '' , 0, ZM02.ZSPEC3) = 000 
+						                OR DECODE(ZM02.ZSPEC3, '' , 0, ZM02.ZSPEC3) > 999 THEN 1.82
+						                WHEN DECODE(ZM02.ZSPEC3, '' , 0, ZM02.ZSPEC3) > 179 THEN 2.90
+						                END) ZSPEC3,	
+                                      MAX(ZM02.ZSPEC7) ZSPEC7,
+                                      MAX(CS126B.CS126_USD) USD,
+                                      MAX(CS126B.CS126_UGS) UGS,
+                                      MAX(CS126B.CS126_UHJ) UHJ,
+                                      MAX(CS126B.CS126_UMS) UMS,
+                                      SUM(CS126B.CS126_AMT) AMT,
+                                      MAX(CS126B.CS126_ADT) ADT,
+                                      MAX(CS126B.CS126_FMY) FMY,
+                                      MAX(CS126B.CS126_FMS) FMS,
+                                      SUBSTR(MAX(CS126B.CS126_ADT),1,6) AYM,                                      
+                                      MAX(CS126B.CS126_KND) KND
+                                 FROM
+                                      SAPHEE.ZCST126 CS126B
+                                             LEFT OUTER JOIN SAPHEE.ZCST157 CS157 ON CS157.MANDT = CS126B.MANDT
+                                                                                 AND CS157.CS157_UPN = CS126B.CS126_UPN
+                                                                                 AND CS157.CS157_CST = CS126B.CS126_CST
+                                                                                 AND CS157.CS157_PJT = CS126B.CS126_PJT
+                                                                                 AND CS157.CS157_HNO = CS126B.CS126_HNO
+                                                                                 AND CS157.CS157_SEQ = CS126B.CS126_SEQ
+                                                                                 AND CS157.CS157_GND IN ('C','D'),
+                                      (
+                                       SELECT
+                                              CS126E.MANDT,
+                                              CS126E.CS126_UPN,
+                                              CS126E.CS126_CST,
+                                              CS126E.CS126_PJT,
+                                              CS126E.CS126_HNO,
+                                              CS126E.CS126_USD,
+                                              CS126E.CS126_UHJ,
+                                              MAX(CS126E.CS126_SEQ) CS126_SEQ
+                                         FROM
+                                              SAPHEE.ZCST126 CS126E,
+                                              SAPHEE.ZWBT010 WB010
+                                        WHERE
+                                              CS126E.MANDT = #G_MANDT#
+                                          AND CS126E.MANDT = WB010.MANDT
+                                          AND CS126E.CS126_BSU = WB010.LGORT
+                                          AND WB010.LGORT > ''
+                                          AND CS126E.CS126_UPN = #UPN#
+                                          AND CS126E.CS126_DDT = ''
+                                       GROUP BY
+                                              CS126E.MANDT,
+                                              CS126E.CS126_UPN,
+                                              CS126E.CS126_CST,
+                                              CS126E.CS126_PJT,
+                                              CS126E.CS126_HNO,
+                                              CS126E.CS126_USD,
+                                              CS126E.CS126_UHJ
+                                      ) CS126F,
+                                      SAPHEE.ZLCODE MM028C,
+                                      SAPHEE.ZLCODE MM028D,
+                                      SAPHEE.ZWBT010 WB010,
+                                      SAPHEE.ZMASTER02 ZM02
+                                WHERE
+                                      CS126B.MANDT = CS126F.MANDT
+                                  AND CS126B.CS126_UPN = CS126F.CS126_UPN
+                                  AND CS126B.CS126_CST = CS126F.CS126_CST
+                                  AND CS126B.CS126_PJT = CS126F.CS126_PJT
+                                  AND CS126B.CS126_HNO = CS126F.CS126_HNO
+                                  AND CS126B.CS126_SEQ = CS126F.CS126_SEQ
+                                  AND CS126B.MANDT = MM028C.MANDT
+                                  AND CS126B.CS126_GND = MM028C.CODE2
+                                  AND MM028C.CODE1 = 'CS119'
+                                  AND CS126B.MANDT = MM028D.MANDT
+                                  AND CS126B.CS126_GKD = MM028D.CODE2
+                                  AND MM028D.CODE1 = 'CS130'
+                                  AND MM028C.LANG = #G_LANG#
+                                  AND MM028D.LANG = #G_LANG#
+                                  AND CS126B.CS126_GND IN ('C','D')
+                                  AND CS126B.CS126_DDT = ''
+                                  AND CS126B.MANDT = #G_MANDT#
+                                  AND CS126B.MANDT = WB010.MANDT
+                                  AND CS126B.CS126_BSU = WB010.LGORT
+                                  AND WB010.LGORT > ''
+                                  AND CS126B.MANDT = ZM02.MANDT
+                                  AND CS126B.CS126_PJT = ZM02.POSID
+                                  AND CS126B.CS126_HNO = SUBSTR(ZM02.POSID_1,7,3)
+                                  AND CS126B.CS126_UPN = #UPN#
+
+                               GROUP BY
+                                      CS126B.MANDT,
+                                      CS126B.CS126_UPN,
+                                      CS126B.CS126_CST,
+                                      CS126B.CS126_GNO,
+                                      CS126B.CS126_GND
+                              ) X ON CS121B.MANDT = X.MANDT
+                                 AND CS121B.CS121_UPN = X.UPN
+                                 AND CS121B.CS121_CST = X.CST
+ WHERE
+       CS121B.MANDT = #G_MANDT#
+   AND CS121B.CS121_UPN = #UPN#
+   AND X.KND > ''
+   AND CS121B.CS121_CST = #CST#
+--   AND X.ADT = #ADT#
+   AND X.FMY = #FMY#
+GROUP BY
+       CS121B.MANDT,
+       CS121B.CS121_UPN,
+       CS121B.CS121_CST,
+       X.GNO,
+       X.USD,
+       X.UGS,
+       X.UMS,
+       X.UHJ,
+       CS121B.CS121_GNO
+ORDER BY
+       CS121B.MANDT,
+       CS121B.CS121_UPN,
+       CS121B.CS121_CST,
+       X.GNO
+	   ) AS FM
+	   WHERE 1=1
+	   GROUP BY 
+       MANDT,
+       UPN,
+       CST,
+	   FMY,
+	   CHASU  
+WITH UR	]]></statement>
+	<input default-name="ds_head">
+	</input>
+	<output default-name="ds_date_2">
+	</output>
+</query>

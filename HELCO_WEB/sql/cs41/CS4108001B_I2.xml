@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>insert</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+INSERT INTO SAPHEE.ZCST006
+(MANDT,PSPID,HKONT,SEQNO,BLDAT,KOSTL,FGBN,KUNNR,INSDT,CNFDT,INSLFN,INAME1,INSTEL,INSPNO,TEMNO,CELLP,ECONT,WRKPNO,WRKLFN,WRKTEL,WSTCD2,TWBTR,WAERS,MWBTR,MWSKZ,MWNCHK,WRKTX,STATE,BELNR,GJAHR,ECKEY,ZERROR,ZETEXT,REQNO,ERDAT,ERZZT,ERNAM) -- BS ETL 연계를 위한 식별컬럼 추가. 2021.01.15 Han J.H 
+SELECT 
+         CS005.MANDT
+       , CS005.PSPID
+       , '0053033010'  AS HKONT
+	   , (SELECT CASE WHEN MAX(SEQNO) IS NULL THEN '001'
+	                  ELSE SAPHEE.FILLINZERO((INT(MAX(SEQNO))+1),3)
+	             END 
+	        FROM SAPHEE.ZCST006 WHERE MANDT = #G_MANDT# AND PSPID = #PSPID#) AS SEQNO
+       , #BLDAT# AS BLDAT
+       
+       --, (SELECT DTEXT5||'00' FROM SAPHEE.ZLCODE WHERE MANDT = #G_MANDT# AND CODE2 = A.VKGRP AND CODE1 = 'VKGRP') KOSTL
+       
+       , (CASE WHEN #BLDAT# >= '20200101' THEN CASE WHEN SUBSTR(CS005.PSPID, 7,2) = 'NC' THEN '1000' 
+                   			   			  	        ELSE (SELECT BRANCH FROM SAPHEE.ZLCODE WHERE MANDT = #G_MANDT# AND LANG = 'ko' AND CODE1 = 'VKGRP' AND CODE2 = A.VKGRP )
+	                                            END 
+	   	     ELSE (SELECT DTEXT5||'00' FROM SAPHEE.ZLCODE WHERE MANDT = #G_MANDT# AND CODE2 = A.VKGRP AND CODE1 = 'VKGRP')
+	       END) AS KOSTL
+              
+       , #FGBN# AS FGBN
+       , C.KUNNR
+       , #BLDAT# AS INSDT
+       , #BLDAT# AS CNFDT
+       , '' INSLFN
+       , '' INAME1
+       , '' INSTEL
+       , '' INSPNO
+       , '' TEMNO
+       , '' CELLP
+       , 'X' ECONT
+       , VALUE(B.KUNNR,'') WRKPNO
+       , #WRKLFN# AS WRKLFN
+       , (SELECT TELF1 FROM SAPHEE.LFA1 WHERE MANDT = #G_MANDT# AND LIFNR = #WRKLFN#) WRKTEL
+       , #WRKLFN# AS WSTCD2
+       , #TWBTR# AS  TWBTR
+       , 'KRW' AS WAERS
+       , 0 MWBTR
+       , VALUE((SELECT CASE WHEN EAG = 'Y' THEN '42' ELSE '41' END  FROM SAPHEE.ZTBEVACF1 A WHERE MANDT = #G_MANDT# AND NUM = #WRKLFN#) ,'41' ) MWSKZ
+       , '' MWNCHK
+       , '보수용역비' WRKTX
+       , '2' AS STATE
+       , '' BELNR
+       , '0000' GJAHR
+       , '' ECKEY
+       , '' ZERROR
+       , '' ZETEXT
+       , '' REQNO
+       ,HEX(CURRENT DATE)
+       ,HEX(CURRENT TIME)
+       ,#G_USER_ID#
+  FROM SAPHEE.ZCST005 CS005 LEFT OUTER JOIN SAPHEE.VBAK A 
+	                             ON A.MANDT = CS005.MANDT
+	                            AND A.ZZPJT_ID = CS005.PSPID
+	                            AND A.VBELN = CS005.VBELN
+                            LEFT OUTER JOIN SAPHEE.VBPA B 
+	                             ON A.MANDT = B.MANDT
+	                            AND A.VBELN = B.VBELN
+	                            AND B.PARVW = 'Z2'
+                            LEFT OUTER JOIN  SAPHEE.VBPA AS C
+	                             ON A.MANDT = C.MANDT
+                              AND A.VBELN = C.VBELN
+                              AND C.PARVW = 'RG'
+                              AND C.POSNR = '000000'
+                            
+WHERE CS005.MANDT = #G_MANDT#
+  AND CS005.PSPID = #PSPID#
+ WITH UR  
+	]]></statement>
+	<input default-name="ds_save6">
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

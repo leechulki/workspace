@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[견적원가 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT
+        A.MANDT -- 클라이언트
+        ,A.ESCS_NUMB -- 견적원가번호
+        ,A.ESCS_NTIM -- 견적원가차수
+        ,A.ORDR_TYPE -- 오더유형
+        ,B.CODE_NAME AS ORDR_TYPE_NAME -- 오더유형명
+        ,A.POST1 -- 프로젝트명
+        ,A.KUNNR -- 고객사
+        ,A.KUNNR_NAME -- 고객명
+        ,A.KUNNR_CTAT -- 고객연락처
+        ,A.ESMT_CNTR -- 견적국가
+        ,COALESCE( NULLIF( TRIM( E.LANDX ) , '' ) , E.LANDX50 ) AS ESMT_CNTR_NAME 
+        ,A.FAX -- 고객FAX
+        ,A.HTEL -- 핸드폰
+        ,A.EMAIL -- 이메일
+        ,A.REP_NAME -- 고객담당자명
+        ,A.SALE_PRSN -- 영업담당자
+        ,F.USERNAME AS SALE_PRSN_NAME -- 영업담당자명
+        ,A.MRGN_RATE -- 예산실행율
+        ,A.WAERK -- 통화 키
+        ,C.CODE_NAME AS WAERK_NAME -- 통화 명
+        ,A.ESCS_TAMT -- 견적원가총금액
+        ,A.ESMT_TAMT -- 견적총금액
+        ,A.NGTT_TAMT -- 네고총금액
+        ,A.NGTT_APYN -- 네고적용여부
+        ,A.REMK -- 특기사항
+        ,A.OCNT_PDYN -- 수주예상여부
+        ,VALUE( NULLIF( A.OCNT_PDDT , '00000000' ), '') AS OCNT_PDDT -- 수주예상일
+        ,A.ESMT_PUBN -- 견적서발행건수
+        ,A.AFIL_NUMB -- 첨부파일번호
+        ,A.ESCS_STAT -- 견적원가상태
+        ,D.CODE_NAME AS ESCS_STAT_NAME -- 견적원가상태명
+        ,VALUE( NULLIF( A.ESCS_APDT , '00000000' ), '') AS ESCS_APDT -- 견적원가승인일
+        ,CASE   WHEN    AP.APPR_STAT NOT IN ('040', '390') 
+                THEN    CASE WHEN AP.ADIT_STAT NOT IN ('040', '250', '290') THEN AP.DRAF_STAT ELSE AP.ADIT_STAT END 
+                ELSE    AP.APPR_STAT END AS APPR_STAT -- 결재상태
+        ,AU.CODE_NAME AS APPR_STAT_NAME -- 결재상태명
+FROM    SAPHEE.ZFST0200 A
+            LEFT JOIN SAPHEE.ZFST0100 B ON (A.MANDT = B.MANDT AND A.ORDR_TYPE = B.CODE AND B.CODE_GROP = 'A03')
+            LEFT JOIN SAPHEE.ZFST0100 C ON (A.MANDT = C.MANDT AND A.WAERK = C.CODE AND C.CODE_GROP = 'S04')
+            LEFT JOIN SAPHEE.ZFST0100 D ON (A.MANDT = D.MANDT AND A.ESCS_STAT = D.CODE AND D.CODE_GROP = 'A02')
+            LEFT JOIN SAPHEE.T005T E ON (A.MANDT = E.MANDT AND E.SPRAS = '3' AND A.ESMT_CNTR = E.LAND1)
+            LEFT JOIN SAPHEE.ZUSERF F ON (A.MANDT = F.MANDT AND A.SALE_PRSN = F.USERNUMB)
+            LEFT JOIN SAPHEE.ZFST0103 AP ON (A.MANDT = AP.MANDT AND AP.ADOC_CLAS = 'EC' AND A.ESCS_NUMB = AP.ADOC_NUMB AND A.ESCS_NTIM = AP.ADOC_NTIM )
+            LEFT JOIN SAPHEE.ZFST0100 AU ON (AU.MANDT = AP.MANDT AND AU.CODE_GROP = 'A01' 
+                AND     AU.CODE = CASE  WHEN    AP.APPR_STAT NOT IN ('040', '390') 
+                                        THEN    CASE WHEN AP.ADIT_STAT NOT IN ('040', '250', '290') THEN AP.DRAF_STAT ELSE AP.ADIT_STAT END 
+                                        ELSE    AP.APPR_STAT END )
+WHERE   A.MANDT         = #G_MANDT#
+<isNotEqual col="ESMT_NUMB" value="">
+AND     ( A.ESCS_NUMB, A.ESCS_NTIM ) IN 
+            (
+                SELECT  B.ESCS_NUMB, B.ESCS_NTIM
+                FROM    SAPHEE.ZFST0202 B
+                WHERE   B.ESMT_NUMB = #ESMT_NUMB#
+            )
+</isNotEqual>
+<isEqual col="ESMT_NUMB" value="">
+AND     A.ESCS_NUMB     = #ESCS_NUMB#
+AND     A.ESCS_NTIM     = #ESCS_NTIM#
+</isEqual>
+FOR     FETCH ONLY
+WITH    UR
+    </statement>
+    <input default-name="ds_cond">
+        <col name="MANDT" size="9" type="VARCHAR" description="클라이언트" />
+        <col name="ESMT_NUMB" size="60" type="VARCHAR" description="견적서번호" />
+        <col name="ESCS_NUMB" size="60" type="VARCHAR" description="견적원가번호" />
+        <col name="ESCS_NTIM" size="2" type="SMALLINT" description="견적원가차수" />
+    </input>
+    <output default-name="ds_zfst0200">
+        <col name="MANDT" size="9" type="VARCHAR" description="클라이언트" />
+        <col name="ESCS_NUMB" size="60" type="VARCHAR" description="견적원가번호" />
+        <col name="ESCS_NTIM" size="2" type="SMALLINT" description="견적원가차수" />
+        <col name="ORDR_TYPE" size="30" type="VARCHAR" description="오더유형" />
+        <col name="POST1" size="120" type="VARCHAR" description="프로젝트명" />
+        <col name="KUNNR" size="30" type="VARCHAR" description="고객사" />
+        <col name="KUNNR_NAME" size="105" type="VARCHAR" description="고객명" />
+        <col name="KUNNR_CTAT" size="60" type="VARCHAR" description="고객연락처" />
+        <col name="ESMT_CNTR" size="9" type="VARCHAR" description="견적국가" />
+        <col name="FAX" size="60" type="VARCHAR" description="고객FAX" />
+        <col name="HTEL" size="60" type="VARCHAR" description="핸드폰" />
+        <col name="EMAIL" size="60" type="VARCHAR" description="이메일" />
+        <col name="SALE_PRSN" size="60" type="VARCHAR" description="영업담당자" />
+        <col name="SALE_PRSN_NAME" size="105" type="VARCHAR" description="영업담당자명" />
+        <col name="MRGN_RATE" size="11" type="DECIMAL" description="예산실행율" />
+        <col name="WAERK" size="15" type="VARCHAR" description="통화 키" />
+        <col name="ESCS_TAMT" size="17" type="DECIMAL" description="견적원가총금액" />
+        <col name="ESMT_TAMT" size="17" type="DECIMAL" description="견적총금액" />
+        <col name="NGTT_TAMT" size="17" type="DECIMAL" description="네고총금액" />
+        <col name="NGTT_APYN" size="3" type="VARCHAR" description="네고적용여부" />
+        <col name="REMK" size="12000" type="DBCLOB" description="특기사항" />
+        <col name="OCNT_PDYN" size="3" type="VARCHAR" description="수주예상여부" />
+        <col name="OCNT_PDDT" size="24" type="VARCHAR" description="수주예상일" />
+        <col name="ESMT_PUBN" size="2" type="SMALLINT" description="견적서발행건수" />
+        <col name="AFIL_NUMB" size="60" type="VARCHAR" description="첨부파일번호" />
+        <col name="ESCS_STAT" size="30" type="VARCHAR" description="견적원가상태" />
+        <col name="ESCS_STAT_NAME" size="360" type="VARCHAR" description="견적원가상태명" />
+        <col name="ESCS_APDT" size="24" type="VARCHAR" description="견적원가승인일" />
+        <col name="APPR_STAT" size="30" type="VARCHAR" description="결재상태" />
+        <col name="APPR_STAT_NAME" size="105" type="VARCHAR" description="결재상태명" />
+    </output>
+</query>

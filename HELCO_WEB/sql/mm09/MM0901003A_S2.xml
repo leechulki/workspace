@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[청구번호 팝업 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT REQNO, POSID, REQDATE, REQKIND, ZSITE_NM, REQKIND_NAME, CCSB1EPN, QTGBN, CRDAT, RECE_F, QTNUM, SUM(DMBTR) DMBTR
+FROM (SELECT T031.REQNO, T031.POSID, T031.REQDATE, T031.REQKIND, T031.RECE_F
+	 ,T031.CREID, T031.QTNUM, T031.DMBTR, T031.LGORT, T031.MANDT, T005.LIFNR 
+	 ,(SELECT ZSITE_NM FROM SAPHEE.ZMASTER01 WHERE MANDT=#G_MANDT# AND POSID=SUBSTR(T031.POSID,1,6)) ZSITE_NM
+	 ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT=#G_MANDT# AND LANG = #G_LANG# AND CODE1='3' AND CODE2=T031.REQKIND) REQKIND_NAME
+	 ,(SELECT CCSB1EPN FROM SAPHEE.ZTBCSB1 WHERE MANDT=#G_MANDT# AND CCSB1EMP=T031.CREID) CCSB1EPN
+	 ,(CASE WHEN QTNUM!='' THEN '유' ELSE '' END) QTGBN
+	 ,(CASE WHEN QTNUM!='' THEN (SELECT MAX(CRDAT) FROM SAPHEE.ZCST001 WHERE MANDT=#G_MANDT# AND QTNUM=T031.QTNUM) ELSE '' END) CRDAT	   
+	 FROM (
+SELECT REQNO,POSID,REQDATE,REQKIND,CREID,QTNUM,DMBTR,LGORT,MANDT,RECE_F
+FROM SAPHEE.ZMMT031
+WHERE 1=1
+AND REQDATE BETWEEN #FROM_DT# AND #TO_DT#
+
+
+<isNotNull col="PROJNO">
+	AND POSID LIKE #PROJNO#||'%' 
+</isNotNull>
+<isNotNull col="REQ_GBN">
+	AND REQKIND = #REQ_GBN#
+</isNotNull>
+<isEqual col="STATUS" value="0">
+	AND   RECE_F = '1'
+	AND   QTNUM != ''
+</isEqual>
+<isEqual col="STATUS" value="1">
+	AND   RECE_F = '1'
+	AND   QTNUM = ''
+</isEqual>
+<isEqual col="STATUS" value="2">
+	AND   RECE_F = '2'	
+</isEqual>
+<isEqual col="STATUS" value="3">
+	AND   RECE_F = '3'
+</isEqual>
+<isEqual col="STATUS" value="5">
+	AND   RECE_F = '5'
+</isEqual>
+<isEqual col="STATUS" value="6">
+	AND   RECE_F = '6'
+</isEqual>
+
+) T031, SAPHEE.ZMMT005 T005
+WHERE T031.MANDT = T005.MANDT 
+AND T031.LGORT = T005.LGORT) A, SAPHEE.ZWBT010 T010
+WHERE A.MANDT = T010.MANDT 
+
+<isNotNull col="COMBO3">
+	AND A.LGORT = #COMBO3#
+</isNotNull>
+<isEqual col="COMBO3" value="">
+	AND T010.LIFNR = A.LIFNR
+</isEqual>
+<isNotNull col="USER_ID">
+	AND T010.BSU_PM = #USER_ID#
+</isNotNull>
+<isNotNull col="AREA_CODE">
+	AND T010.BSU_ARA = #AREA_CODE#
+</isNotNull>
+
+GROUP BY REQNO, POSID, REQDATE, REQKIND, ZSITE_NM, REQKIND_NAME, CCSB1EPN, QTGBN, CRDAT, RECE_F, QTNUM
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="FROM_DT" size="54" type="VARCHAR" description="" /> 
+		<col name="TO_DT" size="255" type="VARCHAR" description="" /> 
+		<col name="COMBO3" size="54" type="VARCHAR" description="" /> 
+		<col name="REQ_GBN" size="54" type="VARCHAR" description="" /> 
+		<col name="PROJNO" size="54" type="VARCHAR" description="" /> 
+		<col name="STATUS" size="54" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

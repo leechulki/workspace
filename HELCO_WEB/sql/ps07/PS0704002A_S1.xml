@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  ''AS CHECK , T.PSPID, T.POSID, T.ZSITE_NM,T.ZSPEC1,T.ZSPEC2, T.PRO_R , T.LIFNR , T.NAME1 , T.PERNO
+              ,T.CHK_KIND ,T.CHASU ,T.REQ_GBN ,T.REQ_DATE ,T.REQ_DATE2 ,T.REQ_CELL ,T.CDATE ,T.CHK_LIFNR               ,T.ZZACTSS  ,T.STATE ,T.APPYN ,T.ZPDM_SAL ,T.ZPDM_DES  ,T.ZPDM_TSL ,T.DCHK ,T.ZMAN  ,T.TXT01 , T.TXT03
+FROM
+(SELECT P.MANDT
+       ,P.PSPID
+       ,P.POSID
+       ,P.ZSITE_NM
+       ,P.ZSPEC1
+       ,P.ZSPEC2
+       ,(SELECT SUM(PRO_R) AS PRO_R
+	         FROM SAPHEE.ZPST0112 AS ST
+ 		  WHERE ST.MANDT = M.MANDT
+		       AND ST.PSPID  = M.POSID
+			   AND ST.POSID  = M.POSID_1
+		  GROUP BY ST.MANDT, ST.PSPID, ST.POSID ) AS PRO_R
+       ,P.LIFNR
+       ,L.NAME1
+       ,P.PERNO
+       ,P.CHK_KIND
+       ,P.CHASU
+       ,P.REQ_GBN
+       ,P.REQ_DATE
+       ,P.REQ_DATE2
+       ,P.REQ_CELL
+       ,P.CDATE
+       ,P.CHK_LIFNR
+       ,VALUE((SELECT CTEXT2 FROM SAPHEE.ZLCODE L WHERE L.MANDT= P.MANDT AND LANG = 'ko' AND CODE1 = 'PS003' AND CODE2 = P.ZZACTSS),'') AS ZZACTSS
+	     ,(CASE WHEN TRIM(T1.STATE) = '3' THEN 'Y' ELSE 'N' END ) AS STATE
+       ,VALUE(T1.APPYN,'') APPYN	
+        ,CASE WHEN M.ZPDM_SAL = 'X'  THEN '완료' ELSE '미완료' END ZPDM_SAL
+        ,CASE WHEN M.ZPDM_DES = 'X'  THEN '완료' ELSE '미완료' END ZPDM_DES
+        ,CASE WHEN M.ZPDM_TSL = 'X'  THEN '완료' ELSE '미완료' END ZPDM_TSL
+        , CASE WHEN T1.APPYN = 'Y' OR P.REQ_DATE2 = '' OR P.REQ_DATE2 = '00000000' THEN 0 ELSE  (DAYS(INSERT(INSERT(HEX(CURRENT DATE),5,0,'-'),8,0,'-'))    -    DAYS(INSERT(INSERT(P.REQ_DATE2,5,0,'-'),8,0,'-')))  END AS DCHK  
+        ,D.ZMAN_NM AS ZMAN
+        ,CASE WHEN P.CHK_KIND = 'A' THEN T2.TXT01  ELSE '' END AS TXT01
+        ,CASE WHEN P.CHK_KIND = 'A' THEN T2.TXT03  ELSE '' END AS TXT03
+
+FROM SAPHEE.ZPST0036 P
+INNER JOIN SAPHEE.ZMASTER02 M 
+     ON P.MANDT = M.MANDT
+    AND P.PSPID = M.POSID
+   AND P.POSID = M.POSID_1
+INNER JOIN SAPHEE.ZMASTER01 D 
+     ON D.MANDT = M.MANDT
+    AND D.POSID = M.POSID
+
+LEFT OUTER JOIN SAPHEE.ZPST0023 T1
+  ON P.MANDT = T1.MANDT 
+ AND P.PSPID = T1.PSPID 
+ AND P.POSID = T1.POSID 
+ AND T1.ZTYPE = '2'
+
+LEFT OUTER JOIN SAPHEE.ZPST0024 AS T2
+  ON P.MANDT = T2.MANDT
+  AND P.PSPID = T2.PSPID
+  AND P.POSID = T2.POSID
+
+
+ LEFT OUTER JOIN SAPHEE.LFA1 AS L
+    ON P.MANDT = L.MANDT
+   AND P.LIFNR = L.LIFNR
+  
+
+WHERE P.MANDT = #G_MANDT#
+
+
+<isNotNull col="FDATE">
+<isEqual col="TEXT" value="0">
+  AND   P.CDATE BETWEEN #FDATE# AND #TDATE#
+</isEqual>
+<isEqual col="TEXT" value="1">
+  AND   M.ZZCOMP2 BETWEEN #FDATE# AND #TDATE#
+</isEqual>
+</isNotNull>
+
+<isNotNull col="PSPID">
+AND   P.PSPID = #PSPID#
+</isNotNull>
+<isNotNull col="GBN">
+AND   P.REQ_GBN = #GBN#
+</isNotNull>
+<isNotNull col="ZZACTSS">
+AND   P.ZZACTSS = #ZZACTSS#
+</isNotNull>
+<isEqual col="GUBUN" value="10">
+AND   P.LIFNR = #G_VEND_CODE_E#
+</isEqual>
+<isEqual col="SO_GBN" value="C">
+   #SQRY+#
+</isEqual>
+) AS T
+WHERE T.MANDT = #G_MANDT#
+<isEqual col="DCHK" value="A">
+AND T.DCHK = -15  
+</isEqual>
+<isEqual col="DCHK" value="B">
+AND T.DCHK = -7
+ </isEqual>
+  
+ ORDER BY T.PSPID,T.POSID,T.CHK_KIND,T.CHASU,T.REQ_GBN
+FOR FETCH ONLY WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

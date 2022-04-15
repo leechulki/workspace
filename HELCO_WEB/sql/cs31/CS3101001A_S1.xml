@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[견적서 작성 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT
+      'I' AS FLAG
+    , ''  AS  CHECK  
+    , ''  AS SEQNO
+    , MM031A.REQNO AS REQNR
+    , MM031A.REQSN AS REQSN
+    , MM031A.MANDT AS MANDT
+    , MM031A.MATNR AS MATNR
+    , BWTAR AS BWTAR
+    , CASE WHEN CS002.MAKTX IS NULL THEN MM011.MAKTX  ELSE CS002.MAKTX  END AS MAKTX
+    , MM031A.MEINS AS MEINS
+    , MM031A.MENGE AS MENGE
+    , SAPHEE.GET_CURRDATA('KRW',CASE WHEN SUBSTR(MM031A.BWTAR,2) = 'A' THEN MM011.SAMT1 
+               WHEN SUBSTR(MM031A.BWTAR,2) = 'B' THEN INT(MM011.SAMT1 * 0.4)  END) AS NETPR 
+    , CASE WHEN CS002.NETWR > 0 THEN SAPHEE.GET_CURRDATA('KRW',CS002.NETWR) ELSE 0 END AS NETWR
+    , CASE WHEN CS002.AMOUNT > 0 THEN SAPHEE.GET_CURRDATA('KRW',CS002.AMOUNT) ELSE 0 END AS AMOUNT
+    , CASE WHEN CS002.HOGI_ID IS NULL THEN MM031A.POSID ELSE CS002.HOGI_ID END AS HOGI_ID
+    , CASE WHEN CS002.MAT_DESC IS NULL THEN '' ELSE CS002.MAT_DESC END AS MAT_DESC
+    , CASE WHEN MM031A.QTNUM IS NULL THEN '' ELSE MM031A.QTNUM END AS QTNUM
+    , CASE WHEN MM031A.REQKIND2 IS NULL THEN '' ELSE MM031A.REQKIND2 END AS REQKIND2 
+    , MM031A.REQKIND AS REQKIND
+    , MM031A.RECE_F AS RECE_F
+    , CS101.CS101_HNA AS HNA
+    , MM011.MAN AS MAN
+    , MM011.JOBHOUR AS JOBHOUR
+    , SAPHEE.GET_CURRDATA('KRW', CS183.AMT) * MM011.MAN * MM011.JOBHOUR AS AMT
+--    , SAPHEE.GET_CURRDATA('KRW', CS183.AMT) * MM011.MAN * MM011.JOBHOUR * MM031A.MENGE AS AMT
+--    , CS183.AMT * MM011.MAN * MM011.JOBHOUR * 100 AS AMT
+   FROM (
+    SELECT *
+	  FROM (
+	  	  SELECT   
+	  	     MANDT
+	  	   , REQNO 
+		   , REQSN
+	  	   , MATNR
+	  	   , BWTAR
+	  	   , MTART
+	  	   , WAERS
+	  	   , MENGE
+	  	   , MEINS
+	  	   , BUSSI
+	  	   , REQKIND
+	  	   , RDATE
+	  	   , QTNUM
+	  	   , REQKIND2
+	  	   , RECE_F
+	  	   , POSID
+	  	  FROM SAPHEE.ZMMT031
+         WHERE MANDT = #G_MANDT#
+	       AND ((RECE_f = '0' AND REQKIND IN ('1','6','7','9','A','G','D','E','F','H')) OR 
+	            (RECE_F = '6' AND REQKIND IN ('2','4') AND MMPR_DEL ='X'))
+	       AND REQNO = #REQNO#
+	       AND QTNUM = ''
+	       AND CROPE = 'Y'
+
+         UNION 
+		
+        SELECT 
+	  	     MANDT
+	  	   , REQNO 
+		   , MIN(REQSN) AS REQSN
+	  	   , MATNR
+	  	   , BWTAR
+	  	   , MTART
+	  	   , MAX(WAERS) AS WAERS
+	  	   , SUM(MENGE) AS MENGE
+	  	   , MAX(MEINS) AS MEINS
+	  	   , MAX(BUSSI) AS BUSSI
+	  	   , MAX(REQKIND) AS REQKIND
+	  	   , MAX(RDATE) AS RDATE
+	  	   , MAX(QTNUM) AS QTNUM
+	  	   , MAX(REQKIND2) AS REQKIND2
+	  	   , MAX(RECE_F) AS RECE_F
+	  	   , MAX(POSID) AS POSID
+	  	  FROM SAPHEE.ZMMT031
+         WHERE MANDT = #G_MANDT#
+	       AND ((RECE_f = '0' AND REQKIND IN ('1','6','7','9','A','G','D','E','F','H')) OR 
+	            (RECE_F = '6' AND REQKIND IN ('2','4') AND MMPR_DEL ='X'))
+	       AND REQNO = #REQNO#
+	       AND QTNUM = ''
+	       AND CROPE <> 'Y' 
+	       GROUP BY MANDT,REQNO,MATNR,MTART,BWTAR) AS A
+		
+	)AS MM031A
+LEFT OUTER JOIN SAPHEE.ZMMT011 AS MM011 ON MM031A.MANDT = MM011.MANDT 
+  AND MM031A.MATNR = MM011.MATNR 
+	AND MM031A.MTART = MM011.MTART
+LEFT OUTER JOIN SAPHEE.ZCST002 AS CS002 ON MM031A.MANDT = CS002.MANDT
+              AND MM031A.QTNUM = CS002.QTNUM AND MM031A.MATNR = CS002.MATNR
+ LEFT OUTER JOIN SAPHEE.ZCST101 AS CS101 ON MM031A.MANDT= CS101.MANDT 
+	AND SUBSTR(MM031A.POSID,1,6) = CS101.CS101_PJT
+	AND SUBSTR(MM031A.POSID,7) = CS101.CS101_HNO
+LEFT OUTER JOIN SAPHEE.ZCST183 AS CS183 ON CS183.MANDT = MM031A.MANDT
+                                       AND CS183.ZYEAR = #ZYEAR#
+WHERE 1 = 1
+
+
+UNION
+
+SELECT 
+	  '' AS FLAG
+	, '' AS CHECK
+	, CS002.SEQNO AS SEQNO
+	, CS002.REQNR AS REQNR
+	, MM031.REQSN AS REQSN
+	, CS002.MANDT AS MANDT
+	, CS002.MATNR AS MATNR
+	, MM031.BWTAR AS BWTAR
+	, CS002.MAKTX AS MAKTX
+	, CS002.MEINS AS MEINS
+	, CS002.MENGE AS MENGE
+	, SAPHEE.GET_CURRDATA('KRW',CS002.NETPR) AS NETPR
+	, SAPHEE.GET_CURRDATA('KRW',CS002.NETWR) AS NETWR
+	, SAPHEE.GET_CURRDATA('KRW',CS002.AMOUNT) AS AMOUNT
+	, CS002.HOGI_ID AS HOGI_ID
+	, CS002.MAT_DESC AS MAT_DESC
+	, CS002.QTNUM AS QTNUM
+	, MM031.REQKIND2 AS REQKIND2
+              , MM031.REQKIND AS REQKIND
+	, MM031.RECE_F AS RECE_F
+	, CS101.CS101_HNA AS HNA
+              , MM011.MAN AS MAN
+              , MM011.JOBHOUR AS JOBHOUR
+              , SAPHEE.GET_CURRDATA('KRW', CS183.AMT) * MM011.MAN * MM011.JOBHOUR AS AMT
+--, CS183.AMT * MM011.MAN * MM011.JOBHOUR * 100 * CS002.MENGE AS AMT
+--              , SAPHEE.GET_CURRDATA('KRW', CS183.AMT) * MM011.MAN * MM011.JOBHOUR * CS002.MENGE AS AMT
+ FROM SAPHEE.ZCST002 AS CS002 
+ LEFT OUTER JOIN  SAPHEE.ZCST001 AS CS001 ON CS002.MANDT = CS001.MANDT AND CS002.QTNUM = CS001.QTNUM 
+ LEFT OUTER JOIN (
+              SELECT 
+                MM31A.MANDT AS MANDT
+              , MM31A.REQNO AS REQNO
+              , MIN(MM31A.REQSN) AS REQSN
+              , MM31A.QTNUM AS QTNUM
+              , MAX(MM31A.BWTAR) AS BWTAR
+              , MAX(MM31A.REQKIND) AS REQKIND
+              , MAX(MM31A.REQKIND2) AS REQKIND2 
+              , MAX(MM31A.RECE_F) AS RECE_F 
+              FROM SAPHEE.ZMMT031 AS MM31A
+              WHERE MM31A.MANDT = #G_MANDT#
+              GROUP BY MM31A.MANDT, REQNO, QTNUM) AS MM031 
+              ON CS002.MANDT = MM031.MANDT 
+                  AND CS002.REQNR = MM031.REQNO AND CS002.QTNUM = MM031.QTNUM  
+ LEFT OUTER JOIN SAPHEE.ZCST101 AS CS101 ON CS002.MANDT= CS101.MANDT 
+	AND SUBSTR(CS002.HOGI_ID,1,6) = CS101.CS101_PJT
+	AND SUBSTR(CS002.HOGI_ID,7) = CS101.CS101_HNO
+LEFT OUTER JOIN SAPHEE.ZMMT011 AS MM011 ON CS002.MANDT = MM011.MANDT 
+              AND CS002.MATNR = MM011.MATNR 
+LEFT OUTER JOIN SAPHEE.ZCST183 AS CS183 ON CS183.MANDT = CS002.MANDT
+              AND CS183.ZYEAR = #ZYEAR#
+WHERE CS002.MANDT = #G_MANDT#
+  AND CS002.QTNUM = #QTNUM#
+
+ORDER BY REQSN
+
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="REQNO" size="255" type="VARCHAR" description="" /> 
+		<col name="QTNUM" size="45" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="FLAG" size="1" type="VARCHAR" description="" /> 
+		<col name="CHECK" size="0" type="VARCHAR" description="" /> 
+		<col name="SEQNO" size="18" type="VARCHAR" description="" /> 
+		<col name="REQNR" size="30" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="BWTAR" size="30" type="VARCHAR" description="" /> 
+		<col name="MAKTX" size="120" type="VARCHAR" description="" /> 
+		<col name="MEINS" size="9" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="33" type="DECIMAL" description="" /> 
+		<col name="NETPR" size="22" type="DOUBLE" description="" /> 
+		<col name="NETWR" size="22" type="DOUBLE" description="" /> 
+		<col name="AMOUNT" size="22" type="DOUBLE" description="" /> 
+		<col name="HOGI_ID" size="72" type="VARCHAR" description="" /> 
+		<col name="MAT_DESC" size="60" type="VARCHAR" description="" /> 
+		<col name="QTNUM" size="45" type="VARCHAR" description="" /> 
+		<col name="REQKIND2" size="3" type="VARCHAR" description="" /> 
+		<col name="REQKIND" size="3" type="VARCHAR" description="" /> 
+		<col name="RECE_F" size="3" type="VARCHAR" description="" /> 
+		<col name="HNA" size="90" type="VARCHAR" description="" /> 
+	</output>
+</query>

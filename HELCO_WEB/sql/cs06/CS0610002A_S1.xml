@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+       A.POSID
+      ,A.POSID_1
+      ,A.ZZCOMP2
+      ,B.ZZARA
+      ,CD02.CTEXT2  AS ZZARA_NM
+      ,C.REGION -- 영업에서 입력한 보수 대지역
+      ,INT(B.ZQNTY) AS ZQNTY
+      ,A.ZZGUBUN
+      ,B.ZSITE_NM
+      ,B.ADDR1
+      ,B.ADDR2
+      ,A.ZZBSU_B
+      ,WB010.LGORT  AS BSU
+      ,WB010.ABR_NM AS BSU_NM
+      ,WB010.VKGRP  AS VKGRP
+      ,CD01.CTEXT2  AS VKGRP_NM
+      ,WB010.BSU_HP3  AS BSU_HP3
+      , '' CHK
+      ,VALUE(CS101.CS101_ISD,'') AS CS101_ISD
+      ,VALUE(CS101.CS101_IGD,'') AS CS101_IGD
+      ,VALUE(CS101.CS101_BSU,'') AS CS101_BSU
+      ,A.ZSPEC1
+      ,A.ZSPEC2
+      ,A.ZSPEC9
+      <![CDATA[
+      ,CASE WHEN SUBSTR(A.POSID_1,7,1) = 'L' AND DECODE(ZSPEC3,'',0,INT(ZSPEC3)) <= 120 AND INT(B.ZQNTY) <= 2 THEN 'Y' ELSE '' END AS STO
+      	]]>
+      ,WB010A.ABR_NM AS BSU_NM2
+      ,CD03.CTEXT2  AS VKGRP_NM2
+      ,INT(A.ZMUSAOCNT)  AS ZMUSAOCNT
+      ,INT(A.ZMUSAOCNT2) AS ZMUSAOCNT2
+      
+      --=======================================================================	  
+      ,VALUE(( SELECT  --IBSYMBOL.ATWRT  AS VALUE,  
+	                   CAWNT.atwtb
+                 FROM SAPHEE.VBAP AS VBAP
+			    INNER JOIN SAPHEE.IBIN AS IBIN ON VBAP.mandt = ibin.mandt and VBAP.CUOBJ = IBIN.INSTANCE
+			    INNER JOIN SAPHEE.IBINVALUES AS IBINV ON IBIN.mandt = IBINV.mandt  and   IBIN.IN_RECNO = IBINV.IN_RECNO
+			    INNER JOIN SAPHEE.IBSYMBOL AS IBSYMBOL ON IBINV.mandt = IBSYMBOL.mandt and    IBINV.SYMBOL_ID = IBSYMBOL.SYMBOL_ID
+			    INNER JOIN SAPHEE.CABN AS CABN ON IBSYMBOL.mandt = CABN.mandt  and   IBSYMBOL.ATINN = CABN.ATINN	  
+			    inner join SAPHEE.cawn AS cawn on cawn.mandt = CABN.mandt  and cawn.atinn = CABN.atinn and cawn.adzhl = CABN.adzhl  and cawn.atwrt =  IBSYMBOL.ATWRT
+			    INNER JOIN SAPHEE.CAWNT AS CAWNT ON CAWNT.MANDT = cawn.MANDT   AND CAWNT.ATINN = cawn.ATINN   AND CAWNT.ATZHL = cawn.ATZHL   AND CAWNT.ADZHL = cawn.ADZHL and CAWNT.SPRAS = '3'
+			    WHERE vbap.mandt = A.MANDT   and VBAP.HOGI = A.POSID_1    AND CABN.ATNAM = 'EL_DMNTAF'	 ),  '') AS ATWTB
+      --=======================================================================	      
+      
+      
+  FROM
+       SAPHEE.ZMASTER02 AS A INNER JOIN SAPHEE.ZMASTER01 B 
+                                     ON B.MANDT = A.MANDT
+                                    AND B.POSID = A.POSID
+                                    
+                             INNER JOIN SAPHEE.VBAK AS C
+                                     ON C.MANDT = A.MANDT
+	                                  AND C.ZZPJT_ID = A.POSID
+	                                  
+                             LEFT OUTER JOIN SAPHEE.ZWBT010  WB010
+                                     ON WB010.MANDT = A.MANDT
+                                    AND WB010.LGORT = A.ZZBSU_B
+                                    AND WB010.LGORT != ''
+	                                  
+                             LEFT OUTER JOIN SAPHEE.ZLCODE  CD01
+                                     ON CD01.MANDT = A.MANDT
+                                    AND CD01.CODE1 = 'VKGRP'
+                                    AND CD01.LANG  = #G_LANG#
+                                    AND CD01.CODE2 = WB010.VKGRP
+	                                  
+                             LEFT OUTER JOIN SAPHEE.ZLCODE  CD02
+                                     ON CD02.MANDT = A.MANDT
+                                    AND CD02.CODE1 = 'CS115'
+                                    AND CD02.LANG  = #G_LANG#
+                                    AND CD02.CODE2 = B.ZZARA
+	                                  
+                             LEFT OUTER JOIN SAPHEE.ZCST101  CS101
+                                     ON CS101.MANDT = A.MANDT
+                                    AND CS101.CS101_PJT = A.POSID
+                                    AND CS101.CS101_PJT||CS101.CS101_HNO = A.POSID_1
+                                    
+                             LEFT OUTER JOIN SAPHEE.ZWBT010  WB010A
+                                     ON WB010A.MANDT = A.MANDT
+                                    AND WB010A.LGORT = CS101.CS101_BSU
+                                    AND WB010A.LGORT != ''
+                                    
+                             LEFT OUTER JOIN SAPHEE.ZLCODE  CD03
+                                     ON CD03.MANDT = A.MANDT
+                                    AND CD03.CODE1 = 'VKGRP'
+                                    AND CD03.LANG  = #G_LANG#
+                                    AND CD03.CODE2 = WB010A.VKGRP
+	                                  
+                           
+ WHERE A.MANDT = #G_MANDT#
+<isEqual col="DAT_GBN" value="A">
+   AND A.ZZCOMP2 BETWEEN #DAT_FM# AND #DAT_TO#
+</isEqual>
+<isEqual col="DAT_GBN" value="B">
+   AND CS101.CS101_ISD BETWEEN #DAT_FM# AND #DAT_TO#
+</isEqual>
+   AND B.ZZACTSS != ''
+<isNotNull col="ZZARA">
+   AND B.ZZARA = #ZZARA#
+</isNotNull>
+<isNotNull col="PJT">
+   AND A.POSID = #PJT#
+</isNotNull>
+<isEqual col="GBN" value="A">
+   AND A.ZZBSU_B != ''
+</isEqual>
+<isEqual col="GBN" value="B">
+   AND A.ZZBSU_B = ''
+</isEqual>
+<isNotNull col="BSU">
+   AND A.ZZBSU_B = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+   AND A.ZZBPM = #BPM#
+</isNotNull>
+<isNotNull col="ARA">
+   AND B.ZZARA = #ARA#
+</isNotNull>
+<isNotNull col="TEM">
+	-- 인수계획 기준 조회 
+   AND WB010.VKGRP = #TEM#
+</isNotNull>
+
+<isNotNull col="DPT">
+  AND SUBSTR(WB010.VKGRP,1,2) = #DPT#
+</isNotNull>
+
+   AND A.ZZGUBUN IN ('10', '11', '12', '13', '14', '20') -- EL , ES, MW, EL(선박), ES(선박), 주차    	
+   AND A.PRART IN ('01', '02', '11')      -- 국내승강기,  국내주차기,  교체공사  
+<isNotNull col="PRART">   
+   <isEqual col="PRART" value="01">
+     AND A.PRART IN ('01', '11')
+     AND A.ZZGUBUN IN ('10', '11', '12', '13', '14')
+   </isEqual> 
+   <isEqual col="PRART" value="02">
+     AND A.PRART = '02'
+     AND A.ZZGUBUN = '20'
+  </isEqual>  
+</isNotNull>
+   AND A.ZZCOMP2 >= '20080901'            -- 마이그레이선 데이타 제외
+	 AND A.ZZACTSS BETWEEN '01'  AND '21'   -- 설치 사무소  
+	 AND A.TXT04 != 'C'  -- 취소현장 제외,   
+ --  AND A.ZZCHAKG = 'X'   -- 착공 확정분   
+ 
+<isEqual col="ISDYN" value="A">
+   AND CS101.CS101_PST = 'A6'
+</isEqual> 
+<isEqual col="ISDYN" value="B">
+   AND (CS101.CS101_PST = 'A1' or CS101.MANDT IS NULL)
+</isEqual>   
+   
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

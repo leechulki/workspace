@@ -1,0 +1,646 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.ses.dao.SesEgisD">
+
+	<update id="updateHQPO1046" parameterType="hdel.sd.ses.domain.SesEgisParamVO">
+		UPDATE SAPHEE.ZSDT1046
+		   SET ZPRGFLG = '61'
+		   	 , UDATE   = HEX(CURRENT DATE)
+		   	 , UTIME   = HEX(CURRENT TIME)
+		   	 , UUSER   = #{uuser}
+		 WHERE MANDT   = #{mandt}
+		   AND QTNUM   = #{qtnum}
+		   AND QTSER   = #{qtser}
+ 		WITH UR
+	</update>
+
+	<update id="updateHQPO1091" parameterType="hdel.sd.ses.domain.SesEgisParamVO">
+		UPDATE SAPHEE.ZSDT1091
+		   SET PSPID_CO = #{pspid_co}
+		   	 , AEDAT    = HEX(CURRENT DATE)
+		   	 , AEZET    = HEX(CURRENT TIME)
+		   	 , AENAM    = #{uuser}
+		 WHERE MANDT    = #{mandt}
+		   AND QTNUM    = #{qtnum}
+		   AND QTSER    = #{qtser}
+ 		WITH UR
+	</update>
+
+	<!-- Detail grid query -->
+	<resultMap id="selectEgisPriceMap" type="hdel.sd.ses.domain.SesEgis"> 
+	    <result property="mandt" column="MANDT"/>
+	    <result property="qtnum" column="QTNUM"/>
+	    <result property="qtser" column="QTSER"/>
+	    <result property="qtseq" column="QTSEQ"/>
+		<result property="zuam" column="ZUAM"/>
+	    <result property="zeam" column="ZEAM"/>
+	</resultMap>
+	
+	<select id="selectEgisPrice" parameterType="hdel.sd.ses.domain.SesEgisParamVO" resultMap="selectEgisPriceMap">
+		SELECT   A.MANDT
+				,A.QTNUM
+				,A.QTSER
+				,A.QTSEQ
+				,A.ZUAM
+				,A.ZEAM
+		  FROM  SAPHEE.ZSDT1047 A
+		 WHERE  A.MANDT = #{mandt} 
+		   AND  A.QTNUM = #{srm_estmt_no}
+		   AND  A.QTSER = #{srm_estmt_seq}
+		   AND  A.QTSEQ = #{srm_serial_no}
+		WITH UR
+	</select>
+
+	<!-- Detail grid query -->
+	<resultMap id="selectEgisNegoPriceMap" type="hdel.sd.ses.domain.SesEgis"> 
+	    <result property="mandt" column="MANDT"/>
+	    <result property="qtnum" column="QTNUM"/>
+	    <result property="qtser" column="QTSER"/>
+	    <result property="qtseq" column="QTSEQ"/>
+		<result property="zuam" column="ZUAM"/>
+	    <result property="zeam" column="ZEAM"/>
+	    <result property="waerk" column="WAERK"/>
+	</resultMap>
+	
+	<select id="selectEgisNegoPrice" parameterType="hdel.sd.ses.domain.SesEgisParamVO" resultMap="selectEgisNegoPriceMap">
+		SELECT   A.MANDT
+				,A.QTNUM
+				,A.QTSER
+				,A.QTSEQ
+				,A.ZUAM
+				,A.ZCOST 
+				,B.WAERK 
+		  FROM  SAPHEE.ZSDT1047 A
+		  LEFT JOIN SAPHEE.ZSDT1046 B
+			  ON A.MANDT = B.MANDT 
+			   AND  A.QTNUM = B.QTNUM
+			   AND  A.QTSER = B.QTSER
+		 WHERE  A.MANDT = #{mandt} 
+		   AND  A.QTNUM = #{qtnum}
+		   AND  A.QTSER = #{qtser}
+		   AND  A.QTSEQ = #{qtseq}
+		WITH UR
+	</select>
+
+
+	<!-- 견적원가 등록 및 수정  --> 
+	<update id="updateTradeZSDT1050" parameterType="hdel.sd.ses.domain.SesEgisParamVO">
+<!-- ZSDT1050
+1. ZUAM =  (#{SCM_ESTMT_UNIT_PRICE} / 환율 )*  간접비율(1.xxxx)
+2. ZUAMS = (#{SCM_ESTMT_UNIT_PRICE} / 환율)  
+? 3. ZCOST =  (#{SCM_ESTMT_AMT} /환율) 
+ -->
+	<![CDATA[
+ 			MERGE INTO SAPHEE.ZSDT1050 AS T1
+			USING ( SELECT  
+							CAST(#{mandt}    AS VARCHAR(3))   				AS MANDT
+							, CAST(#{srm_estmt_no}  AS VARCHAR(10))  		AS QTNUM
+							, CAST(#{srm_estmt_seq}  AS SMALLINT)     		AS QTSER
+							, CAST(#{srm_serial_no}  AS SMALLINT) 			AS QTSEQ
+							, CAST('1'  AS SMALLINT)  						AS ZCOSTZSEQ
+							, (CASE WHEN CAST(#{currency}  AS VARCHAR(10)) <> 'KRW'
+							       THEN ROUND(CAST(#{scm_unit_price}  AS DECIMAL(15,2)) / CAST(#{ukurs}  AS DECIMAL(9,4)),2)
+							       ELSE ROUND(CAST(#{scm_unit_price}  AS DECIMAL(15,2)),2)
+							   END )                                      	AS ZUAM
+                        	, CAST( ( 1 + ( value(zlcode.CODE2,0) / 100 ) ) AS DECIMAL( 5, 4) ) AS ZURATE_CAL
+                        	, CAST( value(zlcode.CODE2,0) AS DECIMAL( 6, 4) ) AS ZURATE
+							, CAST(#{currency}  AS VARCHAR(10))       		AS WAERK
+							, CAST(#{ratio}     AS DECIMAL(5,4))       		AS RATIO    /* 마진율 1.1234*/
+							, ( SELECT ZNUMBER FROM SAPHEE.ZSDT1047 WHERE MANDT = CAST(#{mandt}    AS VARCHAR(3)) AND QTNUM = CAST(#{srm_estmt_no}  AS VARCHAR(10)) AND QTSER = CAST(#{srm_estmt_seq}  AS SMALLINT) AND QTSEQ = CAST(#{srm_serial_no}  AS SMALLINT))  AS ZNUMBER
+				    FROM SYSIBM.SYSDUMMY1 as dummy
+			      	left join table(
+						select zlcode.mandt, zlcode.code2
+						from saphee.zsdt1046 as z1046 
+						inner join saphee.zlcode as zlcode on z1046.mandt=zlcode.mandt and zlcode.code1='SD122'
+						where z1046.mandt=#{mandt} and qtnum=#{srm_estmt_no} and qtser=#{srm_estmt_seq} and z1046.kunnr <> '0000500684') as zlcode on mandt=#{mandt}	/*Turkey 간접비 0% 처리*/
+				  ) AS T2 ON T1.MANDT   	= T2.MANDT
+						 AND T1.QTNUM  		= T2.QTNUM
+						 AND T1.QTSER 		= T2.QTSER
+						 AND T1.QTSEQ 		= T2.QTSEQ
+						 AND T1.ZCOSTZSEQ 	= T2.ZCOSTZSEQ
+			WHEN MATCHED THEN
+					UPDATE SET 
+						   T1.ZUAM 			= ROUND((T2.ZUAM * T2.ZURATE_CAL),2)
+						   ,T1.ZUAMS 		= T2.ZUAM	    
+						   ,T1.ZURATE 		= (CASE WHEN T2.WAERK <> 'KRW' 
+						                            THEN T2.ZURATE
+						                            ELSE CAST('0.00'  AS DECIMAL(15,2))  
+						                       END)
+						   ,T1.ZCOST 		= ROUND((T2.ZUAM * T2.ZURATE_CAL * T2.ZNUMBER),2)
+						   ,T1.WAERK        = T2.WAERK
+ 						   ,T1.UDATE   		= HEX(CURRENT DATE)
+						   ,T1.UTIME   		= HEX(CURRENT TIME)	
+						   ,T1.UUSER   		= #{uuser}
+			WHEN NOT MATCHED THEN
+					INSERT (  
+					          MANDT
+							 ,QTNUM
+							 ,QTSER
+							 ,QTSEQ
+							 ,ZCOSTZSEQ
+							 ,ZUAM
+							 ,ZUAMS
+							 ,ZURATE
+							 ,ZCOST
+							 ,WAERK
+							 ,CDATE
+							 ,CTIME
+							 ,CUSER
+							 ,UDATE
+							 ,UTIME
+							 ,UUSER
+					) VALUES (
+							  T2.MANDT
+							 ,T2.QTNUM
+							 ,T2.QTSER
+							 ,T2.QTSEQ
+							 , ( SELECT VALUE(MAX(ZCOSTZSEQ)+1, 1)
+								   FROM SAPHEE.ZSDT1050
+								  WHERE MANDT = T2.MANDT
+								    AND QTNUM = T2.QTNUM
+								    AND QTSER = T2.QTSER
+								    AND QTSEQ = T2.QTSEQ
+						        )
+							 ,ROUND((T2.ZUAM * T2.ZURATE_CAL),2)
+							 ,T2.ZUAM
+							 ,(CASE WHEN T2.WAERK <> 'KRW' 
+						            THEN T2.ZURATE
+						            ELSE CAST('0.00'  AS DECIMAL(15,2))  
+						        END)
+							 ,ROUND((T2.ZUAM * T2.ZURATE_CAL * T2.ZNUMBER),2)
+							 ,T2.WAERK
+							 ,HEX(CURRENT DATE)
+							 ,HEX(CURRENT TIME)
+							 ,#{cuser}       
+							 ,HEX(CURRENT DATE)
+							 ,HEX(CURRENT TIME)
+							 ,#{uuser}
+						   )
+ 		WITH UR
+	]]>					   
+	</update>
+
+	<update id="updateZSDT1050" parameterType="hdel.sd.ses.domain.SesEgisParamVO">	
+ 			MERGE INTO SAPHEE.ZSDT1050 AS T1
+			USING ( SELECT  
+							  CAST(#{mandt}  AS VARCHAR(3))   		AS MANDT
+							, CAST(#{qtnum}  AS VARCHAR(10))  		AS QTNUM
+							, CAST(#{qtser}  AS SMALLINT)     		AS QTSER
+							, CAST(#{qtseq}  AS SMALLINT) 			AS QTSEQ
+							, CAST('1'		 AS SMALLINT)			AS ZCOSTZSEQ
+							, CAST(#{zuam}	 AS DECIMAL(15,2))		AS ZUAM
+							, CAST(#{zuams}	 AS DECIMAL(15,2))		AS ZUAMS
+							, CAST(#{zcost}  AS DECIMAL(15,2))		AS ZCOST
+                        	, CAST(#{urate}  AS DECIMAL( 6,4)) 		AS ZURATE
+							, CAST(#{currency}  AS VARCHAR(10)) 	AS WAERK                        	
+				    FROM SYSIBM.SYSDUMMY1
+				  ) AS T2 ON T1.MANDT   	= T2.MANDT
+						 AND T1.QTNUM  		= T2.QTNUM
+						 AND T1.QTSER 		= T2.QTSER
+						 AND T1.QTSEQ 		= T2.QTSEQ
+						 AND T1.ZCOSTZSEQ 	= T2.ZCOSTZSEQ
+			WHEN MATCHED THEN
+					UPDATE SET 
+						    T1.ZUAM 		= T2.ZUAM
+						   ,T1.ZUAMS 		= T2.ZUAMS
+						   ,T1.ZURATE 		= T2.ZURATE
+						   ,T1.ZCOST 		= T2.ZCOST
+ 						   ,T1.UDATE   		= HEX(CURRENT DATE)
+						   ,T1.UTIME   		= HEX(CURRENT TIME)	
+						   ,T1.UUSER   		= #{uuser}
+			WHEN NOT MATCHED THEN
+					INSERT (  
+					          MANDT
+							 ,QTNUM
+							 ,QTSER
+							 ,QTSEQ
+							 ,ZCOSTZSEQ
+							 ,ZUAM
+							 ,ZUAMS
+							 ,ZURATE
+							 ,ZCOST
+							 ,CDATE
+							 ,CTIME
+							 ,CUSER
+							 ,UDATE
+							 ,UTIME
+							 ,UUSER
+					) VALUES (
+							  T2.MANDT
+							 ,T2.QTNUM
+							 ,T2.QTSER
+							 ,T2.QTSEQ
+							 , ( SELECT VALUE(MAX(ZCOSTZSEQ)+1, 1)
+								   FROM SAPHEE.ZSDT1050
+								  WHERE MANDT = T2.MANDT
+								    AND QTNUM = T2.QTNUM
+								    AND QTSER = T2.QTSER
+								    AND QTSEQ = T2.QTSEQ
+						        )
+							 ,T2.ZUAM
+							 ,T2.ZUAMS
+							 ,T2.ZURATE
+							 ,T2.ZCOST
+							 ,HEX(CURRENT DATE)
+							 ,HEX(CURRENT TIME)
+							 ,#{cuser}       
+							 ,HEX(CURRENT DATE)
+							 ,HEX(CURRENT TIME)
+							 ,#{uuser}
+						   )
+ 		WITH UR 		
+	</update>
+
+  	<!-- 견적Detail 수기원가 합계 업데이트  -->			  	 
+	<update id="updateTradeZSDT1047" parameterType="hdel.sd.ses.domain.SesEgisParamVO">
+<!-- 
+ZSDT1047
+1. ZUAM =  #{SCM_ESTMT_UNIT_PRICE} / 환율
+2. ZUAMS = (#{SCM_ESTMT_UNIT_PRICE} / 환율) / 간접비율(1.xxxx) 
+3. ZCOST = (#{SCM_ESTMT_AMT} /환율) 
+4. SHANG = CASE WHEN ZEAM = 0 THEN 0
+              WHEN ZEAM != 0 AND (#{SCM_ESTMT_AMT} /환율)  * 100.00 / { (#{SCM_ESTMT_AMT} /환율) * 마진율(1.xxxx)} > 999 THEN 999
+           ELSE ROUND((#{SCM_ESTMT_AMT} /환율)  * 100.00, 1) / { (#{SCM_ESTMT_AMT} /환율) * 마진율(1.xxxx)} END
+6. ZEAM = (#{SCM_ESTMT_AMT} /환율) * 마진율(1.xxxx)
+ -->
+ 	<![CDATA[    
+ 			MERGE INTO SAPHEE.ZSDT1047 AS T1
+			USING ( SELECT  
+							CAST(#{mandt}    AS VARCHAR(3))   				AS MANDT
+							, CAST(#{srm_estmt_no}  AS VARCHAR(10))  		AS QTNUM
+							, CAST(#{srm_estmt_seq}  AS SMALLINT)     		AS QTSER
+							, CAST(#{srm_serial_no}  AS SMALLINT) 			AS QTSEQ
+							, (CASE WHEN CAST(#{currency}  AS VARCHAR(10)) <> 'KRW'
+							       THEN ROUND(CAST(#{scm_unit_price}  AS DECIMAL(15,2)) / CAST(#{ukurs}  AS DECIMAL(9,4)),2)
+							       ELSE ROUND(CAST(#{scm_unit_price}  AS DECIMAL(15,2)),2)
+							   END )                                      	AS ZUAM
+							   
+                        	, CAST( ( 1 + ( value(zlcode.CODE2,0)  / 100 ) ) AS DECIMAL( 5, 4) ) AS ZURATE_CAL
+                        	, CAST( ( value(zlcode.CODE2,0) ) AS DECIMAL( 6, 4) ) AS ZURATE                        	
+							, CAST(#{currency}  AS VARCHAR(10))       		AS WAERK
+							, CAST(#{ratio}     AS DECIMAL(5,4))       		AS RATIO    /* 마진율 1.1234*/
+							,(SELECT ZNUMBER FROM SAPHEE.ZSDT1047 WHERE MANDT = CAST(#{mandt}    AS VARCHAR(3)) AND QTNUM = CAST(#{srm_estmt_no}  AS VARCHAR(10)) AND QTSER = CAST(#{srm_estmt_seq}  AS SMALLINT) AND QTSEQ = CAST(#{srm_serial_no}  AS SMALLINT))  AS ZNUMBER
+				    FROM SYSIBM.SYSDUMMY1
+			      	left join table(
+						select zlcode.mandt, zlcode.code2
+						from saphee.zsdt1046 as z1046 
+						inner join saphee.zlcode as zlcode on z1046.mandt=zlcode.mandt and zlcode.code1='SD122'
+						where z1046.mandt=#{mandt} and qtnum=#{srm_estmt_no} and qtser=#{srm_estmt_seq} and z1046.kunnr <> '0000500684') as zlcode on mandt=#{mandt}	/*Turkey 간접비 0% 처리*/
+				  ) AS T2 ON T1.MANDT   	= T2.MANDT
+						 AND T1.QTNUM  		= T2.QTNUM
+						 AND T1.QTSER 		= T2.QTSER
+						 AND T1.QTSEQ 		= T2.QTSEQ
+			WHEN MATCHED THEN
+					UPDATE SET 
+						   T1.ZUAM 			= ROUND((T2.ZUAM * T2.ZURATE_CAL),2)
+						   ,T1.ZUAMS 		= T2.ZUAM	    
+						   ,T1.ZURATE 		= (CASE WHEN T2.WAERK <> 'KRW' 
+						                            THEN T2.ZURATE
+						                            ELSE CAST('0.00'  AS DECIMAL(15,2))  
+						                       END)
+  						   ,T1.SHANG         = ROUND((CASE WHEN CAST(#{ratio} AS DECIMAL(5,4)) = 0 THEN 0
+							                               WHEN CAST(#{ratio} AS DECIMAL(5,4)) = 1 THEN 100
+							                               ELSE ( 1 /  CAST(#{ratio} AS DECIMAL(5,4)) ) * 100 END),2)     
+						   ,T1.ZCOST 		= ROUND((T2.ZUAM * T2.ZURATE_CAL * T2.ZNUMBER),2)
+  				    	   ,T1.ZEAM         = (CASE WHEN CAST(#{ratio} AS DECIMAL(5,4)) = 0 THEN ROUND((T2.ZUAM * T2.ZURATE_CAL * T2.ZNUMBER),2)
+ 					                               ELSE ROUND((T2.ZUAM * T2.ZURATE_CAL * T2.ZNUMBER) * CAST(#{ratio} AS DECIMAL(5,4)),2) END)
+ 						   ,T1.UDATE   		= HEX(CURRENT DATE)
+						   ,T1.UTIME   		= HEX(CURRENT TIME)	
+						   ,T1.UUSER   		= #{uuser}
+			WHEN NOT MATCHED THEN
+					INSERT (  
+					          MANDT
+							 ,QTNUM
+							 ,QTSER
+							 ,QTSEQ
+							 ,ZUAM
+							 ,ZUAMS
+							 ,ZURATE
+							 ,SHANG
+							 ,ZCOST
+							 ,ZEAM
+							 ,CDATE
+							 ,CTIME
+							 ,CUSER
+							 ,UDATE
+							 ,UTIME
+							 ,UUSER
+					) VALUES (
+							  T2.MANDT
+							 ,T2.QTNUM
+							 ,T2.QTSER
+							 ,T2.QTSEQ
+							 ,ROUND((T2.ZUAM * T2.ZURATE_CAL),2)
+							 ,T2.ZUAM
+							 ,(CASE WHEN T2.WAERK <> 'KRW' 
+						            THEN T2.ZURATE
+						            ELSE CAST('0.00'  AS DECIMAL(15,2))  
+						        END)
+						     , ROUND((CASE WHEN CAST(#{ratio} AS DECIMAL(5,4)) = 0 THEN 0
+						                   WHEN CAST(#{ratio} AS DECIMAL(5,4)) = 1 THEN 100
+							               ELSE ( 1 /  CAST(#{ratio} AS DECIMAL(5,4)) ) * 100 END),2)						        
+							 ,ROUND((T2.ZUAM * T2.ZURATE_CAL * T2.ZNUMBER),2)
+							 ,(CASE WHEN CAST(#{ratio} AS DECIMAL(5,4)) = 0 THEN ROUND((T2.ZUAM * T2.ZURATE_CAL * T2.ZNUMBER),2)
+ 					                ELSE ROUND((T2.ZUAM * T2.ZURATE_CAL * T2.ZNUMBER) * CAST(#{ratio} AS DECIMAL(5,4)),2) END)							 
+							 ,HEX(CURRENT DATE)
+							 ,HEX(CURRENT TIME)
+							 ,#{cuser}       
+							 ,HEX(CURRENT DATE)
+							 ,HEX(CURRENT TIME)
+							 ,#{uuser}
+						   )
+ 		WITH UR
+	]]>					   
+	</update>
+	<update id="updateTradeZSDT1046" parameterType="hdel.sd.ses.domain.SesEgisParamVO">
+	<![CDATA[
+		MERGE INTO SAPHEE.ZSDT1046 AS T1
+		USING ( SELECT    CAST(#{mandt}  AS VARCHAR(9))  		AS MANDT
+						, CAST(#{srm_estmt_no}  AS VARCHAR(30)) AS QTNUM
+						, CAST(#{srm_estmt_seq}  AS SMALLINT)   AS QTSER
+						, VALUE(SUM(ZNUMBER), 0)         		AS ZSUM_ZNUMBER
+						, VALUE(SUM(ZCOST),   0)         		AS ZSUM_ZCOST
+						, VALUE(SUM(ZEAM),    0)         		AS ZSUM_ZEAM
+						, CASE WHEN VALUE(SUM(ZEAM),  0) = 0 THEN 0
+							   WHEN VALUE(SUM(ZEAM),  0) != 0 AND VALUE(SUM(ZCOST), 0) * 100 / VALUE(SUM(ZEAM), 0) > 999 THEN 999
+			  				   ELSE ROUND(VALUE(SUM(ZCOST), 0) * 100 / VALUE(SUM(ZEAM), 0), 1) 
+			  			   END                           		AS ZSUM_SHANG
+					 FROM SAPHEE.ZSDT1047
+					WHERE MANDT = #{mandt}
+					  AND QTNUM	= #{srm_estmt_no}
+					  AND QTSER = #{srm_estmt_seq}
+				 ) AS T2 ON T1.MANDT = T2.MANDT
+						AND T1.QTNUM = T2.QTNUM
+						AND T1.QTSER = T2.QTSER
+		WHEN MATCHED THEN
+			UPDATE SET  T1.ZSUM_ZCOST   = T2.ZSUM_ZCOST
+					  , T1.ZSUM_ZEAM    = T2.ZSUM_ZEAM
+					  , T1.ZSUM_SHANG   = T2.ZSUM_SHANG
+					  , T1.UDATE        = HEX(CURRENT DATE)
+					  , T1.UTIME        = HEX(CURRENT TIME)
+					  , T1.UUSER        = #{uuser}	
+		WHEN NOT MATCHED THEN
+				INSERT (    MANDT
+						  , QTNUM
+						  , QTSER
+						  , ZSUM_ZCOST
+						  , ZSUM_ZEAM
+						  , ZSUM_SHANG
+						  , CDATE
+						  , CTIME
+						  , CUSER
+						  ) VALUES (
+						    #{mandt}
+						  , #{srm_estmt_no}
+						  , #{srm_estmt_seq}
+						  , T2.ZSUM_ZCOST
+						  , T2.ZSUM_ZEAM
+						  , T2.ZSUM_SHANG
+						  , HEX(CURRENT DATE)
+						  , HEX(CURRENT TIME)
+						  , #{uuser}
+						  )
+ 		WITH UR
+	]]>					   
+	</update>
+	
+ 	<resultMap id="selectQtdataMap" type="hdel.sd.ses.domain.SesEgis">
+		<result property="mandt" column="MANDT"/>
+		<result property="qtnum" column="QTNUM"/>
+		<result property="qtser" column="QTSER"/>
+		<result property="qtdat" column="QTDAT"/>
+		<result property="waerk" column="WAERK"/>
+	</resultMap>
+	
+ 	<select id="selectQtdata" parameterType="hdel.sd.ses.domain.SesEgisParamVO" resultMap="selectQtdataMap">  
+		SELECT MANDT
+		      ,QTNUM
+		      ,CAST(QTSER  AS SMALLINT) QTSER
+		      ,QTDAT
+		      ,WAERK
+		FROM SAPHEE.ZSDT1046
+		WHERE 1=1
+		AND MANDT = #{mandt}
+		AND QTNUM = #{qtnum}
+		AND QTSER = CAST(#{qtser}  AS SMALLINT)
+ 		WITH UR
+	</select>
+	
+	<resultMap id="selectExchangeRate" type="hdel.sd.com.domain.ExchangeVO">
+		<result property="mandt" column="mandt"/>
+		<result property="kurst" column="kurst"/>
+		<result property="fcurr" column="fcurr"/>
+		<result property="tcurr" column="tcurr"/>
+		<result property="frdat" column="frdat"/>
+		<result property="todat" column="todat"/>
+		<result property="ukurs" column="ukurs"/>
+	</resultMap>
+	
+	<select id="selectQtExchange" parameterType="hdel.sd.com.domain.ExchangeVO" resultMap="selectExchangeRate">  
+		SELECT mandt, kurst, fcurr, tcurr, frdat, todat, ukurs
+		  FROM saphee.ztcurr 		  						
+		 WHERE mandt  = #{mandt}
+		   AND kurst  = #{kurst}
+		   AND tcurr  = #{tcurr}
+		   AND fcurr  = #{fcurr}
+		   AND #{basedt} BETWEEN frdat AND todat
+ 		WITH UR
+	</select>
+	
+	<resultMap id="selectRatioMap" type="hdel.sd.ses.domain.SesEgisParamVO">
+		<result property="mandt" column="mandt"/>
+		<result property="qtnum" column="qtnum"/>
+		<result property="qtser" column="qtser"/>
+		<result property="ratio" column="ratio"/>
+	</resultMap>
+	
+	<select id="selectTradeRatio" parameterType="hdel.sd.ses.domain.SesEgisParamVO" resultMap="selectRatioMap">  
+	<![CDATA[    
+			SELECT BBB.MANDT
+			      ,BBB.QTNUM
+				  ,BBB.QTSER
+			      ,CAST(ROUND((AAA.RATIO /100) +1,4) AS DECIMAL(5,4)) AS RATIO   /* 9.13 ==>1.0913*/
+			FROM SAPHEE.ZSDT1131 AS AAA
+			INNER JOIN TABLE (
+								SELECT A.MANDT
+								      ,A.QTNUM
+								      ,A.QTSER
+								      ,B.LAND1
+								      ,A.QTDAT
+								FROM SAPHEE.ZSDT1046 AS A
+								LEFT JOIN SAPHEE.KNA1 AS B
+								ON 1=1
+								AND A.MANDT = B.MANDT
+								AND A.KUNNR = B.KUNNR
+								AND B.KTOKD IN ( 'Z001', 'Z002', 'Z004' )
+								WHERE 1=1
+								AND A.MANDT = #{mandt}
+								AND A.QTNUM = #{qtnum} 			/* 'E200012532' */
+								AND A.QTSER = #{qtser}         	/* '1' */
+			)   AS BBB
+			ON  1=1
+			AND AAA.MANDT 	= BBB.MANDT
+			AND AAA.RATIOTP = 'M'
+			AND AAA.LAND1 	= BBB.LAND1
+			AND AAA.FRDAT 	<= BBB.QTDAT
+			AND AAA.TODAT 	>= BBB.QTDAT
+		WITH UR	
+	]]>					   
+	</select>
+	
+	<resultMap id="selectUrateMap" type="hdel.sd.ses.domain.SesEgisParamVO">
+		<result property="urate" column="urate"/>
+	</resultMap>	
+    <select id="selectUrate" parameterType="hdel.sd.ses.domain.SesEgisParamVO" resultMap="selectUrateMap">  
+           SELECT CASE WHEN z1046.kunnr &lt;&gt; '0000500684' THEN CAST( ( 1 + ( value(zlcode.CODE2,0)  / 100 ) ) AS DECIMAL( 5, 4) )  
+                                  ELSE 1 END AS URATE       /*Turkey 간접비 0% 처리*/    
+           FROM SAPHEE.ZLCODE as zlcode 
+                   inner join saphee.zsdt1046 as z1046 on zlcode.mandt=z1046.mandt and z1046.qtnum=#{qtnum} and z1046.qtser=#{qtser}
+           WHERE zlcode.MANDT = #{mandt} 
+                   AND zlcode.CODE1 = 'SD122'
+          WITH UR
+    </select>
+	
+	<update id="updateCostZSDT1047" parameterType="hdel.sd.ses.domain.SesEgisParamVO">
+	<![CDATA[	
+ 			MERGE INTO SAPHEE.ZSDT1047 AS T1
+			USING ( SELECT  
+							CAST(#{mandt}    AS VARCHAR(3))   		AS MANDT
+							, CAST(#{qtnum}  AS VARCHAR(10))  		AS QTNUM
+							, CAST(#{qtser}  AS SMALLINT)     		AS QTSER
+							, CAST(#{qtseq}  AS SMALLINT) 			AS QTSEQ						
+							, CAST(#{zuam}   AS DECIMAL(15,2))		AS ZUAM
+							, CAST(#{zuams}  AS DECIMAL(15,2))		AS ZUAMS								   
+                        	, CAST(#{urate}  AS DECIMAL( 6, 4)) 	AS ZURATE                        	
+     				        , CAST(#{zcost}  AS DECIMAL(15,2))      AS ZCOST
+							, CAST(#{currency}  AS VARCHAR(10))     AS WAERK
+							,(SELECT ZEAM FROM SAPHEE.ZSDT1047 WHERE MANDT = CAST(#{mandt}   AS VARCHAR(3)) AND QTNUM = CAST(#{qtnum}  AS VARCHAR(10)) AND QTSER = CAST(#{qtser}  AS SMALLINT) AND QTSEQ = CAST(#{qtseq}  AS SMALLINT))  AS ZEAM
+				    FROM SYSIBM.SYSDUMMY1
+				  ) AS T2 ON T1.MANDT   	= T2.MANDT
+						 AND T1.QTNUM  		= T2.QTNUM
+						 AND T1.QTSER 		= T2.QTSER
+						 AND T1.QTSEQ 		= T2.QTSEQ
+			WHEN MATCHED THEN
+					UPDATE SET 
+						    T1.ZUAM 		= T2.ZUAM
+						   ,T1.ZUAMS 		= T2.ZUAMS	    
+						   ,T1.ZURATE 		= T2.ZURATE
+  						   ,T1.SHANG        = ROUND((CASE WHEN T2.ZEAM = 0 THEN 0
+							                              WHEN T2.ZEAM != 0 AND (T2.ZCOST * 100 / T2.ZEAM)  > 999 THEN 999
+			  				                              ELSE T2.ZCOST * 100 / T2.ZEAM
+			  				                           END),1)    
+						   ,T1.ZCOST 		= T2.ZCOST
+ 						   ,T1.UDATE   		= HEX(CURRENT DATE)
+						   ,T1.UTIME   		= HEX(CURRENT TIME)	
+						   ,T1.UUSER   		= #{uuser}
+			WHEN NOT MATCHED THEN
+					INSERT (  
+					          MANDT
+							 ,QTNUM
+							 ,QTSER
+							 ,QTSEQ
+							 ,ZUAM
+							 ,ZUAMS
+							 ,ZURATE
+							 ,SHANG
+							 ,ZCOST
+							 ,CDATE
+							 ,CTIME
+							 ,CUSER
+							 ,UDATE
+							 ,UTIME
+							 ,UUSER
+					) VALUES (
+							  T2.MANDT
+							 ,T2.QTNUM
+							 ,T2.QTSER
+							 ,T2.QTSEQ
+							 ,T2.ZUAM
+							 ,T2.ZUAMS
+							 ,T2.ZURATE
+						     ,ROUND((CASE WHEN T2.ZEAM = 0 THEN 0
+							              WHEN T2.ZEAM != 0 AND (T2.ZCOST * 100 / T2.ZEAM)  > 999 THEN 999
+			  				              ELSE T2.ZCOST * 100 / T2.ZEAM
+			  				          END),1)					        
+							 ,T2.ZCOST
+							 ,HEX(CURRENT DATE)
+							 ,HEX(CURRENT TIME)
+							 ,#{cuser}       
+							 ,HEX(CURRENT DATE)
+							 ,HEX(CURRENT TIME)
+							 ,#{uuser}
+						   )
+ 		WITH UR
+	]]> 		
+	</update>
+	
+	<update id="updateCostZSDT1046" parameterType="hdel.sd.ses.domain.SesEgisParamVO">
+		MERGE INTO SAPHEE.ZSDT1046 AS T1
+		USING ( SELECT    CAST(#{mandt}  AS VARCHAR(9))  AS MANDT
+						, CAST(#{qtnum}  AS VARCHAR(30)) AS QTNUM
+						, CAST(#{qtser}  AS SMALLINT)    AS QTSER
+						, VALUE(SUM(ZNUMBER), 0)         AS ZSUM_ZNUMBER
+						, VALUE(SUM(ZCOST),   0)         AS ZSUM_ZCOST
+						, VALUE(SUM(ZEAM),    0)         AS ZSUM_ZEAM
+						, CASE WHEN VALUE(SUM(ZEAM),  0) = 0 THEN 0
+							   WHEN VALUE(SUM(ZEAM),  0) != 0 AND VALUE(SUM(ZCOST), 0) * 100 / VALUE(SUM(ZEAM), 0) > 999 THEN 999
+			  				   ELSE ROUND(VALUE(SUM(ZCOST), 0) * 100 / VALUE(SUM(ZEAM), 0), 1) 
+			  			   END                           AS ZSUM_SHANG
+					 FROM SAPHEE.ZSDT1047
+					WHERE MANDT = #{mandt}
+					  AND QTNUM	= #{qtnum}
+					  AND QTSER = #{qtser}
+				 ) AS T2 ON T1.MANDT = T2.MANDT
+						AND T1.QTNUM = T2.QTNUM
+						AND T1.QTSER = T2.QTSER
+		WHEN MATCHED THEN
+			UPDATE SET  T1.ZSUM_ZCOST   = T2.ZSUM_ZCOST
+					  , T1.ZSUM_ZEAM    = T2.ZSUM_ZEAM
+					  , T1.ZSUM_SHANG   = T2.ZSUM_SHANG
+					  , T1.UDATE        = HEX(CURRENT DATE)
+					  , T1.UTIME        = HEX(CURRENT TIME)
+					  , T1.UUSER        = #{uuser}	
+		WHEN NOT MATCHED THEN
+				INSERT (    MANDT
+						  , QTNUM
+						  , QTSER
+						  , ZSUM_ZCOST
+						  , ZSUM_ZEAM
+						  , ZSUM_SHANG
+						  , CDATE
+						  , CTIME
+						  , CUSER
+						  ) VALUES (
+						    #{mandt}
+						  , #{qtnum}
+						  , #{qtser}
+						  , T2.ZSUM_ZCOST
+						  , T2.ZSUM_ZEAM
+						  , T2.ZSUM_SHANG
+						  , HEX(CURRENT DATE)
+						  , HEX(CURRENT TIME)
+						  , #{uuser}
+						  )
+ 		WITH UR
+	</update>
+
+	<update id="updateZeamZSDT1047" parameterType="hdel.sd.ses.domain.SesEgisParamVO">         
+		UPDATE SAPHEE.ZSDT1047
+		   SET ZEAM    = CAST(#{zamt}   AS DECIMAL(15,2))
+		     , SHANG   = ROUND((CASE WHEN CAST(#{zamt}   AS DECIMAL(15,2)) = 0 THEN 0
+						             WHEN CAST(#{zamt}   AS DECIMAL(15,2)) != 0 AND (ZCOST * 100 / CAST(#{zamt}   AS DECIMAL(15,2)))  > 999 THEN 999
+			  			             ELSE ZCOST * 100 / CAST(#{zamt}   AS DECIMAL(15,2))
+			  			             END),1)
+		   	 , UDATE   = HEX(CURRENT DATE)
+		   	 , UTIME   = HEX(CURRENT TIME)
+		   	 , UUSER   = #{uuser}
+		 WHERE MANDT   = #{mandt}
+		   AND QTNUM   = #{qtnum}
+		   AND QTSER   = #{qtser}
+	   	   AND QTSEQ   = #{qtseq}		   
+ 		WITH UR
+	</update>
+	               	
+</mapper>  

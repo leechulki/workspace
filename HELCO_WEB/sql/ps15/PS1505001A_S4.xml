@@ -1,0 +1,458 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[PS1505001A_S4]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--기타외주 작업지시서(관리자용) 그리드 조회 : 설치용
+-- 일부 팀장님 지적사항에 대해서는 조치(GROUP BY Fullselect 방지용 쿼리 조건 추가 - 2020.09.21)
+SELECT '' AS CHK--체크박스
+     , M2.TEXT30 AS ZZACTSS--사무소
+     , R5.USERNUMB AS PM_ID--설치PM ID 추가 - 2019.09.17 강민석K
+     , M2.NAMET AS PM_NAME--PM명
+     , R5.CELLP AS PM_HP--PM연락처
+     , M2.POSID AS PSPID--프로젝트번호
+     , M2.POSID_1 AS POSID--호기
+     , M1.ZSITE_NM--프로젝트명
+     , SUBSTR(M1.ZSITE_NM, 1, 36) AS ZSITE_NM_SM --문자발송 시 사용할 12자리 프로젝트명
+     , M1.ZMAN AS SALES_ID--영업담당 ID(id 앞에 H가 붙어있음)
+     , M2.POSID_DONG AS DONG--동
+     , VALUE(T.PRO_R,0) AS PRO_R--공정율
+     , M2.LIFNR--설치협력사코드
+     , R2.NAME1 AS LIFNR_NM--설치협력사명
+     , M2.NAMET2 AS NAMET--(작업)팀장명
+     , R6.CELLP AS NAMET_HP--(작업)팀장연락처
+     , (SELECT USERNUMB
+          FROM SAPHEE.ZUSERF
+         WHERE MANDT = #G_MANDT#
+           AND USERBIRTH || USERNAME = R6.PERKEY
+         ORDER BY USEREXPR DESC
+         FETCH FIRST 1 ROWS ONLY WITH UR 
+         ) NAMET_ID--(작업)팀장ID 추가 
+     , M2.ZZCHAKD--착공예정일
+     , M2.ZZCOMP2--준공예정일
+     , W.GBN AS JOB_CODE--외주작업코드
+     , R3.JOB_NAME_S AS JOB_NAME--외주작업명(약식)
+     , (CASE W.WORK_STA WHEN '00000000' THEN '' ELSE W.WORK_STA END) AS START_DAY--작업개시일
+     , (CASE W.WORK_END WHEN '00000000' THEN '' ELSE W.WORK_END END) AS END_DAY--작업종료일
+--     , (CASE WHEN W.CONTRCT = '80' AND W.CHASU = '001' THEN '정상'
+--             WHEN W.CONTRCT = '80' AND W.CHASU &lt;&gt; '001' THEN '변경'
+--             WHEN W.CONTRCT = '91' THEN '취소'
+--             END) AS CONFIRM_GBN--구분(비용처리 승인여부) : ZPSTW1404용
+--     , W.CONTRCT--ZPSTW1404용
+     , '' AS CONFIRM_GBN
+     , '' AS CONTRCT
+--     , W.LIFNR AS LIFNR_OUT--발주업체(외주작업업체)코드 : ZPSTW1404용
+     , W.WRKLFN AS LIFNR_OUT--발주업체(외주작업업체)코드
+     , R1.NAME1 AS LIFNR_OUT_NAME--발주업체(외주작업업체)명
+     , R1.J_1KFREPRE--발주업체(외주작업업체)담당자명
+     , R1.TELF1 AS LIFNR_OUT_TEL--발주업체(외주작업업체) 사무실 전화번호 추가 - 2019.09.19 강민석K
+     , (SELECT USERNUMB
+          FROM SAPHEE.ZUSERF
+         WHERE MANDT = #G_MANDT#
+           AND USERBIRTH || USERNAME = R8.PERKEY
+         ORDER BY USEREXPR DESC
+         FETCH FIRST 1 ROWS ONLY WITH UR
+        ) OUT_TEAM_ID--발주업체(외주작업업체) 팀장ID 추가 - 2019.09.17 강민석K
+     , R4.REQ_ID--작업요청자 ID
+     , R4.REQ_NAME--작업요청자
+     , R4.REQ_DATE--작업요청일
+     , R4.REQ_TIME--작업요청등록일시
+     , R4.CRDAT || R4.CRTIM AS REQ_REG_TIME--작업요청등록일시
+     , R4.EXP_ID--작업예정자ID
+     , R4.EXP_NAME--작업예정자
+     , (SELECT U.USERNAME
+          FROM SAPHEE.ZUSERF U
+         WHERE U.MANDT = #G_MANDT#
+           AND U.USERNUMB = R4.EXP_NAME
+         FETCH FIRST 1 ROW ONLY
+         WITH UR
+        ) AS EXP_NAME_TXT
+     , R4.EXP_HP--작업예정자 휴대폰
+     , R4.EXP_DATE--작업예정일
+     , R4.EXP_TIME--작업예정시분
+     , R4.START_DATE--작업시작일
+     , R4.START_TIME--작업시작시간
+     , R4.PLAN_DATE--예상완료일
+     , R4.PLAN_TIME--예상완료시간
+     , R4.WORKER_ID--실작업자ID
+     , (SELECT U.USERNAME
+          FROM SAPHEE.ZUSERF U
+         WHERE U.MANDT = #G_MANDT#
+           AND U.USERNUMB = R4.WORKER_ID
+         FETCH FIRST 1 ROW ONLY
+         WITH UR
+        ) AS WORKER_NAME--실작업자 이름(퇴사한 작업자이더라도 이름을 확인할 수 있도록 추가)
+     , R4.WORKER_HP--실작업자HP
+     , R4.WORKER_ID2--실작업자2ID
+     , (SELECT U.USERNAME
+          FROM SAPHEE.ZUSERF U
+         WHERE U.MANDT = #G_MANDT#
+           AND U.USERNUMB = R4.WORKER_ID2
+         FETCH FIRST 1 ROW ONLY
+         WITH UR
+        ) AS WORKER_NAME2--실작업자2 이름(퇴사한 작업자이더라도 이름을 확인할 수 있도록 추가)
+     , R4.WORKER_HP2--실작업자2HP
+     , R4.COM_DATE--작업완료일
+     , R4.COM_TIME--작업완료시간
+     , (CASE W.REQ_LIF_DAT WHEN '00000000' THEN '' ELSE W.REQ_LIF_DAT END) AS CHARGE_DATE--비용청구(비용청구일)
+     , '' AS CHECK_CHARGE--승인(체크컬럼)
+--     , (CASE W.STATE WHEN 'A' THEN '업체신청'
+--                     WHEN 'B' THEN '지사결재'--담당PM
+--                     WHEN 'C' THEN '지사결재'--지사장
+--                     WHEN 'D' THEN '지사결재'--팀장
+--                     WHEN 'E' THEN '전표처리'
+--                     WHEN 'F' THEN '회계부승인'
+--                     WHEN 'G' THEN '비용지급완료'
+--                     WHEN 'Z' THEN '반려'
+--                     ELSE ''--업체 미신청 상태
+--       END) AS STATE--결재상태 : ZPSTW1404용
+     , (CASE W.STATE WHEN 'D' THEN '업체신청'
+                     WHEN 'E' THEN '지사결재(PM)'--담당PM
+                     WHEN 'F' THEN '지사결재(지사장)'--지사장
+                     WHEN 'G' THEN '지사결재(팀장)' --팀장
+                     WHEN 'K' THEN '지사결재(팀장)' --팀장
+                     WHEN 'C' THEN '전표처리'
+                     WHEN 'H' THEN '회계부승인'
+                     WHEN 'I' THEN '비용지급완료'
+                     WHEN 'Z' THEN '반려'
+                     ELSE ''--업체 미신청 상태
+       END) AS STATE--결재상태
+     , W.STATE AS STATE_CODE--결재상태코드
+     , (CASE W.REQ_BC_PM_DT WHEN '00000000' THEN '' ELSE W.REQ_BC_PM_DT END) AS REQ_BC_PM_DT--지사승인일(설치PM)
+     , (CASE W.REQ_BN_MG_DT WHEN '00000000' THEN '' ELSE W.REQ_BN_MG_DT END) AS REQ_BN_MG_DT--지사승인일(지사장)
+     , (CASE W.REQ_BN_TM_DT WHEN '00000000' THEN '' ELSE W.REQ_BN_TM_DT END) AS REQ_BN_TM_DT--지사승인일(팀장)
+     , (CASE W.REQ_BN_QC_DT WHEN '00000000' THEN '' ELSE W.REQ_BN_QC_DT END) AS REQ_BN_QC_DT--지사승인일(QC팀장)
+     , (CASE W.APPR_DAT WHEN '00000000' THEN '' ELSE W.APPR_DAT END) AS APPR_DAT--비용처리(최종승인일=전표생성일)
+     , (CASE W.APPR_FINA_DT WHEN '00000000' THEN '' ELSE W.APPR_FINA_DT END) AS APPR_FINA_DT--회계부승인일
+     , (CASE W.CHARGE_DAT WHEN '00000000' THEN '' ELSE W.CHARGE_DAT END) AS CHARGE_DAT--비용지급일
+     , MEMO_U.USERNAME AS MEMO_CRNAM--메모등록자(최신1건)
+     , MEMO_A.BELONG AS MEMO_BELONG--메모등록자 소속(최신1건)
+     , MEMO_A.ALM_INDC AS MEMO_ALM_INDC--메모알림대상(최신1건)
+     , (CASE WHEN LOCATE(CHR(10), MEMO_A.CONTENTS) = '0'
+             THEN (
+                   CASE WHEN LOCATE(CHR(13), MEMO_A.CONTENTS) = '0'
+                        THEN MEMO_A.CONTENTS
+                        ELSE SUBSTR(MEMO_A.CONTENTS, 1, LOCATE(CHR(13), MEMO_A.CONTENTS) - 1)
+                   END
+                  )
+             ELSE SUBSTR(MEMO_A.CONTENTS, 1, LOCATE(CHR(10), MEMO_A.CONTENTS) - 1)
+        END) AS CONTENTS--메모내용(최신1건, 그리드 표시용)
+     , MEMO_A.CONTENTS AS CONTENTS_ORIG--메모내용(최신1건, 상세 표시용)
+     , MEMO_A.SEQ--메모SEQ
+     , SAYU_U.USERNAME AS RTN_CRNAM--반려자(최신1건)
+     , SAYU_A.BELONG AS RTN_BELONG--반려자 소속(최신1건)
+     , (CASE WHEN LOCATE(CHR(10), SAYU_A.CONTENTS) = '0'
+             THEN (
+                   CASE WHEN LOCATE(CHR(13), SAYU_A.CONTENTS) = '0'
+                        THEN SAYU_A.CONTENTS
+                        ELSE SUBSTR(SAYU_A.CONTENTS, 1, LOCATE(CHR(13), SAYU_A.CONTENTS) - 1)
+                   END
+                  )
+             ELSE SUBSTR(SAYU_A.CONTENTS, 1, LOCATE(CHR(10), SAYU_A.CONTENTS) - 1)
+        END) AS RTN_CONTENTS--반려내용(최신1건, 그리드 표시용)
+     , SAYU_A.CONTENTS AS RTN_CONTENTS_ORIG--반려내용(최신1건, 상세 표시용)
+     , W.MANDT
+     , R3.GBN--설치/구매 구분(A:설치, B:구매)
+     , R7.PROC_VER--프로세스 버전
+     , R7.PROC_CODE--프로세스 코드
+--     , W.CHASU--결재상태 변경 시 PK로 필요해서 추가 - 2019.07.26 강민석K : ZPSTW1404용
+     , '' AS CHASU
+     , W.DOCU_NO
+     , EA01M.PRE_DOCU_NO
+     , EA01M.APP_STATE AS CURR_APP_STATE
+     , EA01M.APP_CNFM_ID AS PRE_CNFM_ID
+     , EA01M.APP_CNFM_NM AS PRE_CNFM_NM
+     , EA01D2.APP_CNFM_ID AS APP_CNFM_ID2
+     , EA01D2.APP_CNFM_NM AS APP_CNFM_NM2
+     , EA01D3.APP_CNFM_ID AS APP_CNFM_ID3
+     , EA01D3.APP_CNFM_NM AS APP_CNFM_NM3
+     
+     , H3.DEPT_N AS DPTNM3
+--     , SVC.JUJ AS SERVICE_ID--서비스담당자(주점검자) 
+     , (SELECT USERMBPN
+          FROM SAPHEE.ZUSERF
+         WHERE MANDT = #G_MANDT#
+           AND USERNUMB = SVC.JUJ
+         FETCH FIRST 1 ROW ONLY
+         WITH UR
+        ) AS SERVICE_HP--서비스담당자(주점검자) 연락처 추가 2019.09.19 강민석K
+     , W.DIPBXNUMB--비상통화장치 시리얼번호 추가 - 2019.10.01 강민석K (이현용K 요구사항)
+     , R3.UPLOAD_YN AS PIC_UPLOAD_YN--사진 업로드 필수 여부 추가 - 2019.10.02 강민석K (이현용K 요구사항)
+--  FROM (SELECT MANDT, PSPID, POSID, GBN, MAX(CHASU) AS CHASU
+--          FROM SAPHEE.ZPSTW1404
+--         GROUP BY MANDT, PSPID, POSID, GBN
+--       ) W2
+--  LEFT OUTER JOIN SAPHEE.ZPSTW1404 W
+--    ON W.MANDT = W2.MANDT
+--   AND W.PSPID = W2.PSPID
+--   AND W.POSID = W2.POSID
+--   AND W.GBN = W2.GBN
+--   AND W.CHASU = W2.CHASU--FROM 절부터 여기까지 ZPSTW1404용
+  FROM SAPHEE.ZPSTW1401 W
+  LEFT OUTER JOIN SAPHEE.ZMASTER02 M2--호기 마스터 테이블
+    ON W.MANDT = M2.MANDT
+   AND W.PSPID = M2.POSID
+   AND W.POSID = M2.POSID_1
+  LEFT OUTER JOIN SAPHEE.ZCST111 SVC--보수대상 호기 마스터 테이블 추가 : 2019.09.18 강민석K
+    ON M2.MANDT = SVC.MANDT
+   AND M2.POSID = SVC.PJT
+   AND M2.POSID_1 = SVC.PJT || SVC.HNO
+  LEFT OUTER JOIN SAPHEE.ZMASTER01 M1--프로젝트 마스터 테이블
+    ON W.MANDT = M1.MANDT
+   AND M1.POSID = M2.POSID
+  LEFT OUTER JOIN (SELECT Z.MANDT, Z.PSPID, Z.POSID, MAX(Z.PRO_SUM) AS PRO_R
+                     FROM SAPHEE.ZPSTW0304_TOT3 AS Z--작업일보 공정율 집계 테이블
+                    WHERE Z.MANDT = #G_MANDT#
+                      AND Z.INP_DT &lt; HEX(CURRENT DATE)
+                    GROUP BY Z.MANDT, Z.PSPID, Z.POSID  
+                   ) AS T
+    ON W.MANDT = T.MANDT
+   AND W.PSPID = T.PSPID
+   AND W.POSID = T.POSID
+  LEFT OUTER JOIN SAPHEE.ZMMT012 R1--Portal 업체 마스터 테이블
+    ON W.MANDT = R1.MANDT
+--   AND W.LIFNR = R1.LIFNR--ZPSTW1404용
+   AND W.WRKLFN = R1.LIFNR
+  LEFT OUTER JOIN SAPHEE.ZPST0001 R8--설치협력업체 사원정보 테이블 : 외주업체 팀장ID 조회 추가 - 2019.09.17 강민석K
+    ON R1.MANDT = R8.MANDT
+   AND R1.LIFNR = R8.LIFNR
+   AND R1.J_1KFREPRE = R8.NAMEE
+   AND (R8.POSIC = 'X' OR R8.POSIT = 'X')--고정값(팀장여부)
+   AND R8.RETIF &lt;&gt; 'X'--고정값(퇴사여부 : 퇴사자 제외)
+   AND R8.GBN = 'A'
+  LEFT OUTER JOIN SAPHEE.ZMMT012 R2--Portal 업체 마스터 테이블
+    ON M2.MANDT = R2.MANDT
+   AND M2.LIFNR = R2.LIFNR
+  LEFT OUTER JOIN SAPHEE.ZPST0410 R3--외주공사 작업항목 마스터 테이블
+    ON W.MANDT = R3.MANDT
+   AND W.GBN = R3.JOB_CODE
+   AND R3.GBN = 'A'--고정값(설치/구매 구분)
+  LEFT OUTER JOIN (SELECT MANDT, PROC_CODE, MAX(VER) AS PROC_VER
+                     FROM SAPHEE.ZPST0412--외주 프로세스 마스터 테이블
+                    GROUP BY MANDT, PROC_CODE
+                   ) R7
+    ON R3.MANDT = R7.MANDT
+   AND R3.PROC_CODE = R7.PROC_CODE
+  LEFT OUTER JOIN SAPHEE.ZPST0413 R4--외주작업별 현황 테이블
+    ON W.MANDT = R4.MANDT
+   AND W.PSPID = R4.PSPID
+   AND W.POSID = R4.POSID
+   AND W.GBN = R4.JOB_CODE
+--   AND W.LIFNR = R4.LIFNR--ZPSTW1404용
+   AND W.WRKLFN = R4.LIFNR
+   AND R4.GBN = 'A'--고정값(설치/구매 구분)
+  LEFT OUTER JOIN (SELECT MANDT, PSPID, POSID, LIFNR, JOB_CODE, MAX(SEQ) AS SEQ
+                     FROM SAPHEE.ZPST0414--메모 저장 테이블
+                    WHERE MANDT = #G_MANDT#
+                      AND M_TYPE IN ('1', '3') --고정값(메모타입 : 메모, 반려)--반려사유도 리스트에 표시되도록 수정. 
+                      AND DEL_INDC = 'N'--고정값(삭제여부)
+                    GROUP BY MANDT, PSPID, POSID, LIFNR, JOB_CODE) AS MEMO
+    ON W.MANDT = MEMO.MANDT
+   AND W.PSPID = MEMO.PSPID
+   AND W.POSID = MEMO.POSID
+--   AND W.LIFNR = MEMO.LIFNR--ZPSTW1404용
+   AND W.WRKLFN = MEMO.LIFNR
+   AND W.GBN = MEMO.JOB_CODE--같은 호기에 다른 작업인 경우 리스트에 모두 같은 메모가 표시되어 조건 추가. 호기별 최신 메모가 표시되어야 하면 조건 삭제 할 것. 2019.07.23 강민석K
+  LEFT OUTER JOIN SAPHEE.ZPST0414 MEMO_A
+    ON MEMO_A.MANDT = MEMO.MANDT
+   AND MEMO_A.PSPID = MEMO.PSPID
+   AND MEMO_A.POSID = MEMO.POSID
+   AND MEMO_A.LIFNR = MEMO.LIFNR
+   AND MEMO_A.SEQ = MEMO.SEQ
+  LEFT OUTER JOIN SAPHEE.ZUSERF MEMO_U
+    ON MEMO_A.MANDT = MEMO_U.MANDT
+   AND MEMO_A.CRNAM = MEMO_U.USERNUMB
+  LEFT OUTER JOIN (SELECT MANDT, PSPID, POSID, LIFNR, JOB_CODE, MAX(SEQ) AS SEQ
+                     FROM SAPHEE.ZPST0414--메모 저장 테이블
+                    WHERE MANDT = #G_MANDT#
+                      AND M_TYPE = '3'--고정값(메모타입 : 반려)
+                      AND DEL_INDC = 'N'--고정값(삭제여부)
+                    GROUP BY MANDT, PSPID, POSID, LIFNR, JOB_CODE) AS RTN_SAYU
+    ON W.MANDT = RTN_SAYU.MANDT
+   AND W.PSPID = RTN_SAYU.PSPID
+   AND W.POSID = RTN_SAYU.POSID
+--   AND W.LIFNR = RTN_SAYU.LIFNR--ZPSTW1404용
+   AND W.WRKLFN = RTN_SAYU.LIFNR
+   AND W.GBN = RTN_SAYU.JOB_CODE
+  LEFT OUTER JOIN SAPHEE.ZPST0414 SAYU_A
+    ON SAYU_A.MANDT = RTN_SAYU.MANDT
+   AND SAYU_A.PSPID = RTN_SAYU.PSPID
+   AND SAYU_A.POSID = RTN_SAYU.POSID
+   AND SAYU_A.LIFNR = RTN_SAYU.LIFNR
+   AND SAYU_A.SEQ = RTN_SAYU.SEQ
+  LEFT OUTER JOIN SAPHEE.ZUSERF SAYU_U
+    ON SAYU_A.MANDT = SAYU_U.MANDT
+   AND SAYU_A.CRNAM = SAYU_U.USERNUMB
+  LEFT OUTER JOIN SAPHEE.ZPST0011 R5--설치PM 마스터 테이블
+    ON M2.MANDT = R5.MANDT
+   AND M2.TEMNO = R5.TEMNO
+  LEFT OUTER JOIN SAPHEE.ZPST0001 R6--설치협력업체 사원정보 테이블
+    ON M2.MANDT = R6.MANDT
+   AND M2.LIFNR = R6.LIFNR
+   AND M2.TEMNO2 = R6.TEMNO
+   AND R6.POSIT = 'X'--고정값(팀장여부)
+   AND R6.RETIF &lt;&gt; 'X'--고정값(퇴사여부 : 퇴사자 제외)
+   AND R6.GBN = 'A'
+  LEFT OUTER JOIN SAPHEE.ZPSTEA01M EA01M
+               ON W.MANDT = EA01M.MANDT
+              AND W.DOCU_NO = EA01M.DOCU_NO
+  LEFT OUTER JOIN SAPHEE.ZPSTEA01D EA01D
+               ON W.MANDT   = EA01D.MANDT
+              AND W.DOCU_NO = EA01D.DOCU_NO
+              AND EA01D.APP_STATE = 'A1'
+  LEFT OUTER JOIN SAPHEE.ZPSTEA01D EA01D2
+               ON W.MANDT   = EA01D2.MANDT
+              AND W.DOCU_NO = EA01D2.DOCU_NO
+              AND EA01D2.APP_STATE = 'A2'
+  LEFT OUTER JOIN SAPHEE.ZHRT001 AS H3
+   			   ON EA01D2.MANDT    = H3.MANDT
+ 			  AND EA01D2.APP_CNFM_ID = SUBSTR(H3.PSNO,2,7)
+ 			  AND EA01D2.APP_STATE = 'A2'
+ 			  
+  LEFT OUTER JOIN SAPHEE.ZPSTEA01D EA01D3
+               ON W.MANDT   = EA01D3.MANDT
+              AND W.DOCU_NO = EA01D3.DOCU_NO
+              AND EA01D3.APP_STATE = 'A3'
+  LEFT OUTER JOIN SAPHEE.ZHRT001 AS H4
+   			   ON EA01D3.MANDT    = H4.MANDT
+ 			  AND EA01D3.APP_CNFM_ID = SUBSTR(H4.PSNO,2,7)
+ 			  AND EA01D3.APP_STATE = 'A3'
+ WHERE W.MANDT = #G_MANDT#
+
+   --AND W.CONTRCT IN ('80', '91')--계약상태(전체로 조회 후 단말단에서 filter로 처리) : ZPSTW1404용
+   AND W.WRKLFN &lt;&gt; ''--업체지정이 안된 건은 표시하지 않도록 추가. 2019.09.17 강민석K (송광용D 협의사항)
+   --AND M2.ZZCHAKD > '20191006'
+   AND W.GBN NOT IN ('G')
+<isNotNull col="PSPID">
+   AND W.PSPID = #PSPID#--프로젝트번호 입력값 
+</isNotNull> 
+<isNull col="PSPID">
+	<isEqual col="RD_CHK" value="A">
+			<isEqual col="PERIOD" value="A">
+		       AND (M2.ZZCHAKD BETWEEN #SUP_DTF# AND #SUP_DTT#)--착공예정일 기준 조회
+		    </isEqual>
+		    <isEqual col="PERIOD" value="B">
+		       AND (R4.REQ_DATE BETWEEN #SUP_DTF# AND #SUP_DTT#)--작업요청일 기준 조회
+		    </isEqual>
+		    <isEqual col="PERIOD" value="C">
+		       AND (R4.EXP_DATE BETWEEN #SUP_DTF# AND #SUP_DTT#)--투입일정일 기준 조회
+		    </isEqual>
+		    <isEqual col="PERIOD" value="D">
+		       AND (R4.START_DATE BETWEEN #SUP_DTF# AND #SUP_DTT#)--작업시작일 기준 조회
+		    </isEqual>
+		    <isEqual col="PERIOD" value="E">
+		       AND (R4.COM_DATE BETWEEN #SUP_DTF# AND #SUP_DTT#)--작업완료일 기준 조회
+		    </isEqual>
+		    <isEqual col="PERIOD" value="F">
+		       AND (W.REQ_LIF_DAT BETWEEN #SUP_DTF# AND #SUP_DTT#)--비용청구일 기준 조회
+		    </isEqual>
+		    <isEqual col="PERIOD" value="G">
+		       AND (W.APPR_DAT BETWEEN #SUP_DTF# AND #SUP_DTT#)--비용처리일 기준 조회
+		    </isEqual>	
+		    <isEqual col="PERIOD" value="H">
+		       AND (M2.ZZCOMP2 BETWEEN #SUP_DTF# AND #SUP_DTT#) --준공예정일 기준 조회
+		    </isEqual>	
+		    
+	</isEqual>
+	<isEqual col="RD_CHK" value="B">
+		  	AND M2.TXT04 <![CDATA[<>]]> 'C'
+		  	AND M2.ZZCHAKG = 'X'    
+		    AND (M2.ZBOSUOUT = '' OR M2.ZBOSUOUT = '00000000')
+		    AND NOT EXISTS (SELECT *
+		                      FROM SAPHEE.ZPST0098 AS X
+		                     WHERE X.MANDT = M2.MANDT
+		                       AND X.PSPID = M2.POSID
+		                       AND X.POSID = M2.POSID_1
+		                       AND X.APPL_DAT &lt;= '99990101' )
+	  </isEqual>
+    
+</isNull>
+
+<isNotNull col="ZZACTSS">
+   AND M2.ZZACTSS = #ZZACTSS#--사무소 선택값
+</isNotNull>
+
+<isNotNull col="LIFNR">
+   AND M2.LIFNR = #LIFNR#--설치협력사 선택값
+</isNotNull>
+
+<isNotNull col="H_WORK_GUBUN">
+   AND W.GBN IN (
+   					SELECT JOB_CODE
+   					  FROM SAPHEE.ZPST0418 X
+   					 WHERE X.MANDT = #G_MANDT#
+   					   AND X.LRGE_CODE = #H_WORK_GUBUN#
+   				) --외주작업구분 선택값
+</isNotNull>
+
+<isNotNull col="WORK_GUBUN">
+   AND W.GBN = #WORK_GUBUN#--외주작업구분 선택값
+</isNotNull>
+
+--진행상태 선택값
+<isEqual col="PROCESS" value="1">
+   AND ((R4.REQ_DATE IS NULL OR R4.REQ_DATE = '') AND (R4.EXP_DATE IS NULL OR R4.EXP_DATE = ''))--업체지정
+</isEqual>
+<isEqual col="PROCESS" value="2">
+   AND (R4.REQ_DATE &lt;&gt; '' AND (R4.EXP_DATE IS NULL OR R4.EXP_DATE = ''))--작업요청
+</isEqual>
+<isEqual col="PROCESS" value="3">
+   AND (R4.EXP_DATE &lt;&gt; '' AND (R4.START_DATE IS NULL OR R4.START_DATE = ''))--투입일정
+</isEqual>
+<isEqual col="PROCESS" value="4">
+   AND (R4.START_DATE &lt;&gt; '' AND (R4.COM_DATE IS NULL OR R4.COM_DATE = ''))--작업시작
+</isEqual>
+<isEqual col="PROCESS" value="5">
+   AND (R4.COM_DATE &lt;&gt; '' AND (W.REQ_LIF_DAT IS NULL OR W.REQ_LIF_DAT = '00000000' OR W.REQ_LIF_DAT = ''))--작업완료
+</isEqual>
+<isEqual col="PROCESS" value="6">
+   AND (W.CHARGE_DAT &lt;&gt; '' AND W.CHARGE_DAT &lt;&gt; '00000000')--비용처리
+</isEqual>
+   
+<isNotNull col="CHARGE">
+   AND W.STATE = #CHARGE#--결재상태 선택값
+</isNotNull>
+
+<isNotNull col="ZZPMNUM">
+   AND M2.TEMNO = #ZZPMNUM#--설치PM 선택값
+</isNotNull>
+
+<isNotNull col="ZZLIFNR">
+   AND W.WRKLFN = #ZZLIFNR#--외주업체 선택값
+</isNotNull>
+
+<isEqual col="SVC_YN" value="Y">
+   AND R7.PROC_CODE IN ('2', '4')--서비스 확인이 필요한 외주작업
+</isEqual>
+
+<isNotNull col="APP_STATE">
+	<isEqual col="APP_STATE" value="A">
+	AND (EA01M.APP_STATE IS NULL OR EA01M.APP_STATE = 'C0')
+	AND W.STATE = 'D'
+	</isEqual>
+	<isEqual col="APP_STATE" value="B">
+	AND (EA01M.APP_STATE = 'A0' AND EA01D.APP_CNFM_ID = #G_USER_ID# AND EA01D.APP_CNFM_DT = '')
+	AND W.STATE = 'E'
+	</isEqual>
+	<isEqual col="APP_STATE" value="C">
+	AND (EA01M.APP_STATE = 'A1' AND EA01D2.APP_CNFM_ID = #G_USER_ID# AND EA01D2.APP_CNFM_DT = '')
+	AND W.STATE = 'F'
+	</isEqual>
+	<isEqual col="APP_STATE" value="D">
+	AND (EA01M.APP_STATE = 'A2' AND EA01D3.APP_CNFM_ID = #G_USER_ID# AND EA01D3.APP_CNFM_DT = '')
+	AND W.STATE = 'K'
+	</isEqual>
+</isNotNull>
+   AND W.GBN &lt;&gt; 'I'
+
+ ORDER BY W.POSID, R3.SORT
+FOR FETCH ONLY WITH UR
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

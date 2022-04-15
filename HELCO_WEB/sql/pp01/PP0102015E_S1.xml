@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[상해 SPARE PART PACKING 정보 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT 
+    CHECK AS CHECK
+  , FLAG AS FLAG
+  , POSID AS POSID
+  , MATNR AS MATNR
+  , MATNR_NM AS MATNR_NM
+  , MENGE AS MENGE
+  , MEINS AS MEINS
+  , WKDAT AS WKDAT
+  , PKDAT AS PKDAT
+  , SEDAT AS SEDAT
+  , REMARK AS REMARK
+  , DGBN AS DGBN
+  , PKCNT AS PKCNT
+  , REQRMK AS REQRMK
+FROM (
+    SELECT 
+        CHECK AS CHECK
+      , FLAG AS FLAG
+      , POSID AS POSID
+      , MATNR AS MATNR
+      , MATNR_NM AS MATNR_NM
+      , MENGE AS MENGE
+      , MEINS AS MEINS
+      , WKDAT AS WKDAT
+      , PKDAT AS PKDAT
+      , SEDAT AS SEDAT
+      , REMARK AS REMARK
+      , DGBN AS DGBN
+      , PKCNT AS PKCNT
+      , REQRMK AS REQRMK
+      , ROW_NUMBER() OVER(PARTITION BY POSID, MATNR, MENGE ORDER BY POSID, MATNR, ORD) AS RN
+    FROM ( 
+           SELECT 
+                '' AS CHECK
+              , '' AS FLAG
+              , POSID AS POSID
+              , MATNR AS MATNR
+              , MATNR_NM AS MATNR_NM
+              , MENGE AS MENGE
+              , MEINS AS MEINS
+              , WKDAT AS WKDAT
+              , PKDAT AS PKDAT
+              , SEDAT AS SEDAT
+              , REMARK AS REMARK
+              , DGBN AS DGBN
+              , PKCNT AS PKCNT
+              , REQRMK AS REQRMK
+              , '1' AS ORD
+           FROM  SAPHEE.ZMMT120
+           WHERE MANDT = #G_MANDT#
+             AND POSID = #POSID#
+             
+           UNION ALL
+           
+           SELECT 
+                '' AS CHECK
+              , 'I' AS FLAG
+              ,  POSID AS POSID
+              , IDNRK AS MATNR
+              , MATNR_NM AS MATNR_NM
+              , MENGE AS MENGE
+              , MEINS AS MEINS
+              , '' AS WKDAT
+              , '' AS PKDAT
+              , '' AS SEDAT
+              , '' AS REMARK
+              , '' AS DGBN
+              , 0 AS PKCNT
+              , '' AS REQRMK
+              , '2' AS ORD
+           FROM  (
+              
+                 SELECT
+                  PP004.WOKNUM AS POSID
+                 ,PP004.IDNRK  AS IDNRK
+                 ,CASE WHEN MM011.MATNR_NM='' THEN MM011.MAKTX ELSE  MM011.MATNR_NM END AS MATNR_NM
+                 ,PP004.MENGE  AS MENGE
+                 ,PP004.MEINS AS MEINS
+                 FROM (
+                
+                      SELECT
+                	   MANDT
+                      , WOKNUM
+                      , IDNRK
+                      , MENGE
+                	  , MEINS
+                      ,PRCTYP
+                      ,BOM_LEVEL
+                      ,ITEM_SEQ
+                      ,ROW_NUMBER() OVER(PARTITION BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,MATKL ORDER BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,CRDAT DESC,SEQNO DESC) AS ROWNO
+                	        ,CASE WHEN ZPART='M'             THEN 11
+                            WHEN ZPART='C'             THEN 12
+                            WHEN ZPART='1'             THEN 21
+                            WHEN ZPART='2'             THEN 22
+                            WHEN ZPART='3'             THEN 23
+                            WHEN SUBSTR(MATKL,2,1)='5' THEN 50
+                            WHEN SUBSTR(MATKL,2,1)='6' THEN 60
+                            WHEN SUBSTR(MATKL,2,1)='7' THEN 70
+                            WHEN SUBSTR(MATKL,2,1)='1' THEN 11
+                            WHEN SUBSTR(MATKL,2,1)='2' THEN 21
+                            WHEN SUBSTR(MATKL,2,1)='3' THEN 12 ELSE 90 END AS PART
+                      FROM SAPHEE.ZPPT004
+                      WHERE MANDT = #G_MANDT#
+                        AND WOKNUM LIKE #POSID# ||'%' 
+                        AND LENGTH(CAST(#POSID# AS VARCHAR(15))) >= 6
+                        AND BOM_LEVEL = '01'
+                
+                    ) AS PP004
+                    LEFT OUTER JOIN SAPHEE.ZMMT011   AS MM011 ON  MM011.MANDT   = PP004.MANDT 
+                                                              AND MM011.MATNR   = PP004.IDNRK
+                
+                WHERE ROWNO = 1
+                  AND PRCTYP <> 'D'   
+                   AND PART > 0
+                 ORDER BY PP004.BOM_LEVEL,PP004.IDNRK,PP004.ITEM_SEQ 
+            ) AS PPT004
+            
+            WHERE 1= 1 
+    	) AS TO WHERE 1 = 1
+	) AS T WHERE 1 = 1
+	AND RN = 1
+	AND DGBN <> 'Y'
+      
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

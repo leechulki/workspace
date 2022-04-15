@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	<![CDATA[
+	SELECT T.POSID
+	     , T.CHK_KIND
+	     , B.ZSITE_NM
+	     , A.POSID_OLD
+	     , A.POSID_DONG
+	     , A.ZSPEC1
+	     , A.ZSPEC12
+		 , VALUE(SD.VALUE, '') AS EL_ASTDA
+		 , VALUE(SD2.VALUE, '') AS EL_ETM
+		 , CASE WHEN VALUE(SD.VALUE, '') = 'C' OR VALUE(SD.VALUE, '') = 'D' OR VALUE(SD.VALUE, '') = 'E'
+		        THEN (
+		        		SELECT X.CERT
+		        		  FROM SAPHEE.ZPST0205 AS X
+		        		 WHERE X.MANDT = A.MANDT
+		        		   AND X.ZSPEC12 = A.ZSPEC12
+		        		   AND X.EL_ASTDA = VALUE(SD.VALUE,'')
+		        		  FETCH FIRST 1 ROWS ONLY WITH UR
+		        	 )
+		        WHEN VALUE(SD.VALUE, '') = 'F'
+		        THEN (
+		        		SELECT X.CERT
+		        		  FROM SAPHEE.ZPST0205 AS X
+		        		 WHERE X.MANDT = A.MANDT
+		        		   AND X.EL_ETM = VALUE(SD2.VALUE,'')
+		        		  FETCH FIRST 1 ROWS ONLY WITH UR
+		        	 )
+		        
+		        ELSE ''
+		        END AS CERT
+		    
+		 , CASE WHEN VALUE(SD.VALUE, '') = 'C' OR VALUE(SD.VALUE, '') = 'D' OR VALUE(SD.VALUE, '') = 'E'
+		        THEN (
+		        		SELECT X.CERTNO
+		        		  FROM SAPHEE.ZPST0205 AS X
+		        		 WHERE X.MANDT = A.MANDT
+		        		   AND X.ZSPEC12 = A.ZSPEC12
+		        		   AND X.EL_ASTDA = VALUE(SD.VALUE,'')
+		        		  FETCH FIRST 1 ROWS ONLY WITH UR
+		        	 )
+		        WHEN VALUE(SD.VALUE, '') = 'F'
+		        THEN (
+		        		SELECT X.CERTNO
+		        		  FROM SAPHEE.ZPST0205 AS X
+		        		 WHERE X.MANDT = A.MANDT
+		        		   AND X.EL_ETM = VALUE(SD2.VALUE,'')
+		        		  FETCH FIRST 1 ROWS ONLY WITH UR
+		        	 )
+		        
+		        ELSE ''
+		        END AS CERTNO
+		        
+		,(SELECT X.VALUE  FROM SAPHEE.ZSDT0005 AS X   WHERE X.MANDT = T.MANDT  AND X.HOGI = T.POSID   AND X.CHARACTERISTIC = 'EL_EHP'
+						 ORDER BY X.SEQ DESC  FETCH FIRST 1 ROWS ONLY ) AS EL_EHP
+	
+		,(SELECT X.VALUE  FROM SAPHEE.ZSDT0005 AS X   WHERE X.MANDT = T.MANDT  AND X.HOGI = T.POSID   AND X.CHARACTERISTIC = 'EL_ECJJ'
+						 ORDER BY X.SEQ DESC  FETCH FIRST 1 ROWS ONLY ) AS EL_ECJJ
+					
+		,(SELECT X.VALUE  FROM SAPHEE.ZSDT0005 AS X   WHERE X.MANDT = T.MANDT  AND X.HOGI = T.POSID   AND X.CHARACTERISTIC = 'EL_ECHH'
+						 ORDER BY X.SEQ DESC  FETCH FIRST 1 ROWS ONLY ) AS EL_ECHH
+		, A.ZSPEC2
+		, C.TEXT30 
+		, T.AUSE
+		, A.NAMET 
+		, REPLACE(D.CELLP,'-','') AS CELLP 
+		, A.NAMET2 
+		, E.CELLP AS CELLP2 
+		, F.UKEY
+	  FROM SAPHEE.ZPST0200 AS T
+	  INNER JOIN SAPHEE.ZMASTER02 AS A
+	          ON T.MANDT = A.MANDT
+	         AND T.PSPID = A.POSID
+	         AND T.POSID = A.POSID_1
+	  INNER JOIN SAPHEE.ZMASTER01 AS B
+	          ON B.MANDT = T.MANDT
+	         AND B.POSID = T.PSPID
+	  LEFT OUTER JOIN SAPHEE.J_1AACTT AS C
+	               ON C.MANDT = A.MANDT
+	              AND C.J_1AACT = A.ZZACTSS
+	              AND C.SPRAS = '3'
+	  LEFT OUTER JOIN SAPHEE.ZPST0011 AS D
+	               ON D.MANDT = A.MANDT
+	              AND D.TEMNO = A.TEMNO
+	              AND D.RETIF <> 'X'
+	  LEFT OUTER JOIN SAPHEE.ZPST0001 AS E
+	               ON E.MANDT = A.MANDT
+	              AND E.TEMNO = A.TEMNO2
+	              AND E.POSIT = 'X'
+	              AND E.RETIF <> 'X'
+	  LEFT OUTER JOIN SAPHEE.ZPSTDONG AS F
+	               ON F.MANDT = A.MANDT
+	              AND F.PSPID = A.POSID
+	              AND F.POSID = A.POSID_1
+	  LEFT OUTER JOIN (SELECT  Z.MANDT, Z.HOGI, DECODE(VALUE(Z.VALUE, ' '),' ',' ',VALUE(Z.VALUE, ' ')) AS VALUE 
+	   	                   FROM SAPHEE.ZSDT0005 AS Z
+	   	                  WHERE Z.MANDT = #G_MANDT#
+	   	                    AND SUBSTR(Z.HOGI,1,6)  = #PSPID#
+	   	                    AND Z.CHARACTERISTIC = 'EL_ASTDA'   
+	     					AND Z.SEQ = (SELECT MAX(X.SEQ) 
+	     								   FROM SAPHEE.ZSDT0005 AS X 
+	     								  WHERE X.MANDT = Z.MANDT 
+	     								    AND X.HOGI = Z.HOGI 
+	     								    AND X.CHARACTERISTIC = Z.CHARACTERISTIC) 
+	     					WITH UR
+	  					) AS SD
+			     ON SD.MANDT = A.MANDT
+			    AND SUBSTR(SD.HOGI,1,6) =  T.PSPID
+			    AND SD.HOGI = T.POSID
+		LEFT OUTER JOIN (SELECT  Z.MANDT, Z.HOGI, DECODE(VALUE(Z.VALUE, ' '),' ',' ',VALUE(Z.VALUE, ' ')) AS VALUE 
+	   	                   FROM SAPHEE.ZSDT0005 AS Z
+	   	                  WHERE Z.MANDT = #G_MANDT#
+	   	                    AND SUBSTR(Z.HOGI,1,6)  = #PSPID#
+	   	                    AND Z.CHARACTERISTIC = 'EL_ETM'   
+	     					AND Z.SEQ = (SELECT MAX(X.SEQ) 
+	     								   FROM SAPHEE.ZSDT0005 AS X 
+	     								  WHERE X.MANDT = Z.MANDT 
+	     								    AND X.HOGI = Z.HOGI 
+	     								    AND X.CHARACTERISTIC = Z.CHARACTERISTIC) 
+	     					WITH UR
+	  					) AS SD2
+			     ON SD2.MANDT = A.MANDT
+			    AND SUBSTR(SD2.HOGI,1,6) =  T.PSPID
+			    AND SD2.HOGI = T.POSID
+	 WHERE T.MANDT = #G_MANDT#
+	   AND T.PSPID = #PSPID#
+	 ORDER BY T.CHK_KIND, T.POSID
+	 WITH UR
+	 ]]>
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT Y.UPN
+      ,Y.CST
+      ,Y.NAM
+      ,Y.SPT
+      ,Y.CNT1
+      ,Y.CNT2
+      ,(SELECT MAX(B.CS122_PJT) FROM SAPHEE.ZCST121 A
+	   	LEFT OUTER JOIN SAPHEE.ZCST122 B
+		   ON A.MANDT = B.MANDT 
+		   AND A.CS121_UPN = B.CS122_UPN
+		   AND A.CS121_CST = B.CS122_CST
+	   	 WHERE A.MANDT = #G_MANDT#
+		AND A.CS121_UPN = #UPN#
+       )PJT
+FROM(
+SELECT Y.UPN
+      ,Y.CST
+      ,Y.NAM
+      ,Y.SPT
+      ,(Y.CNTA+Y.CNTB) CNT1
+      ,Y.CNT2
+FROM(
+      SELECT
+              A.CS121_UPN AS UPN                                                                     
+             ,A.CS121_CST AS CST                                                                     
+             ,A.CS121_NAM AS NAM                                                                     
+             ,A.CS121_SPT AS SPT                                                                     
+             ,(SELECT COUNT(*)                                                                      
+                        FROM SAPHEE.ZCST122 AS B LEFT OUTER JOIN SAPHEE.ZCST202 M
+                                                         ON M.MANDT = B.MANDT
+                                                        AND M.CS202_PJT = B.CS122_PJT
+                                                        AND M.CS202_HNO = B.CS122_HNO
+                                                        AND VALUE(M.CS202_PST,'') = ''        
+                       WHERE B.MANDT = #G_MANDT#                                                          
+                         AND B.CS122_UPN = A.CS121_UPN                                             
+                         AND B.CS122_CST = A.CS121_CST
+                         AND B.MDATE&lt; '20120801'
+                         
+                ) CNTA   
+              ,(SELECT COUNT(*)                                                                    
+                        FROM SAPHEE.ZCST122 AS B LEFT OUTER JOIN SAPHEE.ZCST202 M
+                                                         ON M.MANDT = B.MANDT
+                                                        AND M.CS202_PJT = B.CS122_PJT
+                                                        AND M.CS202_HNO = B.CS122_HNO  
+                                                        AND VALUE(M.CS202_PST,'') = 'A6'      
+                       WHERE B.MANDT = #G_MANDT#                                                         
+                         AND B.CS122_UPN = A.CS121_UPN                                             
+                         AND B.CS122_CST = A.CS121_CST
+                         AND B.MDATE&gt;= '20120801'
+                         
+      			   ) CNTB                                                                                                   
+             ,(SELECT COUNT(*)                                                                
+                 FROM SAPHEE.ZCST111 AS C                                                     
+                WHERE C.MANDT = #G_MANDT#                                                         
+                  AND C.UPN = A.CS121_UPN                                                     
+                  AND C.CST = A.CS121_CST 
+<isEqual col="USER_GROUP" value="10">  
+                  AND C.BSU = #G_LGORT#              
+</isEqual>                                   
+<isEqual col="USER_GROUP" value="30">        
+                  AND C.ARA = #G_AREA_CODE#                                     
+</isEqual>                                                                                                    
+              ) AS CNT2                                                           
+        FROM SAPHEE.ZCST121 AS A                                                  
+       WHERE A.MANDT = #G_MANDT#                                                  
+         AND A.CS121_UPN = #UPN#                                                                                             
+) Y 
+) Y
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list1">
+	</output>
+</query>

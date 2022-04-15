@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+         A.POSID
+        ,B.CS101_HNA
+        ,A.REQNR
+        ,A.ACDAT
+        ,E.CTEXT2 REQKIND
+        ,(CASE WHEN C.PS_PSPID IS NULL OR C.PS_PSPID = '' THEN 
+                                    (CASE WHEN A.REQKIND IN ('2','3','4') THEN SUBSTR(A.POSID2,1,6) 
+                                          ELSE  SUBSTR(A.POSID,1,6) END)
+              ELSE C.PS_PSPID  END) PS_PSPID
+        ,A.MATNR
+        ,D.MAKTX
+        ,VALUE(A.MENGE,0) MENGE
+        ,VALUE(C.NETWR,0) NETWR
+        ,VALUE(C.AMOUNT,0) AMOUNT
+        ,VALUE((AMOUNT/NETWR) * 100,0) N_A       
+        ,RECE_F
+        
+  FROM SAPHEE.ZMMT031 A    LEFT OUTER JOIN SAPHEE.ZCST101 B 
+                                   ON A.MANDT = B.MANDT 
+  	                              AND B.CS101_PJT = SUBSTR(A.POSID,1,6)
+  	                              AND B.CS101_HNO = SUBSTR(A.POSID,7)
+  
+                         	 LEFT OUTER JOIN SAPHEE.ZCST001 C 
+                         	         ON A.MANDT= C.MANDT
+                          	      AND A.QTNUM = C.QTNUM
+                         	
+                           LEFT OUTER JOIN SAPHEE.ZMMT011 D
+                                   ON A.MANDT = D.MANDT
+                                  AND A.MATNR = D.MATNR 
+                                  AND A.MTART = D.MTART				
+                         
+                           LEFT OUTER JOIN SAPHEE.ZLCODE E
+                                   ON A.MANDT = E.MANDT
+                                  AND A.REQKIND = E.CODE2
+                                  AND E.CODE1 = '3'
+                                  AND E.LANG = 'ko'	
+                         
+	
+ WHERE A.MANDT = #G_MANDT#
+<isEqual col="GBN" value="A">
+   AND A.POSID LIKE #POSID#||'%'   
+</isEqual>
+<isEqual col="GBN" value="B">
+   AND SUBSTR(A.POSID,1,6) IN (
+                                SELECT CS122_PJT
+                                  FROM SAPHEE.ZCST122 
+                                 WHERE MANDT = #G_MANDT#
+                                   AND CS122_UPN = #UPN#
+                                   AND CS122_CST = #CST#
+                                   AND CS122_PJT LIKE '_%'
+                              )
+</isEqual>
+   AND RECE_F = '3' --승인    
+  
+ ORDER BY A.REQDATE 
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list7">
+	</output>
+</query>

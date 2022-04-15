@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.sso.dao.Sso0059D"> 
+
+	<resultMap id="sso0059Map" type="hdel.sd.sso.domain.Sso0059" />
+	
+	<select id="searchItemList" parameterType="hdel.sd.sso.domain.Sso0059" resultMap="sso0059Map">
+		select trim(char(qtseq)) as itemno, trim(char(qtseq)) as itemdescr
+		from saphee.zsdt1047
+		where mandt=#{mandt}
+			and qtnum=#{charno}
+			and qtser=#{charseq}
+
+		union all
+		select posnr as itemno, hogi as itemdescr
+		from saphee.zsdt0091
+		where mandt=#{mandt}
+			and pspid=#{charno}
+			and seq=#{charseq}
+		with ur
+	</select>
+
+	<select id="searchCharByItem" parameterType="hdel.sd.sso.domain.Sso0059" resultMap="sso0059Map">
+		with ord(mandt, matnr, ordnum, ordser, orditem) as (		
+		select z1047.mandt, z1047.matnr, z1047.qtnum as ordnum, z1047.qtser as ordser, z1047.qtseq as orditem
+		from saphee.zsdt1047 as z1047
+		where z1047.mandt = #{mandt}
+  			and z1047.qtnum = #{charno}
+ 			and z1047.qtser = #{charseq}
+ 			and z1047.qtseq = #{itemno}
+
+		union ALL
+		select z0091.mandt, z0091.matnr, z0091.vbeln as ordnum, z0091.seq as ordser, z0091.POSNR as orditem
+		from saphee.zsdt0091 as z0091
+		where z0091.mandt = #{mandt}
+  			and z0091.pspid = #{charno}                 
+  			and z0091.seq = #{charseq}
+  			and z0091.posnr = #{itemno}	
+		)
+		select cabn.atnam as atnam, cabnt.atbez, cabn.atkla, ord.matnr, value(z1048.prd, z0094.CHAR_VALUE) as atwrt
+		from ord
+			inner join saphee.inob as inob on ord.mandt=inob.mandt and ord.matnr = inob.objek
+			inner join saphee.kssk as kssk on inob.mandt = kssk.mandt and inob.cuobj = kssk.objek
+			inner join saphee.klah as klah on kssk.mandt = klah.mandt and kssk.clint = klah.clint
+			inner join saphee.ksml as ksml on klah.mandt = ksml.mandt and klah.clint = ksml.clint
+			inner join saphee.cabn as cabn on ksml.mandt = cabn.mandt and ksml.adzhl = cabn.adzhl and ksml.imerk = cabn.atinn
+			left join saphee.cabnt as cabnt on cabn.mandt=cabnt.mandt and cabn.atinn=cabnt.atinn and cabnt.spras='3'
+			left join saphee.zsdt1048 as z1048 on ord.mandt=z1048.mandt and ord.ordnum=z1048.qtnum and ord.ordser=z1048.qtser and ord.orditem=z1048.qtseq and z1048.prh=cabn.atnam
+			left join saphee.zsdt0094 as z0094 on ord.mandt=z0094.mandt and ord.ordnum=z0094.pspid and ord.ordser=z0094.seq and ord.orditem=z0094.posnr and z0094.nam_char=cabn.atnam		
+	</select>
+</mapper>

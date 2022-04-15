@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description>설치로드</description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+    SELECT * FROM (
+    SELECT A.PSPID,
+           CASE
+               WHEN A.ZZSHIP1 &gt; #INP_DT# THEN '예정'
+               -- WHEN B.ZZCHAKG = 'X' AND B.ZZJUNGO &lt;&gt; 'X' THEN '진행'
+               ELSE '진행' END AS STAT,
+           A.GRUP,
+           A.ACTSS_NM,
+           A.LIFNR_NM,
+           A.NAMET,
+           A.POSID,
+           A.ZSITE_NM,
+           A.ZSPEC1,
+           A.ZSPEC2,
+           (SELECT Z.VALUE
+            FROM SAPHEE.ZSDT0005 AS Z
+            WHERE Z.MANDT = B.MANDT
+              AND Z.HOGI = B.POSID_1
+              AND Z.CHARACTERISTIC = 'EL_AMAN'
+              AND Z.SEQ = (SELECT MAX(X.SEQ)
+                           FROM SAPHEE.ZSDT0005 AS X
+                           WHERE X.MANDT = Z.MANDT
+                             AND X.HOGI = Z.HOGI
+                             AND X.CHARACTERISTIC = Z.CHARACTERISTIC)) AS EL_AMAN,
+           A.EL_ASPD,
+           A.EL_AFQ,
+           A.ZQNTY,
+           A.ISREMD,
+           B.NAMET AS NAMETT,
+           B.NAMET2,
+           G.CITYNM ZCITY,
+           CASE WHEN B.ZZCHAKG = 'X' THEN '착공확정' ELSE '' END AS ZZCHAKG,
+           A.ZZSHIP1,
+           A.ZZCOMP2,
+           (SELECT VALUE(SUM(LS.PRO_R), 0) PRO_R
+            FROM SAPHEE.ZPST0112 LS
+            WHERE LS.MANDT = A.MANDT
+            AND LS.PSPID = A.PSPID
+            AND LS.POSID = A.POSID
+            GROUP BY LS.MANDT, LS.PSPID, LS.POSID, LS.GUBUN) AS TOT_B,
+           A.PRO_R,
+           A.TOT_MH,
+           A.OPT
+<isEqual col="TBL" value="ZPSTW1713">
+    FROM SAPHEE.ZPSTW1713 A
+</isEqual>
+<isEqual col="TBL" value="ZPSTW1714">
+    FROM SAPHEE.ZPSTW1714 A
+</isEqual>
+             INNER JOIN SAPHEE.ZMASTER02 AS B ON (A.MANDT = B.MANDT AND A.PSPID = B.POSID AND A.POSID = B.POSID_1)
+        LEFT OUTER JOIN SAPHEE.ZPST0007 AS G ON (A.MANDT = G.MANDT AND A.ZCITY = G.ZCITY)
+    WHERE A.MANDT = #G_MANDT#
+<isNotNull col="ZZLIFNR">
+        AND A.LIFNR = #ZZLIFNR#
+</isNotNull>
+
+<isNotNull col="ZZACTSS">
+        AND A.ACTSS = #ZZACTSS#
+</isNotNull>
+
+<isNotNull col="ZZPMNUM">
+        AND A.TEMNO = #ZZPMNUM#
+</isNotNull>
+<isNotNull col="NAMET">
+        AND A.NAMET = #NAMET#
+</isNotNull>
+    ) T
+ORDER BY STAT, NAMET, POSID
+FOR FETCH ONLY
+WITH UR
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+
+	<output default-name="ds_list">
+	</output>
+
+</query>

@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[PS1601001A_S2]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+   
+SELECT  PAPRYYYYMM, LIFNR
+       , TEAM_NM AS TEMNM
+       , ZZACTSS_NM AS ZZACTSS
+       , NAME1 AS LIFNRNM
+       , FIRSTEXAM      --1차검사대수
+       , APPROVED       --합격대수
+       , QC             --QC합격률
+       , FIRSTEXAM_SUM  --1차검사대수누계
+       , APPROVED_SUM   --합격대수누계
+       , POINT          --환산점수
+       , NULLIF(DEC(DEC((dec(APPROVED_SUM,10,1)/nullif(dec(FIRSTEXAM_SUM,10,1),0)) * 100,10,1),10,1),0) AS QC_AVG  -- QC합격률 누계
+       , NULLIF(DEC(DEC((dec(APPROVED_SUM,10,1)/nullif(dec(FIRSTEXAM_SUM,10,1),0)) * 100,10,1)*  CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE) ,10,1),0) AS POINT_AVG  --평균환산점수
+       , DENSE_RANK() OVER( ORDER BY SUM(   DEC(DEC((dec(APPROVED_SUM,10,1)/dec(FIRSTEXAM_SUM,10,1)) * 100,10,1)* VAR1 ,10,1)/counting ) OVER (PARTITION BY  LIFNR ORDER BY LIFNR  ) DESC) AS RANKING   --순위   
+    FROM (
+        SELECT Q.MANDT , Q.PAPRYYYYMM, Q.LIFNR, Q.NAME1, W.ZZACTSS, L.TEAM_CD, L.TEAM_NM, L.ZZACTSS_CD, L.ZZACTSS_NM
+             , CASE WHEN Q.FIRSTEXAM IS NULL THEN 0 ELSE Q.FIRSTEXAM END AS FIRSTEXAM
+             , CASE WHEN Q.APPROVED IS NULL THEN 0 ELSE Q.APPROVED END AS APPROVED
+             , CASE WHEN Q.QC IS NULL THEN 0 ELSE Q.QC END AS QC
+             , SUM(Q.FIRSTEXAM) OVER (PARTITION BY Q.LIFNR ORDER BY Q.LIFNR )   AS FIRSTEXAM_SUM  
+             , SUM(Q.APPROVED) OVER (PARTITION BY Q.LIFNR ORDER BY Q.LIFNR )   AS APPROVED_SUM    
+             , CASE WHEN Q.POINT IS NULL THEN 0 ELSE Q.POINT END AS POINT
+             , COUNT(Q.LIFNR) OVER (PARTITION BY Q.LIFNR ORDER BY Q.LIFNR ) AS counting
+             , CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE) AS VAR1
+          FROM (
+              SELECT  MANDT, PAPRYYYYMM,LIFNR, NAME1
+                    , SUM(FIRSTEXAM) AS FIRSTEXAM
+                    , SUM(APPROVED) AS APPROVED
+                    , NULLIF(DEC((dec(SUM(APPROVED),10,1)/nullif(dec(SUM(FIRSTEXAM),10,1),0)) * 100,10,1),0) AS QC  --QC합격률
+                    , NULLIF(DEC(DEC((dec(SUM(APPROVED),10,1)/nullif(dec(SUM(FIRSTEXAM),10,1),0)) * 100,10,1)*CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE),10,1),0) AS POINT  --환산점수
+                FROM (
+                   SELECT
+                       A.MANDT
+                      ,substr(A.PAPRDT,1,6)  AS PAPRYYYYMM
+                      ,A.LIFNR
+                      ,C.NAME1
+                      ,A.PSPID
+                      ,A.HOGI
+                      ,A.SEQ
+                      ,A.DSCODE
+                      ,(CASE WHEN A.seq = '01' THEN COUNT(*) ELSE 0 END)  AS FIRSTEXAM  --1차검사건수
+                      ,(CASE WHEN (A.DSCODE = 'A' OR A.DSCODE = 'B' OR A.DSCODE = 'C' OR A.DSCODE = 'D') THEN COUNT(*) ELSE 0 END)  AS APPROVED --합격건수
+                      FROM SAPHEE.ZQMT019 AS A             
+                INNER JOIN SAPHEE.ZPST0034  AS C ON A.MANDT = C.MANDT AND A.LIFNR = C.LIFNR AND C.GBN = 'A' AND (C.SO = 'X' OR C.SO3 = 'X')
+                LEFT OUTER JOIN SAPHEE.ZMASTER02 M02 ON M02.MANDT = A.MANDT AND M02.POSID = A.PSPID AND M02.POSID_1 =  A.HOGI
+		                  WHERE A.MANDT = #G_MANDT#
+                            AND A.ART = '8960'
+                            AND A.SEQ = '01'
+                            AND (substr(A.PAPRDT,1,6) BETWEEN #YYYYMMF#  AND #YYYYMMT#)
+                            AND C.SO5 <![CDATA[<>]]> 'X'
+                           <isNotNull col="ZTEMNO">
+                           AND A.TEMNO = #ZTEMNO#
+                           </isNotNull>
+                           <isNotNull col="ZZLIFNR">
+                           AND A.LIFNR = #ZZLIFNR#
+                           </isNotNull>
+                           <isNotNull col="ATYPE">
+                           AND A.ATYPE = #ATYPE#
+                           </isNotNull>
+                           <isNotNull col="SPEC">
+                           <isEqual col="SPEC" value="300">
+                           AND CAST(REPLACE(M02.ZSPEC3, ' ', '0') AS INT) >= 300
+                           </isEqual> 
+                           <isNotEqual col="SPEC" value="300">
+                           <isNotNull col="SPEC2">
+                           AND CAST(REPLACE(M02.ZSPEC3, ' ', '0') AS INT) BETWEEN #SPEC# AND #SPEC2#
+                           </isNotNull> 
+                           </isNotEqual> 
+                           </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           AND A.ZZGUBUN = #CHK_GBN#
+                           </isNotNull>
+                           AND ( A.VDATUM <![CDATA[  <> ]]> '00000000' AND A.VDATUM <![CDATA[ > ]]> '')
+                           AND A.LIFNR <![CDATA[  <> ]]> '0000008001'
+                  GROUP BY A.MANDT, substr(A.PAPRDT,1,6), A.LIFNR,C.NAME1, A.PSPID, A.HOGI, A.SEQ, A.DSCODE
+          )  GROUP BY MANDT,PAPRYYYYMM, LIFNR, NAME1
+     ) AS Q  
+    INNER JOIN SAPHEE.ZPST0034 AS C 
+        ON Q.MANDT = C.MANDT AND Q.LIFNR = C.LIFNR AND C.GBN = 'A' AND (C.SO = 'X' OR C.SO3 = 'X')
+     LEFT OUTER JOIN SAPHEE.ZWBT010 W
+                  ON Q.MANDT = W.MANDT
+                 AND Q.LIFNR = W.LIFNR
+     INNER JOIN  
+     (
+     SELECT        
+           MANDT
+         , DTEXT3 AS TEAM_CD     
+         , DTEXT4 AS TEAM_NM     
+         , CODE2 AS ZZACTSS_CD   
+         , CTEXT2 AS ZZACTSS_NM  
+      FROM SAPHEE.ZLCODE N 
+       WHERE N.CODE1 = 'PS003' AND N.DTEXT3 <![CDATA[ <> ]]> '' 
+         AND N.LANG = 'ko' 
+     ) L ON W.MANDT = L.MANDT
+        AND W.ZZACTSS = L.ZZACTSS_CD
+     WHERE 1=1 
+        AND (W.ZZACTSS IS NOT NULL OR W.ZZACTSS != '' OR W.ZZACTSS != ' ')
+        AND (Q.LIFNR IS NOT NULL AND Q.LIFNR != '' AND Q.LIFNR != ' ')
+        AND C.SO5 <![CDATA[<>]]> 'X'
+        <isNotNull col="CHK_GBN">
+       <isEqual col="CHK_GBN" value="10">
+       AND (C.EL_INDC = 'X' OR (C.EL_INDC = 'X' AND C.ES_INDC = 'X')) AND Q.LIFNR  <![CDATA[  <> ]]> '0000008001'
+       </isEqual>
+       </isNotNull>
+       <isNotNull col="CHK_GBN">
+       <isEqual col="CHK_GBN" value="11">
+       AND (C.ES_INDC = 'X' OR (C.ES_INDC = 'X' AND C.ES_INDC = 'X')) AND Q.LIFNR  <![CDATA[  <> ]]> '0000008001'
+       </isEqual>
+       </isNotNull>
+       <isNotNull col="TEMNO">
+           AND W.ZZACTSS IN ( SELECT CODE2 FROM SAPHEE.ZLCODE  WHERE MANDT = Q.MANDT AND CODE1 = 'PS003' AND LANG = 'ko' AND DTEXT3 = #TEMNO# )
+       </isNotNull>
+       <isNotNull col="ZZACTSS">
+           AND W.ZZACTSS = #ZZACTSS#
+       </isNotNull>
+)
+
+FOR FETCH ONLY
+WITH UR </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list1">
+	</output>
+</query>
+
+

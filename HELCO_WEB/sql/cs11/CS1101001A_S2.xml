@@ -1,0 +1,396 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--2020.10.06 수행시간이  아래 캡쳐 되어 있는 것과 같이 2분 내외 인데 보내 주신 것 같습니다.
+--2020.10.06 해당시간에 서버부하 /  db  부하, lock 등 다른 문제가 있지 않았는가 싶습니다.
+SELECT X.ARA,								/* 지역 */ 
+       MAX(X.ARA_NM) AS ARA_NM, 			/* 지역명 */
+       X.TEM, 								/* 팀 */ 
+       MAX(X.TEM_NM) AS TEM_NM, 			/* 팀명 */
+       X.BSU, 								/* 보수협력업체코드 */ 
+       MAX(X.BSU_NM) AS BSU_NM,				/* 보수협력업체명 */ 
+       X.PJT,								/* 프로젝트 */ 
+       X.KUNNR,								/* 고객 */ 
+       MAX(X.KUNNR_NM) AS KUNNR_NM, 		/* 고객명 */
+       MAX(X.TELF1) AS TELF1, 				/* 고객연락처 */ 
+       MAX(X.ZSITE_NM) AS ZSITE_NM,			/* 현장명 */ 
+       SUBSTR(X.HNO,1,1) AS HNO_GB,
+--       COUNT(*) AS HNO_CNT,					/* 호기대수 */ 
+       SUM(CASE WHEN SUBSTR(HNO,1,1) = 'J' THEN ZSPEC9 ELSE 1 END) HNO_CNT,
+       X.ISD,								/* 인수일 */ 
+       MAX(X.ZMUSAOCNT)   AS ZMUSAOCNT,  	/* 무상공사예산개월수 */ 
+       MAX(X.ZMUSAUCNT)   AS ZMUSAUCNT,  	/* 무상일반예산개월수 */ 
+       MAX(X.ZMUSAOCNT2)  AS ZMUSAOCNT2, 	/* 무상공사개월수 */ 
+       MAX(X.ZMUSAUCNT2)  AS ZMUSAUCNT2, 	/* 무상일반개월수 */ 
+       MAX(X.MB_STN) 	  AS MB_STN, 		/* 무상보수개시기준 */ 
+       MAX(X.MB_STN_NAME) AS MB_STN_NAME, 	/* 무상보수개시기준 */
+       X.GND         AS GND,			/* 발주구분 */
+       MAX(X.GND_NM)      AS GND_NM,
+       'N'                AS GBN			/* 추가발주여부 */			
+       , CASE WHEN SUM(CHK1)+SUM(CHK2)+SUM(CHK3)+SUM(CHK4)+SUM(CHK5) > 0 THEN 'N' ELSE 'Y' END AS CHK /*무상청구 가능여부 */	
+       , MAX(CHK1) CHK1  /* CS101_LOC */
+       , MAX(CHK2) CHK2  /* 고객정보 */
+       , MAX(CHK3) CHK3  /* 호기명 */
+       , MAX(CHK4) CHK4  /* 점검자 등록 */
+       , MAX(CHK5) CHK5  /* 유상계약 */
+ --      , MAX(CHK6) CHK6  /* 문제점보고서 */
+  FROM 
+       (
+/**** 무상공사 ***********************************************************/
+       SELECT CS111A.ARA, 
+              /* 지역코드 */ 
+              VALUE(SAPHEE.CODE_CONV(CS111A.MANDT,'CS115',CS111A.ARA),'') ARA_NM, 
+              /* 지역명 */ 
+              B010.VKGRP AS TEM, 
+              /* 팀코드 */ 
+              VALUE(SAPHEE.CODE_CONV(CS111A.MANDT,'VKGRP',B010.VKGRP),'') TEM_NM, 
+              /* 팀명 */ 
+              CS111A.BPM, 
+              /* 보수PM */ 
+              VALUE(SAPHEE.GET_BOSU_INWON(CS111A.MANDT,CS111A.BPM),'') BPM_NM,  /* 보수PM명 */ 
+              CS111A.BSU,  /* 보수협력사 */ 
+              VALUE(SAPHEE.GET_VENDER_N_NAME(CS111A.MANDT,CS111A.BSU),'') BSU_NM, /* 보수협력사명 */ 
+              MASTER01A.ZSITE_NM ZSITE_NM, 		/* 현장명 */ 
+              MASTER01A.KUNNR, 					/* 고객코드 */ 
+              MASTER01A.KUNNR_NM KUNNR_NM, 		/* 고객명 */ 
+              (SELECT TELF1 
+                FROM SAPHEE.KNA1 
+               WHERE MANDT = MASTER01A.MANDT 
+                     AND KUNNR = MASTER01A.KUNNR
+              ) AS TELF1, 						/* 고객연락처 */ 
+              CS101A.CS101_PJT PJT, 			/* 프로잭트 */ 
+              CS101A.CS101_HNO HNO, 			/* 호기 */ 
+              CS101A.CS101_HNA HNA,				/* 호기명 */ 
+              CS101A.CS101_FDT ISD, 			/* 보수인수승인일자 */ 
+              MASTER02A.ZMUSAOCNT, 				/* 무상공사예산개월수 */ 
+              MASTER02A.ZMUSAUCNT,				/* 무상공사사용개월수 */ 
+              MASTER02A.ZMUSAOCNT2, 			/* 무상일반예산개월수 */ 
+              MASTER02A.ZMUSAUCNT2,  			/* 무상일반사용개월수 */ 
+              MASTER02A.ZSPEC9,  	
+              VALUE(VB.MB_STN,'') AS MB_STN, 	/* 무상보수개시기준 */ 
+              CASE VALUE(VB.MB_STN,'') 
+                  WHEN '1' 
+                  THEN '완성검사시' 
+                  WHEN '2' 
+                  THEN '입주시' 
+                  WHEN '3' 
+                  THEN '건물준공시' 
+                  WHEN '4' 
+                  THEN '고객인도시' 
+                  ELSE '' 
+              END MB_STN_NAME,  			/* 무상보수개시기준 */ 
+			  'N' AS ADD_YN, /* 추가발주여부 */
+			  'A' AS GND,
+			  '무상공사' AS GND_NM
+			 , CASE WHEN CS101A.CS101_LOC &lt;&gt; '' THEN 0 ELSE 1 END AS CHK1
+	         , CASE WHEN CS101A.CS101_CIN &lt;&gt; '' THEN 0 ELSE 1 END AS CHK2
+	         , CASE WHEN CS101A.CS101_HNA &lt;&gt; '' THEN 0 ELSE 1 END AS CHK3
+	         --주점검자 부점검자가 있을때
+	         , CASE WHEN CS111A.JUJ &lt;&gt; '' OR CS111A.BUJ &lt;&gt; '' THEN 0 ELSE 1 END AS CHK4
+	         --유상계약이 없을때
+	         , CASE WHEN
+	         ( SELECT  VALUE(MAX(CASE WHEN CS126_HNO &gt; '' THEN 1 ELSE 0 END),0)
+				          FROM  SAPHEE.ZCST126
+				         WHERE     MANDT = CS101A.MANDT
+				               AND CS126_PJT = CS101A.CS101_PJT
+				           	   AND CS126_HNO = CS101A.CS101_HNO
+				               AND CS126_PST = 'A6'
+				               AND CS126_DDT = ''
+				               AND (VALUE(CS126_USD,'') &gt; #DAT# OR VALUE(CS126_USD,'') = '')  ) = 0 	THEN 0 ELSE 1 END AS CHK5
+	          -- 문제점현황에 없을때(기존무상청구등록 조건이 있을때) 
+	          , CASE WHEN
+				    ( SELECT COUNT(1) 
+				                     FROM SAPHEE.ZCST108 CS108A
+				                    WHERE MANDT = CS101A.MANDT
+				                          AND CS108_PJT = CS101A.CS101_PJT                                                                                                                            
+	                                      AND CS108_HNO = CS101A.CS101_HNO
+	                                GROUP BY  CS108A.MANDT, CS108A.CS108_PJT,  CS108A.CS108_HNO )	> 0	THEN 0 ELSE 1 END AS CHK6
+         FROM SAPHEE.ZCST101 CS101A 
+	          LEFT OUTER JOIN (  SELECT MANDT, CS172_PJO,  CS172_HNO, MAX(CS172_MDT) MDT 
+	                   			   FROM  SAPHEE.ZCST172 /* 교체 및 회수 프로젝트 관리 */ 
+	                 		 	  WHERE  MANDT = #G_MANDT# 
+	                  			  GROUP  BY MANDT, CS172_PJO,  CS172_HNO  ) CS172A 
+	              		   ON CS101A.MANDT     = CS172A.MANDT
+	             		  AND CS101A.CS101_PJT = CS172A.CS172_PJO 
+	             		  AND CS101A.CS101_HNO = CS172A.CS172_HNO 
+	          LEFT OUTER JOIN SAPHEE.VBAK VB 
+	                       ON CS101A.MANDT = VB.MANDT 
+	                      AND CS101A.CS101_PJT = VB.ZZPJT_ID, 
+              SAPHEE.ZCST111 CS111A, 
+              SAPHEE.ZMASTER01 MASTER01A, 
+              SAPHEE.ZMASTER02 MASTER02A, 
+              SAPHEE.ZWBT010 B010,
+              SAPHEE.ZLCODE  ZC
+        WHERE CS101A.MANDT = #G_MANDT#
+              AND CS101A.CS101_FDT BETWEEN '00000001' AND #DAT# /* 보수인수승인일자 */ 
+<isEqual col="PBN" value="A">
+              AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('L','S','W')
+</isEqual>
+<isEqual col="PBN" value="B">
+              AND SUBSTR(CS101A.CS101_HNO,1,1) = 'J'
+</isEqual>
+              AND CS101A.CS101_PST = 'A6' 
+              AND CS101A.CS101_ARA > '' 
+              AND CS101A.CS101_BSU > '' 
+              AND CS101A.CS101_PJT NOT LIKE 'M%' 
+              AND VALUE(CS101A.CS101_FDT,'') &lt;&gt; '' 
+              AND CS111A.MANDT = CS101A.MANDT 
+              AND CS111A.PJT = CS101A.CS101_PJT 
+              AND CS111A.HNO = CS101A.CS101_HNO 
+              AND ( CS111A.HST &lt;&gt; 'D' OR  ( CS111A.HST = 'D' AND VALUE(CS172A.CS172_PJO,'') > '' ) ) 
+              AND CS111A.MANDT = MASTER01A.MANDT 
+              AND CS111A.PJT = MASTER01A.POSID 
+              AND CS111A.MANDT = MASTER02A.MANDT 
+              AND CS111A.PJT = MASTER02A.POSID 
+              AND CS111A.PJT||CS111A.HNO = MASTER02A.POSID_1 
+              AND CS111A.MANDT = #G_MANDT#
+              AND CS111A.MANDT = B010.MANDT 
+              AND CS111A.BSU = B010.LGORT 
+              AND B010.LGORT > ''
+              
+              #WQST+#	/* 부서 */
+              
+              AND NOT EXISTS (SELECT 1 
+				                FROM SAPHEE.ZCST144 A, 
+				                     SAPHEE.ZCST143 B 
+				               WHERE A.MANDT = B.MANDT 
+				                     AND A.CS144_SEQ = B.CS143_SEQ 
+				                     AND A.MANDT = #G_MANDT# 
+				                     AND A.CS144_PST = 'A6'
+				                     AND A.MANDT     = CS101A.MANDT
+				                     AND A.CS144_PJT = CS101A.CS101_PJT 
+	             					 AND A.CS144_HNO = CS101A.CS101_HNO                   )			/* 실패등록된 호기가 아닐때 */
+			 
+<isNotNull col="ARA">                                                                                                                                                                          
+              AND CS111A.ARA = #ARA#                                                                                                                                                           
+</isNotNull>                                                                                                                                                                                   
+<isNotNull col="BSU">                                                                                                                                                                          
+              AND CS111A.BSU = #BSU#                                                                                                                                                           
+</isNotNull>                                                                                                                                                                                   
+<isNotNull col="BPM">                                                                                                                                                                          
+              AND CS111A.BPM = #BPM#                                                                                                                                                           
+</isNotNull> 
+<isNotNull col="TEM">                                                                                                                                                                          
+              --AND B010.VKGRP = #TEM#             
+              AND (B010.VKGRP = #TEM# OR B010.VKGRP_CO = #TEM#)                                                                                                                                       
+</isNotNull>
+<isNotNull col="PJT">                                                                                                                                                                          
+              AND CS101A.CS101_PJT = #PJT#                                                                                                                                                           
+</isNotNull>                                                                                                                                                                                   
+<isEqual col="PBN" value="A">                                                                                                                                                                  
+              AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('L','S','W')                                                                                                                
+</isEqual>                                                                                                                                                                                     
+<isEqual col="PBN" value="B">                                                                                                                                                                  
+              AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('J')                                                                                                                        
+</isEqual>                                                                                                                                                                                     
+<isEqual col="PBN" value="C">                                                                                                                                                                  
+              AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('G')                                                                                                                        
+</isEqual>                                                                                                                                                                                     
+<isEqual col="PBN" value="D">                                                                                                                                                                  
+              AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('F')                                                                                                                        
+</isEqual>
+		      AND NOT EXISTS ( SELECT 1 FROM SAPHEE.ZCST116 WHERE MANDT = CS101A.MANDT AND CS116_PJT = CS101A.CS101_PJT AND CS116_HNO = CS101A.CS101_HNO )
+              AND INT(MASTER02A.ZMUSAOCNT)  >  0 
+              AND INT(MASTER02A.ZMUSAUCNT)  =  0 
+          --    AND INT(MASTER02A.ZMUSAOCNT2) >  0 
+              AND INT(MASTER02A.ZMUSAUCNT2) =  0
+              AND (INT(MASTER02A.ZMUSAOCNT) - INT(MASTER02A.ZMUSAUCNT)) > 0
+<isEqual col="GND" value="B">                                                                                                                                                                  
+              AND 1 = 2                                                                                                                        
+</isEqual>
+              
+              UNION ALL
+              
+/**** 무상일반 ***********************************************************/
+SELECT CS111A.ARA, 
+              /* 지역코드 */ 
+              VALUE(SAPHEE.CODE_CONV(CS111A.MANDT,'CS115',CS111A.ARA),'') ARA_NM, 
+              /* 지역명 */ 
+              B010.VKGRP AS TEM, 
+              /* 팀코드 */ 
+              VALUE(SAPHEE.CODE_CONV(CS111A.MANDT,'VKGRP',B010.VKGRP),'') TEM_NM, 
+              /* 팀명 */ 
+              CS111A.BPM, 
+              /* 보수PM */ 
+              VALUE(SAPHEE.GET_BOSU_INWON(CS111A.MANDT,CS111A.BPM),'') BPM_NM,  /* 보수PM명 */ 
+              CS111A.BSU,  /* 보수협력사 */ 
+              VALUE(SAPHEE.GET_VENDER_N_NAME(CS111A.MANDT,CS111A.BSU),'') BSU_NM, /* 보수협력사명 */ 
+              MASTER01A.ZSITE_NM ZSITE_NM, 		/* 현장명 */ 
+              MASTER01A.KUNNR, 					/* 고객코드 */ 
+              MASTER01A.KUNNR_NM KUNNR_NM, 		/* 고객명 */ 
+              (SELECT TELF1 
+                FROM SAPHEE.KNA1 
+               WHERE MANDT = MASTER01A.MANDT 
+                     AND KUNNR = MASTER01A.KUNNR
+              ) AS TELF1, 						/* 고객연락처 */ 
+              CS101A.CS101_PJT PJT, 			/* 프로잭트 */ 
+              CS101A.CS101_HNO HNO, 			/* 호기 */ 
+              CS101A.CS101_HNA HNA,				/* 호기명 */ 
+              CS101A.CS101_FDT ISD, 			/* 보수인수승인일자 */ 
+              MASTER02A.ZMUSAOCNT, 				/* 무상공사예산개월수 */ 
+              MASTER02A.ZMUSAUCNT,				/* 무상공사사용개월수 */ 
+              MASTER02A.ZMUSAOCNT2, 			/* 무상일반예산개월수 */ 
+              MASTER02A.ZMUSAUCNT2,  			/* 무상일반사용개월수 */ 
+              MASTER02A.ZSPEC9,  	
+              VALUE(VB.MB_STN,'') AS MB_STN, 	/* 무상보수개시기준 */ 
+              CASE VALUE(VB.MB_STN,'') 
+                  WHEN '1' 
+                  THEN '완성검사시' 
+                  WHEN '2' 
+                  THEN '입주시' 
+                  WHEN '3' 
+                  THEN '건물준공시' 
+                  WHEN '4' 
+                  THEN '고객인도시' 
+                  ELSE '' 
+              END MB_STN_NAME,  			/* 무상보수개시기준 */ 
+			  'N' AS ADD_YN, /* 추가발주여부 */
+		      'B' AS GND,
+			  '무상일반' AS GND_NM
+			  , CASE WHEN CS101A.CS101_LOC &lt;&gt; '' THEN 0 ELSE 1 END AS CHK1
+	         , CASE WHEN CS101A.CS101_CIN &lt;&gt; '' THEN 0 ELSE 1 END AS CHK2
+	         , CASE WHEN CS101A.CS101_HNA &lt;&gt; '' THEN 0 ELSE 1 END AS CHK3
+	         --주점검자 부점검자가 있을때
+	         , CASE WHEN CS111A.JUJ &lt;&gt; '' OR CS111A.BUJ &lt;&gt; '' THEN 0 ELSE 1 END AS CHK4
+	         --유상계약이 없을때
+	         , CASE WHEN
+	         ( SELECT  VALUE(MAX(CASE WHEN CS126_HNO &gt; '' THEN 1 ELSE 0 END),0)
+				          FROM  SAPHEE.ZCST126
+				         WHERE     MANDT = CS101A.MANDT
+				               AND CS126_PJT = CS101A.CS101_PJT
+				           	   AND CS126_HNO = CS101A.CS101_HNO
+				               AND CS126_PST = 'A6'
+				               AND CS126_DDT = ''
+				               AND (VALUE(CS126_USD,'') &gt; #DAT# OR VALUE(CS126_USD,'') = '')  ) = 0 	THEN 0 ELSE 1 END AS CHK5
+	          -- 문제점현황에 없을때(기존무상청구등록 조건이 있을때) 
+	          , CASE WHEN
+				    ( SELECT COUNT(1) 
+				                     FROM SAPHEE.ZCST108 CS108A
+				                    WHERE MANDT = CS101A.MANDT
+				                          AND CS108_PJT = CS101A.CS101_PJT                                                                                                                            
+	                                      AND CS108_HNO = CS101A.CS101_HNO
+	                                GROUP BY  CS108A.MANDT, CS108A.CS108_PJT,  CS108A.CS108_HNO )	> 0	THEN 0 ELSE 1 END AS CHK6
+         FROM SAPHEE.ZCST101 CS101A 
+	          LEFT OUTER JOIN (  SELECT MANDT, CS172_PJO,  CS172_HNO, MAX(CS172_MDT) MDT 
+	                   			   FROM  SAPHEE.ZCST172 /* 교체 및 회수 프로젝트 관리 */ 
+	                 		 	  WHERE  MANDT = #G_MANDT# 
+	                  			  GROUP  BY MANDT, CS172_PJO,  CS172_HNO  ) CS172A 
+	              		   ON CS101A.MANDT     = CS172A.MANDT
+	             		  AND CS101A.CS101_PJT = CS172A.CS172_PJO 
+	             		  AND CS101A.CS101_HNO = CS172A.CS172_HNO 
+	          LEFT OUTER JOIN SAPHEE.VBAK VB 
+	                       ON CS101A.MANDT = VB.MANDT 
+	                      AND CS101A.CS101_PJT = VB.ZZPJT_ID, 
+              SAPHEE.ZCST111 CS111A, 
+              SAPHEE.ZMASTER01 MASTER01A, 
+              SAPHEE.ZMASTER02 MASTER02A, 
+              SAPHEE.ZWBT010 B010,
+              SAPHEE.ZLCODE  ZC
+        WHERE CS101A.MANDT = #G_MANDT#
+              AND CS101A.CS101_FDT BETWEEN '00000001' AND #DAT# /* 보수인수승인일자 */ 
+<isEqual col="PBN" value="A">
+              AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('L','S','W')
+</isEqual>
+<isEqual col="PBN" value="B">
+              AND SUBSTR(CS101A.CS101_HNO,1,1) = 'J'
+</isEqual>
+              AND CS101A.CS101_PST = 'A6' 
+              AND CS101A.CS101_ARA > '' 
+              AND CS101A.CS101_BSU > '' 
+              AND CS101A.CS101_PJT NOT LIKE 'M%' 
+              AND VALUE(CS101A.CS101_FDT,'') &lt;&gt; '' 
+              AND CS111A.MANDT = CS101A.MANDT 
+              AND CS111A.PJT = CS101A.CS101_PJT 
+              AND CS111A.HNO = CS101A.CS101_HNO 
+              AND ( CS111A.HST &lt;&gt; 'D' OR  ( CS111A.HST = 'D' AND VALUE(CS172A.CS172_PJO,'') > '' ) ) 
+              AND CS111A.MANDT = MASTER01A.MANDT 
+              AND CS111A.PJT = MASTER01A.POSID 
+              AND CS111A.MANDT = MASTER02A.MANDT 
+              AND CS111A.PJT = MASTER02A.POSID 
+              AND CS111A.PJT||CS111A.HNO = MASTER02A.POSID_1 
+              AND CS111A.MANDT = #G_MANDT#
+              AND CS111A.MANDT = B010.MANDT 
+              AND CS111A.BSU = B010.LGORT 
+              AND B010.LGORT > ''
+              
+              #WQST+#	/* 부서 */
+              
+              AND NOT EXISTS (SELECT 1 
+				                FROM SAPHEE.ZCST144 A, 
+				                     SAPHEE.ZCST143 B 
+				               WHERE A.MANDT = B.MANDT 
+				                     AND A.CS144_SEQ = B.CS143_SEQ 
+				                     AND A.MANDT = #G_MANDT# 
+				                     AND A.CS144_PST = 'A6'
+				                     AND A.MANDT     = CS101A.MANDT
+				                     AND A.CS144_PJT = CS101A.CS101_PJT 
+	             					 AND A.CS144_HNO = CS101A.CS101_HNO                   )			/* 실패등록된 호기가 아닐때 */
+<isNotNull col="ARA">                                                                                                                                                                          
+              AND CS111A.ARA = #ARA#                                                                                                                                                           
+</isNotNull>                                                                                                                                                                                   
+<isNotNull col="BSU">                                                                                                                                                                          
+              AND CS111A.BSU = #BSU#                                                                                                                                                           
+</isNotNull>                                                                                                                                                                                   
+<isNotNull col="BPM">                                                                                                                                                                          
+              AND CS111A.BPM = #BPM#                                                                                                                                                           
+</isNotNull> 
+<isNotNull col="TEM">                                                                                                                                                                          
+              --AND B010.VKGRP = #TEM#
+              AND (B010.VKGRP = #TEM# OR B010.VKGRP_CO = #TEM#)                                                                                                                                                        
+</isNotNull>
+<isNotNull col="PJT">                                                                                                                                                                          
+              AND CS101A.CS101_PJT = #PJT#                                                                                                                                                           
+</isNotNull>                                                                                                                                                                                   
+<isEqual col="PBN" value="A">                                                                                                                                                                  
+              AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('L','S','W')                                                                                                                
+</isEqual>                                                                                                                                                                                     
+<isEqual col="PBN" value="B">                                                                                                                                                                  
+              AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('J')                                                                                                                        
+</isEqual>                                                                                                                                                                                     
+<isEqual col="PBN" value="C">                                                                                                                                                                  
+              AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('G')                                                                                                                        
+</isEqual>                                                                                                                                                                                     
+<isEqual col="PBN" value="D">                                                                                                                                                                  
+              AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('F')                                                                                                                        
+</isEqual>
+			  AND NOT EXISTS ( SELECT 1 FROM SAPHEE.ZCST116 WHERE MANDT = CS101A.MANDT AND CS116_PJT = CS101A.CS101_PJT AND CS116_HNO = CS101A.CS101_HNO AND CS116_GND = 'B' )
+              AND ( ( INT(MASTER02A.ZMUSAOCNT)  > 0 AND INT(MASTER02A.ZMUSAUCNT)  > 0 ) OR (INT(MASTER02A.ZMUSAOCNT)  = 0 AND INT(MASTER02A.ZMUSAUCNT)  = 0 ) )
+              AND INT(MASTER02A.ZMUSAOCNT2) >  0 
+              AND INT(MASTER02A.ZMUSAUCNT2) >= 0
+              AND (INT(MASTER02A.ZMUSAOCNT2) - INT(MASTER02A.ZMUSAUCNT2)) > 0
+              <![CDATA[
+             AND (INT(MASTER02A.ZMUSAOCNT) - INT(MASTER02A.ZMUSAUCNT)) <= 0
+             ]]>
+<isEqual col="GND" value="A">                                                                                                                                                                  
+              AND 1 = 2                                                                                                                        
+</isEqual>
+       )X 
+ WHERE 1 = 1
+	   AND ADD_YN = #GBN#
+ GROUP BY X.ARA, 
+       X.TEM, 
+       X.BSU, 
+       X.PJT, 
+       X.GND, 
+       X.KUNNR, 
+       X.ISD ,
+       SUBSTR(X.HNO,1,1)
+ORDER BY X.ARA, 
+       X.TEM, 
+       X.BSU, 
+       X.PJT, 
+       X.GND, 
+       X.ISD, 
+       X.KUNNR
+FOR FETCH ONLY 
+WITH UR                                                                                                                                                               	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+       '' AS FLAG,
+       '0' AS CHK,
+       CS101B.CS101_PJT PJT,
+       CS101B.CS101_HNO HNO,
+       MASTER01A.ZSITE_NM SPT,
+       MASTER01A.KUNNR_NM NAM,
+       CS101B.ARA_NM,
+       CS101B.BSU_NM,
+       MASTER01A.ZMAN_NM,
+       MASTER02A.ZSPEC1,
+       MASTER02A.ZSPEC2,
+       CS101B.AGB_NM,
+       CS101B.ABG_NM,
+       CS101B.BLD_NM,
+       CS101B.CS101_IGD IGD,
+       CS101B.CS101_ISD ISD,
+       MASTER02A.ZBEPJEO DATE1,
+       MASTER02A.ZQEGEMSA DATE2,
+       MASTER02A.ZZCOMP2 DATE3,
+       VALUE(MASTER01A.HB_STN,'') STN,
+       CASE VALUE(MASTER01A.HB_STN,'')
+            WHEN '1' THEN '완성검사시'
+            WHEN '2' THEN '입주시'
+            WHEN '3' THEN '건물준공시'
+            WHEN '4' THEN '고객인도시'
+            WHEN '5' THEN '발행대상'
+            ELSE VALUE(MASTER01A.HB_STN,'')
+       END STN_NM,
+       CASE VALUE(MASTER01A.HB_STN,'')
+            WHEN '5' THEN VALUE(MASTER01A.HB_FROM,'00000000')
+            ELSE VALUE(MASTER02A.HB_FROM,'00000000')
+       END FDT,
+       CASE VALUE(MASTER01A.HB_STN,'')
+            WHEN '5' THEN VALUE(MASTER01A.HB_TO,'00000000')
+            ELSE VALUE(MASTER02A.HB_TO,'00000000')
+       END TDT,
+       CASE VALUE(MASTER01A.HB_PUB,'')
+            WHEN '1' THEN '서울보증보험'
+            WHEN '2' THEN '대한보증보험'
+            ELSE VALUE(MASTER01A.HB_PUB,'')
+       END PUB,
+       VALUE(VB.GUAMO,'0') GAO
+  FROM
+       SAPHEE.ZMASTER02 AS MASTER02A,
+       (
+        SELECT
+               CS101A.MANDT,
+               CS101A.CS101_ARA,
+               CS101A.CS101_BSU,
+               CS101A.CS101_PJT,
+               CS101A.CS101_HNO,
+               CS101A.CS101_IGD,
+               CS101A.CS101_ISD,
+               MM028C.CTEXT2 AS ARA_NM,
+               WB010.ABR_NM  AS BSU_NM,
+               MM028A.CTEXT2 AS AGB_NM,
+               MM028B.CTEXT2 AS ABG_NM,
+               MM028D.CTEXT2 AS BLD_NM
+          FROM
+               SAPHEE.ZCST101 AS CS101A
+                      LEFT OUTER JOIN SAPHEE.ZLCODE AS MM028A ON CS101A.MANDT = MM028A.MANDT
+                                                             AND CS101A.CS101_AGB = MM028A.CODE2
+                                                             AND MM028A.CODE1 = 'CS116'
+                                                             AND MM028A.LANG = #G_LANG#
+                      LEFT OUTER JOIN SAPHEE.ZLCODE AS MM028B ON CS101A.MANDT = MM028B.MANDT
+                                                             AND CS101A.CS101_ABG = MM028B.CODE2
+                                                             AND MM028B.CODE1 = 'CS112'
+                                                             AND MM028B.LANG = #G_LANG#
+                      LEFT OUTER JOIN SAPHEE.ZLCODE AS MM028C ON CS101A.MANDT = MM028C.MANDT
+                                                             AND CS101A.CS101_ARA = MM028C.CODE2
+                                                             AND MM028C.CODE1 = 'CS115'
+                                                             AND MM028C.LANG = #G_LANG#,
+               SAPHEE.ZWBT010 AS WB010,
+               SAPHEE.ZCST111 AS CS111
+                      LEFT OUTER JOIN SAPHEE.ZLCODE AS MM028D ON CS111.MANDT = MM028D.MANDT
+                                                             AND CS111.BLD = MM028D.CODE2
+                                                             AND MM028D.CODE1 = 'CS123'
+                                                             AND MM028D.LANG = #G_LANG#
+         WHERE
+               CS101A.MANDT = #G_MANDT#
+           AND CS101A.MANDT = WB010.MANDT
+           AND CS101A.CS101_BSU = WB010.LGORT
+           AND CS101A.MANDT = CS111.MANDT
+           AND CS101A.CS101_PJT = CS111.PJT
+           AND CS101A.CS101_HNO = CS111.HNO
+           AND CS101A.CS101_PST = 'A6'
+           AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('L','S','W')
+           AND CS101A.CS101_ISD BETWEEN #ISD_FM# AND #ISD_TO#
+<isNotNull col="ARA">
+           AND CS101A.CS101_ARA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+           AND CS101A.CS101_BSU = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+           AND CS101A.CS101_BPM = #BPM#
+</isNotNull>
+<isNotNull col="TEM">
+           AND WB010.VKGRP = #TEM#
+</isNotNull>
+
+
+<isNotNull col="DPT">
+  AND SUBSTR(WB010.VKGRP,1,2) = #DPT#
+</isNotNull>
+
+
+<isNotNull col="PJT">
+           AND CS101A.CS101_PJT = #PJT#
+</isNotNull>
+
+       ) AS CS101B
+	            LEFT OUTER JOIN SAPHEE.VBAK AS VB ON CS101B.MANDT = VB.MANDT
+		                                           AND CS101B.CS101_PJT = VB.ZZPJT_ID,
+       SAPHEE.ZMASTER01 AS MASTER01A
+ WHERE
+       MASTER02A.MANDT = #G_MANDT#
+   AND MASTER02A.MANDT = MASTER01A.MANDT
+   AND MASTER02A.POSID = MASTER01A.POSID
+   AND MASTER02A.MANDT = CS101B.MANDT
+   AND MASTER02A.POSID = CS101B.CS101_PJT
+   AND MASTER02A.POSID_1 = CS101B.CS101_PJT || CS101B.CS101_HNO
+<isEqual col="GBN" value="">
+<isNotNull col="STN">
+   AND MASTER01A.HB_STN = #STN#
+</isNotNull>
+</isEqual>
+<isEqual col="GBN" value="X">
+   AND MASTER01A.HB_STN IN ('1','2','3','4')
+</isEqual>
+<isEqual col="IYN" value="Y">
+   AND (MASTER01A.HB_FROM > '' OR MASTER01A.HB_FROM > '00000000')
+</isEqual>
+ORDER BY
+       CS101B.CS101_PJT,
+       CS101B.CS101_HNO
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT '' AS CHECK,'N' AS FLAG, A.POSID AS PSPID, A.POSID_1 AS POSID , B.ZSITE_NM , A.ZSPEC1, A.ZSPEC2, A.NAMET2,
+       ( CASE WHEN A.POSID_DONG = 'X' OR A.POSID_DONG = 'x' THEN '' ELSE A.POSID_DONG END ) AS POSID_DONG,
+             A.ZZSHIP1 , A.ZZCOMP2 , 0 AS M_MH, 0 AS A_MH, 0 AS N_MH , '' AS M , '' AS A , '' AS N, '' AS OUTS,'' AS OUT,
+            0.0 AS BEFORE_R, 0.0 AS DAY_R , A.LIFNR , '' AS PERNO , '' AS INP_DT , A.ZZGUBUN, A.TYPE , 'N' AS CHK , '' AS PROC,
+	  VALUE( (SELECT   MAX(E.GUBUN)
+  	                   FROM SAPHEE.ZPSTW0207 AS E
+		   WHERE E.MANDT = A.MANDT
+		      AND E.PSPID = A.POSID
+		      AND E.POSID = A.POSID_1 
+   	    GROUP BY E.MANDT, E.PSPID, E.POSID),'Z')  AS SAFE ,
+--  VALUE((SELECT F.TOT_MH
+--        FROM SAPHEE.ZPST0100 AS F
+--      WHERE F.PSPID =A.POSID
+--          AND F.POSID = A.POSID_1
+--          AND F.CHGNO = ( SELECT MAX( E.CHGNO )
+--                                               FROM SAPHEE.ZPST0113 AS E
+--                                              WHERE E.MANDT = F.MANDT
+--                                                AND E.CNF_GBN = 'A'
+--                                                AND E.PSPID = F.PSPID
+--                                                AND E.POSID = F.POSID
+--                                                AND E.GUBUN = '3'
+--                                                AND E.STATE = 'Y')) ,0) AS MH	,
+                 VALUE((SELECT MIN(X.INIT_DT) FROM SAPHEE.ZPSTW0302 AS X WHERE X.MANDT  = A.MANDT  AND X.PSPID = A.POSID AND X.POSID  = A.POSID_1),#INP_DT# ) AS INIT_DT,
+                 VALUE(T2.PRO_R, 0 ) AS PRO_B , 'B' AS HOGI , 0 AS INWON_CHK		,
+                 0 AS OM_MH, 0 AS OA_MH, 0 AS ON_MH , '' AS OM , '' AS OA , '' AS ON , WW.CHK2 AS CHK2
+			 
+FROM SAPHEE.ZMASTER02 AS A
+INNER JOIN SAPHEE.ZMASTER01 AS B
+   ON A.MANDT = B.MANDT
+  AND A.POSID = B.POSID
+ LEFT OUTER JOIN ( SELECT X.MANDT, X.PSPID, X.POSID, SUM(X.PRO_R)  AS PRO_R
+                                  FROM SAPHEE.ZPST0116 AS X
+		     WHERE X.MANDT = #G_MANDT#						      
+		         AND X.BELNR > '0000000000'
+		       GROUP BY  X.MANDT, X.PSPID, X.POSID
+		   ) AS G         
+     ON A.MANDT = G.MANDT
+   AND A.POSID = G.PSPID
+   AND A.POSID_1 = G.POSID  
+
+  LEFT OUTER JOIN SAPHEE.ZPST0112C AS F
+      ON A.MANDT = F.MANDT
+	  AND A.POSID = F.PSPID
+	  AND A.POSID_1 = F.POSID
+		   
+    LEFT OUTER JOIN
+     (  SELECT T.MANDT, T.PSPID, T.POSID, SUM(T.PRO_R) AS PRO_R
+             FROM
+              ( SELECT Z.MANDT, Z.PSPID, Z.POSID, Z.PRONR , P.PRO_R
+                  FROM SAPHEE.ZPSTW0304 AS Z
+				           LEFT OUTER JOIN SAPHEE.ZMASTER02 AS A
+					           ON A.MANDT = Z.MANDT
+					          AND A.POSID = Z.PSPID
+					          AND A.POSID_1 = Z.POSID
+					          AND Z.INP_DT < #INP_DT#
+					          				          	
+				           LEFT OUTER JOIN SAPHEE.ZPST0111 AS P
+				             ON A.MANDT = P.MANDT
+					           AND A.TYPE = P.TYPE
+					           AND A.ZZGUBUN = P.GUBUN
+					           AND P.PRONR = Z.PRONR
+					      
+                 WHERE Z.MANDT = #G_MANDT#
+                  -- AND Z.INP_DT < #INP_DT# 
+  	               AND A.LIFNR =  #ZZLIFNR#
+                   AND A.TEMNO2 = #TMCD#
+                   AND A.ZZGUBUN BETWEEN '10' AND '14' 
+                   AND A.PRART IN ('01', '02', '11') 
+                   AND A.ZZCHAKG = 'X'
+                   AND A.TXT04 <> 'C'	  
+	
+            
+                GROUP BY Z.MANDT, Z.PSPID, Z.POSID, Z.PRONR , P.PRO_R) AS T
+              WHERE T.MANDT =  #G_MANDT#
+            GROUP BY  T.MANDT, T.PSPID, T.POSID
+                 	) T2						 
+                   ON A.MANDT = T2.MANDT
+	    AND A.POSID = T2.PSPID
+ 	    AND A.POSID_1 = T2.POSID
+
+  LEFT OUTER JOIN SAPHEE.ZPSTW0305 AS WW
+      ON A.MANDT = WW.MANDT
+	  AND A.LIFNR = WW.LIFNR
+		   
+WHERE A.MANDT = #G_MANDT#
+   AND A.LIFNR =  #ZZLIFNR#
+   AND A.TEMNO2 = #TMCD#
+   AND A.ZZGUBUN BETWEEN '10' AND '14' 
+   AND A.PRART IN ('01', '02', '11') 
+   --AND A.ZZCHAKG = 'X')
+     AND (A.ZZCHAKG = 'X' OR F.POSID IS NOT NULL) 
+   AND A.TXT04 <> 'C'	  
+   AND (G.PRO_R < 100 OR G.PRO_R IS NULL) 
+   AND NOT EXISTS ( SELECT *
+	                       FROM SAPHEE.ZPSTW0302 AS ST2
+		        WHERE ST2.MANDT = A.MANDT
+		            AND ST2.PSPID  = A.POSID
+		            AND ST2.POSID = A.POSID_1
+		            AND ST2.INP_DT = #INP_DT#  ) 
+
+FOR FETCH ONLY
+WITH UR		]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list1">
+	</output>
+</query>

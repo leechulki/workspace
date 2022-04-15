@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+WITH TEMP AS (
+		SELECT P.PSPID
+		     , P.SEQNO
+		      , MAX(M01.ZSITE_NM) AS ZSITE_NM
+		      , MAX(M02.NAMET) AS NAMET
+		      , MAX(M02.NAMET2) AS NAMET2
+		      , MAX(M01.ZZACTSS) AS ZZACTSS
+		      , MAX(M02.ZSPEC1) AS ZSPEC1
+		      , MAX(M02.ZSPEC2) AS ZSPEC2
+		      , (SELECT X.NAME1
+		           FROM SAPHEE.ZPST0034 X
+		          WHERE X.MANDT = MIN(M02.MANDT)
+		            AND X.LIFNR = MIN(M02.LIFNR)
+		           FETCH FIRST 1 ROW ONLY
+		           WITH UR) AS LIFNR_NM
+		      , VALUE((
+				 		SELECT REMOV
+				 		  FROM SAPHEE.ZPST0021 X
+				 		 WHERE X.MANDT = MIN(M02.MANDT)
+				 		   AND X.PSPID = MIN(M02.POSID)
+				 		   AND X.POSID = MIN(M02.POSID_1)
+				 		   AND X.CLOSI = '1'
+				 		   AND X.BLOCK = '1'
+				 		   AND X.CHASU = '00'
+				 	 FETCH FIRST 1 ROW ONLY
+		        	 WITH UR
+				   ), MIN(M02.ZZSHIP1)) AS ORG_ZZSHIP1
+			  , (
+				 		SELECT TXT01
+				 		  FROM SAPHEE.ZPST0021 X
+				 		 WHERE X.MANDT = MIN(M02.MANDT)
+				 		   AND X.PSPID = MIN(M02.POSID)
+				 		   AND X.POSID = MIN(M02.POSID_1)
+				 		   AND X.CLOSI = '1'
+				 		   AND X.BLOCK = '1'
+				 		   AND X.CHASU = (
+				 		   					SELECT MAX(X2.CHASU)
+				 		   					  FROM SAPHEE.ZPST0021 X2
+				 		   					 WHERE X.MANDT = X2.MANDT
+				 		   					   AND X.PSPID = X2.PSPID
+				 		   					   AND X.POSID = X2.POSID
+				 		   					   AND X.CLOSI = X2.CLOSI
+				 		   					   AND X.BLOCK = X2.BLOCK
+				 		                 )
+				 	 FETCH FIRST 1 ROW ONLY
+		        	 WITH UR
+				   ) AS CHG_SAYU
+		      , (
+				 		SELECT EDATE
+					     FROM SAPHEE.ZSDT0029 X
+					    WHERE X.MANDT = P.MANDT
+					      AND X.KIDNO = P.PSPID
+					      AND (X.ZCANYM = '000000' OR X.ZCANYM = '')
+					    ORDER BY X.BUDAT ASC
+					   FETCH FIRST 1 ROW ONLY
+		         	   WITH UR
+
+				   ) AS EDATE
+		      , MAX(G.TEXT30) AS TEXT30
+		      , (CASE WHEN MAX(M01.ZZACTSS) = '21' OR MAX(M01.ZZACTSS) = '10' OR MAX(M01.ZZACTSS) = '08' -- 강북, 인천, 강원
+		             THEN '1'
+		             WHEN MAX(M01.ZZACTSS) = '02' OR MAX(M01.ZZACTSS) = '19' OR MAX(M01.ZZACTSS) = '20'  -- 강남, 강서, 중부
+		             THEN '2'
+		             WHEN MAX(M01.ZZACTSS) = '06' OR MAX(M01.ZZACTSS) = '05' OR MAX(M01.ZZACTSS) = '07' OR MAX(M01.ZZACTSS) = '12' -- 대전, 광주, 전주, 제주
+		             THEN '3'
+		             WHEN MAX(M01.ZZACTSS) = '03' OR MAX(M01.ZZACTSS) = '04' OR MAX(M01.ZZACTSS) = '11' OR MAX(M01.ZZACTSS) = '09' -- 부산, 대구, 경남, 울산
+		             THEN '4'
+		             WHEN MAX(M01.ZZACTSS) = '13' OR MAX(M01.ZZACTSS) = '01' -- E/S, 직영
+		             THEN '5'
+		             ELSE '6' -- 리모델링
+		             END) AS GRUP
+		      , CASE WHEN MAX(M01.ZZACTSS) = '21'
+		      		 THEN '01'
+		      		 WHEN MAX(M01.ZZACTSS) = '10'
+		      		 THEN '02'
+		      		 WHEN MAX(M01.ZZACTSS) = '08'
+		      		 THEN '03'
+		      		 WHEN MAX(M01.ZZACTSS) = '02'
+		      		 THEN '01'
+		      		 WHEN MAX(M01.ZZACTSS) = '19'
+		      		 THEN '02'
+		      		 WHEN MAX(M01.ZZACTSS) = '20'
+		      		 THEN '03'
+		      		 WHEN MAX(M01.ZZACTSS) = '06'
+		      		 THEN '01'
+		      		 WHEN MAX(M01.ZZACTSS) = '05'
+		      		 THEN '02'
+		      		 WHEN MAX(M01.ZZACTSS) = '07'
+		      		 THEN '03'
+		      		 WHEN MAX(M01.ZZACTSS) = '12'
+		      		 THEN '04'
+		      		 WHEN MAX(M01.ZZACTSS) = '03'
+		      		 THEN '01'
+		      		 WHEN MAX(M01.ZZACTSS) = '04'
+		      		 THEN '02'
+		      		 WHEN MAX(M01.ZZACTSS) = '11'
+		      		 THEN '03'
+		      		 WHEN MAX(M01.ZZACTSS) = '09'
+		      		 THEN '04'
+		      		 WHEN MAX(M01.ZZACTSS) = '13'
+		      		 THEN '01'
+		      		 WHEN MAX(M01.ZZACTSS) = '01'
+		      		 THEN '02'
+		      		 ELSE '01'
+		      		 END AS SORT
+			   , MAX(M01.ZQNTY) AS ZQNTY
+		       , P.EXPLO
+		       , (
+		      		SELECT X.RECAD_DA
+		      		  FROM SAPHEE.VBAK X
+		      		 WHERE X.MANDT    = P.MANDT
+		      		   AND X.ZZPJT_ID = P.PSPID
+		      		 ORDER BY X.RECAD_DA ASC
+		      		 FETCH FIRST 1 ROW ONLY
+		        	 WITH UR
+		        ) AS RECAD_DA
+		       , VALUE(MIN(M02.ZZSHIP1),'00000000') AS ZZSHIP1_TMP
+			   , DECODE(VALUE(MIN(M02.ZZSHIP1),'0000-00-00'),'','0000-00-00',INSERT(INSERT(MIN(M02.ZZSHIP1),5,0,'-'),8,0,'-')) AS ZZSHIP1
+               , DECODE(VALUE(MIN(M02.ZZCHADT),'00000000'),'','00000000',MIN(M02.ZZCHADT)) AS ZZCHADT 
+			   , VALUE((
+		       		SELECT COUNT(1)
+		       		  FROM SAPHEE.ZPST0019 X
+		       		 WHERE X.MANDT = P.MANDT
+		       		   AND X.PSPID = P.PSPID
+		       		   AND X.GBN   = 'A'
+		          	), 0) AS PHONE_CNT -- 현장답사(전화)
+				 , VALUE((
+		       		SELECT COUNT(1)
+		       		  FROM SAPHEE.ZPST0019 X
+		       		 WHERE X.MANDT = P.MANDT
+		       		   AND X.PSPID = P.PSPID
+		       		   AND X.GBN   = 'B'
+		          	), 0) AS VISIT_CNT	-- 현장답사(방문)
+		         , VALUE((
+		       		SELECT COUNT(1)
+		       		  FROM SAPHEE.ZPST0019 X
+		       		 WHERE X.MANDT = P.MANDT
+		       		   AND X.PSPID = P.PSPID
+		       		   AND X.GBN NOT IN ('A', 'B')
+		          	), 0) AS GITA_CNT	-- 현장답사(기타)     
+				 , VALUE(DECODE(T08.KWMENGT,'',0,T08.KWMENGT),0) AS DAESU
+				 , MIN(MB1.T_DATE) AS MB_INIT_DT -- 최초실측일 (전송)
+				 , MAX(MB2.T_DATE) AS MB_RCNT_DT -- 최근실측일 (전송)
+				 , (
+				  		SELECT COUNT(1)
+				  		  FROM SAPHEE.ZPST11071MB AS X
+				  		 WHERE X.MANDT = P.MANDT
+				  		   AND X.PJT   = P.PSPID
+				  		WITH UR
+				    ) AS MB_CNT
+
+		  FROM SAPHEE.ZPST0019 AS P 
+		   LEFT OUTER JOIN SAPHEE.ZMASTER02 M02
+		                ON P.MANDT = M02.MANDT
+		               AND P.PSPID = M02.POSID 
+		   LEFT OUTER JOIN SAPHEE.ZMASTER01 M01
+		                ON P.MANDT = M01.MANDT
+		               AND P.PSPID = M01.POSID
+		   LEFT OUTER JOIN SAPHEE.J_1AACTT AS G
+					  ON P.MANDT = G.MANDT
+				     AND G.SPRAS = '3'     	  
+					 AND M01.ZZACTSS = G.J_1AACT
+		   LEFT OUTER JOIN SAPHEE.ZPST0008 T08
+		               ON P.MANDT = T08.MANDT
+		              AND P.PSPID = T08.POSID
+		   LEFT OUTER JOIN SAPHEE.ZPST11071MB AS MB1
+		                ON M02.MANDT = MB1.MANDT
+		               AND M02.POSID = MB1.PJT
+		               AND M02.POSID_1 = MB1.PJT||MB1.HNO
+		               AND MB1.SEQNO = '1'
+		   LEFT OUTER JOIN SAPHEE.ZPST11071MB AS MB2
+		                ON M02.MANDT = MB2.MANDT
+		               AND M02.POSID = MB2.PJT
+		               AND M02.POSID_1 = MB2.PJT||MB2.HNO            
+		 WHERE P.MANDT = #G_MANDT#
+		   AND P.PSPID NOT LIKE 'G%'
+		   AND P.PSPID NOT LIKE 'E%'
+		   AND P.PSPID NOT LIKE 'C%'
+		   AND P.PSPID NOT LIKE 'T%'
+		   AND P.PSPID NOT LIKE 'J%'
+		   AND P.GBN IN ('A', 'B', 'C', 'D')
+		   AND M01.ZZACTSS <![CDATA[<>]]> ''
+		   <isNotEqual col="GBN" value="1">
+		   AND M02.ZZCHAKD BETWEEN #FROM_DT# AND #TO_DT# -- 착공예정일
+		   </isNotEqual>
+		   
+		GROUP BY P.MANDT, P.PSPID, P.GBN, P.SEQNO, P.EXPLO, VALUE(DECODE(T08.KWMENGT,'',0,T08.KWMENGT),0)
+		   
+		   
+
+		 WITH UR
+	) 
+		
+	  		SELECT T.PSPID
+	  		     , T.EDATE
+			     , T.ZSITE_NM
+			     , T.ZSPEC1
+			     , T.ZSPEC2
+			     , T.LIFNR_NM
+			     , T.NAMET2
+			     , T.TEXT30
+			     , T.NAMET
+			     , T.RECAD_DA
+			     , MAX(T.EXPLO) MAX_EXPLO
+			     , MIN(T.EXPLO) MIN_EXPLO
+			     , T.GRUP
+			     , T.SORT
+			     , T.ORG_ZZSHIP1
+			     , T.ZZSHIP1
+		  		 , T.ZZSHIP1_TMP
+				 , VALUE(T.PHONE_CNT,0) + VALUE(T.VISIT_CNT,0) + VALUE(T.GITA_CNT,0) AS TOT_CNT -- 현장답사 횟수
+				 , T.DAESU
+				 , T.CHG_SAYU
+				 , T.PHONE_CNT
+				 , T.VISIT_CNT
+				 , T.GITA_CNT
+				 , T.MB_INIT_DT
+				 , T.MB_RCNT_DT
+				 , T.MB_CNT
+				 , (CASE WHEN VALUE(MAX(T.EXPLO),'') = '' OR MAX(T.EXPLO) = '00000000'
+			            THEN 0
+			            WHEN VALUE(T.ZZSHIP1_TMP,'') = '' OR T.ZZSHIP1_TMP = '00000000'
+			            THEN 0
+			            ELSE TIMESTAMPDIFF( '16', CHAR(TIMESTAMP(VALUE(T.ZZSHIP1_TMP,'00000000')||'000000') - TIMESTAMP(VALUE((MAX(T.EXPLO)),'00000000')||'000000'))) 
+				        END) AS RMN_DAY
+			  FROM TEMP T
+			 WHERE 1=1
+			   <isEqual col="GBN" value="1">
+			    AND T.RECAD_DA BETWEEN #FROM_DT# AND #TO_DT# -- 수통접수일
+			   </isEqual>
+			GROUP BY T.PSPID
+		  		     , T.EDATE
+				     , T.ZSITE_NM
+				     , T.ZSPEC1
+				     , T.ZSPEC2
+				     , T.LIFNR_NM
+				     , T.NAMET2
+				     , T.TEXT30
+				     , T.NAMET
+				     , T.RECAD_DA
+				     , T.GRUP
+				     , T.SORT
+				     , T.ORG_ZZSHIP1
+				     , T.ZZSHIP1
+			  		 , T.ZZSHIP1_TMP
+					 , T.DAESU
+					 , T.CHG_SAYU
+					 , T.PHONE_CNT
+					 , T.VISIT_CNT
+					 , T.GITA_CNT
+					 , T.MB_INIT_DT
+					 , T.MB_RCNT_DT
+					 , T.MB_CNT   
+			  
+		  	ORDER BY T.GRUP, T.SORT
+
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

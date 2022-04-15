@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+       D.CS301_TEM || '-' || D.CS301_RDT || '-' || D.CS301_SEQ ETN,
+       D.CS301_SIR SIR,
+       A.CS302_PJT PJT,
+       A.CS302_HNO HNO,
+       A.CS302_UPN UPN,
+       C.ZSITE_NM SPT,
+       F.BLD TBLD,
+       B.ZSPEC12 SPC,
+       B.ZSPEC2 SPC2,
+       (
+        SELECT 
+               CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END
+          FROM 
+               SAPHEE.ZMASTER02
+         WHERE 
+               MANDT = #G_MANDT#
+           AND POSID = A.CS302_PJT 
+           AND SUBSTR(POSID_1,7,1) = 'T'
+       ) TYN,
+       A.CS302_FMT FMT,
+       A.CS302_FMBT FMBT,
+       VALUE(A.CS302_FMT,0) + VALUE(A.CS302_FMBT,0) AS FMTT,
+       A.CS302_PMT PMT,
+       A.CS302_PMBT PMBT,
+       VALUE(A.CS302_PMT,0) + VALUE(A.CS302_PMBT,0) AS PMTT,
+       A.CS302_HMT HMT,
+       A.CS302_DMT DMT,
+       A.CS302_FMG FMG,
+       A.CS302_POG POG,
+       A.CS302_HGB HGB,
+       A.CS302_DGB DGB,
+       A.CS302_GBN GBN,
+       A.CS302_HWR HWR,
+       A.CS302_DND DND,
+       D.CS301_TEM VKGRP,
+       E.BSU_GB BSUGB,
+       E.ABR_NM ABR_NM, 
+       'Y' KND,
+       --CASE WHEN INT(B.ZSPEC3) > 0 THEN INT(B.ZSPEC3) ELSE 60 END ZSPEC3,
+	   CASE WHEN CAST(COALESCE( NULLIF( TRIM( ZSPEC3 ||'' ) , '' ) , '0') AS INTEGER) > 0 THEN CAST(COALESCE( NULLIF( TRIM( ZSPEC3 ||'' ) , '' ) , '0') AS INTEGER) ELSE 60 END ZSPEC3, -- 2018.11.28 값이 Null일시 캐스트 되지 않는 에러 수정. J.H Han       
+       CASE WHEN INT(B.ZSPEC7) > 0 THEN INT(B.ZSPEC7) ELSE 15 END ZSPEC7,
+       B.ZSPEC12 ZSPEC12,
+       CASE WHEN F.BLD > '' THEN F.BLD ELSE '13' END BLD,
+       CASE 
+            WHEN DECODE(LENGTH(TRIM(F.FDT)),8,F.FDT,'99991231') = '99991231' THEN '20'
+            WHEN (ROUND(SAPHEE.GET_DAYS(DECODE(LENGTH(TRIM(F.FDT)),8,F.FDT,'99991231'),HEX(CURRENT DATE))/365,0) + 1) > 0 
+             AND (ROUND(SAPHEE.GET_DAYS(DECODE(LENGTH(TRIM(F.FDT)),8,F.FDT,'99991231'),HEX(CURRENT DATE))/365,0) + 1) <= 20 THEN SAPHEE.FILLINZERO((ROUND(SAPHEE.GET_DAYS(DECODE(LENGTH(TRIM(F.FDT)),8,F.FDT,'99991231'),HEX(CURRENT DATE))/365,0) + 1),2)
+            ELSE '20'
+       END FDT,
+       CASE WHEN D.CS301_PRD = 'A' THEN '01' WHEN D.CS301_PRD = 'B' THEN '02' WHEN D.CS301_PRD = 'C' THEN '03' ELSE 'A' END HEP,
+       '60' UMS,
+       A.CS302_FMT + VALUE(A.CS302_FMBT,0) + A.CS302_HMT + A.CS302_DMT AMT,
+       F.ABG ABG,
+       '01' FMS,
+       (
+        SELECT
+               VALUE(MAX(CS126_FHG),'N')
+          FROM
+               SAPHEE.ZCST126
+         WHERE
+               MANDT = #G_MANDT#
+           AND CS126_DDT = ''
+           AND CS126_PST = 'A6'
+           AND CS126_PJT = A.CS302_PJT
+           AND CS126_HNO = A.CS302_HNO
+           AND CS126_FHG = 'Y'
+       ) FHG,
+       A.CS302_HGB HYN,
+       (
+        SELECT 
+               VALUE(MAX(VALUE),'') 
+          FROM 
+               SAPHEE.ZSDT0005
+         WHERE 
+               MANDT = #G_MANDT#
+           AND HOGI = A.CS302_PJT || A.CS302_HNO 
+           AND CHARACTERISTIC = 'EL_ACD2'
+       ) ACD,
+       B.ZBEPJEO WDT,
+       B.ZBOSUIN ISD,
+       A.CS302_SEG AS SEG,
+       A.CS302_FAT AS F10,
+       A.CS302_FRT AS FRAT,
+       A.CS302_PAT AS P10,
+       A.CS302_PRT AS PRAT,
+       '' AS DAT, -- 표준단가 산출 시 연령계산 기준일자 DATASET
+       CASE WHEN A.CS302_HFR = 'Y' THEN '1' ELSE '0' END  AS HFR,
+       DECODE(D.CS301_BDGBN,'X','1','') AS BDGBN,
+       (SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END FROM SAPHEE.ZPPT004 WHERE MANDT = '183' AND WOKNUM = A.CS302_PJT||A.CS302_HNO AND MATNR = A.CS302_PJT||A.CS302_HNO AND IDNRK IN ('291100299','291100297')) MATNR,
+       A.CS302_ACND ACND, -- 공기청정기 종류
+       A.CS302_ACMT ACMT -- 공기청정기 공급가액
+  FROM
+       SAPHEE.ZCST302 A,
+       SAPHEE.ZMASTER02 B,
+       SAPHEE.ZMASTER01 C,
+       SAPHEE.ZCST301 D,
+       SAPHEE.ZWBT010 E,
+       SAPHEE.ZCST111 F
+ WHERE
+       A.MANDT = #G_MANDT#
+   AND A.MANDT = B.MANDT
+   AND A.CS302_PJT = B.POSID
+   AND A.CS302_HNO = SUBSTR(B.POSID_1,7,3)
+   AND A.MANDT = C.MANDT
+   AND A.CS302_PJT = C.POSID
+   AND A.MANDT = B.MANDT
+   AND A.CS302_TEM = D.CS301_TEM
+   AND A.CS302_RDT = D.CS301_RDT
+   AND A.CS302_SEQ = D.CS301_SEQ
+   AND A.CS302_SIR = D.CS301_SIR
+   AND D.MANDT = E.MANDT
+   AND D.CS301_BSU = E.LGORT
+   AND E.LGORT > ''
+   AND A.MANDT = F.MANDT
+   AND A.CS302_PJT = F.PJT
+   AND A.CS302_HNO = F.HNO
+   AND D.CS301_DOC = #DOC#
+   AND D.CS301_DEL = 'N'
+ORDER BY
+       A.CS302_PJT,
+       A.CS302_HNO
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list2">
+	</output>
+</query>

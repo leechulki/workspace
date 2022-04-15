@@ -1,0 +1,635 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.smp.dao.Smp0070D">
+  
+	<resultMap id="SmpResultMap" type="hdel.sd.smp.domain.Smp0070VO"></resultMap>
+
+	<!-- 조회 -->	
+	<select id="Select" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" resultMap="SmpResultMap">
+		<![CDATA[
+		SELECT 
+			ZSDT1035.MANDT								-- 클라이언트
+			,ZSDT1035.ZMPINC							-- 이동계획차수			
+			,MIN(ZSDT1035.ZPYM) 	AS ZPYM 			-- 편성년월
+			,MIN(ZSDT1035.ZPMONTHS) AS ZPMONTHS			-- 편성개월수
+			,MIN(ZSDT1035.ZOPFLG) 	AS ZOPFLG 			-- 오픈여부
+			,MIN(ZSDT1035.ZCLFLG) 	AS ZCLFLG  			-- 마감여부
+			,MIN(ZSDT1035.ZRMK) 	AS ZRMK 			-- 비고
+			,MIN(ZSDT1035.CDATE) 	AS CDATE			-- 입력일
+			,MIN(ZSDT1035.CTIME) 	AS CTIME			-- 입력시간
+			,MIN(ZSDT1035.CUSER)	AS CUSER			-- 입력자
+			,MIN(ZSDT1035.UDATE)	AS UDATE			-- 변경일
+			,MIN(ZSDT1035.UTIME) 	AS UTIME			-- 변경시간
+			,MIN(ZSDT1035.UUSER) 	AS UUSER			-- 변경자
+			,MIN(ZSDT1035.DDATE) 	AS DDATE			-- 삭제일
+			,MIN(ZSDT1035.DTIME) 	AS DTIME			-- 삭제시간
+			,MIN(ZSDT1035.DUSER) 	AS DUSER			-- 삭제자
+	        ,CASE WHEN MIN(ZSDT1035.ZCLFLG) = 'X' AND 
+	        		   MIN(ZSDT1035.ZMPINC) = (SELECT max(zmpinc)
+											     FROM SAPHEE.ZSDT1035
+											    WHERE 1=1
+											      AND mandt = #{MANDT} 
+											      AND zclflg = 'X' ) 
+					   THEN '2' 
+	     			   WHEN MIN(ZSDT1035.ZCLFLG) = '' THEN '1' 
+	        END AS BTN_EVENT
+		  FROM SAPHEE.ZSDT1035 ZSDT1035					-- 이동계획(오픈마감)
+	     WHERE 1=1
+	       AND ZSDT1035.MANDT = #{MANDT} 				-- 클라이언트
+	       AND ZSDT1035.ZMPINC LIKE #{PLAN_YEAR}||'%'	-- 계획년도
+  		 GROUP BY ZSDT1035.MANDT, ZSDT1035.ZMPINC
+	     ORDER BY ZSDT1035.MANDT, ZSDT1035.ZMPINC
+		 WITH UR	
+	    ]]>
+	    
+	</select>
+	
+	<!-- COPY - 수주 -->
+	<insert id="InsertCopyOrder" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			INSERT INTO SAPHEE.ZSDT1036
+			 ( 
+			 	MANDT 											-- 클라이언트
+			    ,ZMPNNR											-- 이동계획번호
+			    ,ZMPINC											-- 이동계획차수
+			    ,ZPYM											-- 계획년월
+			    ,SPART											-- 제품군
+			    ,AUART											-- 판매문서유형
+			    ,MATNR											-- 자재번호
+			    ,VKBUR											-- 사업장
+			    ,VKGRP											-- 영업그룹
+			    ,ZKUNNR											-- 영업사원
+			    ,GTYPE											-- 기종
+			    ,TYPE1											-- 타입1
+			    ,TYPE2											-- 타입2
+			    ,TYPE3											-- 타입3
+			    ,ZNUMBER										-- 대수
+			    ,KUNNR											-- 고객번호
+			    ,GSNAM											-- 공사명
+				,LAND1											-- 국가
+			    ,REGION											-- 설치지역
+			    ,ZDELI											-- 단납기구분
+			    ,SHANGH											-- 국내상해구분
+			    ,ZINTER											-- 중계무역구분
+			    ,SOFOCA											-- 수주예상액
+			    ,ZFORE											-- 예상시행율
+			    ,WAERK											-- 통화
+			    ,DELDAT											-- 납기예정일
+			    ,ZRMK											-- 비고
+			    ,SOABLE											-- 수주가능성
+			    ,SORLT											-- 수주결과
+			    ,SOPRICE										-- 수주금액
+			    ,SHANG											-- 시행율
+			    ,VBELN											-- 판매문서
+				,ZBPNNR 										-- 사업계획번호
+				,SONNRB											-- 이전수주계획번호
+			    ,CDATE											-- 입력일
+			    ,CTIME											-- 입력시간
+			    ,CUSER											-- 입력자
+			    ,UDATE											-- 변경일
+			    ,UTIME											-- 변경시간
+			    ,UUSER											-- 변경자
+			    ,DDATE											-- 삭제일
+			    ,DTIME											-- 삭제시간
+			    ,DUSER											-- 삭제자
+			    ,ZAGNT											-- 대리점
+			    )
+			SELECT 
+				ZSDT1001.MANDT 									-- 클라이언트
+				,ZSDT1001.SONNR 								-- 수주계획번호
+				,CAST(#{ZMPINC} AS VARCHAR(30)) AS ZMPINC 		-- 이동계획차수		
+				,ZSDT1001.ZPYM 									-- 계획년월
+				,ZSDT1001.SPART 								-- 제품군
+				,ZSDT1001.AUART 								-- 판매문서유형
+				,ZSDT1001.MATNR 								-- 자재번호
+				,ZSDT1001.VKBUR 								-- 사업장
+				,ZSDT1001.VKGRP 								-- 영업그룹
+				,ZSDT1001.ZKUNNR 								-- 영업사원
+				,ZSDT1001.GTYPE 								-- 기종
+				,ZSDT1001.TYPE1 								-- 타입1
+				,ZSDT1001.TYPE2 								-- 타입2
+				,ZSDT1001.TYPE3 								-- 타입3
+				,ZSDT1001.ZNUMBER 								-- 대수
+				,ZSDT1001.KUNNR 								-- 고객번호
+				,ZSDT1001.GSNAM 								-- 공사명
+				,ZSDT1001.LAND1									-- 국가
+				,ZSDT1001.REGION 								-- 설치지역
+				,ZSDT1001.ZDELI 								-- 단납기구분
+				,ZSDT1001.SHANGH 								-- 국내/상해구분
+				,ZSDT1001.ZINTER 								-- 중계무역구분
+				,ZSDT1001.SOFOCA 								-- 수주예상액
+				,ZSDT1001.ZFORE 								-- 예상시행율
+				,ZSDT1001.WAERK 								-- 통화
+				,ZSDT1001.DELDAT 								-- 납기예정일
+				,ZSDT1001.ZRMK 									-- 비고
+				,ZSDT1001.SOABLE 								-- 수주가능성
+				,ZSDT1001.SORLT 								-- 수주결과
+				,ZSDT1001.SOPRICE 								-- 수주금액
+				,ZSDT1001.SHANG 								-- 시행율
+				,ZSDT1001.VBELN 								-- 판매문서 
+				,ZSDT1001.ZBPNNR 								-- 사업계획번호
+				,ZSDT1001.SONNRB								-- 이전수주계획번호
+				,HEX(CURRENT DATE)					  			-- 입력일
+				,HEX(CURRENT TIME)								-- 입력시간
+				,CAST (#{USER_ID} AS VARCHAR(10)) AS CUSER		-- 입력자
+				,HEX(CURRENT DATE)								-- 변경일
+				,HEX(CURRENT TIME)								-- 변경시간
+				,CAST (#{USER_ID} AS VARCHAR(10)) AS UUSER		-- 변경자
+				,''												-- 삭제일
+				,''												-- 삭제시간
+				,''												-- 삭제자
+				,ZSDT1001.ZAGNT									-- 대리점
+			  FROM SAPHEE.ZSDT1001 ZSDT1001						-- 수주계획
+			 WHERE ZSDT1001.MANDT = #{MANDT}   					-- 클라이언트
+			   AND ZSDT1001.ZPYM BETWEEN #{ZPYM} AND #{ZPYM_TO}	-- 편성년월
+			   AND ZSDT1001.ZMPFLG = 'X' 						-- 이동계획반영여부
+	    ]]>
+	</insert>
+	<!-- COPY - 수주(보수) -->
+	<insert id="InsertCopyOrderRepair" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			INSERT INTO SAPHEE.ZSDT1041
+			 ( 
+			 	MANDT 											-- 클라이언트
+			    ,ZMPNNR											-- 이동계획번호
+			    ,ZMPINC											-- 이동계획차수
+			    ,ZPYM											-- 계획년월
+			    ,SPART											-- 제품군
+			    ,AUART											-- 판매문서유형
+			    ,MATNR											-- 자재번호
+			    ,VKBUR											-- 사업장
+			    ,VKGRP											-- 영업그룹
+			    ,ZKUNNR											-- 영업사원
+			    ,GTYPE											-- 기종
+			    ,ZNUMBER										-- 대수
+			    ,KUNNR											-- 고객번호
+			    ,GSNAM											-- 공사명
+			    ,REGION											-- 설치지역
+			    ,ZDELI											-- 단납기구분
+			    ,SOFOCA											-- 수주예상액
+			    ,ZFORE											-- 예상시행율
+			    ,WAERK											-- 통화
+       			,PSPIDSV 
+       			,ZHOGISV 
+			    ,ZRMK											-- 비고
+			    ,SOABLE											-- 수주가능성
+			    ,SORLT											-- 수주결과
+			    ,SOPRICE										-- 수주금액
+			    ,SHANG											-- 시행율
+       			,ZMPFLG 
+       			,ZBPNNR 										-- 사업계획번호
+       			,SONNR 
+			    ,VBELN											-- 판매문서
+       			,POSID 
+				,SONNRB											-- 이전수주계획번호
+			    ,CDATE											-- 입력일
+			    ,CTIME											-- 입력시간
+			    ,CUSER											-- 입력자
+			    ,UDATE											-- 변경일
+			    ,UTIME											-- 변경시간
+			    ,UUSER											-- 변경자
+			    ,DDATE											-- 삭제일
+			    ,DTIME											-- 삭제시간
+			    ,DUSER											-- 삭제자
+      			,ZSVCGBN 
+			    ,ZAGNT											-- 협력사
+			    )
+			SELECT 
+				ZSDT1005.MANDT 									-- 클라이언트
+				,ZSDT1005.SONNR 								-- 수주계획번호
+				,CAST(#{ZMPINC} AS VARCHAR(30)) AS ZMPINC 		-- 이동계획차수		
+				,ZSDT1005.ZPYM 									-- 계획년월
+				,ZSDT1005.SPART 								-- 제품군
+				,ZSDT1005.AUART 								-- 판매문서유형
+				,ZSDT1005.MATNR 								-- 자재번호
+				,ZSDT1005.VKBUR 								-- 사업장
+				,ZSDT1005.VKGRP 								-- 영업그룹
+				,ZSDT1005.ZKUNNR 								-- 영업사원
+				,ZSDT1005.GTYPE 								-- 기종
+				,ZSDT1005.ZNUMBER 								-- 대수
+				,ZSDT1005.KUNNR 								-- 고객번호
+				,ZSDT1005.GSNAM 								-- 공사명
+				,ZSDT1005.REGION 								-- 설치지역
+				,ZSDT1005.ZDELI 								-- 단납기구분
+				,ZSDT1005.SOFOCA 								-- 수주예상액
+				,ZSDT1005.ZFORE 								-- 예상시행율
+				,ZSDT1005.WAERK 								-- 통화
+       			,ZSDT1005.PSPIDSV 
+       			,ZSDT1005.ZHOGISV 
+				,ZSDT1005.ZRMK 									-- 비고
+				,ZSDT1005.SOABLE 								-- 수주가능성
+				,ZSDT1005.SORLT 								-- 수주결과
+				,ZSDT1005.SOPRICE 								-- 수주금액
+				,ZSDT1005.SHANG 								-- 시행율
+       			,ZSDT1005.ZMPFLG 
+      			,ZSDT1005.ZBPNNR 
+       			,ZSDT1005.SONNR 
+				,'' AS VBELN 									-- 판매문서 
+       			,'' AS POSID 
+				,SONNRB											-- 이전수주계획번호
+				,HEX(CURRENT DATE)					  			-- 입력일
+				,HEX(CURRENT TIME)								-- 입력시간
+				,CAST (#{USER_ID} AS VARCHAR(10)) AS CUSER		-- 입력자
+				,HEX(CURRENT DATE)								-- 변경일
+				,HEX(CURRENT TIME)								-- 변경시간
+				,CAST (#{USER_ID} AS VARCHAR(10)) AS UUSER		-- 변경자
+				,''												-- 삭제일
+				,''												-- 삭제시간
+				,''												-- 삭제자
+       			,ZSDT1005.ZSVCGBN 
+				,ZSDT1005.ZAGNT									-- 협력사
+			  FROM SAPHEE.ZSDT1005 ZSDT1005						-- 수주계획_보수
+			 WHERE ZSDT1005.MANDT = #{MANDT}   					-- 클라이언트
+			   AND ZSDT1005.ZPYM BETWEEN #{ZPYM} AND #{ZPYM_TO}	-- 편성년월
+			   AND ZSDT1005.ZMPFLG = 'X' 						-- 이동계획반영여부
+	    ]]>
+	</insert>
+	<!-- COPY - 매출 -->
+	<insert id="InsertCopySales" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			INSERT INTO SAPHEE.ZSDT1037								-- 이동계획(매출)
+			(
+					MANDT 											-- 클라이언트
+			       ,ZMPINC 											-- 이동계획차수
+			       ,ZMPNNR 											-- 이동계획번호
+			       ,ZSAYM 											-- 매출년월
+			       ,NETWR_SA 										-- 매출예상액
+			       ,ZRMK 											-- 비고
+			       ,CDATE 											-- 입력일
+			       ,CTIME 											-- 입력시간
+			       ,CUSER 											-- 입력자
+			       ,UDATE 											-- 변경일
+			       ,UTIME 											-- 변경시간
+			       ,UUSER 											-- 변경자
+			       ,WAERK 											-- 통화
+			)
+			SELECT ZSDT1002.MANDT 									-- 클라이언트
+					,CAST(#{ZMPINC} AS VARCHAR(30)) AS ZMPINC 		-- 이동계획차수
+					,ZSDT1002.SONNR 								-- 수주계획번호
+					,ZSDT1002.ZSAYM									-- 매출년월
+					,ZSDT1002.NETWR_SA								-- 매출예상액
+					,ZSDT1002.ZRMK									-- 비고
+					,HEX(CURRENT DATE)					  			-- 입력일
+					,HEX(CURRENT TIME)								-- 입력시간
+					,CAST (#{USER_ID} AS VARCHAR(10)) AS CUSER		-- 입력자
+					,HEX(CURRENT DATE)								-- 변경일
+					,HEX(CURRENT TIME)								-- 변경시간
+					,CAST (#{USER_ID} AS VARCHAR(10)) AS UUSER		-- 변경자
+			        ,ZSDT1002.WAERK 								-- 통화
+			  FROM SAPHEE.ZSDT1002 ZSDT1002 						-- 수주계획(매출추정)
+			 WHERE ZSDT1002.MANDT = #{MANDT} 						-- 클라이언트
+			   AND ZSDT1002.ZSAYM BETWEEN #{ZPYM} AND #{ZPYM_TO} 	-- 매출년월
+			   AND ZSDT1002.ZMPFLG = 'X' 							-- 이동계획반영여부
+	    ]]>
+	</insert>
+	<!-- COPY - 매출(보수) -->
+	<insert id="InsertCopySalesRepair" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			INSERT INTO SAPHEE.ZSDT1042								-- 이동계획(매출_보수)
+			(
+					MANDT 											-- 클라이언트
+			       ,ZMPINC 											-- 이동계획차수
+			       ,ZMPNNR	 										-- 
+			       ,ZSAYM 											-- 매출년월
+			       ,NETWR_SA 										-- 매출예상액
+			       ,ZRMK 											-- 비고
+			       ,CDATE 											-- 입력일
+			       ,CTIME 											-- 입력시간
+			       ,CUSER 											-- 입력자
+			       ,UDATE 											-- 변경일
+			       ,UTIME 											-- 변경시간
+			       ,UUSER 											-- 변경자
+			       ,WAERK 											-- 통화
+			)
+			SELECT ZSDT1006.MANDT 									-- 클라이언트
+					,CAST(#{ZMPINC} AS VARCHAR(30)) AS ZMPINC 		-- 이동계획차수
+					,ZSDT1006.SONNR 								-- 
+					,ZSDT1006.ZSAYM									-- 매출년월
+					,ZSDT1006.NETWR_SA								-- 매출예상액
+					,ZSDT1006.ZRMK									-- 비고
+					,HEX(CURRENT DATE)					  			-- 입력일
+					,HEX(CURRENT TIME)								-- 입력시간
+					,CAST (#{USER_ID} AS VARCHAR(10)) AS CUSER		-- 입력자
+					,HEX(CURRENT DATE)								-- 변경일
+					,HEX(CURRENT TIME)								-- 변경시간
+					,CAST (#{USER_ID} AS VARCHAR(10)) AS UUSER		-- 변경자
+			        ,ZSDT1006.WAERK 								-- 통화
+			  FROM SAPHEE.ZSDT1006 ZSDT1006 						-- 수주계획(매출추정)_보수
+			 WHERE ZSDT1006.MANDT = #{MANDT} 						-- 클라이언트
+			   AND ZSDT1006.ZSAYM BETWEEN #{ZPYM} AND #{ZPYM_TO} 	-- 매출년월
+			   AND ZSDT1006.ZMPFLG = 'X' 							-- 이동계획반영여부
+	    ]]>
+	</insert>
+	<!-- COPY - 청구 -->
+	<insert id="InsertCopyCharge" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			INSERT INTO SAPHEE.ZSDT1038								-- 이동계획(청구)
+			 (
+			 		MANDT											-- 클라이언트
+			      ,ZMPINC 											-- 이동계획차수
+			      ,ZMPNNR 											-- 이동계획번호
+			      ,ZRQYM 											-- 청구년월
+			      ,NETWR_RQ 										-- 청구예상액
+			      ,ZRMK 											-- 비고
+			      ,CDATE 											-- 입력일
+			      ,CTIME 											-- 입력시간
+			      ,CUSER 											-- 입력자
+			      ,UDATE 											-- 변경일
+			      ,UTIME 											-- 변경시간
+			      ,UUSER 											-- 변경자
+			      ,WAERK 											-- 통화
+			 )
+			 SELECT ZSDT1003.MANDT									-- 클라이언트 
+				    ,CAST(#{ZMPINC} AS VARCHAR(30)) AS ZMPINC 		-- 이동계획차수
+			        ,ZSDT1003.SONNR 								-- 수주계획번호
+			        ,ZSDT1003.ZRQYM 								-- 청구년월
+			        ,ZSDT1003.NETWR_RQ 								-- 청구예상액
+			        ,ZSDT1003.ZRMK 									-- 비고
+					,HEX(CURRENT DATE)					  			-- 입력일
+					,HEX(CURRENT TIME)								-- 입력시간
+					,CAST (#{USER_ID} AS VARCHAR(10)) AS CUSER		-- 입력자
+					,HEX(CURRENT DATE)								-- 변경일
+					,HEX(CURRENT TIME)								-- 변경시간
+					,CAST (#{USER_ID} AS VARCHAR(10)) AS UUSER		-- 변경자
+			        ,ZSDT1003.WAERK 								-- 통화
+			 FROM SAPHEE.ZSDT1003 ZSDT1003 							-- 수주계획(청구추정)
+			WHERE ZSDT1003.MANDT = #{MANDT} 						-- 클라이언트
+			  AND ZSDT1003.ZRQYM BETWEEN #{ZPYM} AND #{ZPYM_TO} 	-- 청구년월
+			  AND ZSDT1003.ZMPFLG = 'X' 							-- 이동계획반영여부
+	    ]]>
+	</insert>
+	<!-- COPY - 청구(보수) -->
+	<insert id="InsertCopyChargeRepair" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			INSERT INTO SAPHEE.ZSDT1043								-- 이동계획(청구_보수)
+			 (
+			 		MANDT											-- 클라이언트
+			      ,ZMPINC 											-- 이동계획차수
+			      ,ZMPNNR 											-- 
+			      ,ZRQYM 											-- 청구년월
+			      ,NETWR_RQ 										-- 청구예상액
+			      ,ZRMK 											-- 비고
+			      ,CDATE 											-- 입력일
+			      ,CTIME 											-- 입력시간
+			      ,CUSER 											-- 입력자
+			      ,UDATE 											-- 변경일
+			      ,UTIME 											-- 변경시간
+			      ,UUSER 											-- 변경자
+			      ,WAERK 											-- 통화
+			 )
+			 SELECT ZSDT1007.MANDT									-- 클라이언트 
+				    ,CAST(#{ZMPINC} AS VARCHAR(30)) AS ZMPINC 		-- 이동계획차수
+			        ,ZSDT1007.SONNR 								-- 
+			        ,ZSDT1007.ZRQYM 								-- 청구년월
+			        ,ZSDT1007.NETWR_RQ 								-- 청구예상액
+			        ,ZSDT1007.ZRMK 									-- 비고
+					,HEX(CURRENT DATE)					  			-- 입력일
+					,HEX(CURRENT TIME)								-- 입력시간
+					,CAST (#{USER_ID} AS VARCHAR(10)) AS CUSER		-- 입력자
+					,HEX(CURRENT DATE)								-- 변경일
+					,HEX(CURRENT TIME)								-- 변경시간
+					,CAST (#{USER_ID} AS VARCHAR(10)) AS UUSER		-- 변경자
+			        ,ZSDT1007.WAERK 								-- 통화
+			 FROM SAPHEE.ZSDT1007 ZSDT1007 							-- 수주계획(청구추정)_보수
+			WHERE ZSDT1007.MANDT = #{MANDT} 						-- 클라이언트
+			  AND ZSDT1007.ZRQYM BETWEEN #{ZPYM} AND #{ZPYM_TO} 	-- 청구년월
+			  AND ZSDT1007.ZMPFLG = 'X' 							-- 이동계획반영여부
+	    ]]>
+	</insert>
+	<!-- COPY - 수금 -->
+	<insert id="InsertCopyCollection" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			INSERT INTO SAPHEE.ZSDT1039 							--이동계획(수금)
+			(
+					MANDT											-- 클라이언트 
+			       ,ZMPINC 											-- 이동계획차수
+			       ,ZMPNNR 											-- 이동계획번호
+			       ,BYSYM 											-- 수금년월
+			       ,COLBI 											-- 수금예상액
+			       ,ZRMK 											-- 비고
+			       ,CDATE 											-- 입력일
+			       ,CTIME 											-- 입력시간
+			       ,CUSER 											-- 입력자
+			       ,UDATE 											-- 변경일
+			       ,UTIME 											-- 변경시간
+			       ,UUSER 											-- 변경자
+			       ,WAERK			 								-- 통화
+			)
+			SELECT ZSDT1004.MANDT									-- 클라이언트
+				    ,CAST(#{ZMPINC} AS VARCHAR(30)) AS ZMPINC 		-- 이동계획차수
+			     	,ZSDT1004.SONNR 								-- 수주계획번호
+			     	,ZSDT1004.BYSYM 								-- 수금년월
+			     	,ZSDT1004.COLBI 								-- 수금예상액
+			     	,ZSDT1004.ZRMK 									-- 비고
+					,HEX(CURRENT DATE)					  			-- 입력일
+					,HEX(CURRENT TIME)								-- 입력시간
+					,CAST (#{USER_ID} AS VARCHAR(10)) AS CUSER		-- 입력자
+					,HEX(CURRENT DATE)								-- 변경일
+					,HEX(CURRENT TIME)								-- 변경시간
+					,CAST (#{USER_ID} AS VARCHAR(10)) AS UUSER		-- 변경자
+			        ,ZSDT1004.WAERK 								-- 통화
+			FROM SAPHEE.ZSDT1004 ZSDT1004 							-- 수주계획(수금추정)
+			WHERE ZSDT1004.MANDT = #{MANDT} 						-- 클라이언트
+			  AND ZSDT1004.BYSYM BETWEEN #{ZPYM} AND #{ZPYM_TO} 	-- 청구년월
+			  AND ZSDT1004.ZMPFLG = 'X' 							-- 이동계획반영여부
+	    ]]>
+	</insert>
+	<!-- COPY - 수금(보수) -->
+	<insert id="InsertCopyCollectionRepair" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			INSERT INTO SAPHEE.ZSDT1044 							--이동계획(수금)_보수
+			(
+					MANDT											-- 클라이언트 
+			       ,ZMPINC 											-- 이동계획차수
+			       ,ZMPNNR	 										-- 
+			       ,BYSYM 											-- 수금년월
+			       ,COLBI 											-- 수금예상액
+			       ,ZRMK 											-- 비고
+			       ,CDATE 											-- 입력일
+			       ,CTIME 											-- 입력시간
+			       ,CUSER 											-- 입력자
+			       ,UDATE 											-- 변경일
+			       ,UTIME 											-- 변경시간
+			       ,UUSER 											-- 변경자
+			       ,WAERK			 								-- 통화
+			)
+			SELECT ZSDT1008.MANDT									-- 클라이언트
+				    ,CAST(#{ZMPINC} AS VARCHAR(30)) AS ZMPINC 		-- 이동계획차수
+			     	,ZSDT1008.SONNR 								-- 
+			     	,ZSDT1008.BYSYM 								-- 수금년월
+			     	,ZSDT1008.COLBI 								-- 수금예상액
+			     	,ZSDT1008.ZRMK 									-- 비고
+					,HEX(CURRENT DATE)					  			-- 입력일
+					,HEX(CURRENT TIME)								-- 입력시간
+					,CAST (#{USER_ID} AS VARCHAR(10)) AS CUSER		-- 입력자
+					,HEX(CURRENT DATE)								-- 변경일
+					,HEX(CURRENT TIME)								-- 변경시간
+					,CAST (#{USER_ID} AS VARCHAR(10)) AS UUSER		-- 변경자
+			        ,ZSDT1008.WAERK 								-- 통화
+			FROM SAPHEE.ZSDT1008 ZSDT1008 							-- 수주계획(수금추정)_보수
+			WHERE ZSDT1008.MANDT = #{MANDT} 						-- 클라이언트
+			  AND ZSDT1008.BYSYM BETWEEN #{ZPYM} AND #{ZPYM_TO} 	-- 청구년월
+			  AND ZSDT1008.ZMPFLG = 'X' 							-- 이동계획반영여부
+	    ]]>
+	</insert>
+	
+	<!-- cancel - 수주 -->
+	<delete id="DeleteCancelOrder" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			 DELETE FROM SAPHEE.ZSDT1036 ZSDT1036  	-- 이동계획(수주)
+			  WHERE ZSDT1036.MANDT 	= #{MANDT}   	-- 클라이언트
+			    AND ZSDT1036.ZMPINC = #{ZMPINC} 	-- 이동계획차수
+	    ]]>
+	</delete>
+	<!-- cancel - 수주(보수) -->
+	<delete id="DeleteCancelOrderRepair" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			 DELETE FROM SAPHEE.ZSDT1041 ZSDT1041  	-- 이동계획(수주_보수)
+			  WHERE ZSDT1041.MANDT 	= #{MANDT}   	-- 클라이언트
+			    AND ZSDT1041.ZMPINC = #{ZMPINC} 	-- 이동계획차수
+	    ]]>
+	</delete>
+	<!-- cancel - 매출 -->
+	<delete id="DeleteCancelSales" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			DELETE FROM SAPHEE.ZSDT1037 ZSDT1037  	-- 이동계획(매출)
+			 WHERE ZSDT1037.MANDT 	= #{MANDT}   	-- 클라이언트
+			   AND ZSDT1037.ZMPINC 	= #{ZMPINC} 	-- 이동계획차수
+	    ]]>
+	</delete>
+	<!-- cancel - 매출(보수) -->
+	<delete id="DeleteCancelSalesRepair" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			DELETE FROM SAPHEE.ZSDT1042 ZSDT1042  	-- 이동계획(매출_보수)
+			 WHERE ZSDT1042.MANDT 	= #{MANDT}   	-- 클라이언트
+			   AND ZSDT1042.ZMPINC 	= #{ZMPINC} 	-- 이동계획차수
+	    ]]>
+	</delete>
+	<!-- cancel - 청구 -->
+	<delete id="DeleteCancelCharge" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			DELETE FROM SAPHEE.ZSDT1038 ZSDT1038  	-- 이동계획(청구)
+			 WHERE ZSDT1038.MANDT 	= #{MANDT}   	-- 클라이언트
+			   AND ZSDT1038.ZMPINC 	= #{ZMPINC} 	-- 이동계획차수
+	    ]]>
+	</delete>
+	<!-- cancel - 청구(보수) -->
+	<delete id="DeleteCancelChargeRepair" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			DELETE FROM SAPHEE.ZSDT1043 ZSDT1043  	-- 이동계획(청구_보수)
+			 WHERE ZSDT1043.MANDT 	= #{MANDT}   	-- 클라이언트
+			   AND ZSDT1043.ZMPINC 	= #{ZMPINC} 	-- 이동계획차수
+	    ]]>
+	</delete>
+	<!-- cancel - 수금 -->
+	<delete id="DeleteCancelCollection" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			DELETE FROM SAPHEE.ZSDT1039 ZSDT1039  	-- 이동계획(수금)
+			 WHERE ZSDT1039.MANDT 	= #{MANDT}   	-- 클라이언트
+			   AND ZSDT1039.ZMPINC 	= #{ZMPINC} 	-- 이동계획차수
+	    ]]>
+	</delete>
+	<!-- cancel - 수금(보수) -->
+	<delete id="DeleteCancelCollectionRepair" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			DELETE FROM SAPHEE.ZSDT1044 ZSDT1044  	-- 이동계획(수금_보수)
+			 WHERE ZSDT1044.MANDT 	= #{MANDT}   	-- 클라이언트
+			   AND ZSDT1044.ZMPINC 	= #{ZMPINC} 	-- 이동계획차수
+	    ]]>
+	</delete>
+	
+	<!-- 저장
+	* using 구문 포맷맞추기
+	-->
+	<insert id="MergeCopyNext" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			MERGE INTO SAPHEE.ZSDT1035 AS T1							-- 이동계획 오픈&마감
+			USING ( SELECT CAST(#{MANDT} AS VARCHAR(9)) 	AS MANDT	-- 클라이언트
+						  ,CAST(#{ZMPINC} AS VARCHAR(24)) 	AS ZMPINC	-- 이동계획차수
+				 	FROM SYSIBM.SYSDUMMY1
+			 		) AS T2 
+			ON 
+				T1.MANDT 		= #{MANDT} 		-- 클라이언트
+				AND T1.ZMPINC 	= #{ZMPINC}		-- 이동계획차수
+				AND T1.MANDT 	= T2.MANDT
+				AND T1.ZMPINC 	= T2.ZMPINC
+			WHEN MATCHED THEN     
+			UPDATE SET 
+				  T1.ZPYM 		= #{ZPYM}		-- 편성년월
+				  ,T1.ZPMONTHS 	= #{ZPMONTHS} 	-- 편성개월수
+				  ,T1.ZOPFLG 	= #{ZOPFLG}		-- 오픈여부
+				  ,T1.ZCLFLG 	= #{ZCLFLG}		-- 마감여부
+				  ,T1.ZRMK 		= #{ZRMK}		-- 비고
+				  ,T1.UDATE 	= HEX(CURRENT DATE)		-- 변경일
+				  ,T1.UTIME		= HEX(CURRENT TIME)		-- 변경시간
+				  ,T1.UUSER 	= #{USER_ID}	-- 변경자
+			WHEN NOT MATCHED THEN 
+			INSERT (
+					MANDT						-- 클라이언트
+				    , ZMPINC					-- 이동계획차수
+				    , ZPYM						-- 편성년월
+				    , ZPMONTHS					-- 편성개월수
+				    , ZOPFLG					-- 오픈여부
+				    , ZCLFLG					-- 마감여부
+				    , ZRMK 						-- 비고
+				    , CDATE						-- 입력일
+				    , CTIME						-- 입력시간
+				    , CUSER						-- 입력자
+				    , UDATE						-- 변경일
+				    , UTIME						-- 변경시간
+				    , UUSER						-- 변경자
+				    )
+			VALUES (
+					#{MANDT}
+					, #{ZMPINC}
+					, #{ZPYM}
+					, #{ZPMONTHS}
+					, #{ZOPFLG}
+					, #{ZCLFLG}
+					, #{ZRMK}
+					, HEX(CURRENT DATE)
+					, HEX(CURRENT TIME)
+					, #{USER_ID}
+					, HEX(CURRENT DATE)
+					, HEX(CURRENT TIME)
+					, #{USER_ID}
+					)
+	    ]]>
+	</insert>
+	
+	<insert id="MergeCancelNextUpd" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			MERGE INTO SAPHEE.ZSDT1035 AS T1							-- 이동계획 오픈&마감
+			USING ( SELECT CAST(#{MANDT} AS VARCHAR(9)) 	AS MANDT	-- 클라이언트
+						  ,CAST(#{ZMPINC} AS VARCHAR(24)) 	AS ZMPINC	-- 이동계획차수
+				 	FROM SYSIBM.SYSDUMMY1
+			 		) AS T2 
+			ON 
+				T1.MANDT 		= #{MANDT} 		-- 클라이언트
+				AND T1.ZMPINC 	= #{ZMPINC}		-- 이동계획차수
+				AND T1.MANDT 	= T2.MANDT
+				AND T1.ZMPINC 	= T2.ZMPINC
+			WHEN MATCHED THEN     
+			UPDATE SET 
+				  T1.ZPYM 		= #{ZPYM}		-- 편성년월
+				  ,T1.ZPMONTHS 	= #{ZPMONTHS} 	-- 편성개월수
+				  ,T1.ZOPFLG 	= #{ZOPFLG}		-- 오픈여부
+				  ,T1.ZCLFLG 	= #{ZCLFLG}		-- 마감여부
+				  ,T1.ZRMK 		= #{ZRMK}		-- 비고
+				  ,T1.UDATE 	= HEX(CURRENT DATE)		-- 변경일
+				  ,T1.UTIME		= HEX(CURRENT TIME)		-- 변경시간
+				  ,T1.UUSER 	= #{USER_ID}	-- 변경자
+		
+	    ]]>
+	</insert>
+	
+	<delete id="MergeCancelNextDel" parameterType="hdel.sd.smp.domain.Smp0070ParamVO" >
+		<![CDATA[
+			 DELETE FROM SAPHEE.ZSDT1035 ZSDT1035  	-- 이동계획 오픈&마감
+			  WHERE ZSDT1035.MANDT 	= #{MANDT}   	-- 클라이언트
+			    AND ZSDT1035.ZMPINC = #{ZMPINC} 	-- 이동계획차수
+	    ]]>
+	</delete>
+</mapper>  

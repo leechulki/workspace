@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="104" Id="CommFileMgrForm" Left="8" OnLoadCompleted="fn_OnLoadCompleted" PidAttrib="7" Title="첨부파일&#32;관리" Top="8" Ver="1.0" Width="600" WorkArea="true">
+		<Image FillType="STRETCH" Height="36" Id="img_bak" ImageID="popup_title_back" TabOrder="1" Width="600"></Image>
+		<FileDialog Bottom="32" FilePath="c:\" Filter="*.jpg|*.jpeg|*.gif" Height="24" Id="fileDialog" Left="608" Right="632" TabOrder="12" Top="8" Width="24"></FileDialog>
+		<FileDialog Bottom="32" FilePath="c:\" Height="24" Id="saveDialog" Left="656" Right="680" TabOrder="10" Top="8" Type="Save" Width="24"></FileDialog>
+		<Image Height="36" Id="Image1" ImageID="form_bl_title_main" Left="8" TabOrder="2" Width="15"></Image>
+		<Static Color="user5" Font="굴림,10,Bold" Height="20" Id="st_title" Left="28" TabOrder="3" Text="File&#32;Viewer" Top="8" VAlign="Middle" Width="192"></Static>
+		<Shape BKColor="user12" Bottom="70" Height="26" Id="Shape1" Left="8" LineColor="user13" Right="592" TabOrder="4" Top="44" Type="Rectangle" Width="584"></Shape>
+		<Static Align="Right" Height="24" Id="Static4" Left="9" Style="sty_lb_form_basic" TabOrder="5" Text="File&#32;" Top="45" VAlign="Middle" Width="60"></Static>
+		<Edit Border="Flat" Height="20" Id="ed_fileName" Left="71" LeftMargin="4" Readonly="TRUE" RightMargin="4" Style="sty_ipt_form" TabOrder="6" Top="47" Width="459"></Edit>
+		<Button Cursor="HAND" Height="18" Id="btn_openFile" ImageID="btn_icon_polder" Left="532" OnClick="btn_openFile_OnClick" TabOrder="7" Text="Button0" Top="48" Width="18"></Button>
+		<Button Cursor="HAND" Height="18" Id="btn_saveFile" ImageID="btn_icon_save" Left="570" OnClick="btn_saveFile_OnClick" TabOrder="8" Text="Button0" Top="48" Visible="FALSE" Width="18"></Button>
+		<Image Cursor="HAND" Font="돋움,9,Bold" Height="20" Id="img_close" Left="575" OnClick="img_close_OnClick" Static="FALSE" TabOrder="9" Text="X" Top="8" Transparent="TRUE" Width="20"></Image>
+		<Button Cursor="HAND" Height="18" Id="btn_deleteFile" ImageID="btn_icon_post" Left="551" OnClick="btn_deleteFile_OnClick" TabOrder="10" Text="btn_delete" Top="48" Width="18"></Button>
+		<Button ButtonStyle="TRUE" Cursor="HAND" Height="20" Id="btn_confirm" ImageID="btn_user_04" Left="529" OnClick="btn_confirm_OnClick" Style="sty_btn" TabOrder="11" Text="확인" Top="73" Transparent="TRUE" Width="63"></Button>
+		<File Bottom="64" Height="24" Id="f_tmp" Left="608" Right="632" TabOrder="13" Top="40" Width="24"></File>
+		<CyHttpFile Height="24" Id="httpFile" Left="656" Top="40" Width="24"></CyHttpFile>
+	</Form>
+	<Script><![CDATA[#include "LIB::tit_comm_0001.js";
+
+/**
+*	화면 로드 
+**/
+var _F_FILE_DIR = "";	// 로컬에서 현재 선택한 파일 디렉토리 
+var _F_FILE_NAME = "";	// 로컬에서 현재 선택한 파일  명 
+var _F_FILE_SIZE = 0;	// 파일 사이즈 
+var _F_FILE_DELETE = false;
+
+/*var fa_serverDir = "MM";
+var fa_serverFileName = "";
+var fa_saveFileName = "";	// 서버에 저장할 파일명 
+var fa_saveType = "";	// 서버에 저장할 타입 
+var fa_fileType = "IMG";	// 이미지만 	
+var fa_isSave = true;	// 파일 저장 가능한지 
+var fa_isServerSave = false;	// 서버로 바로 저장할지 여부 */ 
+function fn_OnLoadCompleted(obj)
+{
+	if ( length( fa_serverFileName) > 0) {
+		if ( length( fa_localFileDir ) > 0 ) {
+			if ( f_tmp.GetLength(fa_localFileDir + "\\" + fa_serverFileName) >0 ) {
+				// 로컬에 저장된 정보 다시 표시 
+				_F_FILE_DIR =  fa_localFileDir;
+				_F_FILE_NAME = fa_serverFileName;
+	
+				ed_fileName.value = fa_localFileDir + "\\" + fa_serverFileName;
+				if( ufn_isImage( fa_serverFileName )  ) {
+					//webBrowser.pageUrl = fa_localFileDir + "\\" + fa_serverFileName;
+					//WebBrowser.run();
+				}	
+			} else {
+				gfn_showAlert("Not found :" + fa_localFileDir + "\\" + fa_serverFileName );
+				fa_localFileDir = "";
+				fa_serverFileName = "";
+			}
+		} else {
+			ed_fileName.value = fa_serverFileName;
+			if( ufn_isImage( fa_serverFileName )  ) {
+				//webBrowser.pageUrl = tit_getServerDir(fa_serverDir, fa_serverFileName);
+				//WebBrowser.run();
+			}	
+		}	
+	}
+	
+	//if ( length( fa_serverFileName) > 0 ) {
+		btn_saveFile.Visible = ( fa_isSave == "Y" );
+	//}
+	
+	var filterStr = "All(*.*)|*.*";
+	switch( fa_fileType ) {
+		case "IMG":
+			fileterStr = "Image File(*.jpg)|*.jpg|*.gif";
+			break;
+		case "EXCEL":
+			fileterStr = "Microsoft Excel File(*.xls)|*.xls|";
+			break;
+	}
+	
+	fileDialog.Filter = filterStr;
+	
+	// 보기 전용 
+	if ( fa_fileType == "VIEW") {
+		btn_saveFile.Visible = false;
+		btn_deleteFile.Visible = false;
+		btn_openFile.Visible = false;
+	}
+	else if ( fa_fileType == "DOWN") {
+		btn_saveFile.Visible = true;
+		btn_deleteFile.Visible = false;
+		btn_openFile.Visible = false;
+	}
+
+}
+/**
+*	파일 열기 
+**/
+function btn_openFile_OnClick(obj)
+{
+	fileDialog.open();
+	
+	if ( length(fileDialog.FilePath) == 0 
+		|| length( fileDialog.FileName ) == 0 ) {
+		return;
+	}
+
+	var fileSize = f_tmp.GetLength(fileDialog.FilePath + "\\" + fileDialog.FileName );
+	if ( fileSize <= 0 ) {
+	//	gfn_showAlert("can't read file : [" + fileSize 
+	//		+ " bytes]\n" + fileDialog.FilePath + "\\" + fileDialog.FileName  );
+		gfn_showAlert("CW00048");
+		return;
+	}
+	
+	if ( toNumber(fa_maxFileSize) > 0 ) {
+		if ( fileSize > toNumber(fa_maxFileSize)) {
+		//	gfn_showAlert("max load file size is [" + fa_maxFileSize + " bytes]" );	
+			gfn_showAlert("CW00047", fa_maxFileSize/10240 + "K bytes" );
+			return;
+		}
+	}
+	_F_FILE_DIR =  fileDialog.FilePath;
+	_F_FILE_NAME = fileDialog.FileName;
+	_F_FILE_SIZE = fileSize;
+	
+	ed_fileName.value = "";
+	
+	// 서버에 바로 저장 
+	if ( fa_isServerSave == "Y" ) {
+		// 서버에 저장 
+		var arr = tit_fileWrite(
+			httpFile
+			, fa_serverDir
+			, _F_FILE_DIR
+			, _F_FILE_NAME
+			, fa_saveFileName
+			, fa_saveType
+			, fa_serverFileName );  
+		// 처리 결과 확인하기 
+		if( arr[0] == "S" ) {
+			// 성공 
+			var arr = [arr[1], arr[2]];
+			close(arr);
+		} else {
+			gfn_showAlert( arr[1] );
+		}
+	} else if ( ufn_isImage(_F_FILE_NAME) ) {
+		//WebBrowser.pageUrl = _F_FILE_DIR + "\\" + _F_FILE_NAME;
+		//WebBrowser.run();
+	}
+	
+	// 파일명, 삭제 버튼 처리 
+	ed_fileName.value = _F_FILE_DIR + "\\" + _F_FILE_NAME;
+}
+/**
+*	닫기 
+**/
+function img_close_OnClick(obj,nX,nY)
+{
+	close(null);
+}
+/**
+*	파일 저장 
+**/
+function btn_saveFile_OnClick(obj)
+{
+trace("btn_saveFile_OnClick");
+trace("fa_saveFileName = " + fa_saveFileName);
+trace("btn_saveFile_OnClick");
+
+	//saveDialog.FileName = fa_serverFileName;
+	if(fa_saveFileName > '') saveDialog.FileName = fa_saveFileName;
+	else saveDialog.FileName = fa_serverFileName;
+    saveDialog.open();
+	tit_fileRead(
+		httpFile
+		, fa_serverDir
+		, fa_serverFileName
+        , saveDialog.FilePath
+        , saveDialog.FileName);
+}
+/**
+*	파일 삭제  
+**/
+function btn_deleteFile_OnClick(obj)
+{
+	if (length( ed_fileName.value ) == 0 ) {
+		return;
+	}
+	
+	_F_FILE_DIR = "";
+	_F_FILE_NAME = "";
+	_F_FILE_SIZE = 0;
+	ed_fileName.value = "";
+	
+	if ( fa_isServerSave == "Y" 
+		&& length( fa_serverFileName ) > 0 
+		&& length( fa_localFileDir ) == 0 ) {
+		if ( tit_fileDelete(fa_serverDir, fa_serverFileName, true) ) {
+			// 삭제 처리 성공 
+			_F_FILE_DELETE = true;
+			fa_serverFileName = "";
+		}
+	} else if ( length( fa_serverFileName ) > 0 ) {
+		_F_FILE_DELETE = true;
+	}
+	
+	//if ( length(WebBrowser.pageUrl) > 0 && WebBrowser.pageUrl != "about:blank" ) {
+	//	WebBrowser.pageUrl = "about:blank";
+	//	WebBrowser.run();
+	//}
+}
+/**
+*	확인 버튼 선택 
+**/
+function btn_confirm_OnClick(obj)
+{
+	if( length( _F_FILE_DIR ) > 0 || _F_FILE_DELETE ) {
+		var arr = [_F_FILE_DIR, _F_FILE_NAME, _F_FILE_SIZE];
+		close(arr);
+	} else {
+		close(null);
+	}
+}
+
+function ufn_isImage(fileNm) {
+	var s = toUpperCase(right( fileNm, 4));
+	if ( s == ".JPG" || s == ".GIF") {
+		return true;
+	} else if ( toUpperCase(right( fileNm, 5)) == ".JPEG") {
+		return true;
+	}
+	
+	return false;
+}
+]]></Script>
+</Window>

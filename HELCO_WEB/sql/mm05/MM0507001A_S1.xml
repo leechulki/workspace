@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[리모델링 현장 고철 매각 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+-- 2020.10.13 : 검색조건에 현장명을 추가하여 현장명 검색시에는 기간제한이 없고 다른 조건이 없는 경우에는 검색기간을 1달이내로 제한하여 성능 개선 	
+-- 계약번호, 접수일자, 현장명, 신청 담당자, 사양서 첨부, 고철 낙찰업체, 낙찰가, 수주일, 프로젝트번호, 현장명, 영업담당자, 착공일, 현장 설치 PM, 고철 인계일(설치), 세금계산서 발행일(회계), 비고
+ SELECT    A.MANDT         -- 클라이언트
+        , A.QTNUM         -- 계약번호
+        , KK.REDDT     -- 접수일자
+        , A.GSNAM         -- 공사명      
+        , KK.REQMAN_NM    -- 신청담당자
+        , LEFT(LISTAGG(                                      
+                    CASE WHEN SPEC.ZUSE = '' THEN '' ELSE SPEC.ZUSE END   ||'-'||        
+                    CASE WHEN SPEC.TYPE1 = '' THEN '' ELSE SPEC.TYPE1 END ||'-'||                
+                    CASE WHEN SPEC.ZACAPA = '' THEN '' ELSE SPEC.ZACAPA END ||'-'||                
+                    CASE WHEN SPEC.TYPE2 = '' THEN '' ELSE SPEC.TYPE2 END  ||'-'||                
+                    CASE WHEN SPEC.TYPE3 = '' THEN '' ELSE SPEC.TYPE3 END ||'-'||                
+                    CASE WHEN SPEC.ZLEN = '' THEN '' ELSE SPEC.ZLEN END ||'-'||                
+                    CASE WHEN SPEC.ZOPN = '' THEN '' ELSE SPEC.ZOPN END ||                                    
+                ','    ),length(LISTAGG(                                      
+                    CASE WHEN SPEC.ZUSE = '' THEN '' ELSE SPEC.ZUSE END   ||'-'||        
+                    CASE WHEN SPEC.TYPE1 = '' THEN '' ELSE SPEC.TYPE1 END ||'-'||                
+                    CASE WHEN SPEC.ZACAPA = '' THEN '' ELSE SPEC.ZACAPA END ||'-'||                
+                    CASE WHEN SPEC.TYPE2 = '' THEN '' ELSE SPEC.TYPE2 END  ||'-'||                
+                    CASE WHEN SPEC.TYPE3 = '' THEN '' ELSE SPEC.TYPE3 END ||'-'||                
+                    CASE WHEN SPEC.ZLEN = '' THEN '' ELSE SPEC.ZLEN END ||'-'||                
+                    CASE WHEN SPEC.ZOPN = '' THEN '' ELSE SPEC.ZOPN END ||                                    
+                ','    )) - 1 ) AS SPEC
+        /*
+        , ' '|| LISTAGG(                  
+                    CASE WHEN SPEC.GTYPE = '' THEN '' ELSE '기종:' || SPEC.GTYPE END  ||          
+                    CASE WHEN SPEC.ZUSE = '' THEN '' ELSE ' 용도:' || SPEC.ZUSE END   ||        
+                    CASE WHEN SPEC.TYPE1 = '' THEN '' ELSE ' 인승폭:' || SPEC.TYPE1 END ||        
+                    CASE WHEN SPEC.ZACAPA = '' THEN '' ELSE ' 용량:' || SPEC.ZACAPA END ||        
+                    CASE WHEN SPEC.TYPE2 = '' THEN '' ELSE ' 속도:' || SPEC.TYPE2 END  ||        
+                    CASE WHEN SPEC.TYPE3 = '' THEN '' ELSE ' 층수각도:' || SPEC.TYPE3 END ||        
+                    CASE WHEN SPEC.ZLEN = '' THEN '' ELSE ' 정지층수/층고:' || SPEC.ZLEN END ||        
+                    CASE WHEN SPEC.ZOPN = '' THEN '' ELSE ' DOOR개페길이:' || SPEC.ZOPN END ||        
+                    CASE WHEN CHAR(SPEC.ZNUMBER) = '' THEN '' ELSE ' 대수:' || SPEC.ZNUMBER END ||     
+                '&#10;'    )   AS SPEC -- 사양서 첨부
+                    /*
+        ,' '|| LISTAGG('기종 : ' || SPEC.GTYPE                  
+        ||' 용도 : ' || SPEC.ZUSE                    
+        ||' 인승폭 : ' || SPEC.TYPE1                  
+        ||' 용량 : ' || SPEC.ZACAPA                  
+        ||' 속도 : ' || SPEC.TYPE2                   
+        ||' 층수각도 : ' || SPEC.TYPE3                 
+        ||' 정지층수/층고 : ' || SPEC.ZLEN               
+        ||' DOOR개페길이 : ' || SPEC.ZOPN              
+        ||' 대수 : ' || SPEC.ZNUMBER || '&#10;')   AS SPEC -- 사양서 첨부
+        */
+        */
+        , KK.BIDCOP    -- 고철 낙찰업체        
+        , BD.NAME1 AS BIDCOP_NM    -- 고철 낙찰업체  이름
+        , kk.BIDPRC   -- 낙찰가
+        , A.BSTDK         -- 수주일        
+        , kk.METGUBUN -- 고철처리 유형
+        , '' AS BID_CONT_YN -- 낙찰업체 계약서 발송여부
+        , A.VBELN         -- 프로젝트번호        
+        , A.GSNAM AS GSNAM2  -- 공사명  
+        , A.ZKUNNR        -- 영업사원
+        , A.ZKUNNR_NM     -- 영업 담당자명
+        , A.ZZDAT01       -- 착공일
+        , A.ZZTEAMJ AS CONS_PM   -- 현장 설치 PM
+        , KK.METDELDT -- 고철 인계일
+        , KK.TAXDT    -- 세금계산서 발행일        
+        , A.QTSER         -- 견적차수        
+        , A.QTDAT         -- 견적일
+        , '' AS CHECK
+        , ZU.USERMAIL AS REGMAIL, KK.ZRMMK
+        /*
+        , A.SPART         -- 제품군
+        , A.QTGBN         -- 견적구분
+        , A.ZBDTYP        -- 건물용도       
+        , A.VKBUR         -- 사업장
+        , A.VKGRP         -- 영업그룹
+			  , Z.USERTELE 	AS TEL   -- 2012.12.14. 전화번호 추가
+			  , Z.USERFAXN   AS FAX   -- 2012.12.17. 팩스번호 추가
+			  , Z.USERMBPN  AS CEL    -- 2012.12.17. 휴대폰번호 추가
+			  , Z.USERMAIL  AS MAIL   -- 이메일주소 
+	      */
+	FROM 
+      
+		(
+	   	    SELECT T.MANDT
+               , T.QTNUM
+               , MAX(T.QTSER) QTSER                                       
+          FROM (                              
+                    SELECT R.MANDT
+                         , R.QTNUM
+                         , R.QTSER
+                         , R.QTSEQ
+                         , R.PRH
+                         , R.PRD
+                         , R.ETCH
+                         , R.ETCM
+                         , R.ZRMK
+                       --  ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = R.MANDT AND LANG = 'ko' AND CODE1 = 'SD121' AND CTEXT2 = R.PRH ) AS CTEXT2
+                    FROM SAPHEE.ZSDT1046 AS Z1046 
+                    INNER JOIN SAPHEE.ZSDT1048 R ON Z1046.MANDT = R.MANDT AND Z1046.QTNUM = R.QTNUM AND Z1046.QTSER = R.QTSER
+                    WHERE 1 = 1
+                     AND Z1046.MANDT = #G_MANDT#
+                      <isNotNull col="QTDAT_FM">
+                     		AND Z1046.QTDAT&gt;= #QTDAT_FM# AND  Z1046.QTDAT &lt;=#QTDAT_TO#
+                      </isNotNull>
+                      <isNotNull col="QTNUM">
+                     		AND Z1046.QTNUM = #QTNUM#
+                      </isNotNull>                                               
+                      <isNotNull col="GSNAM">
+					   		AND Z1046.GSNAM LIKE  '%'||#GSNAM#||'%'
+					  </isNotNull>
+                      
+                      
+                    --BETWEEN '20200402' AND '20200404'
+                     AND R.PRH = 'EL_DREUSE'
+                     AND R.PRD = 'Y'
+                     AND R.MANDT = #G_MANDT#
+                     WITH UR
+              ) T                    
+          GROUP BY T.MANDT, T.QTNUM                         
+		) DST INNER JOIN   
+   (       SELECT C.MANDT, 			  
+                  C.QTNUM
+									 , C.QTSER
+									 , C.QTDAT
+									 , C.ZKUNNR
+									 , C.GSNAM
+								   , C.VBELN
+                   ,C.BSTDK  -- 수주일
+                   ,C.ZZDAT01 -- 착공일
+                   --,M3.NAMET AS ZZTEAMJ
+                   ,C.POSID_1				  
+				    , CASE    CAST('ko' AS VARCHAR(2))  
+				      WHEN 'ko' THEN D.NAME1
+				      ELSE      	 D.NAME2
+				     END AS ZKUNNR_NM
+				     , M22.NAMET AS ZZTEAMJ 
+			    FROM ( 
+				                    SELECT z1046.MANDT
+									 , z1046.QTNUM
+									 , z1046.QTSER
+									 , z1046.QTDAT
+									 , z1046.ZKUNNR
+									 , GSNAM
+								     , z1046.VBELN
+				                     ,AK.BSTDK  -- 수주일
+				                     ,MAX(M3.ZZDAT01) ZZDAT01 -- 착공일
+				                     --,M3.NAMET AS ZZTEAMJ
+                             		,MAX(M3.POSID_1) POSID_1
+ 								   FROM SAPHEE.ZSDT1046 as z1046 -- 견적 Header
+ 								   		inner join saphee.zsdt0167 as z0167 on z1046.mandt=z0167.mandt and z1046.qtnum=z0167.qtnum and z0167.tquot=''
+       								   		inner join saphee.zsdt1091 as z1091 on z1046.mandt=z1091.mandt and z1046.qtnum=z1091.qtnum and z1046.qtser=z1091.qtser                            
+			                            LEFT OUTER JOIN SAPHEE.ZMASTER01 AS M2 ON z1046.MANDT = M2.MANDT AND z1046.VBELN = M2.POSID
+			                            LEFT OUTER JOIN SAPHEE.VBAK AS AK ON  M2.MANDT=AK.MANDT AND M2.POSID=AK.ZZPJT_ID
+			                            LEFT OUTER JOIN SAPHEE.ZMASTER02 AS M3 ON M2.MANDT = M3.MANDT AND M2.POSID = M3.POSID                                  
+								  WHERE z1046.MANDT	= #G_MANDT#
+                                        AND z1046.qtser = substr(trim(z1046.qtser),1)   /* key index를 적용시키기위함(견적순번을 적용)*/
+                                        --AND QTDAT BETWEEN '20200401' AND '20200404'  
+                                         <isNotNull col="QTDAT_FM">
+                                             		AND Z1046.QTDAT&gt;= #QTDAT_FM# AND  Z1046.QTDAT &lt;=#QTDAT_TO#
+                                          </isNotNull>
+                                          <isNotNull col="QTNUM">
+                                         			AND Z1046.QTNUM = #QTNUM#
+                                    	  </isNotNull> 
+                                    	  <isNotNull col="GSNAM">
+										   		AND Z1046.GSNAM LIKE  '%'||#GSNAM#||'%'
+										  </isNotNull>                   
+                                        --AND VKBUR = '00'  
+                                        
+                  					GROUP BY   z1046.MANDT, z1046.QTNUM , z1046.QTSER , QTDAT 
+										 , z1046.ZKUNNR, z1046.KUNNR, GSNAM, z1046.VBELN, AK.BSTDK--, M3.NAMET
+						      WITH UR
+  					) C LEFT OUTER JOIN TABLE
+   	 					( SELECT KUNNR, NAME1, NAME2
+  					    FROM SAPHEE.KNA1
+  					    WHERE MANDT = #G_MANDT#
+  					      AND KUNNR = C.ZKUNNR
+   	 					) D ON C.ZKUNNR = D.KUNNR
+   	 				LEFT OUTER JOIN SAPHEE.ZMASTER02 AS M22 ON C.MANDT = M22.MANDT AND C.VBELN = M22.POSID  AND C.POSID_1 = M22.POSID_1
+		 ) A  ON DST.MANDT = A.MANDT AND DST.QTNUM = A.QTNUM AND DST.QTSER = A.QTSER 
+		LEFT    JOIN TABLE
+		(		 	 
+					 SELECT  USERNUMB AS USER_ID, USERNAME AS USER_NAME, USERTELE , USERFAXN, USERMBPN, USERMAIL
+					 	FROM SAPHEE.ZUSERF  U  
+				WHERE U.MANDT    = #G_MANDT#
+				AND USERNUMB = SUBSTR(A.ZKUNNR, 2,7)
+		) Z ON SUBSTR(A.ZKUNNR, 2,7) = Z.USER_ID	
+LEFT OUTER JOIN SAPHEE.ZMMT981 KK ON DST.MANDT = KK.MANDT AND DST.QTNUM = KK.QTNUM AND DST.QTSER = KK.QTSER 
+LEFT OUTER JOIN SAPHEE.LFA1 BD ON KK.MANDT = BD.MANDT AND KK.BIDCOP = BD.LIFNR	
+LEFT OUTER JOIN SAPHEE.ZSDT1047 AS SPEC ON DST.MANDT = SPEC.MANDT AND DST.QTNUM = SPEC.QTNUM AND DST.QTSER = SPEC.QTSER
+LEFT OUTER JOIN SAPHEE.ZUSERF AS ZU ON KK.REQMAN = ZU.USERNUMB  AND ZU.MANDT = #G_MANDT#
+GROUP BY  A.MANDT         -- 클라이언트
+        , A.QTNUM         -- 계약번호
+        , KK.REDDT     -- 접수일자
+        , A.GSNAM         -- 공사명      
+        , KK.REQMAN_NM    -- 신청담당자
+        , KK.BIDCOP    -- 고철 낙찰업체        
+        , BD.NAME1     -- 고철 낙찰업체  이름
+        , kk.BIDPRC   -- 낙찰가
+        , A.BSTDK         -- 수주일        
+        , kk.METGUBUN -- 고철처리 유형        
+        , A.VBELN         -- 프로젝트번호        
+        , A.GSNAM   -- 공사명  
+        , A.ZKUNNR        -- 영업사원
+        , A.ZKUNNR_NM     -- 영업 담당자명
+        , A.ZZDAT01       -- 착공일        
+        , KK.METDELDT -- 고철 인계일
+        , KK.TAXDT    -- 세금계산서 발행일        
+        , A.QTSER         -- 견적차수        
+        , A.QTDAT         -- 견적일  	
+        , A.ZZTEAMJ
+        , ZU.USERMAIL, KK.ZRMMK
+ORDER BY A.QTNUM
+FOR FETCH ONLY
+WITH UR
+</statement>
+	<input default-name="ds_cond">
+		<col name="MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="QTNUM" size="255" type="VARCHAR" description="" /> 
+		<col name="QTDAT_FM" size="255" type="VARCHAR" description="" />
+		<col name="QTDAT_TO" size="255" type="VARCHAR" description="" />  
+		<col name="GSNAM" size="255" type="VARCHAR" description="" />
+	</input>
+	<output default-name="ds_list">
+		<col name="CHECK" size="255" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="QTNUM" size="255" type="VARCHAR" description="" /> 
+		<col name="REDDT" size="255" type="VARCHAR" description="" />		
+		<col name="GSNAM" size="255" type="VARCHAR" description="" />
+		<col name="REQ_NM" size="255" type="VARCHAR" description="" />
+		<col name="SPEC" size="255" type="VARCHAR" description="" />
+		<col name="BID_CO" size="255" type="VARCHAR" description="" />
+		<col name="BID_PRC" size="255" type="VARCHAR" description="" />		 
+		<col name="BSTDK" size="255" type="VARCHAR" description="" /> 
+		<col name="MET_GUBUN" size="255" type="VARCHAR" description="" />		
+		<col name="BID_CONT_YN" size="255" type="VARCHAR" description="" />
+		<col name="VBELN" size="255" type="VARCHAR" description="" />
+		<col name="GSNAM2" size="255" type="VARCHAR" description="" />  
+		<col name="ZKUNNR" size="255" type="VARCHAR" description="" /> 		
+		<col name="ZKUNNR_NM" size="255" type="VARCHAR" description="" /> 
+		<col name="ZZDAT01" size="255" type="VARCHAR" description="" />
+		<col name="CONS_PM" size="255" type="VARCHAR" description="" />
+		<col name="MET_DELDT" size="255" type="VARCHAR" description="" />
+		<col name="TAX_DT" size="255" type="VARCHAR" description="" />
+		<col name="QTSER" size="255" type="VARCHAR" description="" /> 
+		<col name="QTDAT" size="255" type="VARCHAR" description="" />		
+	</output>
+</query>

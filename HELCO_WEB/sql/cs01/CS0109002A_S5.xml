@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[FM Item별 불출현황 헤더 정보]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT * 
+  FROM 
+       (SELECT * 
+         FROM 
+              (SELECT 'EL' AS GBN, 
+                     Z8.MAT_CODE, 
+                     Z7.MATKX, 
+                     SUM(Z8.DMBTR) AS TOT 
+                FROM SAPHEE.ZMMT108 Z8 , 
+                     SAPHEE.ZMMT077 Z7 ,
+                     SAPHEE.ZWBT010 Z0
+               WHERE Z8.MANDT=#G_MANDT# 
+                     AND Z7.MANDT=#G_MANDT# 
+                     AND Z8.BUDAT LIKE #YEAR#||'%' 
+                     AND BUDAT &lt; (REPLACE(CHAR(DATE(SAPHEE.GET_DATE_FORMAT(#YEAR#||#MONTH#||'01')) +1 MONTH),'-',''))
+                     AND SUBSTR(Z8.MATNR,1,1) != '6' 
+                     AND Z8.REQKIND_TXT IN ('FM재고소진청구' , 'FM청구') 
+                     AND Z8.MAT_CODE = Z7.MAT_CODE
+                     AND Z8.MANDT = Z0.MANDT
+                     AND Z8.LGORT = Z0.LGORT
+	                <isNotNull col="ARA">
+						 AND Z0.BSU_ARA = #ARA#
+	                </isNotNull>    
+	                <isNotNull col="BPM">
+						 AND Z0.BSU_PM = #BPM#
+	                </isNotNull>
+	                <isNotNull col="BSU">
+						 AND Z0.LGORT= #BSU#
+	                </isNotNull>
+	                <isNotNull col="TEM">
+						 AND Z0.VKGRP = #TEM#
+	                </isNotNull>
+					<isNull col="TEM">
+				 		<isNotNull col="DPT">
+						 AND Z0.VKGRP IN (SELECT CODE2 AS CODE
+				 						   FROM SAPHEE.ZLCODE
+				 						  WHERE MANDT=#G_MANDT#
+				 						    AND LANG =#G_LAMG#
+				 						    AND CODE1 = 'VKGRP'
+				 						    AND DTEXT1 = #DPT#)
+				 		</isNotNull>
+				 	</isNull>                       
+                      
+               GROUP BY Z8.MAT_CODE ,
+                     Z7.MATKX 
+            ORDER BY SUM(Z8.DMBTR) DESC 
+              ) 
+       FETCH FIRST 12 ROWS ONLY 
+       ) 
+    UNION ALL 
+       (SELECT * 
+         FROM 
+              (SELECT 'ES' AS GBN, 
+                     Z8.MAT_CODE, 
+                     Z7.MATKX, 
+                     SUM(Z8.DMBTR) AS TOT 
+                FROM SAPHEE.ZMMT108 Z8 , 
+                     SAPHEE.ZMMT077 Z7 ,
+                     SAPHEE.ZWBT010 Z0
+               WHERE Z8.MANDT=#G_MANDT# 
+                     AND Z7.MANDT=#G_MANDT# 
+                     AND Z8.BUDAT LIKE #YEAR#||'%' 
+                     AND BUDAT &lt; (REPLACE(CHAR(DATE(SAPHEE.GET_DATE_FORMAT(#YEAR#||#MONTH#||'01')) +1 MONTH),'-','')) 
+                     AND SUBSTR(Z8.MATNR,1,1) = '6' 
+                     AND Z8.REQKIND_TXT IN ('FM재고소진청구' , 'FM청구') 
+                     AND Z8.MAT_CODE = Z7.MAT_CODE 
+                     AND Z8.MANDT = Z0.MANDT
+                     AND Z8.LGORT = Z0.LGORT
+	                <isNotNull col="ARA">
+						 AND Z0.BSU_ARA = #ARA#
+	                </isNotNull>    
+	                <isNotNull col="BPM">
+						 AND Z0.BSU_PM = #BPM#
+	                </isNotNull>
+	                <isNotNull col="BSU">
+						 AND Z0.LGORT= #BSU#
+	                </isNotNull>
+	                <isNotNull col="TEM">
+						 AND Z0.VKGRP = #TEM#
+	                </isNotNull>
+					<isNull col="TEM">
+				 		<isNotNull col="DPT">
+						 AND Z0.VKGRP IN (SELECT CODE2 AS CODE
+				 						   FROM SAPHEE.ZLCODE
+				 						  WHERE MANDT=#G_MANDT#
+				 						    AND LANG =#G_LAMG#
+				 						    AND CODE1 = 'VKGRP'
+				 						    AND DTEXT1 = #DPT#)
+				 		</isNotNull>
+				 	</isNull>                       
+               GROUP BY Z8.MAT_CODE ,
+                     Z7.MATKX 
+            ORDER BY SUM(Z8.DMBTR) DESC 
+              ) 
+       FETCH FIRST 3 ROWS ONLY 
+       ) 
+ORDER BY GBN, 
+       TOT DESC
+ FOR FETCH ONLY
+  WITH UR	
+
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list_t4_h">
+		<col name="MAKTX" size="120" type="VARCHAR" description="" /> 
+	</output>
+</query>

@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+SELECT  T.CS121_JZR 
+
+       --,'' AS FYM
+       ,CAST(#FYM# AS CHAR(8)) AS FYM  --작성일  VARCHAR(20)    
+       
+       ,T.CS121_GNO    ,T.EGNAME    ,T.EPNAME
+       ,SUM(T.AMT) AS AMT1
+       ,0 AS VAT1
+       ,SUM(T.AMT) AS AMT2
+       ,0 AS VAT2
+       
+       --,'' AS FYM_DAY
+       ,SUBSTR(CAST(#FYM# AS CHAR(8)), 7, 2) AS FYM_DAY	
+       
+       ,'02' GBN
+       ,T.KG_ADR
+       ,T.KD_ADR
+       ,T.CS121_EM1
+	   ,T.CS121_EM2
+	   ,'월정보수' AS AUART
+	   
+	   ,T.CS131_GNO	   ,T.KUNNR	   
+	   ,T.CS121_SPT  --현장명
+	   ,T.CTEXT2
+	   ,T.CTEXT2 AS BIGO
+	   ,T.CS121_SPT AS PBIGO1    
+     
+  FROM (
+		   SELECT  '유상' AS KK 
+		          ,(CASE WHEN E.CS121_JZR = 'Y' THEN '02'  ELSE '01'  END) AS CS121_JZR   --영세율 (Y,N)
+		          --,#FYM# AS FYM  --작성일
+		          
+		          ,E.CS121_GNO   --공급받는자 -> 사업자등록번호(10자리), 주민등록번호(13자리), 외국인번호(9999999999999)
+		          ,E.EGNAME  	 --공급받는자(상호) 
+		          ,E.EPNAME  	 -- 공급받는자 성명
+		          ,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT) AS AMT  -- 공급가액		          
+		          --,SUBSTR(#FYM#, 7, 2) AS FYM_DAY
+		          
+		          ,E.CS121_P1E || E.CS121_P2E AS KG_ADR  --고객주소(지번)
+		  		  ,E.CS121_DP1E|| E.CS121_DP2E AS KD_ADR --고객주소(도로명)
+		  		  ,E.CS121_EM1
+		  		  ,E.CS121_EM2
+		  		  
+		          ,A.CS131_GNO
+		          ,E.KUNNR
+		          ,E.CS121_SPT  --현장명
+		          ,B.ABR_NM  AS CTEXT2			
+					  
+		   FROM SAPHEE.ZCST131 AS A
+		  INNER JOIN SAPHEE.ZWBT010 AS B
+		     ON A.MANDT = B.MANDT
+		    AND A.CS131_BSU = B.LGORT
+  
+		   LEFT OUTER JOIN SAPHEE.ZCST121 AS E
+			 ON A.MANDT = E.MANDT  AND A.CS131_UPN = E.CS121_UPN  AND  A.CS131_CST = E.CS121_CST
+				
+		  WHERE A.MANDT = #G_MANDT#
+		    AND A.CS131_YYM = SUBSTR(#FYM#,1,6)  --'201904'
+		    AND A.CS131_TIS > '19990101'
+		    AND A.CS131_MYB = ''
+		    AND A.CS131_GND IN ('C', 'D', 'E')    -- "C:유상공사 D:유상일반  E:인원상주	 
+		    AND ( A.CS131_AMT != 0  OR  A.CS131_DMT != 0   OR  A.CS131_HMT != 0 )
+		    AND A.CS131_GNO != '' 
+			AND A.CS131_HNO != 'Z99'
+			
+			AND EXISTS    (SELECT NULL  
+			                 FROM SAPHEE.ZCST126 AS X
+						    WHERE X.MANDT = A.MANDT
+							  AND X.CS126_GNO = A.CS131_GNO 
+			                  AND X.CS126_UPN = A.CS131_UPN 
+							  AND X.CS126_CST = A.CS131_CST 
+							  AND X.CS126_PJT = A.CS131_PJT 
+							  AND X.CS126_HNO = A.CS131_HNO 
+							  AND X.CS126_SEQ = A.CS131_SEQ   
+							  AND X.CS126_DDT = ''  
+							  AND X.CS126_PST = 'A6' )			
+			
+			
+		   	<isNotNull col="UPN">
+		     AND A.CS131_UPN = #UPN#
+			</isNotNull>
+			<isNotNull col="CST">
+		     AND A.CS131_CST = #CST#
+			</isNotNull>				
+			<isNotNull col="BSU">
+		     AND B.LGORT = #BSU#
+			</isNotNull>
+			<isNotNull col="TEM">
+		     AND B.VKGRP = #TEM# 
+			</isNotNull> 	
+			
+
+			  
+		 UNION ALL 
+		
+		   SELECT  '상주' AS KK 
+		          ,(CASE WHEN E.CS121_JZR = 'Y' THEN '02'  ELSE '01'  END) AS CS121_JZR   --영세율 (Y,N)
+		          --,#FYM# AS FYM  --작성일
+		          
+		          ,E.CS121_GNO   --공급받는자 -> 사업자등록번호(10자리), 주민등록번호(13자리), 외국인번호(9999999999999)
+		          ,E.EGNAME  	 --공급받는자(상호) 
+		          ,E.EPNAME  	 -- 공급받는자 성명
+		          ,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT) AS AMT  -- 공급가액		          
+		          --,SUBSTR(#FYM#, 7, 2) AS FYM_DAY
+		          
+		          ,E.CS121_P1E || E.CS121_P2E AS KG_ADR  --고객주소(지번)
+		  		  ,E.CS121_DP1E|| E.CS121_DP2E AS KD_ADR --고객주소(도로명)
+		  		  ,E.CS121_EM1
+		  		  ,E.CS121_EM2
+		  		  
+		          ,A.CS131_GNO
+		          ,E.KUNNR	
+		          ,E.CS121_SPT  --현장명	  		  
+		          ,B.ABR_NM  AS CTEXT2			
+					  
+		    FROM SAPHEE.ZCST131 AS A
+		   INNER JOIN SAPHEE.ZWBT010 AS B
+		      ON A.MANDT = B.MANDT
+		     AND A.CS131_BSU = B.LGORT
+
+			LEFT OUTER JOIN SAPHEE.ZCST121 AS E
+			  ON A.MANDT = E.MANDT  AND A.CS131_UPN = E.CS121_UPN  AND  A.CS131_CST = E.CS121_CST		
+	
+		   WHERE A.MANDT = #G_MANDT#
+		     AND A.CS131_YYM = SUBSTR(#FYM#,1,6)  --'201904'
+		     AND A.CS131_TIS > '19990101'
+		     AND A.CS131_MYB = ''
+		     AND A.CS131_GND IN ('C', 'D', 'E')    -- "C:유상공사 D:유상일반  E:인원상주
+			 
+		     AND ( A.CS131_AMT != 0  OR  A.CS131_DMT != 0   OR  A.CS131_HMT != 0 )
+		     AND A.CS131_GNO != '' 
+			 AND A.CS131_HNO = 'Z99'
+			 
+		 	 AND EXISTS    (SELECT NULL  
+			                  FROM SAPHEE.ZCST127 AS X
+						     WHERE X.MANDT = A.MANDT
+							   AND X.CS127_GNO = A.CS131_GNO 
+			                   AND X.CS127_UPN = A.CS131_UPN 
+							   AND X.CS127_CST = A.CS131_CST 							   
+							   AND X.CS127_SEQ = A.CS131_SEQ   
+							   AND X.CS127_DDT = ''  
+							   AND X.CS127_PST = 'A6'   )	
+			 
+			 
+		   	<isNotNull col="UPN">
+		     AND A.CS131_UPN = #UPN#
+			</isNotNull>
+			<isNotNull col="CST">
+		     AND A.CS131_CST = #CST#
+			</isNotNull>
+			
+			<isNotNull col="BSU">
+		     AND B.LGORT = #BSU#
+			</isNotNull>
+			<isNotNull col="TEM">
+		     AND B.VKGRP = #TEM# 
+			</isNotNull> 	
+			
+ 	   )  AS  T
+
+ GROUP BY   T.CS121_JZR   --,T.FYM    
+           ,T.CS121_GNO   ,T.EGNAME    ,T.EPNAME   
+           --,T.FYM_DAY
+           ,T.KG_ADR      ,T.KD_ADR ,T.CS121_EM1    ,T.CS121_EM2
+           
+           ,T.CS131_GNO   ,T.KUNNR	
+           ,T.CS121_SPT   ,T.CTEXT2
+
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list1">
+	</output>
+</query>

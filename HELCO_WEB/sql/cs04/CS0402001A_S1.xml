@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+       '' FLAG,
+       AP3.DOCNO,
+       AP3.DOCKIND,
+       AP3.SEQNO,
+       AP3.APDESC,
+       AP3.APDATE,
+       AP3.APTIM,
+       AP3.RPNUM,
+       (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = #G_MANDT# AND USERNUMB = RPNUM) RPNAM,
+       AP3.RPDESC,
+       AP3.RPDATE,
+       AP3.RPTIM,
+       DTEXT2 AS TARGET,
+		   COALESCE(CS01.QTNUM, '') QTNUM	,
+		   COALESCE(CS01.SEQ, '') SEQ,		  
+		   COALESCE(CS01.UPN, '') UPN,		  
+		   COALESCE(CS01.CST, '') CST,		
+		   VALUE((SELECT 
+		                VALUE(MAX(REQNR),'') AS REQNR 
+		            FROM SAPHEE.ZMMT031 
+		            WHERE MANDT = AP3.MANDT
+			            AND REQNO = AP3.DOCNO
+		            GROUP BY REQNO
+		      ), '') AS REQNR,
+		   VALUE (( SELECT CASE WHEN MAX(CS1.PS_PSPID) IS NULL OR MAX(CS1.PS_PSPID) = '' THEN 
+	                            (CASE WHEN MAX(M31.REQKIND) IN ('2','3','4') THEN SUBSTR(MAX(M31.POSID2),1,6) 
+	                                       ELSE  SUBSTR(MAX(M31.POSID),1,6) END)
+	                 ELSE MAX(CS1.PS_PSPID)  END 
+			            FROM SAPHEE.ZMMT031 AS M31 
+			                           LEFT OUTER JOIN SAPHEE.ZCST001 AS CS1 ON CS1.MANDT= M31.MANDT
+			                                                                AND CS1.QTNUM = M31.QTNUM
+			           WHERE M31.MANDT= AP3.MANDT
+			             AND M31.REQNO = AP3.DOCNO
+			           GROUP BY M31.MANDT, M31.REQNO),'') AS PS_PSPID,		-- FM 조회용   
+       VALUE (( SELECT MAX(CASE WHEN LENGTH(M31.UPN) > 5 THEN M31.UPN ELSE CS1.MA_PSPID END) AS UPN	  		--FM 조회용 
+		              FROM SAPHEE.ZMMT031 AS M31 
+		                             LEFT OUTER JOIN SAPHEE.ZCST001 AS CS1 ON CS1.MANDT= M31.MANDT
+		                                                                  AND CS1.QTNUM = M31.QTNUM
+		             															                        AND CS1.SEQ = M31.SEQ
+		             WHERE M31.MANDT= AP3.MANDT
+		               AND M31.REQNO = AP3.DOCNO
+		             GROUP BY M31.MANDT, M31.REQNO),'') AS UPN2
+		  ,AP1.CRDPT1_N
+		  ,AP1.CRIRUM   
+		  ,AP3.INUM   
+		  ,AP3.INAM                                                               
+  FROM
+       SAPHEE.ZWBAP03 AS AP3
+            
+            INNER JOIN SAPHEE.ZWBAP01 AS AP1
+                    ON AP1.MANDT = AP3.MANDT
+                   AND AP1.DOCNO = AP3.DOCNO
+            
+	          LEFT OUTER JOIN SAPHEE.ZLCODE LC 
+	                       ON LC.MANDT= AP3.MANDT
+		                  AND LC.CODE1 = 'WBAP_DOCKIND'
+			              AND LC.CODE2 = AP3.DOCKIND  
+			                                      
+	          LEFT OUTER JOIN SAPHEE.ZCST001 CS01 
+	                       ON CS01.MANDT= AP3.MANDT
+		                  AND ( CS01.DOC1 = AP3.DOCNO OR CS01.DOC2 = AP3.DOCNO OR CS01.DOC3 = AP3.DOCNO OR CS01.DOC4 = AP3.DOCNO OR CS01.DOC5 = AP3.DOCNO )
+ WHERE
+       AP3.MANDT = #G_MANDT#
+<isNotNull col="DOCNO">
+   AND AP3.DOCNO = #DOCNO#
+</isNotNull>
+<isNotNull col="DOCKIND">
+   AND AP3.DOCKIND = #DOCKIND#
+</isNotNull>
+<isEqual col="GUBN" value="N">
+   AND AP3.RPDATE = ''
+</isEqual>
+<isEqual col="GUBN" value="Y">
+   AND AP3.RPDATE > ''
+</isEqual>
+   AND AP3.APDATE BETWEEN #CRDATE_FM# AND #CRDATE_TO#
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

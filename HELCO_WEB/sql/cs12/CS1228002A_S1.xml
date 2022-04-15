@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	SELECT
+             A.GNO
+            ,A.UPN
+            ,A.PJT
+            ,A.HNO
+            ,A.USD
+            ,A.UHJ
+            ,A.FMY
+            ,A.FMS
+            ,A.ARA_NM
+            ,A.BSU_NM
+            ,A.BPM_NM
+            ,A.JUJ_NM
+            ,A.GBN
+            ,A.SPT
+            ,A.NAM
+            ,A.ADDR
+            ,A.SPEC
+            ,A.WID
+            ,A.SPEC12
+            ,A.SPEC7
+            ,A.ADDR2
+         	  ,A.IHD 	   --검사희망일
+         	  ,A.EST_A 	   --검사원/기술원
+         	  ,A.EAR_A  	   --해당지역
+          	, CASE WHEN A.SAVE = 'Y' THEN A.EST_A ELSE A.EST_T END EST
+          	, CASE WHEN A.SAVE = 'Y' THEN A.EAR_A ELSE A.EAR_T END EAR
+          	, CASE WHEN A.SAVE = 'Y' THEN A.OFFICE_CODE_A ELSE A.OFFICE_CODE_T END OFFICE_CODE
+          	, CASE WHEN A.SAVE = 'Y' THEN A.OFFICE_NAME_A ELSE A.OFFICE_NAME_T END OFFICE_NAME
+         	  ,A.NTE 	   --비고
+         	  ,A.ISD 	   --검사신청일
+         	  ,A.CRD 	   --수수료입금일
+          	,CASE WHEN A.SAVE != 'Y' THEN SUBSTR(#DAT#,1,4)||SUBSTR(A.IDD_T,5,4)
+          	      ELSE A.IDD END IDD --정기검사만료일
+            ,A.CHK
+            ,A.SAVE
+            ,A.GKD_NM
+          	,A.IEX_T             --층수에 따른 추가검사비
+          	,A.SID
+          	, CASE WHEN A.SAVE = 'Y' THEN A.IEX_A 
+          	       ELSE 
+          	            (SELECT CASE WHEN INT(DTEXT1) > A.SPEC7 THEN INT(DTEXT2) ELSE INT(DTEXT2) + (INT(DTEXT3)*(A.SPEC7 - INT(DTEXT1) )) END 
+          	               FROM SAPHEE.ZLCODE
+          	              WHERE MANDT = #G_MANDT# AND CODE1 = 'CS191' AND CODE2 = A.IEX_GUBUN )
+    	       
+          	  END IEX
+          	  ,A.SLA
+          	,A.VKGRP
+          	,A.VKGRP_NM
+	
+	
+	FROM (
+	
+	
+      SELECT 
+             A.CS126_GNO  GNO
+            ,A.CS126_UPN  UPN
+            ,A.CS126_PJT  PJT
+            ,A.CS126_HNO  HNO
+            ,A.CS126_USD  USD
+            ,A.CS126_UHJ  UHJ
+            ,A.CS126_FMY  FMY
+            ,A.CS126_FMS  FMS
+            ,A.CS126_SLA  SLA
+            ,VALUE(SAPHEE.CODE_CONV(A.MANDT,'CS115',A.CS126_ARA),'') ARA_NM
+            ,A.CS126_BSU BSU
+            ,VALUE(SAPHEE.GET_VENDER_N_NAME(A.MANDT,A.CS126_BSU),'') BSU_NM
+            ,A.CS126_BPM BPM
+            ,VALUE(SAPHEE.GET_BOSU_INWON(A.MANDT,A.CS126_BPM),'') BPM_NM
+            ,A.CS126_GKD
+            ,VALUE(SAPHEE.CODE_CONV(A.MANDT,'CS130',A.CS126_GKD),'')   GBN
+            ,A.CS126_JUJ
+            ,(SELECT CCSB1EPN FROM SAPHEE.ZTBCSB1 WHERE MANDT = A.MANDT AND CCSB1EMP = A.CS126_JUJ) JUJ_NM   
+            ,D.CS121_SPT SPT
+            ,D.CS121_NAM NAM
+            ,B.ADDR1||' '||B.ADDR2 ADDR
+            ,C.ZSPEC2 SPEC
+            ,C.ZBEPJEO WID
+            ,C.ZSPEC12 SPEC12
+            ,INT(C.ZSPEC7)  SPEC7
+            ,D.CS121_P1B||' '||D.CS121_P2B ADDR2
+         	  ,F.CS203_IHD	IHD 	   --검사희망일
+         	  ,F.CS203_EST	EST_A 	   --검사원/기술원
+         	  ,F.CS203_EAR	EAR_A 	   --해당지역
+         	  ,F.CS203_NTE	NTE 	   --비고
+         	  ,F.CS203_ISD	ISD 	   --검사신청일
+         	  ,F.CS203_CRD	CRD 	   --수수료입금일
+         	  ,F.CS203_IDD	IDD 	   --정기검사만료일
+         	  ,F.CS203_IEX	IEX_A	   
+            ,'' CHK
+            ,CASE WHEN F.CS203_PJT > '' THEN 'Y' ELSE '' END SAVE         	      
+            ,G.CTEXT2 GKD_NM
+          	,CASE WHEN SUBSTR(A.CS126_HNO,1,1) IN ('S','W')    THEN 85500
+         	      ELSE (CASE WHEN (C.ZSPEC12 LIKE '%VF%')  THEN (CASE WHEN (INT(C.ZSPEC7)-8)&lt;0 THEN 103500 ELSE 103500+(INT(C.ZSPEC7)-8)*2700 END)
+         	                            WHEN (C.ZSPEC12 LIKE '%D/W%') THEN (CASE WHEN (INT(C.ZSPEC7)-3)&lt;0 THEN 40500  ELSE  40500+(INT(C.ZSPEC7)-3)*1800 END)
+         	                            WHEN (C.ZSPEC12 LIKE '%W/L%') THEN 53800
+         	                            ELSE (CASE WHEN (INT(C.ZSPEC7)-8)&lt;0 THEN 90000 ELSE 90000+(INT(C.ZSPEC7)-8)*2250 END)
+         	                 END)
+         	   END IEX_T             --층수에 따른 추가검사비
+          	,CASE WHEN SUBSTR(A.CS126_HNO,1,1) IN ('S','W')     THEN 'A'
+         	        ELSE (CASE 
+         	                   WHEN (C.ZSPEC12 LIKE '%D/W%') THEN 'B'
+         	                   WHEN (C.ZSPEC12 LIKE '%HYD%') THEN 'C'
+         	                   ELSE (CASE WHEN C.ZSPEC2 LIKE 'H%' THEN 'D'
+         	                              WHEN C.ZSPEC2 LIKE 'E%' THEN 'E'
+         	                              WHEN C.ZSPEC2 LIKE 'P%' THEN 'F'
+         	                              ELSE 'G'
+         	                          END )
+         	               END)
+         	   END IEX_GUBUN 
+         	  ,(SELECT CS203_EST FROM SAPHEE.ZCST203 WHERE MANDT = #G_MANDT# AND CS203_UYN = 'Y' AND CS203_PJT = A.CS126_PJT AND CS203_HNO = A.CS126_HNO AND CS203_GNO &lt; A.CS126_GNO
+         	     ORDER BY CS203_GNO DESC
+         	     FETCH FIRST 1 ROWS ONLY ) EST_T
+         	  ,(SELECT CS203_EAR FROM SAPHEE.ZCST203 WHERE MANDT = #G_MANDT# AND CS203_UYN = 'Y' AND CS203_PJT = A.CS126_PJT AND CS203_HNO = A.CS126_HNO AND CS203_GNO &lt; A.CS126_GNO
+         	     ORDER BY CS203_GNO DESC
+         	     FETCH FIRST 1 ROWS ONLY ) EAR_T
+         	,(SELECT CS203_IDD FROM SAPHEE.ZCST203 
+         	   WHERE MANDT = #G_MANDT# AND CS203_UYN = 'Y' AND CS203_PJT = A.CS126_PJT 
+         	     AND CS203_HNO = A.CS126_HNO AND CS203_GNO &lt; A.CS126_GNO
+         	     AND CS203_IDD > ''
+         	   ORDER BY CS203_GNO DESC
+         	   FETCH FIRST 1 ROWS ONLY ) IDD_T
+         	  ,H.SID
+         	  ,F.OFFICE_NAME OFFICE_NAME_A
+         	  ,F.OFFICE_CODE OFFICE_CODE_A
+         	  ,(SELECT OFFICE_NAME FROM SAPHEE.ZCST203 WHERE MANDT = #G_MANDT# AND CS203_UYN = 'Y' AND CS203_PJT = A.CS126_PJT AND CS203_HNO = A.CS126_HNO AND CS203_GNO &lt; A.CS126_GNO
+         	     ORDER BY CS203_GNO DESC
+         	     FETCH FIRST 1 ROWS ONLY ) OFFICE_NAME_T
+         	  ,(SELECT OFFICE_CODE FROM SAPHEE.ZCST203 WHERE MANDT = #G_MANDT# AND CS203_UYN = 'Y' AND CS203_PJT = A.CS126_PJT AND CS203_HNO = A.CS126_HNO AND CS203_GNO &lt; A.CS126_GNO
+         	     ORDER BY CS203_GNO DESC
+         	     FETCH FIRST 1 ROWS ONLY ) OFFICE_CODE_T
+         	  ,E.VKGRP         
+         	  ,I.CTEXT2 AS VKGRP_NM         
+        FROM SAPHEE.ZCST126 A LEFT OUTER JOIN SAPHEE.ZMASTER01 B
+                                      ON A.MANDT = B.MANDT
+                                     AND A.CS126_PJT = B.POSID
+                                     
+                              LEFT OUTER JOIN SAPHEE.ZMASTER02 C
+                                      ON A.MANDT = C.MANDT
+                                     AND A.CS126_PJT = C.POSID
+                                     AND A.CS126_PJT||A.CS126_HNO = C.POSID_1
+                                     
+                              LEFT OUTER JOIN SAPHEE.ZCST121 D
+                                      ON A.MANDT = D.MANDT
+                                     AND A.CS126_UPN = D.CS121_UPN
+                                     AND A.CS126_CST = D.CS121_CST
+                                     
+                              LEFT OUTER JOIN SAPHEE.ZWBT010 E
+                                      ON A.MANDT = E.MANDT
+                                     AND A.CS126_BSU = E.LGORT                                 
+                                     
+                              LEFT OUTER JOIN SAPHEE.ZCST203 F
+                                      ON A.MANDT = F.MANDT
+                                     AND A.CS126_PJT = F.CS203_PJT
+                                     AND A.CS126_HNO = F.CS203_HNO
+                                     AND A.CS126_GNO = F.CS203_GNO
+                                     AND F.CS203_UYN = 'Y'
+                                         
+                              LEFT OUTER JOIN SAPHEE.ZLCODE G
+                                      ON A.MANDT = G.MANDT
+                                     AND A.CS126_GKD = G.CODE2
+                                     AND G.LANG = 'ko'
+                                     AND G.CODE1 = 'CS130' 
+                                         
+                              LEFT OUTER JOIN SAPHEE.ZCST111 H
+                                      ON A.MANDT = H.MANDT
+                                     AND A.CS126_PJT = H.PJT
+                                     AND A.CS126_HNO = H.HNO
+                                         
+                              LEFT OUTER JOIN SAPHEE.ZLCODE I
+                                      ON A.MANDT = I.MANDT
+                                     AND E.VKGRP = I.CODE2
+                                     AND I.LANG = 'ko'
+                                     AND I.CODE1 = 'VKGRP' 
+                                     
+       WHERE A.MANDT = #G_MANDT#
+         AND A.CS126_DDT = ''
+         AND A.CS126_PST = 'A6'
+         AND A.CS126_KND > ''
+         AND A.CS126_FCM = ''
+         AND SUBSTR(A.CS126_HNO,1,1) NOT IN ('J','G')  
+         AND #DAT#  BETWEEN CS126_USD AND CS126_UMR       
+<isNotNull col="ARA">
+         AND A.CS126_ARA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+         AND A.CS126_BSU = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+         AND A.CS126_BPM = #BPM#
+</isNotNull>
+<isNotNull col="TEM">
+         AND E.VKGRP = #TEM#
+</isNotNull>
+<isNotNull col="UPN">
+  AND A.CS126_UPN = #UPN#
+</isNotNull>
+<isNotNull col="CST">
+  AND A.CS126_CST = #CST#
+</isNotNull>
+) A
+WHERE 1=1
+<isEqual col="GBN" value="C">  
+  AND CASE WHEN A.SAVE != 'Y' THEN SUBSTR(A.IDD_T,5,2)
+      ELSE SUBSTR(A.IDD,5,2) END = SUBSTR(#DAT#,5,2) 
+</isEqual>  
+<isEqual col="GBN" value="D">
+  AND SUBSTR(A.IHD,5,2) = SUBSTR(#DAT#,5,2) 
+</isEqual>  
+
+ORDER BY PJT,HNO
+    WITH UR  	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list2">
+	</output>
+</query>

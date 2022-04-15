@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT   T.POSID,   T.ZSITE_NM,  T.ADDR,  T.ZSITE_TEL,  T.ZMAN_NM,  T.KUNNR_NM,  
+                --T.ZQNTY,
+
+	(CASE WHEN CAST(#CHK_ES# AS CHAR(3)) &lt;&gt; 'Y' THEN T.ZQNTY 
+                         ELSE (SELECT CAST(VALUE(COUNT(*), 0)  AS CHAR(6))
+	                        FROM SAPHEE.ZMASTER02 AS X
+		        WHERE X.MANDT = #G_MANDT#
+		            AND X.POSID = T.POSID
+		            AND X.ZZGUBUN IN ('11', '12', '14')
+		            AND X.TXT04 &lt;&gt; 'C' ) END)  AS ZQNTY,
+				
+	(SELECT  C.NAME1 
+                   FROM SAPHEE.VBAK AS A 
+	     INNER JOIN SAPHEE.VBPA AS B
+	                 ON A.MANDT = B.MANDT
+	                AND A.VBELN = B.VBELN
+                   INNER JOIN SAPHEE.KNA1 AS C
+	                 ON C.MANDT = B.MANDT
+	                AND C.KUNNR = B.KUNNR
+                  WHERE A.MANDT = #G_MANDT#
+	        AND A.ZZPJT_ID = T.POSID
+                      AND B.PARVW = 'Z3'  ) AS TEC_NAME,				
+				  
+	T.ZZACTSS,  T.CONTR_DA,  T.ZZSHIP1 ,
+              T.ZZDAT01,  T.ZZCOMP2,  T.ZZJUNGD,  T.ZBOSUOUT,  T.NAMET,   T.TEMNO , T.NAME1,  T.NAMET2,  T.NETWR
+
+   FROM  (
+                SELECT    M01.POSID,  M01.ZSITE_NM,  M01.ADDR1 ||' '|| M01.ADDR2 AS ADDR,  M01.ZSITE_TEL,                                                            M01.ZMAN_NM,  M01.KUNNR_NM,  M01.ZQNTY , 
+                                
+                                CASE WHEN CAST(#GBN# AS CHAR(3)) = 'E' OR CAST(#GBN# AS CHAR(3)) = 'E10' THEN VALUE(                                                        (SELECT M028.CTEXT2
+                                             FROM SAPHEE.ZLCODE M028
+ 	                             WHERE M028.MANDT = M01.MANDT
+			     AND M028.CODE1 = 'PS003' 
+			     AND M028.LANG = #G_LANG#
+			     AND M028.CODE2 = M01.ZZACTSS),  '')
+	                             WHEN CAST(#GBN# AS CHAR(3)) = 'R' OR CAST(#GBN# AS CHAR(3)) = 'R10' THEN VALUE(                                           
+                                   (SELECT M028.CTEXT2
+			       FROM SAPHEE.ZLCODE M028
+		  	     WHERE M028.MANDT = M01.MANDT
+			         AND M028.CODE1 = 'CS115' 
+			         AND M028.LANG = #G_LANG# 
+			         AND M028.CODE2 = M01.ZZARA),  '')     END AS ZZACTSS ,
+	                 
+                                 CASE WHEN M01.CONTR_DA = '00000000' THEN '' ELSE M01.CONTR_DA END AS CONTR_DA ,
+	               
+                                 VALUE(CASE WHEN M02.ZZSHIP1 = '99991231' OR M02.ZZSHIP1 = '00000000' THEN ''
+                                             ELSE M02.ZZSHIP1 END, '') AS ZZSHIP1,
+       		     VALUE(CASE WHEN M02.ZZDAT01 = '99991231' OR M02.ZZDAT01 = '00000000' THEN ''
+                                             ELSE M02.ZZDAT01 END, '') AS ZZDAT01,
+		     VALUE(CASE WHEN M02.ZZCOMP2 = '99991231' OR M02.ZZCOMP2 = '00000000' THEN '' 
+                                             ELSE M02.ZZCOMP2 END, '') AS ZZCOMP2,
+		     VALUE(CASE WHEN M02.ZZJUNGD = '99991231' OR M02.ZZJUNGD = '00000000' THEN ''
+                                             ELSE M02.ZZJUNGD END, '') AS ZZJUNGD,
+		     VALUE(CASE WHEN M02.ZBOSUOUT = '00000000' THEN '' ELSE M02.ZBOSUOUT END, '') AS ZBOSUOUT,
+	                   VALUE((SELECT M.NAMET 
+		                    FROM SAPHEE.ZMASTER02 AS M 
+		                  WHERE M.MANDT = M02.MANDT 
+			        AND M.POSID = M02.POSID 
+			    FETCH FIRST 1 ROWS ONLY), '') AS NAMET ,
+		     VALUE((SELECT M.TEMNO 
+		                    FROM SAPHEE.ZMASTER02 AS M 
+		                  WHERE M.MANDT = M02.MANDT 
+			        AND M.POSID = M02.POSID
+		    	   FETCH FIRST 1 ROWS ONLY), '') AS  TEMNO ,  
+	                   (SELECT NAME1 
+		         FROM SAPHEE.ZMMT012 AS M12 
+		        WHERE M12.MANDT = M02.MANDT 
+		            AND M12.LIFNR = (SELECT M.LIFNR 
+		                                           FROM SAPHEE.ZMASTER02 AS M 
+			 	             WHERE M.MANDT = M02.MANDT 
+					   AND M.POSID = M02.POSID 
+				            FETCH FIRST 1 ROWS ONLY) ) AS NAME1   ,
+	                    VALUE((SELECT M.NAMET2 
+		                     FROM SAPHEE.ZMASTER02 AS M 
+		   	     WHERE M.MANDT = M02.MANDT 
+			         AND M.POSID = M02.POSID 
+			      FETCH FIRST 1 ROWS ONLY), '') AS NAMET2  ,
+	                     SAPHEE.GET_CURRENCY2(V.WAERK,V.NETWR) AS NETWR
+               FROM  SAPHEE.ZMASTER01 AS M01
+	       ,(   SELECT  MANDT,  POSID
+	     	           ,MIN(CASE WHEN ZZSHIP1 = '00000000' THEN '99991231' ELSE ZZSHIP1 END) AS ZZSHIP1            			                         ,MIN(CASE WHEN ZZDAT01 = '00000000' THEN '99991231' ELSE ZZDAT01 END) AS ZZDAT01      			                         ,MAX(ZZCOMP2) AS ZZCOMP2
+		           ,MAX(ZZJUNGD) AS ZZJUNGD
+		           ,MAX(ZBOSUOUT) AS ZBOSUOUT
+	               FROM SAPHEE.ZMASTER02
+	             WHERE MANDT = #G_MANDT#
+	              <isNotNull col="POSID">
+	                 AND POSID LIKE #POSID#||'%'
+	              </isNotNull>
+	              <isNotNull col="COMBO2">
+                                AND  TEMNO = #COMBO2#
+                            </isNotNull>	 
+		<isEqual col="GBN" value="E10">
+		    AND LIFNR = #G_VEND_CODE_E#
+	              </isEqual>					              
+                            <isEqual col="GBN" value="R10">
+  	                  AND ZZBSU = #G_VEND_CODE_E#
+		</isEqual>
+		<isEqual col="GUBUN" value="2">
+		    AND ZZSHIP1 BETWEEN #FDATE# AND #TDATE#
+		</isEqual>
+		<isEqual col="GUBUN" value="3">
+		    AND ZZDAT01 BETWEEN #FDATE# AND #TDATE#
+		</isEqual>
+		<isEqual col="GUBUN" value="4">
+		    AND ZZCOMP2 BETWEEN #FDATE# AND #TDATE#
+		</isEqual>
+		<isEqual col="GUBUN" value="5">
+		    AND ZZJUNGD BETWEEN #FDATE# AND #TDATE#
+		</isEqual>
+		<isEqual col="CHK_ES" value="Y">
+		    AND ZZGUBUN IN ('11', '12', '14')
+		    AND EXTER  = 'Y'
+		 </isEqual>
+		  
+		 GROUP BY MANDT,POSID ) AS M02
+                    ,SAPHEE.VBAK AS V
+	  
+	        WHERE M01.MANDT = #G_MANDT#
+	            AND M01.MANDT = M02.MANDT
+                          AND M01.POSID = M02.POSID
+	        <isNotNull col="ZZACTSS">
+	        <isEqual col="GBN" value="E">
+	            AND M01.ZZACTSS = #ZZACTSS#
+	        </isEqual>
+	        <isEqual col="GBN" value="R">
+	            AND M01.ZZARA = #ZZACTSS#
+	         </isEqual>
+	         </isNotNull>
+		
+                       <isNotNull col="POSID">
+	            AND M01.POSID LIKE #POSID#||'%'
+                       </isNotNull>
+	         <isNotNull col="ADDR">
+	            AND (M01.ADDR1 LIKE '%'||#ADDR#||'%' OR M01.ADDR2 LIKE '%'||#ADDR#||'%')
+	         </isNotNull>
+		
+                       <isNotNull col="ZSITE_NM">
+	            AND M01.ZSITE_NM LIKE '%'||#ZSITE_NM#||'%'
+	         </isNotNull>
+	
+                       <isNotNull col="KUNNR_NM">
+    	            AND M01.KUNNR_NM LIKE '%'||#KUNNR_NM#||'%'
+                       </isNotNull>
+      	         <isNotNull col="ZMAN_NM">
+	            AND M01.ZMAN_NM LIKE '%'||#ZMAN_NM#||'%'
+	         </isNotNull>
+	         <isEqual col="GUBUN" value="1">
+	            AND M01.CONTR_DA BETWEEN #FDATE# AND #TDATE#
+	          </isEqual>
+	            AND M01.MANDT = V.MANDT 
+	            AND M01.POSID = V.ZZPJT_ID
+			    
+         ) AS T
+			
+<isEqual col="GBN2" value="A">
+  WHERE T.NETWR &gt;= #AMTF#
+</isEqual>
+<isEqual col="GBN2" value="B">
+  WHERE T.NETWR &lt;= #AMTT#
+</isEqual>
+<isEqual col="GBN2" value="C">
+  WHERE T.NETWR BETWEEN #AMTF# AND #AMTT#
+</isEqual>
+
+
+  ORDER BY T.POSID, T.ZSITE_NM
+			
+  FOR FETCH ONLY 
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="ZZACTSS" size="255" type="VARCHAR" description="" /> 
+		<col name="ADDR" size="255" type="VARCHAR" description="" /> 
+		<col name="ZSITE_NM" size="255" type="VARCHAR" description="" /> 
+		<col name="KUNNR_NM" size="255" type="VARCHAR" description="" /> 
+		<col name="ZMAN_NM" size="255" type="VARCHAR" description="" /> 
+		<col name="FDATE" size="255" type="VARCHAR" description="" /> 
+		<col name="TDATE" size="255" type="VARCHAR" description="" /> 
+		<col name="GUBUN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="ADDR" size="210" type="VARCHAR" description="" /> 
+		<col name="CONTR_DA" size="24" type="VARCHAR" description="" /> 
+		<col name="KUNNR_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="ZMAN" size="30" type="VARCHAR" description="" /> 
+		<col name="ZMAN_NM" size="60" type="VARCHAR" description="" /> 
+		<col name="ZSITE_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="ZSITE_TEL" size="60" type="VARCHAR" description="" /> 
+		<col name="ZZDAT01" size="24" type="VARCHAR" description="" /> 
+		<col name="ZZJUNGD" size="24" type="VARCHAR" description="" /> 
+	</output>
+</query>

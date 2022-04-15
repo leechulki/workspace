@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[이동계획 기초 데이타]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+
+         TEM_NM
+        ,ABR_NM
+        ,CS126_GNO
+        ,COUNT(*) CNT
+        ,CS121_SPT
+        ,MAX(ABG) AS ABG
+        ,MAX(BLD) AS BLD
+        ,SUM(CS126_AMT) AS CS126_AMT
+        ,SUM(CS126_HMT) AS CS126_HMT
+        ,SUM(CS126_DMT) AS CS126_DMT
+        ,VALUE(MAX((SELECT SUM(CS127_AMT) FROM SAPHEE.ZCST127 CS127 
+                    WHERE CS127.MANDT = #G_MANDT#
+                    AND CS127.CS127_GNO = A.CS126_GNO
+                    AND CS127_DDT = ''
+                    AND CS127_PST = 'A6')),0) AS CS127_AMT
+        ,MAX(CS126_UMR) AS CS126_UMR
+        ,MAX(CS126_RMR) AS CS126_RMR
+        ,MAX(CS126_UMS) AS CS126_UMS
+        ,CASE WHEN MAX(CS126_KND) != '' THEN 'FM' ELSE 'POG' END AS CS126_KND
+        ,MAX(CS126_LTC) AS CS126_LTC
+        ,MAX(A.VBELN) AS VBELN
+		,MAX(A.BDGBN) AS BDGBN --  2021.02.02 분담이행여부 이준석 책임 요청. Han J.H        
+
+FROM (
+        SELECT 
+               ZW010.VKGRP
+              ,ZLCD.CTEXT2 AS TEM_NM
+              ,CS126_BSU
+              ,ZW010.ABR_NM
+              ,CS126_GNO
+              ,CS121.CS121_SPT
+              ,ZLCD3.CTEXT2 AS ABG
+              ,ZLCD2.CTEXT2 AS BLD
+              ,CS126_AMT
+              ,CS126_HMT
+              ,CS126_DMT
+              ,CS126_UMR
+              ,CS126_RMR
+              ,CS126_UMS
+              ,CS126_KND
+              ,CS126_LTC
+              ,CS126.VBELN
+			  ,DECODE(CS126_BDGBN,'X','1','') AS BDGBN --  2021.02.02 분담이행여부 이준석 책임 요청. Han J.H              
+        
+        FROM SAPHEE.ZCST126 CS126 LEFT OUTER JOIN SAPHEE.ZWBT010 ZW010
+                                          ON ZW010.MANDT = CS126.MANDT
+                                         AND ZW010.LGORT = CS126.CS126_BSU 
+                                         
+                                  LEFT OUTER JOIN SAPHEE.ZLCODE ZLCD
+                                          ON ZLCD.MANDT = CS126.MANDT
+                                         AND ZLCD.CODE2 = ZW010.VKGRP
+                                         AND ZLCD.CODE1 = 'VKGRP' 
+                                         AND ZLCD.LANG = #G_LANG#
+                                  
+                                  LEFT OUTER JOIN SAPHEE.ZCST111 CS111
+                                          ON CS111.MANDT = CS126.MANDT
+                                         AND CS111.PJT = CS126.CS126_PJT
+                                         AND CS111.HNO = CS126.CS126_HNO
+                                         
+                                  LEFT OUTER JOIN SAPHEE.ZCST121 CS121
+                                          ON CS121.MANDT = CS126.MANDT
+                                         AND CS121.CS121_UPN = CS126.CS126_UPN
+                                         AND CS121.CS121_CST = CS126.CS126_CST
+                                         
+                                  LEFT OUTER JOIN SAPHEE.ZLCODE ZLCD2
+                                          ON ZLCD2.MANDT = CS126.MANDT
+                                         AND ZLCD2.CODE2 = ABG
+                                         AND ZLCD2.CODE1 = 'CS112' 
+                                         AND ZLCD2.LANG = #G_LANG#
+                                         
+                                  LEFT OUTER JOIN SAPHEE.ZLCODE ZLCD3
+                                          ON ZLCD3.MANDT = CS126.MANDT
+                                         AND ZLCD3.CODE2 = BLD
+                                         AND ZLCD3.CODE1 = 'CS123' 
+                                         AND ZLCD3.LANG = #G_LANG#
+        
+        
+        WHERE CS126.MANDT = #G_MANDT#     
+          AND CS126.CS126_DDT = ''
+          AND CS126.CS126_PST = 'A6'
+          AND CS126.CS126_GND = 'D'
+          AND SUBSTR(CS126.CS126_HNO,1,1) IN ('S','L','W','C')
+          <isNotNull col="VKGRP">
+          	AND CS126.VKGRP = #VKGRP# -- 지사별 검색조건 추가. 2018.12.20 Han J.H
+          </isNotNull>
+          AND CS126.CS126_UMR BETWEEN #DAT1# AND #DAT2#
+        
+        ) A  
+
+GROUP BY TEM_NM
+        ,ABR_NM
+        ,CS126_GNO
+        ,CS121_SPT
+
+
+	WITH UR
+
+</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

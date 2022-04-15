@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+		WITH TEMP AS
+		(
+		 		 SELECT '' AS CHECK
+		          , A.PSPID
+				  , A.SEQNO
+				  , A.INPT
+				  , DECODE(A.INPT, 'A','답사록','자동기록') AS INPT_DESC
+				  , ' ' AS EXPLO
+				  , ' ' AS EXPLM
+				  , ' ' AS RESEA
+				  , A.CDATE
+				  , A.CTIME
+				  , A.EDATE
+				  , ' ' AS FNAME
+				  , ' ' AS FPATH
+				  , ' ' AS FNAME_APP
+				  , 0 AS FSIZE
+				  , A.CNAME AS CID
+				  ,  VALUE(( SELECT X.USERNAME FROM SAPHEE.ZUSERF AS X WHERE X.MANDT = A.MANDT  AND X.USERNUMB = A.CNAME ), A.CNAME)  AS  CNAME
+				  , A.GUBUN AS GBN
+				  , DECODE(A.GUBUN,'A','전화','B','방문','C','전산','D','메일',' ') AS GBN_DESC	                            
+		          , 0 AS FRAME_AFQ	                         
+		          , ' ' AS FRAME_DATE                       
+		          , ' ' AS MATNR_DATE                            
+		          , ' ' AS HOOK_DATE	                              
+		          , A.BIGO AS CONSULT
+		          , CASE WHEN LOCATE(CHR(10),A.BIGO) = '0'
+			             THEN (
+			              			CASE WHEN LOCATE(CHR(13),A.BIGO) = '0'
+			              			     THEN A.BIGO||DECODE(A.INPT,'A','',' ('||A.POSID||')')
+			              			     ELSE SUBSTR(A.BIGO,1,LOCATE(CHR(13),A.BIGO)-1)||DECODE(A.INPT,'A','',' ('||A.POSID||')')
+			              			      END
+			                   )
+			              ELSE SUBSTR(A.BIGO,1,LOCATE(CHR(10),A.BIGO)-1)||DECODE(A.INPT,'A','',' ('||A.POSID||')')
+			              END AS CONSULT2   	                              
+			      , ( SELECT INT(P.ZSPEC11)
+		                FROM SAPHEE.ZMASTER02 AS P
+		               WHERE P.MANDT = A.MANDT
+		                 AND P.POSID = A.PSPID
+		               ORDER BY P.POSID_1
+		               FETCH FIRST 1 ROWS ONLY
+		      		 ) AS AFQ
+		      	  , 0 AS FCNT
+		      	  , ' ' AS FCNT_DESC
+		      	  , A.AUTO_DEL
+		   FROM SAPHEE.ZPSTPM01 AS A
+		 WHERE A.MANDT = #G_MANDT#
+		   AND A.PSPID = #PSPID#
+		   AND A.INPT <> 'A'
+		   AND A.DEL <> 'X'
+		  
+		UNION
+		
+		SELECT '' AS CHECK
+		       , A.PSPID                                  
+		       , A.SEQNO
+			   , 'A' AS INPT
+			   , '답사록' AS INPT_DESC                             
+		       , A.EXPLO	   	                              
+		       , A.EXPLM	   	                                              
+		       , A.RESEA	   	                            
+		       , A.CDATE
+		       , A.CTIME	   	                            
+		       , A.EDATE	   	                                               
+		       , A.FNAME		                     
+		       , A.FPATH		                        
+		       , A.FNAME_APP	                         
+		       , A.FSIZE
+		       , A.CNAME AS CID		                                                      
+		       , VALUE(( SELECT X.USERNAME FROM SAPHEE.ZUSERF AS X WHERE X.MANDT = A.MANDT  AND X.USERNUMB = A.CNAME ), A.CNAME)  AS  CNAME	                       
+		       , A.GBN	   
+			   , DECODE(A.GBN,'A','전화','B','방문','C','전산','D','메일',' ') AS GBN_DESC                              
+		       , A.FRAME_AFQ	             
+		       , A.FRAME_DATE                     
+		       , A.MATNR_DATE         
+		       , A.HOOK_DATE	               
+		       , A.CONSULT
+		       , CASE WHEN LOCATE(CHR(10),A.CONSULT) = '0'
+		              THEN (
+		              			CASE WHEN LOCATE(CHR(13),A.CONSULT) = '0'
+		              			     THEN A.CONSULT
+		              			     ELSE SUBSTR(A.CONSULT,1,LOCATE(CHR(13),A.CONSULT)-1)
+		              			      END
+		                   )
+		              ELSE SUBSTR(A.CONSULT,1,LOCATE(CHR(10),A.CONSULT)-1)
+		              END AS CONSULT2                     
+			   , ( SELECT INT(P.ZSPEC11)
+		               FROM SAPHEE.ZMASTER02 AS P
+		             WHERE P.MANDT = A.MANDT
+		                  AND P.POSID = A.PSPID
+		             ORDER BY P.POSID_1
+		         FETCH FIRST 1 ROWS ONLY
+		       ) AS AFQ
+		       , (
+		      	  	SELECT COUNT(1)
+		      	      FROM SAPHEE.ZPST0019F
+		      	     WHERE MANDT  = A.MANDT
+		      	       AND PSPID  = A.PSPID
+		      	       AND SEQNO  = A.SEQNO
+		      	  ) AS FCNT
+		       , CASE WHEN (
+					      	  	SELECT COUNT(1)
+					      	      FROM SAPHEE.ZPST0019F
+					      	     WHERE MANDT  = A.MANDT
+					      	       AND PSPID  = A.PSPID
+					      	       AND SEQNO  = A.SEQNO
+					      	) > 0
+					  THEN '있음'
+					  ELSE ' '
+					  END AS FCNT_DESC              
+				, '' AS AUTO_DEL	  
+		  FROM SAPHEE.ZPST0019 AS A
+		 WHERE A.MANDT = #G_MANDT#
+		   AND A.PSPID = #PSPID#
+		   AND A.DEL <> 'X'
+		
+		
+		)
+		
+		SELECT * 
+		  FROM TEMP 
+		 WHERE 1=1
+		 ORDER BY CDATE DESC, CTIME DESC
+		WITH UR
+
+	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list3">
+	</output>
+</query>

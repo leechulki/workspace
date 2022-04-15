@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+       X.CHK,
+       X.FLAG,
+       X.POSID,
+       X.POSID_1,
+       X.ZSITE_NM,
+       X.KUNNR_NM,
+       X.ZZDAT01,
+       X.ZZCHAKG,
+       X.ZZCOMP2,
+       X.ZZJUNGO,
+       X.TXT30,
+       X.S_ARA,
+       X.ZZARA,
+       X.B_ARA,
+       X.WB020_ARA,
+       VALUE((
+              SELECT
+                     CTEXT2 
+                FROM
+                     SAPHEE.ZLCODE
+               WHERE
+                     MANDT = #G_MANDT#
+                 AND CODE2 = X.WB020_ARA
+                 AND CODE1 = 'CS115'
+                 AND LANG = #G_LANG#
+       ),'') C_ARA,
+       X.ADR
+  FROM
+       (
+        SELECT
+               '' CHK,
+               '' FLAG,
+               A.POSID,
+               B.POSID_1,
+               A.ZSITE_NM,
+               A.KUNNR_NM,
+               B.ZZDAT01,
+               B.ZZCHAKG,
+               B.ZZCOMP2,
+               B.ZZJUNGO,
+               B.TXT30,
+               VALUE(G.CTEXT2,'') S_ARA,
+               A.ZZARA,
+               VALUE(F.CTEXT2,'') B_ARA,
+               VALUE((
+                      SELECT 
+                             WB020_ARA 
+                        FROM 
+                             SAPHEE.ZWBT020 
+                       WHERE 
+                             MANDT = #G_MANDT#
+                         AND WB020_POS = A.PSTLZ
+                      GROUP BY
+                             WB020_ARA
+               ),'') WB020_ARA,
+               A.ADDR1 || ' ' || A.ADDR2 ADR
+          FROM
+               SAPHEE.ZMASTER01 A
+                      LEFT OUTER JOIN SAPHEE.ZLCODE F ON F.MANDT = A.MANDT
+                                                     AND F.CODE2 = A.ZZARA
+                                                     AND F.CODE1 = 'CS115'
+                                                     AND F.LANG = #G_LANG#
+                      LEFT OUTER JOIN SAPHEE.ZLCODE G ON G.MANDT = A.MANDT
+                                                     AND G.CODE2 = A.ZZACTSS
+                                                     AND G.CODE1 = 'PS003'
+                                                     AND G.LANG = #G_LANG#,
+               SAPHEE.ZMASTER02 B
+                      LEFT OUTER JOIN SAPHEE.ZCST101 C ON C.MANDT = B.MANDT 
+                                                      AND C.CS101_PJT = B.POSID
+                                                      AND C.CS101_PJT || C.CS101_HNO = B.POSID_1
+         WHERE
+               A.MANDT = #G_MANDT#
+           AND A.MANDT = B.MANDT
+           AND A.POSID = B.POSID
+           AND SUBSTR(A.POSID,1,1) &lt;&gt; 'M'
+           AND B.ZZDAT01 BETWEEN #FDT# AND #TDT#
+           AND B.ZZCHAKG = 'X'
+           AND C.CS101_PJT IS NULL
+       ) X
+ WHERE
+       1=1
+<isNotNull col="ARA">
+   AND X.ZZARA = #ARA#
+</isNotNull>
+<isEqual col="COM" value="A">
+   AND X.ZZARA &lt;&gt; X.WB020_ARA
+</isEqual>
+<isEqual col="COM" value="B">
+   AND X.ZZARA = X.WB020_ARA
+</isEqual>
+ORDER BY
+       X.POSID,
+       X.POSID_1
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="FDT" size="255" type="VARCHAR" description="" /> 
+		<col name="TDT" size="255" type="VARCHAR" description="" /> 
+		<col name="G_LANG" size="255" type="VARCHAR" description="" /> 
+		<col name="ARA" size="255" type="VARCHAR" description="" /> 
+		<col name="COM" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

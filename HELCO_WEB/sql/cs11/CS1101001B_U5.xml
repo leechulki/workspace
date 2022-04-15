@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>update</type>
+	<description><![CDATA[무상청구 수신결재완료처리]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+UPDATE
+       SAPHEE.ZCST116 CS116A
+   SET
+       CS116_PST = 'A6',
+       CS116_MBG = ( SELECT  VALUE(SUM( VALUE(CS136_BAM,0) + VALUE(CS136_IY1,0) + VALUE(CS136_IY2,0) + VALUE(CS136_IY3,0) + VALUE(CS136_IY4,0) + VALUE(CS136_RET,0) ), 0) 
+		               FROM  SAPHEE.ZCST136 CS136A	
+		              WHERE      MANDT = CS116A.MANDT
+		            	     AND CS136_PJT = CS116A.CS116_PJT
+		                     AND CS136_HNO = CS116A.CS116_HNO
+		                     AND CS136_SEQ = CS116A.CS116_SEQ
+		            	     AND CS136_GND = CS116A.CS116_GND
+		            	     AND (CS136_MGB = '' OR (CS136_MGB = 'Y' AND CS136_MSA = '09'))
+		            	     AND ((CS136_GBU = '3' AND CS136_GGB = '' ) OR (CS136_GBU = '1' AND CS136_GGB = '9'))
+		                     AND CS136_GYM BETWEEN SUBSTR(CS116A.CS116_BGT,1,6) AND SUBSTR(CS116A.CS116_BMT,1,6)             ),
+       CS116_MLT = (
+                    SELECT
+                           CASE 
+                                WHEN ZZGUBUN IN ('10','13') THEN
+                                     CASE
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC7 WHEN '' THEN '0' ELSE ZSPEC7 END),0)) <= 10 THEN 0.8
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC7 WHEN '' THEN '0' ELSE ZSPEC7 END),0)) > 10 THEN 1 - ((15 - INT(ROUND(DOUBLE(CASE ZSPEC7 WHEN '' THEN '0' ELSE ZSPEC7 END),0))) * 0.04)
+                                          ELSE 0
+                                     END
+                                WHEN ZZGUBUN IN ('11','12','14') THEN 1.8
+                                WHEN ZZGUBUN = '20' THEN
+                                     CASE 
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC9 WHEN '' THEN '0' ELSE ZSPEC9 END),0)) = 0 THEN 0
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC9 WHEN '' THEN '0' ELSE ZSPEC9 END),0)) < 11 THEN 1.0
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC9 WHEN '' THEN '0' ELSE ZSPEC9 END),0)) < 30 THEN 1.5
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC9 WHEN '' THEN '0' ELSE ZSPEC9 END),0)) < 50 THEN 2.0 
+                                          ELSE 2.5 
+                                     END
+                                WHEN ZZGUBUN BETWEEN '30' AND '33' THEN 0
+                                WHEN ZZGUBUN BETWEEN '40' AND '41' THEN
+                                     CASE WHEN INT(ROUND(DOUBLE(CASE ZSPEC10 WHEN '' THEN '0' ELSE ZSPEC10 END),0)) = 0 THEN 0
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC10 WHEN '' THEN '0' ELSE ZSPEC10 END),0)) < 33 THEN 1.0     
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC10 WHEN '' THEN '0' ELSE ZSPEC10 END),0)) < 65 THEN 2.0     
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC10 WHEN '' THEN '0' ELSE ZSPEC10 END),0)) < 81 THEN 2.5 
+                                          ELSE 3.0 
+                                     END     
+                                ELSE 0 
+                           END AS MLT
+                      FROM
+                           SAPHEE.ZMASTER02
+                     WHERE
+                           MANDT = #G_MANDT#
+                       AND POSID = #PJT#
+                       AND SUBSTR(POSID_1,7,3) = #HNO#
+                   ),
+       CS116_TGB = (
+                    SELECT
+                           VALUE(GBU,'') GBU
+                      FROM
+                           SAPHEE.ZCST111
+                     WHERE
+                           MANDT = #G_MANDT#
+                       AND PJT = #PJT#
+                       AND HNO = #HNO#
+                   ),
+       CS116_GNO = #GNO#,
+       --CS116_HYN = #THYN#,		/* 입주확인서 필요없다고 함 by 최인식과장 */
+       CS116_BST = SUBSTR(SAPHEE.TO_DATETIME(),1,8),
+       CS116_APP = #G_USER_ID#,
+       UPDAT = HEX(CURRENT DATE), -- BS ETL 연계를 위한 식별컬럼 추가. 2020.10.29 Han J.H
+       UPZET = HEX(CURRENT TIME) -- BS ETL 연계를 위한 식별컬럼 추가. 2020.10.29 Han J.H        
+ WHERE MANDT = #G_MANDT#
+   AND CS116_PJT = #PJT#
+   AND CS116_HNO = #HNO#
+   AND CS116_SEQ = #SEQ#	]]></statement>
+	<input default-name="ds_list">
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

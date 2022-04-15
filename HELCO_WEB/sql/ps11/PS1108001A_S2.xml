@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT PS.PSPID , PS.POSID , VALUE(PS.SEQNO , 0 )  SEQNO , PS.PMNM , PS.ZSITE_NM , 
+             PS.FRAME_CK , PS.T_DT,  PS.M_DT, PS.M_USER, PS.NAMET, PS.ZMAN_NM, PS.VKGRPNM,
+             PS.PERNO2,  PS.FILE,  PS.CR_DATE , PS.CONF,  PS.ZZSHIP1, PS.ILDAT,  PS.GAP,
+             PS.CDATE , PS.CONF_DATE,  PS.ZZCHAKG,  PS.ZSPEC1,  PS.ZSPEC2,  '' AS CHECK , PS.LP_IS   ,PS.STATS,
+             PS.TH, PS.CX, PS.CY, PS.TRH, PS.M_INDC, PS.S_INDC
+FROM
+(
+SELECT B.MANDT, B.POSID AS PSPID,  B.POSID_1 AS POSID,    A.SEQNO,
+             ROWNUMBER() OVER(PARTITION BY B.POSID , B.POSID_1  ORDER BY  B.POSID , B.POSID_1, A.SEQNO  DESC ) AS RN,
+             B.NAMET AS PMNM,        C.ZSITE_NM,
+             (CASE WHEN A.FRAME_CK = 'A' THEN '승강로 X,Y 증가(미달)'
+                       WHEN A.FRAME_CK = 'B' THEN '승강로 전장 증가(미달)'
+                       WHEN A.FRAME_CK = 'C' THEN 'SSVF 좌/우횡락 변경'
+                       WHEN A.FRAME_CK = 'D' THEN 'MC/HITCH BEAM HOLE 문제'
+                       WHEN A.FRAME_CK = 'E' THEN '승강로 건축배관 간섭'
+                       WHEN A.FRAME_CK = 'F' THEN 'HOOK 미시공(골조완료)'
+                       WHEN A.FRAME_CK = 'H' THEN '승강로 배관'
+                       WHEN A.FRAME_CK = 'I' THEN '이상없음'
+                       WHEN A.FRAME_CK = 'J' THEN '실측불가'
+                       WHEN A.FRAME_CK = 'G' THEN '기타문제점'
+                       ELSE ''
+              END) AS FRAME_CK,
+              (A.T_DATE || ' ' || A.T_TIME) AS T_DT,
+              (A.M_DATE || ' ' || A.M_TIME) AS M_DT,
+              (SELECT X.USERNAME FROM SAPHEE.ZUSERF AS X 
+                 WHERE X.MANDT = A.MANDT AND X.USERNUMB = A.M_USER) AS M_USER,
+	B.NAMET,
+	C.ZMAN_NM,
+	(SELECT ST.BEZEI FROM SAPHEE.TVGRT AS ST 
+                WHERE ST.MANDT = D.MANDT AND ST.SPRAS = '3' AND ST.VKGRP = D.VKGRP) AS VKGRPNM,
+              
+              VALUE((SELECT X3.NAME1
+                  FROM SAPHEE.VBAK AS X1 
+                  INNER JOIN SAPHEE.VBPA AS X2
+    	        ON X1.MANDT = X2.MANDT
+	      AND X1.VBELN = X2.VBELN 
+                 INNER JOIN SAPHEE.KNA1 AS X3
+	        ON X3.MANDT = X2.MANDT
+	      AND X3.KUNNR = X2.KUNNR
+                WHERE X1.MANDT = A.MANDT
+                    AND X1.ZZPJT_ID = A.PJT
+                    AND X2.PARVW = 'Z3'), '') AS PERNO2,
+
+               (CASE WHEN (SELECT COUNT(*)  
+                                        FROM SAPHEE.ZCMFL001 AS X 
+                                       WHERE X.MANDT = B.MANDT
+                                           AND X.GBN = 'E'
+                                           AND X.PSPID = B.POSID
+                                           AND X.POSID = B.POSID_1) > 0 THEN '파일첨부'
+                         ELSE '' 
+                 END ) AS FILE,
+                A.CONF,           
+                A.CONF_DATE,
+                (CASE WHEN B.ZZSHIP1 = '00000000' THEN '' ELSE B.ZZSHIP1 END) AS ZZSHIP1,
+                (CASE WHEN B.ZZCHAKG = 'X' THEN '확정' ELSE '' END) AS ZZCHAKG,
+                ZSPEC1,  ZSPEC2,
+                VALUE((SELECT X.ILDAT  
+                               FROM SAPHEE.ZPPT027 AS X
+                              WHERE X.MANDT = B.MANDT   AND X.PSPID = B.POSID
+                                  AND X.POSID = B.POSID_1    AND X.BLOCK = 'C'
+                                  AND X.ACTIV = '02'              AND X.GUBUN = '02'), '')     AS  ILDAT,
+               C.CDATE
+                         
+
+	 ,(CASE WHEN C.CDATE = '00000000' or C.CDATE = '0000000' OR C.CDATE = '' THEN 0 
+	             ELSE
+	                     (DAYS(INSERT(INSERT(C.CDATE,5,0,'-'),8,0,'-'))        
+		         -
+		       (SELECT DAYS(INSERT(INSERT(MIN(X.CR_DATE),5,0,'-'),8,0,'-'))
+		         FROM SAPHEE.ZSDT0005 AS X
+		        WHERE X.MANDT = B.MANDT   
+		            AND X.HOGI = B.POSID_1
+		            AND X.CHARACTERISTIC LIKE 'EL_E%'	 )
+		        ) * -1 
+                 END) AS GAP
+
+
+
+              ,VALUE((SELECT MIN(X.CR_DATE)
+	              FROM SAPHEE.ZSDT0005 AS X
+	            WHERE X.MANDT = B.MANDT   
+	                AND X.HOGI = B.POSID_1
+		  AND X.CHARACTERISTIC LIKE 'EL_E%' ), '') AS CR_DATE
+
+              ,(SELECT  MAX(X.LP_IS) 
+                    FROM SAPHEE.ZSDT1058 AS X 
+                 WHERE X.MANDT = F.MANDT  
+                    AND X.QTSO_NO = F.QTNUM  ) as LP_IS   -- 자동도면 유무 표시 
+  
+             , CASE WHEN H.ZSTAT  = 'X' THEN 'O' ELSE '' END STATS
+             , ( VALUE(CASE J.B_2_4 WHEN '' THEN 0 ELSE J.B_2_4  END, 0 ) -  VALUE(CASE J.B_1_4 WHEN '' THEN 0 ELSE J.B_1_4  END, 0 ) ) AS TH
+  		     , CASE WHEN VALUE(J.VALUE,'')  = '' THEN 0 
+			               WHEN VALUE(J.VALUE,'')  = 'CEMEN' THEN  VALUE(CASE J.A_5_1 WHEN '' THEN 0 ELSE J.A_5_1  END, 0 ) -  VALUE(CASE J.A_6_1 WHEN '' THEN 0 ELSE J.A_6_1  END, 0 ) 
+						   WHEN VALUE(J.VALUE,'')  = 'STWL' THEN  VALUE(CASE J.A_5_2 WHEN '' THEN 0 ELSE J.A_5_2  END, 0 ) -  VALUE(CASE J.A_6_2 WHEN '' THEN 0 ELSE J.A_6_2  END, 0 ) 
+						   WHEN VALUE(J.VALUE,'')  = 'STGL' THEN  VALUE(CASE J.A_5_3 WHEN '' THEN 0 ELSE J.A_5_3  END, 0 ) -  VALUE(CASE J.A_6_3 WHEN '' THEN 0 ELSE J.A_6_3  END, 0 ) 
+                           WHEN VALUE(J.VALUE,'')  = 'STSP' THEN  VALUE(CASE J.A_5_4 WHEN '' THEN 0 ELSE J.A_5_4  END, 0 ) -  VALUE(CASE J.A_6_4 WHEN '' THEN 0 ELSE J.A_6_4  END, 0 ) 
+						   ELSE 0 END AS CX
+ 			 , CASE WHEN VALUE(J.VALUE,'')  = '' THEN 0 
+			               WHEN VALUE(J.VALUE,'')  = 'CEMEN' THEN  VALUE(CASE J.A_2_1 WHEN '' THEN 0 ELSE J.A_2_1  END, 0 ) -  VALUE(CASE J.A_3_1 WHEN '' THEN 0 ELSE J.A_3_1  END, 0 ) 
+						   WHEN VALUE(J.VALUE,'')  = 'STWL' THEN  VALUE(CASE J.A_2_2 WHEN '' THEN 0 ELSE J.A_2_2  END, 0 ) -  VALUE(CASE J.A_3_2 WHEN '' THEN 0 ELSE J.A_3_2  END, 0 ) 
+						   WHEN VALUE(J.VALUE,'')  = 'STGL' THEN  VALUE(CASE J.A_2_3 WHEN '' THEN 0 ELSE J.A_2_3  END, 0 ) -  VALUE(CASE J.A_3_3 WHEN '' THEN 0 ELSE J.A_3_3  END, 0 ) 
+                           WHEN VALUE(J.VALUE,'')  = 'STSP' THEN  VALUE(CASE J.A_2_4 WHEN '' THEN 0 ELSE J.A_2_4  END, 0 ) -  VALUE(CASE J.A_3_4 WHEN '' THEN 0 ELSE J.A_3_4  END, 0 ) 
+						   ELSE 0 END AS CY
+			 , ( VALUE(CASE J.B_2_3 WHEN '' THEN 0 ELSE J.B_2_3  END, 0 ) -  VALUE(CASE J.B_1_3 WHEN '' THEN 0 ELSE J.B_1_3  END, 0 ) ) AS TRH
+			 , DECODE(VALUE((
+						 		SELECT COUNT(1)
+						 		  FROM SAPHEE.ZPST11071M M
+						 		 WHERE M.MANDT = #G_MANDT#
+						 		   AND M.MANDT = A.MANDT
+						 		   AND M.PJT   = A.PJT
+						 		   AND M.HNO   = A.HNO),0)
+						 ,0 ,'N','Y'
+			   ) AS M_INDC
+			  , DECODE(VALUE(A.SEQNO,0),0,'N','Y') AS S_INDC
+    FROM SAPHEE.ZMASTER02 AS B 
+    LEFT OUTER JOIN SAPHEE.ZPST11071MB AS A
+         ON A.MANDT = B.MANDT
+       AND A.PJT = B.POSID
+       AND A.PJT || A.HNO = B.POSID_1     
+     INNER JOIN SAPHEE.ZMASTER01 AS C
+          ON C.MANDT = B.MANDT
+        AND C.POSID = B.POSID
+    LEFT OUTER JOIN SAPHEE.ZPST11071HR AS H
+      ON C.MANDT = H.MANDT
+    AND C.ZMAN_NM = H.USERNAME
+      INNER JOIN SAPHEE.VBAK AS D
+          ON B.MANDT = D.MANDT
+        AND B.POSID   = D.ZZPJT_ID
+    INNER JOIN SAPHEE.VBAP AS F
+         ON B.MANDT = F.MANDT
+        AND B.POSID_1 = F.HOGI
+
+	LEFT OUTER JOIN SAPHEE.ZPST11071DB AS J
+	   ON A.MANDT  = J.MANDT
+	  AND A.PJT = J.PJT
+	  AND A.HNO = J.HNO
+	  AND A.SEQNO = J.SEQNO
+
+ WHERE B.MANDT = #G_MANDT#      
+    AND B.ZZCHAKD BETWEEN #TRAN_F# AND #TRAN_T#
+     AND B.ZZGUBUN IN  ( '10'  )
+     AND B.PRART IN ('01','10')
+     AND SUBSTR(B.POSID_1,1,1) &lt;&gt; 'T'
+	  <isNotNull col="PSPID">
+     AND C.POSID = #PSPID#
+   </isNotNull>
+   <isNotNull col="ZZACTSS">
+     AND B.ZZACTSS = #ZZACTSS#
+    </isNotNull>
+
+    <isNotNull col="ZZPMNUM">
+       AND B.NAMET = #ZZPMNUM#
+    </isNotNull>
+    <isNotNull col="FRAME_CK" >
+     AND A.FRAME_CK = #FRAME_CK#
+   </isNotNull>
+    <isNotNull col="CONT" >
+     AND A.CONF = #CONT#
+   </isNotNull>
+   <isNotNull col="ZMAN">
+    AND C.ZMAN_NM LIKE '%'||#ZMAN#||'%'
+   </isNotNull>
+   
+	 
+	 ORDER BY  B.POSID , B.POSID, A.SEQNO  DESC
+) AS PS
+WHERE PS.MANDT = #G_MANDT#      
+    AND PS.RN = 1	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list1">
+	</output>
+</query>

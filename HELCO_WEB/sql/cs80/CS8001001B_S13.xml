@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[견적 디테일 자재별 합계 정보 RETRIEVE - 견적서 출력시]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	
+	SELECT QTNUM, 
+	       HOGI_ID, 
+  		   CASE WHEN SUM(ROWCNT) > 1 THEN MIN(HNA) || '외 ' || CAST(SUM(ROWCNT) - 1 AS VARCHAR(10)) || '개 호기'
+              ELSE MIN(HNA)
+           END AS HNA,
+		     AMOUNT AS AMOUNT,
+		     MATNR, 
+	       MATNRNM, 
+	       MEINS,
+	       MAKTX, 
+	       SPEC, 
+	       SUM(CASE WHEN NETWR_DC != 0  AND NETWR_SHIP = 0 THEN AMOUNT/MENGE ELSE ROUND(NETPR*REOFR/SUM_STD,3) END) AS NETPR,
+	       SUM(MENGE) AS MENGE, 
+	    --   SUM(CASE WHEN NETWR_DC != 0  AND NETWR_SHIP = 0 THEN AMOUNT ELSE NETWR*REOFR/SUM_STD END) AS NETWR,
+	       SUM(CASE WHEN NETWR_DC != 0  AND NETWR_SHIP = 0 THEN AMOUNT ELSE ROUND(NETPR*REOFR/SUM_STD,3)*MENGE END) AS NETWR,
+	       ZSIZE  -- 크기 치수  
+	  FROM 
+	       (SELECT A.QTNUM,
+	               A.SEQNO,
+	               A.HOGI_ID,
+	               A.HNA, 
+	               1 AS ROWCNT,
+	               A.MATNR,
+	               A.MAKTX, 
+	              CASE 
+	                  WHEN A.CGUBN = '1' THEN B.MATNR_NM 
+	                  ELSE C.MATNR_NM 
+	              END AS MATNRNM, 
+	              A.MEINS, 
+	              CASE 
+	                  WHEN A.CGUBN = '1' THEN B.SPEC 
+	                  ELSE C.SPEC 
+	              END AS SPEC, 
+	              A.MENGE, 
+	              SAPHEE.GET_CURRDATA(A.WAERS, A.NETPR)  AS NETPR, 
+	              SAPHEE.GET_CURRDATA(A.WAERS, A.NETWR)  AS NETWR,
+	              SAPHEE.GET_CURRDATA(A.WAERS, A.AMOUNT)  AS AMOUNT, -- 견적가 
+	              B.ZSIZE,
+	              A1.NETWR_DC,
+	              A1.NETWR_SHIP,
+	              A1.SUR_RATE
+				  ,A1.SUM_OFR
+				  ,A1.SUM_STD
+				  ,(A1.SUM_OFR-A1.NETWR_SHIP) REOFR
+	         FROM SAPHEE.ZCST002G A  INNER JOIN SAPHEE.ZCST001G AS A1
+	                                              ON A1.MANDT = A.MANDT
+	                                             AND A1.QTNUM = A.QTNUM
+	                                             AND A1.SEQ = A.SEQ
+	                                 LEFT OUTER JOIN SAPHEE.ZMMT011 B 
+	                                              ON A.MANDT = B.MANDT 
+	                                             AND A.MATNR = B.MATNR 
+	                                 LEFT OUTER JOIN 
+	                                                 (SELECT M110.MANDT, 
+	                                                        M110.CARTNUM, 
+	                                                        M110.MATNRL1, 
+	                                                        M110.MATNR_NM, 
+	                                                        M011.SPEC 
+	                                                   FROM SAPHEE.ZMMT110 AS M110 
+	                                                    LEFT OUTER JOIN SAPHEE.ZMMT011 AS M011 
+	                                                        ON M011.MANDT = M110.MANDT 
+	                                                        AND 
+	                                                        (
+	                                                            M110.MATNRL1 = M011.MATNR 
+	                                                            OR SUBSTR(M110.MATNRL1, 2) = M011.MATNR
+	                                                        ) 
+	                                                  WHERE MATNRL2 = '0' 
+	                                                 ) C 
+	                                                 ON C.MANDT = A.MANDT 
+	                                                AND A.MATNR = C.CARTNUM 
+	        WHERE A.MANDT = #G_MANDT#
+	              AND A.QTNUM = #QTNUM# 
+	              AND A.SEQ = #SEQ#
+	       ) AS SUM01 
+	 GROUP BY
+	 	   	 QTNUM, HOGI_ID, 
+	       MATNR, 
+	       MATNRNM,
+	       MAKTX, 
+	       MEINS, 
+	       SPEC, 
+	       NETPR,
+	       ZSIZE,
+	       AMOUNT
+	 ORDER BY MAX(SEQNO)
+	   FOR FETCH ONLY
+	  WITH UR  	
+
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_detail_prt">
+	</output>
+</query>

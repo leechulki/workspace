@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+       A.CS301_TEM || '-' || A.CS301_RDT || '-' || A.CS301_SEQ ETN,
+       A.CS301_SIR SIR,
+       A.CS301_PST PST,
+       CASE A.CS301_PST
+            WHEN 'A1' THEN '작성'
+            WHEN 'A2' THEN '반송'
+            WHEN 'A3' THEN '전송'
+            WHEN 'A6' THEN '승인'
+       END PST_NM,
+       A.CS301_MDT MDT,
+       A.CS301_MID MID,
+       (
+        SELECT USERNAME
+          FROM SAPHEE.ZUSERF
+         WHERE MANDT = #G_MANDT# AND USERNUMB = A.CS301_MID
+       ) MID_NM,
+       A.CS301_CDT CDT,
+       A.CS301_NAM NAM,
+       A.CS301_SPT SPT,
+       A.CS301_PJT PJT,
+       A.CS301_BSU BSU,
+       A.CS301_ADR ADR,
+       A.CS301_SPC SPC,
+       A.CS301_PRD PRD,
+       A.CS301_CDY CDY,
+       A.CS301_CPD CPD,
+       A.CS301_CND CND,
+       A.CS301_SRG SRG,
+       A.CS301_GBU GBU,
+       A.CS301_YGB YGB,
+       A.CS301_BLD BLD,
+       A.CS301_PDT PDT,
+       A.CS301_CNT CNT,
+       A.CS301_FLR FLR,
+       A.CS301_SPD SPD,
+       A.CS301_SYR SYR,
+       A.CS301_HYN HYN,
+       A.CS301_DYN DYN,
+       A.CS301_ACYN ACYN, -- 공기청정기 임대여부
+       A.CS301_CYN CYN,
+       A.CS301_RM1||A.CS301_RM2 AS RMK,
+       A.CS301_OPN OPN,
+       A.CS301_DOC DOC,
+       VALUE(B.APSTAT,'') APSTAT,
+       VALUE(C.CS311_TEM,'') MASTAT,
+       VALUE(C.CS311_TO2,0) MATOT,
+       VALUE(C.CS311_AMG,'N') AMG,
+       VALUE(D.CS310_RAT,0) RA1,
+       VALUE(D.CS310_RA2,0) RA2,
+       A.CS301_MMN MMN,
+       A.CS301_DAT DAT,
+       --CASE 2020.07.31 변경전
+--       CASE
+--            WHEN VALUE(A.CS301_TRT,0) > 95.0 THEN '지사장'
+--            WHEN VALUE(A.CS301_TRT,0) > 90.0 AND VALUE(A.CS301_TRT,0) <= 95.0 THEN '팀장'
+--            WHEN VALUE(A.CS301_TRT,0) > 85.0 AND VALUE(A.CS301_TRT,0) <= 90.0 THEN '담당'
+--            WHEN VALUE(A.CS301_TRT,0) <= 85.0 THEN '본부장'
+--       END COF,
+	   -- 2020.07.31 변경후
+       CASE
+            WHEN VALUE(A.CS301_TRT,0) > 90.0 THEN '지사장(팀장)'                                -- 91~
+            WHEN VALUE(A.CS301_TRT,0) > 85.0 AND VALUE(A.CS301_TRT,0) <= 90.0 THEN '담당'     -- 86~90
+            WHEN A.CS301_CNT > 10 AND VALUE(A.CS301_TRT,0) <= 85.0 THEN '본부장'               -- 0~85(10대초과)
+            WHEN A.CS301_CNT <= 10 AND VALUE(A.CS301_TRT,0) <= 85.0 THEN '본부장(월보고)'        -- 0~85(10대이하)			
+       END COF, -- 기준단가 달성
+       --CASE 2020.07.31 변경전
+--       CASE
+--            WHEN A.CS301_CPD = 'A' THEN	--FM
+--                 CASE
+--                      WHEN VALUE(A.CS301_DAT,0) <= 3.0 THEN '지사장'
+--                      WHEN VALUE(A.CS301_DAT,0) > 3.0 AND VALUE(A.CS301_DAT,0) <= 5.0 THEN '팀장'
+--                      WHEN VALUE(A.CS301_DAT,0) > 5.0 AND VALUE(A.CS301_DAT,0) <= 9.0 THEN '담당'
+--                      WHEN VALUE(A.CS301_DAT,0) > 9.0 THEN '본부장'
+--                 END
+--            WHEN A.CS301_CPD = 'B' THEN	--POG
+--                 CASE
+--                      WHEN VALUE(A.CS301_DAT,0) <= 5.0 THEN '지사장'
+--                      WHEN VALUE(A.CS301_DAT,0) > 5.0 AND VALUE(A.CS301_DAT,0) <= 8.0 THEN '팀장'
+--                      WHEN VALUE(A.CS301_DAT,0) > 8.0 AND VALUE(A.CS301_DAT,0) <= 10.0 THEN '담당'
+--                      WHEN VALUE(A.CS301_DAT,0) > 10.0 THEN '본부장'
+--                END
+--       END COF2,
+       -- 2020.07.31 변경후
+       CASE
+            WHEN A.CS301_CPD = 'A' THEN	--FM
+                 CASE
+                      WHEN VALUE(A.CS301_DAT,0) <= 5.0 THEN '지사장(팀장)'                                         -- 0~5
+                      WHEN VALUE(A.CS301_DAT,0) > 5.0 AND VALUE(A.CS301_DAT,0) <= 10.0 THEN '담당'               -- 6~10
+                      WHEN VALUE(A.CS301_DAT,0) > 10.0 THEN '본부장'                                              -- 10~
+                 END
+            WHEN A.CS301_CPD = 'B' THEN	--POG
+                 CASE
+                      WHEN VALUE(A.CS301_DAT,0) <= 5.0 THEN '지사장(팀장)'                                          -- 0~5
+                      WHEN VALUE(A.CS301_DAT,0) > 5.0 AND VALUE(A.CS301_DAT,0) <= 10.0 THEN '담당'                -- 6~10
+                      WHEN VALUE(A.CS301_DAT,0) > 10.0 THEN '본부장'                                               -- 10~
+                 END
+       END COF2, -- 할인율       
+       A.CS301_STD	AS STD,
+       A.CS301_ETD	AS ETD,
+       A.CS301_ZMAN	AS ZMAN,
+       A.CS301_PNT	AS PNT,
+       A.CS301_SAJ	AS SAJ,
+       A.CS301_GIS	AS GIS,
+       A.CS301_TRT  AS TRAT,
+ --      AVG(F.TRT_B)  AS TRAT_B,
+       ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1)  AS TRAT_B,
+--       CASE
+--            WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) > 95.0 THEN '지사장'
+--            WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) > 90.0 AND VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) <= 95.0 THEN '팀장'
+--            WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) > 85.0 AND VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) <= 90.0 THEN '담당'
+--            WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) < 85.0 THEN '본부장'
+--       END COF3, 
+
+--       COF3 변경    (2020.02.11 최선경씨 요청-- POG이면서 Renewal인경우만 변경)
+	   --CASE 2020.07.31 변경전
+--       CASE   
+--            WHEN   A.CS301_CPD = 'B' AND A.CS301_CND = 'B' THEN
+--                CASE
+--                    WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) >= 100.0 THEN '지사장'
+--                    WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) >   95.0 AND VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) < 100.0 THEN '팀장'
+--                    WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) >   90.0 AND VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) <= 95.0 THEN '담당'
+--                    WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) <=  90.0 THEN '본부장'
+--                END
+--            ELSE
+--                CASE            
+--                    WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) > 95.0 THEN '지사장'
+--                    WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) > 90.0 AND VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) <= 95.0 THEN '팀장'
+--                    WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) > 85.0 AND VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) <= 90.0 THEN '담당'
+--                    WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) < 85.0 THEN '본부장'
+--                END
+--       END COF3, 
+	   -- 2020.07.31 변경후
+       CASE   
+            WHEN   A.CS301_CPD = 'B' AND A.CS301_CND = 'B' THEN -- POG이면서 Renewal인경우만 변경
+				   CASE
+				   	   WHEN A.CS301_CNT > 10 THEN -- 10대 초과
+                	   		CASE
+                    			WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) >= 100.0 THEN '지사장(팀장)'                                                                                                          -- 100~
+                    			WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) >   95.0 AND VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) < 100.0 THEN '지사장(팀장)'  -- 96~99
+                    			WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) >   90.0 AND VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) <= 95.0 THEN '담당'        -- 91~95
+                    			WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) <=  90.0 THEN '본부장'                                                                                                               -- 0~90
+                	   		END
+				   	   ELSE
+                	   		CASE                                    -- 10대 이하
+                    			WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) >= 100.0 THEN '지사장(팀장)'                                                                                                          -- 100~
+                    			WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) >   90.0 AND VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) < 100.0 THEN '지사장(팀장)'  -- 91~99
+                    			WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) >   85.0 AND VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) <= 90.0 THEN '담당'        -- 86~90
+                    			WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) <=  85.0 THEN '본부장(월보고)'                                                                                                         -- 0~85					   	   	   								
+				   			END
+				   	   END
+            ELSE
+				   CASE
+				   	   WHEN A.CS301_CNT > 10 THEN -- 10대 초과
+                	   		CASE
+                    			WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) >= 100.0 THEN '지사장(팀장)'                                                                                                          -- 100~
+                    			WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) >   90.0 AND VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) < 100.0 THEN '지사장(팀장)'  -- 91~99
+                    			WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) >   85.0 AND VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) <= 90.0 THEN '담당'        -- 86~90
+                    			WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) <=  85.0 THEN '본부장'                                                                                                               -- 0~85
+                	   		END
+				   	   ELSE
+                	   		CASE                                    -- 10대 이하
+                    			WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) >= 100.0 THEN '지사장(팀장)'                                                                                                          -- 100~
+                    			WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) >   90.0 AND VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) < 100.0 THEN '지사장(팀장)'  -- 91~99
+                    			WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) >   85.0 AND VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) <= 90.0 THEN '담당'        -- 86~90
+                    			WHEN VALUE(ROUND( CAST(SUM(F.CS301_AMT) AS DEC(15))/ CAST(SUM(F.CS126_AMT) AS DEC(15))*100,1),0) <=  85.0 THEN '본부장(월보고)'                                                                                                         -- 0~85					   	   	   								
+				   			END
+				   	   END
+       END COF3, -- 종전단가 달성	   
+       '' AS PGMID, 
+       A.CS301_ZTERM AS ZTERM,
+       A.CS301_CONGB AS CONGB,
+       A.CS301_NIGHT AS NIGHT,
+       A.CS301_WEND  AS WEND,
+       DECODE(A.CS301_BDGBN,'X','1','') AS BDGBN,
+       SUM(E.CS302_HMT)/count(*) AS HMT_S,
+       CASE WHEN A.CS301_CPD = 'A' THEN SUM(E.CS302_FMT)/count(*)
+            WHEN A.CS301_CPD = 'B' THEN SUM(E.CS302_PMT)/count(*) 
+       END AS AMT_S,
+       CASE WHEN A.CS301_CPD = 'A' THEN SUM(E.CS302_FMBT)/count(*)
+            WHEN A.CS301_CPD = 'B' THEN SUM(E.CS302_PMBT)/count(*) 
+       END AS AMBT_S,
+       CASE WHEN A.CS301_CPD = 'A' THEN (SUM(E.CS302_FMT) + SUM(E.CS302_FMBT))/count(*)
+            WHEN A.CS301_CPD = 'B' THEN (SUM(E.CS302_PMT) + SUM(E.CS302_PMBT))/count(*) 
+       END AS AMTT_S,
+       MAX(F.EL_DEPH) AS EL_DEPH,
+       SUM(E.CS302_ACMT)/count(*) AS ACMT_S,
+       VALUE(B.DISCRULE, '') AS DISCRULE ----------전결규정 관련 추가
+  FROM
+       SAPHEE.ZCST301 A
+              LEFT OUTER JOIN SAPHEE.ZWBAP01 B ON B.MANDT = A.MANDT
+                                              AND B.DOCNO = A.CS301_DOC
+                                              AND B.DOCKIND = '3'
+              LEFT OUTER JOIN SAPHEE.ZCST311 C ON C.MANDT = A.MANDT
+                                              AND C.CS311_TEM = A.CS301_TEM
+                                              AND C.CS311_RDT = A.CS301_RDT
+                                              AND C.CS311_SEQ = A.CS301_SEQ
+                                              AND C.CS311_SIR = A.CS301_SIR
+              LEFT OUTER JOIN SAPHEE.ZCST310 D ON D.MANDT = A.MANDT
+                                              AND D.CS310_GNO = A.CS301_TEM || A.CS301_RDT || A.CS301_SEQ
+                                              AND D.CS310_SIR = A.CS301_SIR,
+       SAPHEE.ZCST302 E
+              LEFT OUTER JOIN (
+                                      SELECT CS126_PJT ,CS126_HNO
+                                            ,CS126_AMT + VALUE(CS126_AMBT,0) AS CS126_AMT, CS301_AMT
+                                            ,ROUND(CS301_AMT/(CS126_AMT + VALUE(CS126_AMBT,0))*100,1)  AS TRT_B -- 전단가 기준 달성율
+                                            ,ROW_NUMBER() OVER(PARTITION BY CS126_PJT,CS126_HNO ORDER BY CS126_UMR DESC) AS SEQNO
+                                            ,EL_DEPH
+                                        FROM (
+                                                 SELECT CS302_PJT
+                                                       ,CS302_HNO 
+                                                       ,CS301_STD 
+                                                       ,CASE WHEN A.CS301_CPD = 'A' THEN VALUE(B.CS302_FMT,0) + VALUE(B.CS302_FMBT,0)
+                                                             ELSE VALUE(B.CS302_PMT,0) + VALUE(B.CS302_PMBT,0)
+                                                        END AS CS301_AMT    
+                                                       ,(SELECT VALUE
+                                                           FROM SAPHEE.ZSDT0005 A
+                                                          WHERE MANDT = #G_MANDT#
+                                                            AND HOGI = B.CS302_PJT||B.CS302_HNO
+                                                            AND CHARACTERISTIC = 'EL_DEPH'
+                                                          FETCH FIRST 1 ROWS ONLY
+                                                         ) AS  EL_DEPH
+                                                        
+                                                   FROM SAPHEE.ZCST301 AS A  INNER JOIN SAPHEE.ZCST302 AS B 
+										                                                                ON A.MANDT = B.MANDT
+                                                                                   AND A.CS301_TEM = B.CS302_TEM
+                                                                                   AND A.CS301_RDT = B.CS302_RDT
+                                                                                   AND A.CS301_SEQ = B.CS302_SEQ
+                                                                                   AND A.CS301_SIR = B.CS302_SIR
+                                                  WHERE A.MANDT =  #G_MANDT#
+                                                    AND A.CS301_DOC = #DOC#
+                                             
+                                              ) AS E INNER JOIN SAPHEE.ZCST126 AS A
+                                                             ON A.MANDT =  #G_MANDT#
+                                                            AND A.CS126_PJT = E.CS302_PJT
+                                                            AND A.CS126_HNO = E.CS302_HNO
+                                                            AND A.CS126_DDT = ''
+                                                            AND A.CS126_PST = 'A6'
+                                        WHERE A.CS126_USD < E.CS301_STD
+                                          
+                                        ) AS F ON F.CS126_PJT = E.CS302_PJT
+                                              AND F.CS126_HNO = E.CS302_HNO
+                                              AND F.SEQNO = '1'
+	   
+ WHERE
+       A.MANDT = #G_MANDT#
+   AND A.CS301_DOC = #DOC#
+   AND A.MANDT = E.MANDT
+   AND A.CS301_TEM = E.CS302_TEM
+   AND A.CS301_RDT = E.CS302_RDT
+   AND A.CS301_SEQ = E.CS302_SEQ
+   AND A.CS301_SIR = E.CS302_SIR
+ --  AND A.CS301_DEL = 'N'
+GROUP BY
+       A.CS301_TEM,
+       A.CS301_RDT,
+       A.CS301_SEQ,
+       A.CS301_SIR,
+       A.CS301_PST,
+       A.CS301_MDT,
+       A.CS301_MID,
+       A.CS301_CDT,
+       A.CS301_NAM,
+       A.CS301_SPT,
+       A.CS301_PJT,
+       A.CS301_BSU,
+       A.CS301_ADR,
+       A.CS301_SPC,
+       A.CS301_PRD,
+       A.CS301_CDY,
+       A.CS301_CPD,
+       A.CS301_CND,
+       A.CS301_SRG,
+       A.CS301_GBU,
+       A.CS301_YGB,
+       A.CS301_BLD,
+       A.CS301_PDT,
+       A.CS301_CNT,
+       A.CS301_FLR,
+       A.CS301_SPD,
+       A.CS301_SYR,
+       A.CS301_HYN,
+       A.CS301_DYN,
+       A.CS301_ACYN,
+       A.CS301_CYN,
+       A.CS301_RM1||A.CS301_RM2,
+       A.CS301_OPN,
+       A.CS301_DOC,
+       VALUE(B.APSTAT,''),
+       VALUE(C.CS311_TEM,''),
+       VALUE(C.CS311_TO2,0),
+       VALUE(C.CS311_AMG,'N'),
+       VALUE(D.CS310_RAT,0),
+       VALUE(D.CS310_RA2,0),
+       A.CS301_MMN,
+       A.CS301_DAT,
+       A.CS301_MMN,
+       A.CS301_DAT,
+       A.CS301_STD,
+       A.CS301_ETD,
+       A.CS301_ZMAN,
+       A.CS301_PNT,
+       A.CS301_SAJ,
+       A.CS301_GIS,
+       A.CS301_TRT,
+       A.CS301_ZTERM,
+       A.CS301_CONGB,
+       A.CS301_NIGHT,
+       A.CS301_WEND,
+       DECODE(A.CS301_BDGBN,'X','1',''),
+       VALUE(B.DISCRULE, '') ----------전결규정 관련 추가
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_head">
+	</output>
+</query>

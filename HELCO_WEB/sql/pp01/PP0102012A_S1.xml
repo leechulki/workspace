@@ -1,0 +1,357 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[상해제작 한국수출품 리스트 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT 
+  '0' AS CHECK 
+, '' AS FLAG
+, M2.FLAG1 AS FLAG1              -- 업데이트구분
+--, M2.MANDT AS MANDT          -- MANDT       
+, M2.POSID AS PSPID          -- 프로젝트 
+, M2.POSID_1 AS POSID      -- 호기명      
+, M2.ZSITE_NM AS POST1   -- 현장명         
+, M2.ZSPEC1 AS TYPE        -- 기종        
+, M2.ZSPEC2 AS SPEC        -- 사양        
+-- 20120531 김우동차장요청 날짜만 입력시에도 상태변경
+, CASE WHEN SAPHEE.GET_ZERODATE(M2.SLDAT5) > ''  THEN '★' 
+           WHEN SAPHEE.GET_ZERODATE(M2.SLDAT4) > '' THEN '●'
+           WHEN SAPHEE.GET_ZERODATE(M2.SLDAT3) > '' THEN '⊙'
+           WHEN SAPHEE.GET_ZERODATE(M2.ILDAT2) > '' THEN '◎'
+           WHEN SAPHEE.GET_ZERODATE(M2.ILDAT2) = '' AND M2.ILDAT1 > '' THEN '○' 
+           WHEN SAPHEE.GET_ZERODATE(M2.ILDAT1) = '' THEN '△'   END AS GONG                -- 공정
+, 1 AS MENGE                        -- 대수
+
+,  CASE WHEN  ( 	SELECT E.ZZBEFOR
+ 		                  FROM SAPHEE.VBAK AS A 
+ 		                                      INNER JOIN SAPHEE.VBAP AS B ON A.MANDT = B.MANDT  AND A.VBELN = B.VBELN
+ 	                                          INNER JOIN SAPHEE.PRPS AS C ON B.MANDT = C.MANDT AND B.HOGI = C.POSID
+ 				                              INNER JOIN SAPHEE.PROJ AS D ON C.MANDT = D.MANDT AND C.PSPHI = D.PSPNR
+ 	                                          INNER JOIN SAPHEE.PRPS AS E ON D.MANDT = E.MANDT AND D.PSPID = E.POSID
+ 		                   WHERE A.MANDT = M2.MANDT
+ 		                       AND C.POSID = M2.POSID_1) = 'X' THEN 'Y' 
+ 		                       
+	         ELSE  ( CASE WHEN 
+	                                 ( SELECT SUM(D.FAKWR) AS SUM1
+ 	 		                                FROM SAPHEE.VBAK AS A 
+ 	 		                                INNER JOIN SAPHEE.VBAP AS B ON A.MANDT = B.MANDT  AND A.VBELN = B.VBELN
+ 	                                        INNER JOIN SAPHEE.VBKD AS C ON B.MANDT = C.MANDT AND B.VBELN = C.VBELN 
+ 		 		                            INNER JOIN SAPHEE.FPLT AS D ON C.MANDT = D.MANDT  AND C.FPLNR = D.FPLNR
+ 			                             WHERE A.MANDT = M2.MANDT
+ 				                               AND C.POSNR = '000000'
+ 				                               AND B.HOGI  = M2.POSID_1
+ 				                               AND ( D.ZTERM LIKE 'A%' OR D.FPLTR = '000001') 
+                                        ) IS NULL THEN 'X' 
+                                        
+					              WHEN  ( SELECT   CASE WHEN SUM(C.HWBAS) > 0 THEN SUM(VALUE(C.HWBAS,0)) ELSE  SUM(VALUE(C.DMBTR,0)) END AS SUM2
+ 			                                        FROM SAPHEE.VBAK AS A 
+ 			                                                    INNER JOIN SAPHEE.VBAP AS B ON A.MANDT = B.MANDT  AND A.VBELN = B.VBELN 
+ 	                                                            INNER JOIN SAPHEE.ZSDT0029 AS C ON A.MANDT = C.MANDT  AND A.ZZPJT_ID = C.KIDNO 
+ 	   		                                    WHERE A.MANDT = M2.MANDT
+ 				                                     AND B.HOGI  = M2.POSID_1
+ 				                                     AND C.BUKRS = '1000'
+ 			                                         AND C.ZCANDT &lt; '19990101'
+ 			                                         AND NOT EXISTS ( SELECT * FROM SAPHEE.BKPF AS D
+ 		                                                  WHERE D.MANDT = A.MANDT
+ 			 		                    	                        AND D.BELNR = C.AUGBL
+ 				                                                AND D.BUKRS = '1000'
+ 				                                                AND D.GJAHR LIKE '%'
+ 				                                                AND D.STBLG &lt;&gt; '' ) 
+                              ) -  
+                              (  SELECT SUM(D.FAKWR) AS SUM1
+ 	 		                      FROM SAPHEE.VBAK AS A 
+ 	 		                         INNER JOIN SAPHEE.VBAP AS B ON A.MANDT = B.MANDT  AND A.VBELN = B.VBELN
+ 	                                 INNER JOIN SAPHEE.VBKD AS C ON B.MANDT = C.MANDT AND B.VBELN = C.VBELN 
+ 		 		                     INNER JOIN SAPHEE.FPLT AS D ON C.MANDT = D.MANDT  AND C.FPLNR = D.FPLNR
+ 			                      WHERE A.MANDT = M2.MANDT
+ 				                      AND C.POSNR = '000000'
+ 				                      AND B.HOGI  = M2.POSID_1
+ 				                      AND ( D.ZTERM LIKE 'A%' OR D.FPLTR = '000001') 
+ 				                      
+                               )   &gt;= 0 THEN 'O' ELSE 'X' END ) END AS SUKEUM                   -- 수금
+
+--,  CASE WHEN  ( 	SELECT E.ZZBEFOR
+-- 		    FROM SAPHEE.VBAK AS A INNER JOIN SAPHEE.VBAP AS B ON A.MANDT = B.MANDT  AND A.VBELN = B.VBELN
+-- 	                                          INNER JOIN SAPHEE.PRPS AS C ON B.MANDT = C.MANDT AND B.HOGI = C.POSID
+-- 				INNER JOIN SAPHEE.PROJ AS D ON C.MANDT = D.MANDT AND C.PSPHI = D.PSPNR
+-- 	                                          INNER JOIN SAPHEE.PRPS AS E ON D.MANDT = E.MANDT AND D.PSPID = E.POSID
+-- 		   WHERE A.MANDT = M2.MANDT
+-- 		       AND C.POSID = M2.POSID_1) = 'X' THEN 'Y' 
+--	ELSE  ( CASE WHEN (
+--                                                SELECT VALUE(SUM(D.FAKWR),0) AS SUM1
+-- 	 		      FROM SAPHEE.VBAK AS A INNER JOIN SAPHEE.VBAP AS B ON A.MANDT = B.MANDT  AND A.VBELN = B.VBELN
+-- 	                                              INNER JOIN SAPHEE.VBKD AS C ON B.MANDT = C.MANDT AND B.VBELN = C.VBELN 
+-- 		 		    INNER JOIN SAPHEE.FPLT AS D ON C.MANDT = D.MANDT  AND C.FPLNR = D.FPLNR
+-- 			       WHERE A.MANDT = M2.MANDT
+-- 				    AND C.POSNR = '000000'
+-- 				    AND B.HOGI  = M2.POSID_1
+-- 				    AND ( D.ZTERM LIKE 'A%' OR D.FPLTR = '000001') 
+--                                               ) - ( 
+--                                                 SELECT   CASE WHEN SUM(C.HWBAS) > 0 THEN SUM(C.HWBAS) ELSE  SUM(C.DMBTR) END AS SUM2
+-- 			         FROM SAPHEE.VBAK AS A INNER JOIN SAPHEE.VBAP AS B ON A.MANDT = B.MANDT  AND A.VBELN = B.VBELN 
+-- 	                                           INNER JOIN SAPHEE.ZSDT0029 AS C ON A.MANDT = C.MANDT  AND A.ZZPJT_ID = C.KIDNO 
+-- 	   		        WHERE A.MANDT = M2.MANDT
+-- 				   AND B.HOGI  = M2.POSID_1
+-- 				   AND C.BUKRS = '1000'
+-- 			                 AND C.ZCANDT &lt; '19990101'
+-- 			                AND NOT EXISTS ( SELECT * FROM SAPHEE.BKPF AS D
+-- 		                                                        WHERE D.MANDT = A.MANDT
+-- 			 			     AND D.BELNR = C.AUGBL
+-- 				                                  AND D.BUKRS = '1000'
+-- 				                                  AND D.GJAHR LIKE '%'
+-- 				                                  AND D.STBLG &lt;&gt; '' ) 
+--                                                   ) &gt;= 0 THEN 'O' ELSE 'X' END ) END AS SUKEUM                   -- 수금
+
+, M2.ZMAN_NM AS ZMAN_NM                -- 영업담당자
+, M2.NAMET AS NAMET                         -- 설치 PM
+<isEqual col="GUBN" value="1">
+, KN.NAME1  AS NAME1                         -- 기술영업담당자
+</isEqual>
+<isEqual col="GUBN" value="2">
+, ''  AS NAME1                         -- 기술영업담당자
+</isEqual>
+, CASE WHEN M2.HLDAT1 = '00000000' THEN SAPHEE.GET_ZERODATE(M2.HLDAT1) ELSE CAST(M2.HLDAT1 AS CHAR(24)) END AS HLDAT1         -- 실측일      
+--, SAPHEE.GET_ZERODATE(M2.HLDAT3) AS HLDAT3         --  사양예정일   
+, CASE WHEN (SELECT VALUE(SD05.VALUE,'')
+                        FROM SAPHEE.ZSDT0005 AS SD05 
+                       WHERE SD05.MANDT =  M2.MANDT
+	                        AND SD05.HOGI = M2.POSID_1
+                            AND SD05.CHARACTERISTIC = 'ES_AMTSC'
+                        ORDER BY SEQ DESC 
+	       FETCH FIRST 1 ROWS ONLY)  = 'INV' THEN 'Y' ELSE '' END AS INVT   -- 인버터여부 
+, SAPHEE.GET_ZERODATE(M2.ILDAT1) AS ILDAT1         --  사양일
+, SAPHEE.GET_ZERODATE(M2.ILDAT2) AS ILDAT2         --  설계일
+, SAPHEE.GET_ZERODATE(M2.HLDAT2) AS HLDAT2         -- 선제작일
+, SAPHEE.GET_ZERODATE(M2.HLDAT4) AS HLDAT4           -- 기술영업 PO일
+-- 사양검토요청일 추가 14.02.18 HSS  -- 김종선과장 요청
+--, SAPHEE.GET_ZERODATE(M2.HLDAT5) AS HLDAT5           -- 사양검토 요청일 
+, CASE WHEN (SELECT        MAX(REQDAT)    FROM SAPHEE.ZSDT1092 AS SD    WHERE SD.MANDT = M2.MANDT        AND SD.PSPID = SUBSTR(M2.POSID,1,6)    GROUP BY SD.MANDT,SD.PSPID) > '' 
+           THEN  (SELECT        MAX(REQDAT)    FROM SAPHEE.ZSDT1092 AS SD    WHERE SD.MANDT = M2.MANDT        AND SD.PSPID = SUBSTR(M2.POSID,1,6)    GROUP BY SD.MANDT,SD.PSPID) 
+   ELSE SAPHEE.GET_ZERODATE(VALUE(M2.HLDAT5,'')) END AS HLDAT5           -- 사양검토 요청일 20140929 변경
+, SAPHEE.GET_ZERODATE(M2.HLDAT6) AS HLDAT6           -- 사양검토 배포 예정일
+, SAPHEE.GET_ZERODATE(M2.HLDAT7) AS HLDAT7           -- 사양배포일 20140929 추가
+, SAPHEE.GET_ZERODATE(M2.BEDAT) AS BEDAT           -- PO일  
+, SAPHEE.GET_ZERODATE(M2.ZZCHAKD) AS ZZCHAKD       --착공예정일  
+, SAPHEE.GET_ZERODATE(M2.ZZCHAKD2) AS ZZCHAKD2     --출하요구일
+, SAPHEE.GET_ZERODATE(EP.EDATU) AS EDATU             -- BILLING DATE
+, SAPHEE.GET_ZERODATE(M2.SLDAT1) AS SLDAT1         -- 사양접수일 
+, SAPHEE.GET_ZERODATE(M2.SLDAT2) AS SLDAT2         -- 배산일     
+, SAPHEE.GET_ZERODATE(M2.SLDAT3) AS SLDAT3         -- 생산일     
+, SAPHEE.GET_ZERODATE(M2.SLDAT4) AS SLDAT4         -- 출하일     
+, SAPHEE.GET_ZERODATE(M2.SLDAT5) AS SLDAT5	       -- 선적일       
+, SAPHEE.GET_ZERODATE(M2.SLDAT6) AS SLDAT6	       -- 사양검토 완료일
+, SAPHEE.GET_ZERODATE(M2.SYDAT2) AS SYDAT2         -- 배산일     
+, SAPHEE.GET_ZERODATE(M2.SYDAT3) AS SYDAT3         -- 생산일     
+, SAPHEE.GET_ZERODATE(M2.SYDAT4) AS SYDAT4         -- 출하일     
+, SAPHEE.GET_ZERODATE(M2.SYDAT5) AS SYDAT5	       -- 선적일       
+, SAPHEE.GET_ZERODATE(M2.SYDAT6) AS SYDAT6	       -- 잠정 출하예정일
+, M2.BIGO AS BIGO                         -- 비고
+
+<isEqual col="DGUBN" value="1">
+  	, M2.MON AS MON              -- 월구분
+</isEqual>	 
+<isEqual col="DGUBN" value="2">
+  	, VALUE(SUBSTR(EP.EDATU,5,2),'') AS MON     -- 월그룹
+</isEqual>	 
+
+<isEqual col="DGUBN" value="3">
+  	, VALUE(SUBSTR(AK.BSTDK,5,2),'') AS MON     -- 월그룹
+</isEqual>
+
+, PA.LAND1 AS LAND1
+
+-- 생산소요잔여일 추가 14.02.18 HSS -- 김종선과장 요청
+,  VALUE(DAYS(DATE(INSERT(INSERT(M2.ZZCHAKD,5,0,'-'),8,0,'-'))) -  DAYS(CURRENT_DATE)-10,0) AS RESDAT -- 생산소요 잔여일 -- 기준 (착공일-출력일)-10일 변경 20150310 오정구 요청
+
+, VALUE ((SELECT CHAR_VALUE  FROM  SAPHEE.ZSDT0094  WHERE MANDT = M2.MANDT AND    PSPID = M2.POSID AND    SEQ   = ( SELECT MAX(SEQ) FROM SAPHEE.ZSDT0090 WHERE MANDT = M2.MANDT AND PSPID = M2.POSID)
+AND    HOGI  = M2.POSID_1 AND    NAM_CHAR IN ( 'ES_DEXTER', 'MW_DEXTER') ),'') AS EXTR -- 외장공사 유무 20150330 오정구 요청 HSS
+, SAPHEE.GET_ZERODATE(M2.HLDAT8) AS HLDAT8	       -- 외장도면등록일
+, M2.SLOUTS
+, AK.BSTDK AS CONTR_DA
+, SAPHEE.GET_ZERODATE(M2.HLDAT9) AS HLDAT9	       --골조실측 
+, case m2.TRUSS when '00000' then '' else m2.TRUSS end as TRUSS  --트러스 
+FROM (
+  SELECT 
+  	  ZM2.MANDT AS MANDT                        -- MANDT
+  	, ZM2.POSID AS POSID                           -- 프로젝트
+  	, ZM2.POSID_1 AS POSID_1                    -- 호기명
+  	, ZM1.ZSITE_NM AS ZSITE_NM               -- 현장명
+  	, ZM2.ZSPEC1 AS ZSPEC1                      -- 기종
+  	, ZM2.ZSPEC2 AS ZSPEC2                      -- 사양
+              , CASE WHEN P40A.MANDT IS NULL THEN 'I' ELSE '' END AS FLAG1 -- 업데이트 구분
+              , ZM1.ZMAN_NM AS ZMAN_NM               -- 영업담당자
+              , ZM2.NAMET AS NAMET                        -- 설치 PM
+  	, CAST(VALUE(P40A.HLDAT1,'') AS CHAR(8)) AS HLDAT1                        -- 실측일
+  	, VALUE(P27A.ILDAT,'')   AS ILDAT1                       --  사양일
+  	, VALUE(P27B.ILDAT,'')  AS ILDAT2                         --  설계일
+  	, VALUE(P40A.HLDAT2,'') AS HLDAT2	                    -- 선제작일
+  	, VALUE(P40A.HLDAT3,'') AS HLDAT3	                    -- 사양예정일
+  	, VALUE(P40A.HLDAT4,'') AS HLDAT4	                    -- 기술영업 P/O일
+  	, VALUE(P40A.HLDAT5,'') AS HLDAT5	                    -- 사양검토 요청일
+  	, VALUE(P40A.HLDAT6,'') AS HLDAT6	                    -- 사양검토 배포 예정일
+  	, VALUE(P40A.HLDAT7,'') AS HLDAT7	                    -- 사양 배포일
+  	,  VALUE((SELECT MAX(A.BEDAT)    FROM  SAPHEE.EKKO AS A
+             INNER JOIN  SAPHEE.EKPO AS B  ON A.MANDT = B.MANDT AND A.EBELN = B.EBELN
+             INNER JOIN  SAPHEE.EKKN AS  C  ON B.MANDT = C.MANDT AND B.EBELN = C.EBELN AND B.EBELP = C.EBELP
+             INNER JOIN  SAPHEE.PRPS AS D  ON C.MANDT = D.MANDT AND C.PS_PSP_PNR = D.PSPNR
+             INNER JOIN  SAPHEE.MARA AS F  ON B.MANDT = F.MANDT AND B.MATNR = F.MATNR
+      WHERE A.MANDT =  ZM2.MANDT    
+            AND F.BLOCK_NO = 'A600A'
+            AND D.POSID = ZM2.POSID_1 || '-P'
+            AND B.LOEKZ = '' ),'') AS BEDAT  --  PO일
+  	, VALUE(ZM2.ZZCHAKD,'') AS ZZCHAKD                  --착공예정일
+              , VALUE(REPLACE(CHAR(DATE(INSERT(INSERT(ZM2.ZZCHAKD,5,0,'-'),8,0,'-')) -10 DAYS),'-',''),'') AS ZZCHAKD2 --출하요구일 
+  	, VALUE(P40A.SLDAT1,'') AS SLDAT1                       -- 사양접수일
+  	, VALUE(P40A.SLDAT2,'') AS SLDAT2                       -- 배산일
+  	, VALUE(P40A.SLDAT3,'') AS SLDAT3                       -- 생산일
+  	, VALUE(P40A.SLDAT4,'') AS SLDAT4                       -- 출하일
+  	, VALUE(P40A.SLDAT5,'') AS SLDAT5	                    -- 선적일
+  	, VALUE(P40A.SLDAT6,'') AS SLDAT6	                    -- 사양검토 완료일
+  	, VALUE(P40A.SYDAT1,'') AS SYDAT1                       -- 사양접수 예정일
+  	, VALUE(P40A.SYDAT2,'') AS SYDAT2                       -- 배산 예정일
+  	, VALUE(P40A.SYDAT3,'') AS SYDAT3                       -- 생산 예정일
+  	, VALUE(P40A.SYDAT4,'') AS SYDAT4                       -- 출하 예정일
+  	, VALUE(P40A.SYDAT5,'') AS SYDAT5	                    -- 선적 예정일
+  	, VALUE(P40A.SYDAT6,'') AS SYDAT6	                    -- 잠정 출하예정일
+  	, VALUE(SUBSTR(ZM2.ZZCHAKD,5,2),'') AS MON     -- 월그룹
+	 
+
+  	, SUBSTR(SAPHEE.TO_DATETIME(),1,8) AS CUDAT
+  	, VALUE(P40A.BIGO,'') AS BIGO	                    -- 비고
+  	, VALUE(P40A.HLDAT8,'') AS HLDAT8	                    --외장도면등록일
+	, P40A.SLOUTS                                                        --아웃소싱여부
+	, VALUE(P40A.HLDAT9,'') AS HLDAT9	                    --골조실측 
+	, VALUE(P40A.TRUSS,'') AS TRUSS	                       --트러스 
+   FROM SAPHEE.ZMASTER02 AS ZM2
+      LEFT OUTER JOIN SAPHEE.ZMASTER01 AS ZM1 ON ZM2.MANDT = ZM1.MANDT
+  	    AND ZM2.POSID = ZM1.POSID
+  	LEFT OUTER JOIN SAPHEE.ZPPT040A  AS P40A ON ZM2.MANDT = P40A.MANDT
+  	    AND ZM2.POSID = P40A.PSPID 
+  	    AND ZM2.POSID_1 = P40A.POSID
+  	LEFT OUTER JOIN SAPHEE.ZPPT027 AS P27A ON ZM2.MANDT = P27A.MANDT
+  	    AND ZM2.POSID = P27A.PSPID 
+  	    AND ZM2.POSID_1 = P27A.POSID
+  		AND P27A.BLOCK = 'A'
+  		AND P27A.ACTIV ='01'
+  		AND P27A.GUBUN ='02'
+  	LEFT OUTER JOIN SAPHEE.ZPPT027 AS P27B ON ZM2.MANDT = P27B.MANDT
+  	    AND ZM2.POSID = P27B.PSPID 
+  	    AND ZM2.POSID_1 = P27B.POSID
+  		AND P27B.BLOCK = 'A'
+  		AND P27B.ACTIV ='03'
+  		AND P27B.GUBUN ='02'
+  		
+   WHERE 
+  	 ZM2.MANDT = #G_MANDT#
+               AND ZM2.TXT04 = 'P'
+<isEqual col="DGUBN" value="1">
+  	 AND ZM2.ZZCHAKD BETWEEN #ZZCHAKD_FM# AND #ZZCHAKD_TO#
+</isEqual>	 
+<isNotNull col="POSID">
+	 AND ZM2.POSID_1 LIKE #POSID# ||'%'
+</isNotNull>
+
+<isEqual col="GUBN" value="1">
+	 AND ZM2.POSID_1 NOT LIKE 'T%'
+  	 AND ZM2.ZSPEC6 ='SHAN'
+</isEqual>	 
+
+<isEqual col="GUBN" value="2">
+	 AND ZM2.POSID_1 LIKE 'T%'
+</isEqual>	 
+
+
+<isNull col="ITEML">
+  	 AND (SUBSTR(ZM2.POSID_1,7,1) IN ('L')
+  	 OR SUBSTR(ZM2.POSID_1,7,1) IN ('S','W'))
+  	 --OR (SUBSTR(ZM2.POSID_1,7,1) IN ('S','W') AND ZM2.ZSPEC6 ='SHAN'))  -- 중계 무역은 모두 상해 제작이므로 ZSPEC6 조건에 제한을 두지 않음 국내용에 제한 추가 15.01.23 신미정 요청
+</isNull>
+
+<isEqual col="ITEML" value="1">
+  	 AND SUBSTR(ZM2.POSID_1,7,1) = 'L' 
+</isEqual>
+
+<isEqual col="ITEML" value="2">
+  	 AND SUBSTR(ZM2.POSID_1,7,1) IN ('S','W')
+  --	 AND ZM2.ZSPEC6 ='SHAN'   -- 중계 무역은 모두 상해 제작이므로 ZSPEC6 조건에 제한을 두지 않음 국내용에 제한 추가 15.01.23 신미정 요청
+</isEqual>
+
+
+) AS M2 
+  INNER JOIN SAPHEE.VBAK AS AK ON M2.MANDT = AK.MANDT
+                       AND M2.POSID = AK.ZZPJT_ID
+  INNER JOIN  SAPHEE.VBPA AS PA ON AK.MANDT =PA.MANDT
+                      AND AK.VBELN = PA.VBELN
+                      AND PA.POSNR  = '000000' 
+  INNER JOIN SAPHEE.VBAP AS AP ON AP.MANDT = AK.MANDT
+                          AND AP.VBELN = AK.VBELN
+                          AND AP.HOGI = M2.POSID_1
+  INNER JOIN SAPHEE.VBEP AS EP ON AP.MANDT = EP.MANDT
+                         AND AP.VBELN = EP.VBELN
+                         AND AP.POSNR = EP.POSNR
+
+
+<isEqual col="GUBN" value="1">
+  LEFT OUTER JOIN  SAPHEE.VBPA AS PA1 ON AK.MANDT =PA1.MANDT
+                      AND AK.VBELN = PA1.VBELN
+                      AND PA1.POSNR  = '000000' 
+                      AND PA1.PARVW = 'Z3'
+  LEFT OUTER JOIN SAPHEE.KNA1 AS KN ON PA1.MANDT = KN.MANDT 
+                         AND PA1.KUNNR = KN.KUNNR
+</isEqual>
+
+WHERE 1=1
+
+   AND PA.PARVW    = 'WE'
+   AND EP.ETENR = '0001'
+   AND AP.NETWR > 0
+
+<isEqual col="DGUBN" value="2">
+  	 AND EP.EDATU BETWEEN #ZZCHAKD_FM# AND #ZZCHAKD_TO#
+</isEqual>	 
+
+<isEqual col="DGUBN" value="3">
+  	 AND AK.BSTDK BETWEEN #ZZCHAKD_FM# AND #ZZCHAKD_TO#
+</isEqual>
+
+<isNotNull col="LAND1">
+   AND PA.LAND1 = #LAND1#
+</isNotNull>
+ORDER BY M2.ZZCHAKD, M2.POSID_1, M2.MON
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="ZZCHAKD_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="ZZCHAKD_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="GUBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="BEDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="GONG" size="3" type="VARCHAR" description="" /> 
+		<col name="HLDAT1" size="24" type="VARCHAR" description="" /> 
+		<col name="HLDAT2" size="24" type="VARCHAR" description="" /> 
+		<col name="ILDAT1" size="24" type="VARCHAR" description="" /> 
+		<col name="ILDAT2" size="24" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="11" type="NUMERIC" description="" /> 
+		<col name="MON" size="2" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POSID_1" size="72" type="VARCHAR" description="" /> 
+		<col name="SLDAT1" size="24" type="VARCHAR" description="" /> 
+		<col name="SLDAT2" size="24" type="VARCHAR" description="" /> 
+		<col name="SLDAT3" size="24" type="VARCHAR" description="" /> 
+		<col name="SLDAT4" size="24" type="VARCHAR" description="" /> 
+		<col name="SLDAT5" size="24" type="VARCHAR" description="" /> 
+		<col name="ZSITE_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="ZSPEC1" size="15" type="VARCHAR" description="" /> 
+		<col name="ZSPEC2" size="75" type="VARCHAR" description="" /> 
+		<col name="ZZCHAKD" size="24" type="VARCHAR" description="" /> 
+		<col name="ZZCHAKD2" size="8" type="VARCHAR" description="" /> 
+	</output>
+</query>

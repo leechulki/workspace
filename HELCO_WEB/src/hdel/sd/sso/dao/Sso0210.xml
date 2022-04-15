@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.sso.dao.Sso0210D"> 
+	<resultMap id="selectListMap" type="hdel.sd.sso.domain.Sso0210"/>
+	<select id="selectList" parameterType="hdel.sd.sso.domain.Sso0210ParamVO" resultMap="selectListMap">
+		select z91.pspid
+				,z91.seq
+				,z91.hogi
+				, vbak.bstnk
+				, z91.erdat as chdat
+				, prps.zzship1
+				, prps.zzship2
+				, prps.zzship3
+				, kna1z2.name1 as kunnr_z2
+				, kna1z2.stras as phone_z2
+				, kna1z3.name1 as kunnr_z3
+				, kna1z3.stras as phone_z3
+				, zm02.namet as kunnr_pm
+				, zuserfm.username as pdmmpno
+				, zuserfe.username as pdmepno
+		from   saphee.zsdt0091 as z91 
+			inner join saphee.vbak as vbak on z91.mandt = vbak.mandt and z91.pspid = vbak.zzpjt_id
+			inner join saphee.vbpa as vbpaz2 on vbak.mandt = vbpaz2.mandt and vbak.vbeln = vbpaz2.vbeln and vbpaz2.parvw = 'Z2'
+			left join saphee.kna1 as kna1z2 on vbpaz2.mandt=kna1z2.mandt and vbpaz2.kunnr=kna1z2.kunnr
+			inner join saphee.vbpa as vbpaz3 on vbak.mandt = vbpaz3.mandt and vbak.vbeln = vbpaz3.vbeln and vbpaz3.parvw = 'Z3'   
+			left join saphee.kna1 as kna1z3 on vbpaz3.mandt=kna1z3.mandt and vbpaz3.kunnr=kna1z3.kunnr
+			inner join saphee.prps as prps on z91.mandt = prps.mandt and z91.hogi = prps.posid
+			inner join saphee.zmaster02 as zm02 on z91.mandt = zm02.mandt and z91.hogi = zm02.posid_1
+			left join saphee.zuserf as zuserfm on zm02.mandt=zuserfm.mandt and zm02.pdmmpno=zuserfm.usernumb
+			left join saphee.zuserf as zuserfe on zm02.mandt=zuserfe.mandt and zm02.pdmepno=zuserfe.usernumb
+		where z91.mandt='183'
+<if test="frzrqdat != null and frzrqdat != ''">
+		  and z91.erdat = #{frzrqdat}
+</if>
+		  and exists(
+			select z94n.hogi, z94p.hogi, z94n.nam_char, z94p.nam_char, z94n.char_value, z94p.char_value
+			from saphee.zsdt0094 as z94n
+				full join saphee.zsdt0094 as z94p on z94n.mandt=z94p.mandt and z94n.pspid=z94p.pspid and z94n.seq-1=z94p.seq and z94n.hogi=z94p.hogi and z94n.nam_char=z94p.nam_char
+			where z94n.mandt=z91.mandt
+			  and z94n.nam_char not like 'CO_%'
+			  and z94n.pspid=z91.pspid
+			  and z94n.seq=z91.seq
+			  and z94n.hogi=z91.hogi
+			  and z94n.erdat=z91.erdat
+			  and (z94n.hogi is null or z94p.hogi is null or z94n.char_value != z94p.char_value)
+			)
+<if test="sman != null and sman != ''">
+			  and ( zuserfm.usernumb = #{sman} or zuserfe.usernumb = #{sman} )
+</if>
+		with ur
+	</select>
+	<select id="selectDetail" parameterType="hdel.sd.sso.domain.Sso0210ParamVO" resultMap="selectListMap">
+		SELECT
+				 SEQ
+				, HOGI		
+				, ANAM_CHAR			AS NAM_CHAR
+				, ACHAR_VALUE		AS ATWTB_P
+				, BCHAR_VALUE		AS ATWTB_T
+				, ( 
+					SELECT CT.ATBEZ
+					FROM   SAPHEE.CABN AS CA  INNER JOIN SAPHEE.CABNT AS CT ON CA.MANDT = CT.MANDT AND CA.ATINN = CT.ATINN
+					WHERE  CA.MANDT= '183'
+					AND       CA.ATNAM = TEMP.ANAM_CHAR
+					AND       CT.SPRAS = '3'
+				)
+			FROM (
+				SELECT
+					  VALUE(A.PSPID,B.PSPID) 	PSPID
+			 		, B.SEQ        SEQ
+					, VALUE(A.HOGI,B.HOGI) 		HOGI
+					, VALUE(A.NAM_CHAR,'') 		ANAM_CHAR
+					, VALUE(A.CHAR_VALUE,'') 	ACHAR_VALUE
+					, VALUE(B.CHAR_VALUE,'') 	BCHAR_VALUE
+				FROM (
+					SELECT MANDT, PSPID, SEQ, POSNR, HOGI, MATNR, NAM_CHAR, CHAR_VALUE
+					FROM SAPHEE.ZSDT0094
+					WHERE MANDT 	= '183'
+						AND PSPID 	= #{pspid}
+						AND HOGI    = #{hogi}
+						AND SEQ 	= #{seqpre}
+				) AS A FULL OUTER JOIN (
+					SELECT MANDT, PSPID, SEQ, POSNR, HOGI, MATNR, NAM_CHAR, CHAR_VALUE
+					FROM SAPHEE.ZSDT0094 
+					WHERE MANDT 	= '183'
+						AND PSPID 	= #{pspid}
+						AND HOGI    = #{hogi}
+						AND SEQ 	= #{seq}
+				) AS B
+				ON A.MANDT = B.MANDT   
+				AND A.PSPID = B.PSPID
+				AND A.POSNR = B.POSNR
+				AND A.HOGI = B.HOGI
+				AND A.MATNR = B.MATNR
+				AND A.NAM_CHAR = B.NAM_CHAR
+			) AS TEMP
+			WHERE HOGI != ''
+				AND (ACHAR_VALUE != '' OR BCHAR_VALUE != '')
+				AND ACHAR_VALUE != BCHAR_VALUE
+			ORDER BY HOGI
+			WITH UR
+	</select>
+	
+</mapper>  

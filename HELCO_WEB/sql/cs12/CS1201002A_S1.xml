@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.SEQ
+      ,A.CS630_GNO
+      ,A.CS630_DOC
+      ,MAX(TEM_NM) TEM_NM
+      ,MAX(BSU_NM) BSU_NM
+      ,MAX(CS630_CST) CS630_CST
+      ,MAX(CS630_UPN) CS630_UPN
+      ,MAX(CS630_TEM) CS630_TEM
+      ,MAX(CS630_RDT) CS630_RDT
+      ,MAX(CS630_SEQ) CS630_SEQ
+      ,MAX(CS630_USD) CS630_USD
+      ,MAX(CS630_UMR) CS630_UMR
+      ,MAX(CS121_NAM) CS121_NAM
+      ,MAX(CS121_SPT) CS121_SPT
+      ,MAX(KND_NM) KND_NM
+      ,COUNT(*) CNT
+      ,MAX(A.CS126_UGS) CS126_UGS
+      ,SUM(A.CS126_AMT) AMT
+      ,SUM(A.CS126_HMT) HMT
+      ,SUM(A.CS126_DMT) DMT
+      ,MAX(CS630_CRS_NM) CS630_CRS_NM
+      ,MAX(CS630_CDT) CS630_CDT
+      ,MAX(CS630_MDT) CS630_MDT
+      ,MAX(APSTAT_NM) APSTAT_NM
+      ,SUM(A.CS126_ACMT) ACMT -- 공기청정기 추가 20200515 Han.JH
+ FROM (
+        SELECT CS630.CS630_DOC
+              ,CS630.CS630_GNO 
+              ,CS630.CS630_PST
+              ,CS630.CS630_TEM ||'-'|| CS630.CS630_RDT ||'-'|| CS630.CS630_SEQ SEQ 
+              ,CS630.CS630_TEM 
+              ,CS630.CS630_RDT 
+              ,CS630.CS630_SEQ
+              ,CS630.CS630_USD
+              ,CS630.CS630_UMR
+              ,CS630.CS630_UPN  
+              ,CS630.CS630_CST  
+              ,CS630.CS630_CDT
+              ,CS630.CS630_MDT 
+              ,CS630.CS630_CRS 
+              ,SAPHEE.CODE_CONV( CS630.MANDT,'CS180',CS630.CS630_CRS) CS630_CRS_NM
+              ,CS126.CS126_UGS
+              ,CS126.CS126_AMT
+              ,CS126.CS126_HMT
+              ,CS126.CS126_DMT
+              ,CS126.CS126_KND 
+              ,SAPHEE.CODE_CONV( CS630.MANDT,'CS129',CS126.CS126_KND) KND_NM
+              ,CS121.CS121_NAM  
+              ,CS121.CS121_SPT 
+              ,ZAP01.APSTAT
+              ,CDAP.DTEXT1 APSTAT_NM
+              ,ZAP01.REDPT1 
+              ,SAPHEE.CODE_CONV( CS630.MANDT,'VKGRP',B010.VKGRP) TEM_NM
+              ,SAPHEE.GET_VENDER_N_NAME( CS630.MANDT,CS126.CS126_BSU) BSU_NM
+              ,CS126.CS126_ACMT                                       
+        
+          FROM SAPHEE.ZCST630 CS630 LEFT OUTER JOIN SAPHEE.ZCST126 CS126 
+                                      ON CS630.MANDT = CS126.MANDT
+                                     AND CS630.CS630_UPN = CS126.CS126_UPN
+                                     AND CS630.CS630_CST = CS126.CS126_CST
+                                     AND CS630.CS630_GNO = CS126.CS126_GNO
+                                     AND CS630.CS630_JSQ = CS126.CS126_SEQ
+          
+                                    LEFT OUTER JOIN SAPHEE.ZCST121 CS121 
+                                      ON CS630.MANDT = CS121.MANDT
+                                     AND CS630.CS630_UPN = CS121.CS121_UPN
+                                     AND CS630.CS630_CST = CS121.CS121_CST
+          
+                                    LEFT OUTER JOIN SAPHEE.ZWBT010 B010 
+                                      ON CS630.MANDT = B010.MANDT
+                                     AND CS126.CS126_BSU = B010.LGORT
+                                           
+                                    LEFT OUTER JOIN SAPHEE.ZWBAP01 ZAP01
+                                            ON CS630.MANDT = ZAP01.MANDT
+                                           AND CS630.CS630_DOC = ZAP01.DOCNO
+                                           
+                                    LEFT OUTER JOIN SAPHEE.ZLCODE ZC 
+                                      ON CS630.MANDT = ZC.MANDT
+                                           
+                                    LEFT OUTER JOIN SAPHEE.ZLCODE CDAP 
+                                      ON CS630.MANDT = CDAP.MANDT
+                                     AND CDAP.CODE1 = 'WBAP_STAT'
+                                     AND CDAP.CODE2 = ZAP01.APSTAT
+                                     AND CDAP.LANG = 'ko'
+          
+         WHERE CS630.MANDT = #G_MANDT#
+           AND CS630.CS630_DEL = ''
+        <isNotNull col="FDT">
+           AND CS630.CS630_MDT BETWEEN #FDT# AND #TDT#
+        </isNotNull>
+        <isNotNull col="SEQ">
+           AND CS630.CS630_TEM = SUBSTR(#SEQ#,1,3)
+           AND CS630.CS630_RDT = SUBSTR(#SEQ#,4,4)
+           AND CS630.CS630_SEQ = SUBSTR(#SEQ#,8,4)
+        </isNotNull>
+        <isNotNull col="UPN">
+           AND CS630.CS630_UPN = #UPN#
+        </isNotNull>
+        <isNotNull col="CST">
+           AND CS630.CS630_CST = #CST#
+        </isNotNull>
+        <isNotNull col="BAP">
+           AND ZAP01.APSTAT = #BAP#
+        </isNotNull>
+        <isNotNull col="ARA">
+        --   AND CS126.CS126_ARA = #ARA#
+        </isNotNull>
+        <isNotNull col="BSU">
+        --   AND CS126.CS126_BSU = #BSU#
+        </isNotNull>
+        <isNotNull col="BPM">
+        --   AND CS126.CS126_BPM = #BPM#
+        </isNotNull>
+        <isNotNull col="TEM">
+        --   AND B010.VKGRP = #TEM#
+        </isNotNull>  
+        
+           #WQST+#
+
+      ) A
+      
+ WHERE 1=1
+
+ GROUP BY A.SEQ, A.CS630_GNO, A.CS630_DOC
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

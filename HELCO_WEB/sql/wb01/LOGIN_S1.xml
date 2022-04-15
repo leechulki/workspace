@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[로그인 처리]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+ USERAUT1   AS USER_GROUP
+,USERAUT2   AS USER_GROUP_R
+,USERAUT3   AS USER_GROUP_B
+,USERAUT4   AS USER_GROUP_M
+,USERAUT5   AS USER_GROUP_E
+,USERBACK   AS USERBACK
+,USERCODE   AS VEND_CODE
+,USERCODE_R AS VEND_CODE_R
+,USERCODE_B AS VEND_CODE_B
+,USERCODE_M AS VEND_CODE_M
+,USERCODE_E AS VEND_CODE_E
+,USERDESC   AS USERDESC
+,USEREXPR   AS PWD_EXPR_DATE
+,USERFAIL   AS USERFAIL
+,USERJUNO   AS USERJUNO
+,USERLGIP   AS USERLGIP
+,USERLGTM   AS USERLGTM
+,USERMAIL   AS EMAIL
+,USERMBPN   AS USERMBPN
+,USERNAME   AS USER_NAME
+,USERNUMB   AS USER_ID
+,USERPASS   AS USER_PWD
+,USERTELE   AS USERTELE
+,USERLANG   AS LANG
+,USERTELE   AS USERTELE   -- 2013.06.03 추가:전화번호
+,USERMBPN   AS USERMBPN   -- 2013.06.03 추가:HP
+,VALUE(CASE WHEN USERAUT2 > 'R0' THEN W010R.BSU_ARA ELSE '' END,'') AS AREA_CODE_R
+,VALUE(CASE WHEN USERAUT3 > 'B0' THEN W010B.BIZ_ARA ELSE '' END,'') AS AREA_CODE_B
+,VALUE(CASE WHEN USERAUT5 > 'E0' THEN W010E.ZZACTSS ELSE '' END,'') AS AREA_CODE_E
+,VALUE(CASE WHEN USERAUT2 > 'R0' THEN W010R.BSU_ARA
+            WHEN USERAUT3 > 'B0' THEN W010B.BIZ_ARA
+            WHEN USERAUT5 > 'E0' THEN W010E.ZZACTSS ELSE W010E.BSU_ARA END,'') AS AREA_CODE
+,VALUE(CASE WHEN USERAUT2 > 'R0' THEN M028.CTEXT2
+            WHEN USERAUT5 > 'E0' THEN M028A.CTEXT2 ELSE M028.CTEXT2 END,'') AS AREA_NAME
+,VALUE(HR01.DEPT_N,M012.NAME1) AS VEND_NAME
+,VALUE(M005.LGORT,'')          AS LGORT
+,VALUE(HR01.DPT1,'')           AS DPT1
+,VALUE(W010.WGBN, '')        AS WGBN -- 2012.09.03 : 추가
+,VALUE(CASE WHEN W010.WGBN IN ('A', 'B', 'C', 'D', 'E') THEN SUBSTR(W010.VKGRP, 1, 2) || '00'
+            ELSE SUBSTR(U.USERTEAM, 1, 2) || '00' END,'') 			AS VKBUR -- 2012.09.03 : 추가
+,VALUE((SELECT BEZEI FROM SAPHEE.TVKBT 
+					WHERE MANDT = U.MANDT 
+					  AND SPRAS = '3'
+					  AND VKBUR = CASE WHEN W010.WGBN IN ('A', 'B', 'C', 'D', 'E') THEN SUBSTR(W010.VKGRP, 1, 2) || '00'
+                                       ELSE SUBSTR(U.USERTEAM, 1, 2) || '00' END),'') AS VKBUR_NM -- 2012.09.03 : 추가
+,VALUE(CASE WHEN W010.WGBN IN ('A', 'B', 'C', 'D', 'E') THEN W010.VKGRP
+            ELSE U.USERTEAM END,'') 			AS VKGRP -- 2012.09.03 : 추가
+,VALUE((SELECT BEZEI FROM SAPHEE.TVGRT 
+					WHERE MANDT = U.MANDT 
+					  AND SPRAS = '3'
+					  AND VKGRP = CASE WHEN W010.WGBN IN ('A', 'B', 'C', 'D', 'E') THEN W010.VKGRP
+                                       ELSE U.USERTEAM END),'') AS VKGRP_NM -- 2012.09.03 : 추가
+,VALUE(W010.BIZ_PM,'')      AS BIZ_PM -- 2012.09.03 : 추가
+,CASE CAST(#LANG# AS VARCHAR(2))
+	WHEN 'en' THEN
+		VALUE((SELECT NAME2 FROM SAPHEE.KNA1
+                             WHERE MANDT = U.MANDT
+							    AND KUNNR = 'H' || W010.BIZ_PM),'') -- 2013.01.04 추가 	
+	ELSE
+	   VALUE((SELECT IRUM
+		 		  FROM SAPHEE.ZHRT001
+                    WHERE MANDT = U.MANDT
+					  AND PSNO = 'H' || W010.BIZ_PM),'')
+ END  AS BIZ_PMNM -- 2012.09.03 : 추가 
+,VALUE(W010.BSU_PM,'')      AS BSU_PM -- 2012.09.03 : 추가
+,VALUE((SELECT IRUM FROM SAPHEE.ZHRT001
+                    WHERE MANDT = U.MANDT
+					  AND PSNO = 'H' || W010.BSU_PM),'') AS BSU_PMNM -- 2012.09.03 : 추가
+FROM SAPHEE.ZUSERF AS U
+     LEFT JOIN SAPHEE.ZWBT010 AS W010B ON  U.MANDT    = W010B.MANDT
+                                      AND U.USERCODE_B = W010B.LIFNR
+
+     LEFT JOIN SAPHEE.ZWBT010 AS W010R ON  U.MANDT    = W010R.MANDT
+                                      AND U.USERCODE_R = W010R.LIFNR
+
+     LEFT JOIN SAPHEE.ZWBT010 AS W010E ON  U.MANDT    = W010E.MANDT
+                                      AND U.USERCODE_E = W010E.LIFNR
+
+     LEFT JOIN SAPHEE.ZWBT010 AS W010 ON  U.MANDT    = W010.MANDT
+                                      AND U.USERCODE = W010.LIFNR -- 2012.09.03 : 추가
+
+     LEFT JOIN SAPHEE.ZMMT012 AS M012 ON  U.MANDT    = M012.MANDT
+                                      AND U.USERCODE = M012.LIFNR
+
+     LEFT OUTER JOIN SAPHEE.ZHRT001 AS HR01  ON  HR01.MANDT  = U.MANDT
+                                             AND HR01.PSNO   = 'H' || U.USERNUMB
+     LEFT OUTER JOIN SAPHEE.ZLCODE AS M028   ON  M028.MANDT  = W010R.MANDT
+                                             AND M028.LANG  = #LANG#
+                                             AND M028.CODE1  = 'CS115'
+                                             AND M028.CODE2  = W010R.BSU_ARA
+     LEFT OUTER JOIN SAPHEE.ZLCODE AS M028A  ON  M028A.MANDT = W010E.MANDT
+                                             AND M028A.LANG  = #LANG#
+                                             AND M028A.CODE1 = 'PS003'
+                                             AND M028A.CODE2 = W010E.ZZACTSS
+     LEFT OUTER JOIN SAPHEE.ZMMT005 AS M005  ON  M012.MANDT  = M005.MANDT
+                                             AND M012.LIFNR  = M005.LIFNR
+
+WHERE U.MANDT    = #MANDT#
+  AND U.USERNUMB = #USER_ID#
+  AND U.USERNUMB NOT LIKE 'SB%'
+  AND (HR01.LEAV IS NULL OR HR01.LEAV = '00000000' OR HR01.LEAV > SUBSTR(SAPHEE.TO_DATETIME(),1,8))
+
+  AND U.USERCODE NOT IN ( SELECT X.USERCODE FROM SAPHEE.ZCS_USERF AS X
+                                                                            WHERE X.MANDT =  U.MANDT )
+
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="USER_ID" size="30" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_login">
+		<col name="AREA_CODE" size="9" type="VARCHAR" description="" /> 
+		<col name="AREA_CODE_R" size="6" type="VARCHAR" description="" /> 
+		<col name="AREA_NAME" size="60" type="VARCHAR" description="" /> 
+		<col name="EMAIL" size="150" type="VARCHAR" description="" /> 
+		<col name="LANG" size="6" type="VARCHAR" description="" /> 
+		<col name="LGORT" size="12" type="VARCHAR" description="" /> 
+		<col name="PWD_EXPR_DATE" size="24" type="VARCHAR" description="" /> 
+		<col name="USER_GROUP" size="15" type="VARCHAR" description="" /> 
+		<col name="USER_GROUP_B" size="15" type="VARCHAR" description="" /> 
+		<col name="USER_GROUP_E" size="15" type="VARCHAR" description="" /> 
+		<col name="USER_GROUP_M" size="15" type="VARCHAR" description="" /> 
+		<col name="USER_GROUP_R" size="15" type="VARCHAR" description="" /> 
+		<col name="USER_ID" size="30" type="VARCHAR" description="" /> 
+		<col name="USER_NAME" size="90" type="VARCHAR" description="" /> 
+		<col name="USER_PWD" size="30" type="VARCHAR" description="" /> 
+		<col name="USERBACK" size="450" type="VARCHAR" description="" /> 
+		<col name="USERDESC" size="765" type="VARCHAR" description="" /> 
+		<col name="USERFAIL" size="6" type="NUMERIC" description="" /> 
+		<col name="USERJUNO" size="42" type="VARCHAR" description="" /> 
+		<col name="USERLGIP" size="60" type="VARCHAR" description="" /> 
+		<col name="USERLGTM" size="30" type="VARCHAR" description="" /> 
+		<col name="USERMBPN" size="60" type="VARCHAR" description="" /> 
+		<col name="USERTELE" size="60" type="VARCHAR" description="" /> 
+		<col name="VEND_CODE" size="30" type="VARCHAR" description="" /> 
+		<col name="VEND_NAME" size="105" type="VARCHAR" description="" /> 
+		<col name="VEND_WGBN" size="1" type="VARCHAR" description="" /> 
+		<col name="VKBUR" size="4" type="VARCHAR" description="" /> 
+		<col name="VKBUR_NM" size="60" type="VARCHAR" description="" /> 
+		<col name="VKGRP" size="5" type="VARCHAR" description="" /> 
+		<col name="VKGRP_NM" size="60" type="VARCHAR" description="" /> 
+		<col name="BIZ_PM" size="10" type="VARCHAR" description="" /> 
+		<col name="BIZ_PMNM" size="12" type="VARCHAR" description="" /> 
+		<col name="BSU_PM" size="10" type="VARCHAR" description="" /> 
+		<col name="BSU_PMNM" size="12" type="VARCHAR" description="" /> 
+		<col name="USERTELE" size="10" type="VARCHAR" description="" /> 
+		<col name="USERMBPN" size="12" type="VARCHAR" description="" /> 
+	</output>
+</query>

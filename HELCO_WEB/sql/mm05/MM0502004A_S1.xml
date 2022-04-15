@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[선박용E/L 일자별 차수 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+     M8.MANDT AS MANDT
+   , M8.POSID_P AS POSID_P
+   , M8.KUNNR AS KUNNR
+   , M8.KUNNR_NM AS KUNNR_NM
+   , M8.BUDAT AS BUDAT
+   , M8.POSID AS POSID
+   , M8.CHASUN AS CHASUN
+   , M1.BLOCK_NO AS BLOCK_NO
+   , M1.BLOCK_TXT AS BLOCK_TXT
+   , M8.RMK AS RMK
+FROM (
+
+    SELECT 
+    	  M80.MANDT   AS MANDT  
+    	, POSID_P AS POSID_P
+    	, ZM1.KUNNR AS KUNNR
+    	, ZM1.KUNNR_NM AS KUNNR_NM
+    	, T.BUDAT AS BUDAT 
+    	, M80.POSID   AS POSID  
+    	, T.CHASUN AS CHASUN
+    	, RMK     AS RMK    
+      FROM SAPHEE.ZMMT080 AS M80
+      
+    	 LEFT OUTER JOIN SAPHEE.ZMASTER01 AS ZM1 ON ZM1.MANDT = M80.MANDT 
+    	                                                                          AND ZM1.POSID = SUBSTR(M80.POSID,1,6)
+    	 LEFT OUTER JOIN SAPHEE.ZMASTER02 AS ZM2 ON ZM2.MANDT = M80.MANDT 
+    	                                                                          AND ZM2.POSID_1 = M80.POSID
+
+        , TABLE(VALUES
+                        ('0', M80.BUDAT0),
+                        ('1', M80.BUDAT1),
+    	          ('2', M80.BUDAT2),
+    	          ('3', M80.BUDAT3),
+    	          ('4', M80.BUDAT4),
+    	          ('5', M80.BUDATC)) AS T (CHASUN,BUDAT)
+      WHERE M80.MANDT =  #G_MANDT#
+         AND BUDAT BETWEEN #BUDAT_FM# AND #BUDAT_TO#
+<isNotNull col="POSID_P">
+    	 AND M80.POSID_P LIKE #POSID_P# || '%'
+</isNotNull>
+<isNotNull col="KUNNR">
+    	 AND ZM1.KUNNR LIKE #KUNNR# || '%'
+</isNotNull>
+
+               AND ZM2.TXT04 NOT IN ('C')
+
+  ) AS M8
+  
+     LEFT OUTER JOIN (
+         SELECT 
+              M81.MANDT AS MANDT
+            , Q.KUNNR     AS KUNNR
+            , M81.BLOCK_NO AS BLOCK_NO
+            , M3.BLOCK_TXT AS BLOCK_TXT
+            , Q.CHASUN  AS CHASUN
+         FROM SAPHEE.ZMMT081 AS M81
+             LEFT OUTER JOIN SAPHEE.ZMMT032 AS M3 ON M3.MANDT = M81.MANDT
+                                                                                  AND M3.BLOCK_NO = M81.BLOCK_NO
+             ,TABLE (VALUES ('0000112378', K112378),
+                                  ('0000118937', K118937),
+                                  ('0000111774', K118937),
+                                  ('0000118935', K118935),
+                                  ('0000100195', K100195),
+                                  ('0000112380', K112380),
+                                  ('0000109150', K109150),
+                                  ('0000111751', K111751),
+                                  ('0000118936', K118936),
+                                  ('0000100638', K100638),
+                                  ('0000112440', K112440),
+                                  ('0000120995', K120995),
+                                  ('0000118939', K118939),
+                                  ('0000133903', K133903),
+                                  ('0000150292', K150292),
+                                  ('0000111774', K111774),
+                                  ('0000500418', K500418),
+                                  ('0000500000', K500000),
+                                  ('0000151876', K151876)) AS Q (KUNNR,CHASUN)
+            WHERE M81.MANDT = #G_MANDT#
+      
+        )	 AS M1 ON M1.MANDT= M8.MANDT
+      			   AND M1.CHASUN = M8.CHASUN
+                  AND M1.KUNNR = (CASE WHEN M8.KUNNR LIKE '00005%' THEN '0000500000' ELSE M8.KUNNR END)
+  WHERE 1=1
+<isNotNull col="BLOCK_NO">
+        AND M1.BLOCK_NO LIKE #BLOCK_NO# || '%'
+</isNotNull>
+  ORDER BY BUDAT,KUNNR,POSID,CHASUN	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="BUDAT_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="BUDAT_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="KUNNR" size="255" type="VARCHAR" description="" /> 
+		<col name="BLOCK_NO" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="BLOCK_NO" size="27" type="VARCHAR" description="" /> 
+		<col name="BLOCK_TXT" size="120" type="VARCHAR" description="" /> 
+		<col name="BUDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="CHASUN" size="1" type="VARCHAR" description="" /> 
+		<col name="KUNNR" size="30" type="VARCHAR" description="" /> 
+		<col name="KUNNR_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="OCHASUN" size="3" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POSID_P" size="72" type="VARCHAR" description="" /> 
+		<col name="RMK" size="150" type="VARCHAR" description="" /> 
+	</output>
+</query>

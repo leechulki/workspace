@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[PS1505001P_S4]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--선택 가능한 호기 조회(투입일정 팝업화면에서도 사용할 수 있을지는 추후 확인)
+--사용안함(2019.08.01 기준)
+SELECT '' AS CHK
+     , W.PSPID
+     , SUBSTR(W.POSID, 7, 3) AS POSID
+     , M2.POSID_DONG AS DONG
+     , '' AS MAIN--부모창에서 작업 중인 메인 호기 여부
+     --설치외주 작업은 설치PM이 작업요청일을 저장하지 않고 투입일정이 완료 될 수 있다.
+     --선택 가능한 호기 중에 각 프로세스 별로 선택할 수 없는 호기는 제외하기 위해 추가함. 2019.07.17 강민석K
+     , CASE WHEN R.REQ_DATE IS NULL OR R.REQ_DATE = '' THEN '00000000' ELSE R.REQ_DATE END AS REQ_DATE--작업요청일자 추가
+     , CASE WHEN R.EXP_DATE IS NULL OR R.EXP_DATE = '' THEN '00000000' ELSE R.EXP_DATE END AS EXP_DATE--작업예정일자 추가
+     , CASE WHEN R.START_DATE IS NULL OR R.START_DATE = '' THEN '00000000' ELSE R.START_DATE END AS START_DATE--작업시작일자 추가
+     , CASE WHEN R.COM_DATE IS NULL OR R.COM_DATE = '' THEN '00000000' ELSE R.COM_DATE END AS COM_DATE--작업완료일자 추가
+  FROM SAPHEE.ZPSTW1404 W
+  LEFT OUTER JOIN SAPHEE.ZPST0413 R
+    ON W.MANDT = R.MANDT
+   AND W.PSPID = R.PSPID
+   AND W.POSID = R.POSID
+   AND W.GBN = R.JOB_CODE
+   AND W.LIFNR = R.LIFNR
+   AND R.GBN = #GBN#--설치/구매 구분
+  LEFT OUTER JOIN SAPHEE.ZMASTER02 AS M2
+    ON W.MANDT = M2.MANDT
+   AND W.PSPID = M2.POSID
+   AND W.POSID = M2.POSID_1
+ WHERE W.MANDT = #G_MANDT#
+   AND W.LIFNR = #LIFNR#
+   AND W.GBN = #JOB_CODE#
+   AND W.CONTRCT = '80'--고정값(계약상태 완료)
+ ORDER BY W.POSID
+FOR FETCH ONLY WITH UR
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.sbi.dao.Sbi0070D"> 
+
+	<resultMap id="sbi0070Map" type="hdel.sd.sbi.domain.Sbi0070" />
+	
+	<select id="find" parameterType="hdel.sd.sbi.domain.Sbi0070" resultMap="sbi0070Map">
+		SELECT AA.MANDT
+		      ,AA.LIFNR
+		      ,AA.NAME1
+		      ,AA.KUNNR DEALER
+		      ,AA.DEALERNM
+		      ,AA.DEALERMAIL
+		      ,MAX(CASE WHEN BB.SDFIELD = 'NI'  /* NI */
+		            THEN BB.MANAGER
+		            ELSE ''
+		      END) MANAGER1
+		      ,MAX(CASE WHEN BB.SDFIELD = 'NI'  /* NI */
+		            THEN BB.NAME1
+		            ELSE ''
+		      END) MANAGERNM1
+		      ,MAX(CASE WHEN BB.SDFIELD = 'NI'  /* NI */
+		            THEN BB.USERMBPN
+		            ELSE ''
+		      END) MANAGERTELE1
+		      ,MAX(CASE WHEN BB.SDFIELD = 'REM'  /* 리모델링 */
+		            THEN BB.MANAGER
+		            ELSE ''
+		      END) MANAGER2
+		      ,MAX(CASE WHEN BB.SDFIELD = 'REM'  /* 리모델링 */
+		            THEN BB.NAME1
+		            ELSE ''
+		      END) MANAGERNM2
+		      ,MAX(CASE WHEN BB.SDFIELD = 'REM'  /* 리모델링 */
+		            THEN BB.USERMBPN
+		            ELSE ''
+		      END) MANAGERTELE2
+		      ,MAX(CASE WHEN BB.SDFIELD = 'PRK'  /* 주차 */
+		            THEN BB.MANAGER
+		            ELSE ''
+		      END) MANAGER3
+		      ,MAX(CASE WHEN BB.SDFIELD = 'PRK'  /* 주차 */
+		            THEN BB.NAME1
+		            ELSE ''
+		      END) MANAGERNM3
+		      ,MAX(CASE WHEN BB.SDFIELD = 'PRK'  /* 주차 */
+		            THEN BB.USERMBPN
+		            ELSE ''
+		      END) MANAGERTELE3
+		FROM 
+		(
+				SELECT   AAA.MANDT
+					   	,AAA.USERCODE_B  /* 사업자번호 */ 
+					 	,B.NAME1      /*  대리점명 */
+					 	,B.LIFNR
+					 	,AAA.USERNAME DEALERNM
+					 	,AAA.USERMAIL DEALERMAIL
+					 	,AAA.KUNNR  
+				FROM 
+				(
+						SELECT   A.MANDT
+							   	,A.USERCODE_B  /* 사업자번호 */ 
+							 	,A.USERNAME
+							 	,A.USERMAIL
+							 	,C.KUNNR
+					    FROM SAPHEE.ZUSERF A
+						JOIN SAPHEE.KNA1 C
+						ON A.MANDT = C.MANDT
+						AND A.USERNUMB = SUBSTRING(C.KUNNR,2,CODEUNITS32) 
+     				    AND A.USERLEAV = ''                     /* 재직중인 직원 */
+						AND C.KUNNR LIKE 'A' || '%'
+						AND C.KTOKD = 'Z201'
+						AND C.MANDT =  #{MANDT}
+				) AAA
+				JOIN SAPHEE.LFA1 B
+				ON B.MANDT = AAA.MANDT  
+				AND B.LIFNR = AAA.USERCODE_B
+		) AA
+		LEFT JOIN 
+		( 
+			SELECT A.MANDT
+			      ,A.DEALER
+			      ,A.MANAGER
+			      ,B.NAME1
+			      ,A.SDFIELD
+			      ,C.USERTELE
+			      ,C.USERMBPN
+			FROM SAPHEE.ZSDT0149 A 
+			LEFT JOIN SAPHEE.KNA1 B
+			ON A.MANDT = B.MANDT
+			AND A.MANAGER = B.KUNNR
+			AND B.KTOKD = 'Z201'
+	        AND A.SDFIELD IN ('NI','REM','PRK')		
+			AND A.MANDT =  #{MANDT}
+		    LEFT JOIN SAPHEE.ZUSERF C
+			ON  B.MANDT = C.MANDT
+			AND C.USERNUMB = SUBSTRING(B.KUNNR,2,CODEUNITS32)
+			AND B.KUNNR LIKE 'H' || '%'
+		    AND C.USERLEAV = ''                     /* 재직중인 직원 */
+		) BB
+		ON AA.MANDT = BB.MANDT
+		AND AA.KUNNR = BB.DEALER
+		WHERE 1=1
+		AND AA.MANDT = #{MANDT}
+		<if test="LIFNR !=null and LIFNR !=''" >
+	 		AND AA.LIFNR = #{LIFNR} 
+		</if>
+		<if test="NAME1 !=null and NAME1 !=''" >
+	 		AND AA.NAME1 LIKE '%'||#{NAME1}||'%' 
+		</if>
+		<if test="MANAGER !=null and MANAGER !=''" >
+	 		AND BB.MANAGER = #{MANAGER} 
+		</if>
+		GROUP BY AA.MANDT
+		      ,AA.LIFNR
+		      ,AA.NAME1
+		      ,AA.KUNNR
+		      ,AA.DEALERNM
+		      ,AA.DEALERMAIL
+		ORDER BY AA.LIFNR
+		WITH UR		
+	</select>
+	
+
+	<update id="save" parameterType="hdel.sd.sbi.domain.Sbi0070">
+		merge into saphee.zsdt0149 as z149
+		using (
+			select * from table(
+				values (#{MANDT}, #{DEALER}, #{SDFIELD})
+			) as z149set(MANDT, DEALER,SDFIELD)
+		) as z149set on z149.MANDT=z149set.MANDT and z149.DEALER=z149set.DEALER and z149.SDFIELD=z149set.SDFIELD
+
+		when matched then
+			update
+			set
+				z149.MANAGER = #{MANAGER},
+				z149.AEDAT = #{tstmp.aedat},
+				z149.AEZET = #{tstmp.aezet},
+				z149.AENAM = #{tstmp.aenam}
+
+		when not matched then
+			insert (MANDT, DEALER, SDFIELD,MANAGER, ERDAT, ERZET, ERNAM, AEDAT, AEZET, AENAM)
+			values (#{MANDT}, #{DEALER}, #{SDFIELD}, #{MANAGER}, #{tstmp.erdat}, #{tstmp.erzet}, #{tstmp.ernam}, #{tstmp.aedat}, #{tstmp.aezet}, #{tstmp.aenam})
+	</update>
+</mapper>

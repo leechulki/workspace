@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[실측 입력 전체 사양 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+
+	<statement><![CDATA[
+SELECT A.MANDT
+      ,A.SUVPRH
+      ,A.DATADIV
+      ,A.ITEMDIV
+      ,A.SUVPRHNAME
+      ,A.PRH
+      ,A.VIEWYSNO
+      ,B.SUVTYPE
+      ,B.SUVPRD
+      ,B.CALPRD
+      ,B.MODYPRD
+      ,B.CALNAM
+      ,B.MODYNAM
+      ,B.ERNAM
+      ,B.AENAM
+      ,CAST(#PRINT_HOGI# AS VARCHAR(20)) AS HOGI
+      ,C.PRH
+      ,C.PRD
+      ,C.PRHNAME
+FROM   SAPHEE.ZPST1131 AS A
+       INNER JOIN SAPHEE.ZPST1136 AS B ON A.MANDT = B.MANDT AND B.SUVSN = #SUVSN# AND A.SUVPRH = B.SUVPRH
+       LEFT OUTER JOIN TABLE (
+								SELECT X.MANDT
+								      ,X.QTNUM
+								      ,X.QTSER
+								      ,X.QTSEQ
+								      ,X.PRH
+								      ,DECODE(X.ATFOR, 'NUM', REPLACE(Y.PRD, ',', ''), Y.PRD) AS PRD
+								      ,X.ATKLA
+								      ,X.ATINN
+								      ,X.ATFOR
+								      ,X.PRHNAME
+								FROM  (
+									  SELECT  A.MANDT
+								             ,C.QTNUM
+								             ,C.QTSER
+								             ,C.QTSEQ
+								             ,ROW_NUMBER() over(partition by C.QTSEQ) AS PRSEQ
+									         ,A.PRH
+									         ,(SELECT ATBEZ FROM SAPHEE.CABNT WHERE MANDT = B.MANDT AND ATINN = B.ATINN AND SPRAS = DECODE(A.ZPRDGBN, 'SHN_01', '3', 'SHN_02', '3', DECODE('ko', 'en', 'E', '3'))) AS PRHNAME
+									         ,(SELECT COUNT(MANDT) FROM SAPHEE.CAWN WHERE MANDT = A.MANDT AND ATINN = B.ATINN ) AS CNT
+								             ,B.ATINN
+									         ,B.ATKLA
+									         ,B.ATFOR
+									         ,A.BRNDSEQ
+									         ,A.ZPRDGBN
+									         ,A.BRNDCD
+									         ,A.DISPTP
+									         ,A.MODITP
+									   FROM   SAPHEE.ZSDT1141 AS A
+									          INNER JOIN SAPHEE.CABN AS B ON A.MANDT = B.MANDT AND A.PRH = B.ATNAM
+									          INNER JOIN TABLE (
+											              SELECT MANDT
+											                 , QTNUM
+											                 , QTSER
+											                 , QTSEQ
+											                 , BRNDSEQ
+											                 , NVL(ZPRDGBN, 'ELV_01') AS ZPRDGBN
+											                 , CASE WHEN TRIM(BRNDCD) = '' THEN
+											                       'NOBRND'
+											                       WHEN BRNDCD = NULL THEN 
+											                       'NOBRND'
+											                       ELSE
+											                        BRNDCD
+											                    END AS BRNDCD	                 
+											              FROM   SAPHEE.ZSDT1047 
+									                     WHERE MANDT = #G_MANDT#
+									                       AND QTNUM = #QTNUM#
+									                       AND QTSER = #QTSER#
+									                       AND QTSEQ = #QTSEQ#
+										        ) AS C ON A.MANDT = C.MANDT AND A.BRNDSEQ = C.BRNDSEQ AND A.ZPRDGBN = C.ZPRDGBN AND A.BRNDCD = C.BRNDCD
+										        LEFT OUTER JOIN SAPHEE.ZSDT1073 AS D ON D.MANDT = A.MANDT AND D.CLASS = A.ZPRDGBN  AND D.ATNAM = A.PRH
+										   WHERE A.DIPSDAT > HEX(CURRENT DATE)
+										    AND  D.ATNAM IS NULL
+								     )  X
+								     LEFT OUTER JOIN (
+								                  SELECT R.MANDT
+								                       , R.QTNUM
+								                       , R.QTSER
+								                       , R.QTSEQ
+								                       , R.PRH
+								                       , R.PRD
+								                       ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = R.MANDT AND LANG = 'ko' AND CODE1 = 'SD121' AND CTEXT2 = R.PRH ) AS CTEXT2
+								                   FROM  SAPHEE.ZSDT1048 R
+								                  WHERE R.MANDT = #G_MANDT#
+								                    AND R.QTNUM = #QTNUM#
+								                    AND R.QTSER = #QTSER#
+								                    AND R.QTSEQ = #QTSEQ#
+								     ) Y ON X.MANDT = Y.MANDT AND X.QTNUM = Y.QTNUM AND X.QTSER = Y.QTSER AND X.QTSEQ = Y.QTSEQ AND X.PRH = Y.PRH
+								) AS C ON A.MANDT = A.MANDT AND A.PRH = C.PRH       
+WHERE  A.MANDT = '183'
+  AND  A.SUVPRH !='ELR_B_ECWTP'
+  AND  A.SUVPRH !='ELR_B_CBRK'
+  AND  A.DATADIV <> 'CD'
+ORDER BY VIEWORDER
+WITH UR ]]>
+
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_rad_prh">
+	</output>
+</query>

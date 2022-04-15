@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+-- 2020.12.29 (직접 실행시 200초 이내 이며 튜닝이 더이상 불가능한 sql)
+-- AND SD.ZCPTYM &lt;= #SYYMM# 해당 구문으로 기준일자 이하의 빌링정보를 모두 읽어 와서 처리 하기 때문 
+        SELECT
+               '' TRANS
+              ,'' CHK
+              ,A.MANDT
+              ,A.UPN
+              ,A.CST
+              ,A.KUNNR
+              ,MAX(A.KUNRG)                                                                AS KUNRG          --  지급인
+              ,MAX(A.KUNRG_NM)                                                             AS KUNRG_NM       --  지급인명
+              ,MAX(A.PSPID)                                                                AS PSPID          --  프로젝트
+              ,MAX(CNT)                                                                    AS CNT            --  청구건수
+              ,MIN(A.FKDAT)                                                                AS FKDAT          
+              ,ROUND(((MAX(A.CHEONG_GU_F) * 100) * 1.1),0)                                 AS CHEONG_GU_F    
+              ,ROUND(((MAX(A.SU_KEUM_F) * 100) * 1.1),0)                                   AS SU_KEUM_F      
+              ,ROUND(((MAX(A.MI_SU_F) * 100) * 1.1),0)                                     AS MI_SU_F        
+              ,MAX(A.VKGRP)                                                                AS VKGRP          
+              ,MAX(A.VKGRP_NM)                                                             AS VKGRP_NM       
+              ,'농협'                                                                      AS BANKL          
+              ,MAX(A.BANKVN)                                                               AS BANKVN                                                      
+              ,MAX(CS121.CS121_NAM)                                                        AS CS121_NAM      
+              ,MAX(CS121.CS121_SPT)                                                        AS CS121_SPT      
+              ,MAX(CS121.CS121_GSH)||' '||MAX(CS121.CS121_CDP)                             AS S029           
+              ,CASE WHEN MAX(CS121.CS121_NZIB) = '' THEN MAX(CS121.CS121_ZIB) 
+                    ELSE MAX(CS121.CS121_NZIB) END                                          AS S030           
+              ,DECODE(MAX(CS121.CS121_DP1B),'',MAX(CS121.CS121_P1B),MAX(CS121.CS121_DP1B)) AS S031           
+              ,DECODE(MAX(CS121.CS121_DP1B),'',MAX(CS121.CS121_P2B),MAX(CS121.CS121_DP2B)) AS S032           
+              ,MAX(CS721_SEQ)                                                              AS CS721_SEQ      
+              ,MAX(CS721_MDT)                                                              AS CS721_MDT      
+              ,MAX(ZCD01.DTEXT3)                                                           AS VKGRP_TEL      
+              ,CAST(#S004# AS VARCHAR(3))                                                  AS S004     
+              ,MAX(A.ABR_NM)                                                               AS ABR_NM          --  협력업체      
+          FROM
+               (
+                SELECT
+                       SD40.MANDT
+                      ,COUNT(*) CNT
+                      ,MAX(SD40.PSPID) AS PSPID
+                      ,SD40.UPN
+                      ,SD40.CST     
+                      ,SD40.KUNNR     
+                      ,MAX(SD40.BELNR)  AS BELNR
+                      ,MIN(SD40.FKDAT)  AS FKDAT
+                      ,MAX(SD40.WAERK)  AS WAERK
+                      ,SUM(DEC(SD40.NETWR,15,2)) AS CHEONG_GU_F
+                      ,SUM(DEC(SD40.HWBAS,15,2)) AS SU_KEUM_F
+                      ,SUM(DEC(SD40.NETWR - SD40.HWBAS,15,2)) AS MI_SU_F
+                      ,MAX(SD40.VBELN    ) AS VBELN      
+                      ,MAX(SD40.BSTNK    ) AS BSTNK      
+                      ,MAX(SD40.KUNNR_NM ) AS KUNNR_NM   
+                      ,MAX(SD40.AUART    ) AS AUART      
+                      ,MAX(SD40.VKBUR    ) AS VKBUR      
+                      ,MAX(T1.BEZEI      ) AS VKBUR_NM
+                      ,MAX(SD40.VKGRP    ) AS VKGRP                                                      
+                      ,MAX(T2.BEZEI      ) AS VKGRP_NM
+                      ,MAX(SD40.KUNRG     ) AS KUNRG                                                       
+                      ,MAX(SD40.KUNRG_NM  ) AS KUNRG_NM                                                    
+                      ,MAX(SD40.LIFNR    ) AS LIFNR                                                      
+                      ,MAX(SD40.ABR_NM   ) AS ABR_NM
+                      ,MAX(SD40.BSU_ARA  ) AS BSU_ARA    
+                      ,MAX(SD40.BSU_PM   ) AS BSU_PM     
+                      ,MAX(SD40.LGORT    ) AS LGORT      
+                      ,MAX(FI1071.BANKL  ) AS BANKL    
+                      ,MAX(FI1071.BANKVN ) AS BANKVN   
+                  FROM
+                       (
+                        SELECT
+                               SD40.MANDT
+                              ,SD40.PSPID  
+                              ,SUBSTR(SD40.PSPID,1,6) AS UPN
+                              ,SUBSTR(SD40.PSPID,13)  AS CST
+                              ,SD40.BELNR
+                              ,MIN(SD40.FKDAT)          AS FKDAT
+                              ,MIN(SD40.WAERK)          AS WAERK
+                              ,AVG(SD40.NETWR)          AS NETWR
+                              ,VALUE(SUM(SD29.HWBAS),0) AS HWBAS
+                              ,MIN(SD40.VBELN)          AS VBELN
+                              ,MIN(SD40.BSTNK)          AS BSTNK
+                              ,MIN(SD40.KUNNR)          AS KUNNR
+                              ,MIN(SD40.KUNNR_NM)       AS KUNNR_NM
+                              ,MIN(SD40.AUART)          AS AUART
+                              ,MIN(SD40.VKBUR)          AS VKBUR
+                              ,MIN(SD40.VKGRP)          AS VKGRP
+                              ,MIN(SD40.KUNRG)           AS KUNRG
+                              ,MIN(SD40.KUNRG_NM)        AS KUNRG_NM
+                              ,MIN(SD40.LIFNR)          AS LIFNR
+                              ,MIN(SD40.ABR_NM)         AS ABR_NM
+                              ,MIN(BSU_ARA)             AS BSU_ARA
+                              ,MIN(BSU_PM)              AS BSU_PM
+                              ,MIN(LGORT)               AS LGORT
+                          FROM
+                               (
+                                SELECT
+                                       MANDT
+                                      ,PSPID
+                                      ,BELNR
+                                      ,WAERK
+                                      ,SUM(NETWR   ) AS NETWR
+                                      ,MIN(FKDAT   ) AS FKDAT
+                                      ,MIN(VBELN   ) AS VBELN
+                                      ,MIN(BSTNK   ) AS BSTNK
+                                      ,MIN(KUNNR   ) AS KUNNR
+                                      ,MIN(KUNNR_NM) AS KUNNR_NM
+                                      ,MIN(AUART)    AS AUART
+                                      ,MIN(VKBUR   ) AS VKBUR
+                                      ,MIN(VKGRP   ) AS VKGRP
+                                      ,MIN(KUNRG    ) AS KUNRG
+                                      ,MIN(KUNRG_NM ) AS KUNRG_NM
+                                      ,MIN(LIFNR   ) AS LIFNR
+                                      ,MIN(ABR_NM  ) AS ABR_NM
+                                      ,MIN(BSU_ARA ) AS BSU_ARA
+                                      ,MIN(BSU_PM  ) AS BSU_PM
+                                      ,MIN(LGORT   ) AS LGORT
+                                  FROM
+                                       (
+                                        SELECT
+                                               SD.MANDT
+                                              ,SD.PSPID
+                                              ,CASE WHEN SD.NETWR &lt; 0 AND SD.PRDAT > '10000101' AND SD.CNDAT > '10000101' AND SD.CNDAT &lt;= CAST(#SDAT# AS VARCHAR(8)) THEN SD.PRELN ELSE SD.VBELN END AS BELNR
+                                              ,SD.WAERK
+                                              ,SD.NETWR
+                                              ,SD.FKDAT
+                                              ,AK.VBELN
+                                              ,AK.BSTNK
+                                              ,AK.KUNNR
+                                              ,AK.KUNNR_NM
+                                              ,AK.AUART
+                                              ,AK.VKBUR
+                                              ,AK.VKGRP
+                                              ,AK.KUNRG
+                                              ,AK.KUNRG_NM
+                                              ,AK.LIFNR
+                                              ,AK.ABR_NM
+                                              ,AK.BSU_ARA
+                                              ,AK.BSU_PM
+                                              ,AK.LGORT
+                                          FROM
+                                               SAPHEE.ZSDT0040 AS SD
+                                               INNER JOIN (
+                                                           SELECT
+                                                                   A.MANDT
+                                                                  ,A.PSPID
+                                                                  ,A.ROWN
+                                                                  ,A.VBELN
+                                                                  ,A.BSTNK
+                                                                  ,A.KUNNR
+                                                                  ,A.KUNNR_NM
+                                                                  ,A.AUART
+                                                                  ,A.VKBUR
+                                                                  ,A.VKGRP
+                                                                  ,A1.KUNNR KUNRG
+                                                                  ,A1.NAME1 KUNRG_NM
+                                                                  ,WB.LIFNR
+                                                                  ,WB.ABR_NM
+                                                                  ,WB.BSU_ARA
+                                                                  ,WB.BSU_PM
+                                                                  ,WB.LGORT
+                                                             FROM
+                                                                  (
+                                                                   SELECT
+                                                                          AK.MANDT
+                                                                         ,AK.ZZPJT_ID AS PSPID
+                                                                         ,ROW_NUMBER() OVER(PARTITION BY AK.MANDT, AK.ZZPJT_ID ORDER BY P1.POSNR DESC) AS ROWN
+                                                                         ,AK.VBELN
+                                                                         ,P1.KUNNR KUNR -- 지급인 
+                                                                         ,PA.LIFNR LIFR
+                                                                         ,AK.BSTNK
+                                                                         ,AK.KUNNR
+                                                                         ,KN.NAME1 AS KUNNR_NM
+                                                                         ,AK.AUART
+                                                                         ,AK.VKBUR
+                                                                         ,AK.VKGRP
+                                                                     FROM
+                                                                          SAPHEE.VBAK AS AK INNER JOIN SAPHEE.ZSDT0079 AS B ON B.MANDT = AK.MANDT AND B.ZYEAR = SUBSTR(#SDAT#,1,4) AND B.ZMONTH = SUBSTR(#SDAT#,5,2) AND B.PSPID = AK.ZZPJT_ID
+                                                                          LEFT OUTER JOIN SAPHEE.KNA1 AS KN ON KN.MANDT = AK.MANDT
+                                                                                                           AND KN.KUNNR = AK.KUNNR
+                                                                          LEFT OUTER JOIN SAPHEE.VBPA AS P1 ON P1.MANDT = AK.MANDT
+                                                                                                           AND P1.VBELN = AK.VBELN
+                                                                                                           AND P1.PARVW = 'RG'
+                                                                          LEFT OUTER JOIN SAPHEE.VBPA AS PA ON PA.MANDT = AK.MANDT
+                                                                                                           AND PA.VBELN = AK.VBELN
+                                                                                                           AND PA.PARVW = 'Z1'
+                                                                    WHERE
+                                                                          AK.MANDT    = #G_MANDT#
+                                                                      AND AK.ZZPJT_ID LIKE '_%'
+                                                                      AND AK.VKBUR IN ('E900','EA00','EB00','EC00','ED00','EE00','EF00','EI00','EK00')
+                                                                      AND AK.AUART = 'ZR11'
+                                                                      AND AK.BSTDK   &lt;= #SDAT#
+                                                                      AND AK.ZZPJT_ID > ''
+<isNotNull col="VKGRP">
+                                                                      AND AK.VKGRP = #VKGRP#
+</isNotNull>                                                   
+<isNotNull col="PJT">
+                                                                      AND AK.ZZPJT_ID LIKE #PJT# || '%'
+</isNotNull>
+<isNotNull col="BSU">
+                                                                      AND PA.LIFNR = #BSU#
+</isNotNull>
+                                                                  ) A LEFT OUTER JOIN SAPHEE.KNA1 AS A1 ON A1.MANDT = A.MANDT
+                                                                                                       AND A1.KUNNR = A.KUNR
+                                                                                                       AND A1.KUNNR LIKE '_%'
+                                                                      LEFT OUTER JOIN SAPHEE.ZWBT010 AS WB ON WB.MANDT = A.MANDT
+                                                                                                          AND WB.LIFNR = A.LIFR
+                                                                                                          AND WB.LIFNR LIKE '_%'
+                                                            WHERE 1=1
+<isNotNull col="ARA">
+                                                              AND WB.BSU_ARA = #ARA#
+</isNotNull>
+
+                                                          ) AS AK ON AK.MANDT = SD.MANDT
+                                                                 AND AK.PSPID = SD.PSPID
+                                                                 AND AK.ROWN  = 1,
+                                               SAPHEE.VBRK BK
+                                         WHERE
+                                               SD.MANDT   = #G_MANDT#
+                                           AND SD.MANDT   = BK.MANDT
+                                           AND SD.VBELN   = BK.VBELN
+                                           AND SD.PSPID LIKE '_%'
+<isNotNull col="PJT">
+                                           AND SD.PSPID LIKE #PJT# || '%'
+</isNotNull>
+                                           AND SD.ZCPTYM &lt;= #SYYMM#
+                                           AND (SD.ZCANYM = '000000' OR SD.ZCANYM > #SYYMM#)
+                                           AND SD.COMPL   = ''
+                                           AND SD.MLBEZ  &lt;&gt; '10012'
+                                           AND SD.ERDAT  &lt;= #SDAT#
+                                           AND SD.CANDAT &lt;= #SDAT#
+                                           AND (
+                                                (SD.FKDAT BETWEEN '20140101' AND #DAT2#) OR
+                                                (SD.FKDAT BETWEEN #CDAT# AND #SDAT# AND SD.NETWR &lt; 0)
+                                               )
+                                       ) AS SD40
+                                 WHERE 1=1
+<isNotNull col="PJT">
+                                       AND SD40.PSPID LIKE #PJT# || '%'
+</isNotNull>
+                                GROUP BY
+                                       MANDT,
+                                       PSPID,
+                                       BELNR,
+                                       WAERK
+                               ) AS SD40
+                               LEFT OUTER JOIN SAPHEE.ZSDT0029 AS SD29 ON SD29.MANDT   = SD40.MANDT
+                                                                      AND SD29.REBZG   = SD40.BELNR
+                                                                      AND SD29.KIDNO   = SD40.PSPID
+                                                                      AND (SD29.ZCANYM = '' OR SD29.ZCANYM = '000000' OR SD29.ZCANYM > #SYYMM#)
+                                                                      AND SD29.ZCPTYM &lt;= #SYYMM#
+                                                                      AND SD29.EDATE  &lt;= #SDAT#
+<isNotNull col="PJT">
+                                                                      AND SD29.KIDNO LIKE #PJT# || '%'
+</isNotNull>
+                        GROUP BY
+                               SD40.MANDT,
+                               SD40.PSPID,
+                               SD40.BELNR
+                       ) AS SD40
+                       LEFT OUTER JOIN SAPHEE.TVKBT AS T1 ON T1.MANDT = SD40.MANDT
+                                                         AND T1.VKBUR = SD40.VKBUR
+                                                         AND T1.SPRAS = '3'
+                       LEFT OUTER JOIN SAPHEE.TVGRT AS T2 ON T2.MANDT = SD40.MANDT
+                                                         AND T2.VKGRP = SD40.VKGRP
+                                                         AND T2.SPRAS = '3'
+                       LEFT OUTER JOIN SAPHEE.ZFIT1071 FI1071
+                                                          ON FI1071.MANDT = SD40.MANDT
+                                                         AND FI1071.PSPID = SUBSTR(SD40.PSPID,1,6)
+                                                         AND FI1071.KUNNR = SD40.KUNNR
+                                                         AND FI1071.AUART = SD40.AUART
+                                                         AND FI1071.SSGBN = '2'
+                                                         AND FI1071.BANKL = '011'
+ 
+        
+                 WHERE
+                       SD40.NETWR-SD40.HWBAS > 9
+                    OR SD40.NETWR &lt; 0
+                GROUP BY
+                       SD40.MANDT,
+                       SD40.UPN,
+                       SD40.CST,
+                       SD40.KUNNR
+               ) AS A   
+               
+                       LEFT OUTER JOIN SAPHEE.ZCST121 CS121
+                               ON CS121.MANDT = A.MANDT
+                              AND CS121.CS121_UPN = A.UPN
+                              AND CS121.CS121_CST = A.CST
+               
+                       LEFT OUTER JOIN SAPHEE.ZCST721 CS721
+                               ON CS721.MANDT = A.MANDT
+                              AND CS721.CS721_UPN = A.UPN
+                              AND CS721.CS721_CST = A.CST
+               
+                       LEFT OUTER JOIN SAPHEE.ZLCODE ZCD01
+                               ON ZCD01.MANDT = A.MANDT
+                              AND ZCD01.LANG = 'ko'
+                              AND ZCD01.CODE1 = 'CSPRT'
+                              AND ZCD01.CODE2 = A.VKGRP
+         WHERE
+               A.MI_SU_F > 100
+         <isEqual col="TRANS" value="Y">
+          AND CS721.CON_KEY IS NOT NULL        
+         </isEqual>         
+         <isEqual col="TRANS" value="A">
+          AND CS721.CON_KEY IS NULL        
+         </isEqual> 
+
+GROUP BY A.MANDT , A.UPN ,A.CST , A.KUNNR , A.KUNRG
+--HAVING MIN(A.FKDAT) BETWEEN #DAT1# AND #DAT2#
+HAVING MIN(A.FKDAT) BETWEEN #DAT1# AND #DAT3#
+WITH UR
+/*
+<OPTGUIDELINES>
+<IXSCAN TABLE='VBPA' INDEX='VBPA~0'/>
+</OPTGUIDELINES>
+*/
+</statement>
+	<input default-name="ds_cond">
+		<col name="SDAT" size="255" type="VARCHAR" description="" /> 
+		<col name="SYYMM" size="255" type="VARCHAR" description="" /> 
+		<col name="CDAT" size="255" type="VARCHAR" description="" /> 
+		<col name="SYY" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

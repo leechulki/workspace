@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT B.POSID AS PSPID, B.POSID_1 AS POSID, A.ZSITE_NM, B.ZZSHIP1, B.ZZCOMP2,
+             B.TEMNO, B.NAMET, B.LIFNR AS ZZLIFNR, D.NAME1, B.TEMNO2, B.NAMET2, 
+             E.VKBUR, E.VKGRP,
+             (SELECT X.BEZEI 
+                 FROM SAPHEE.TVKBT AS X 
+                WHERE X.MANDT = E.MANDT 
+                    AND X.SPRAS = '3' 
+                    AND X.VKBUR = E.VKBUR) AS VKBURNM,
+             A.ZMAN_NM, A.ZMAN,
+             B.TXT04,
+             B.TXT30,
+             B.ZTEAM, '1' AS TYPE1,
+	
+ 
+             (SELECT VALUE(SUM(X.HWBAS),0) FROM SAPHEE.ZSDT0029 AS X 
+                                                                WHERE X.MANDT = A.MANDT AND X.BUKRS = '1000'
+			                          AND X.KIDNO = A.POSID    AND X.ZCANDT &lt; '19990101'
+ 				            AND NOT EXISTS(SELECT * FROM SAPHEE.BKPF AS X2  															                                                                                                                                                          WHERE X2.MANDT = X.MANDT 
+							               AND X2.BELNR = X.AUGBL
+								 AND X2.BUKRS = '1000'
+								 AND X2.STBLG &lt;&gt; '' )       ) AS DMBT3,
+	   
+
+	( SELECT VALUE(SUM(X2.FAKWR),0) FROM SAPHEE.VBKD AS X    
+                                                                    INNER JOIN SAPHEE.FPLT AS X2
+					   ON X.MANDT = X2.MANDT  AND X.FPLNR = X2.FPLNR
+				            INNER JOIN SAPHEE.VBAK AS X3
+					   ON X.MANDT = X3.MANDT AND X.VBELN = X3.VBELN
+				           WHERE X.MANDT = A.MANDT
+					 AND X3.ZZPJT_ID = A.POSID
+					 AND (X.POSNR = '' OR X.POSNR = '000000')
+					 AND X2.ZTERM LIKE 'A%')  AS FAKWR,
+
+              --(SELECT CASE WHEN COUNT(*) > 0 THEN 1.1 ELSE 1 END
+                   --FROM SAPHEE.KONV AS X
+                 --WHERE X.MANDT = A.MANDT
+                     --AND X.KNUMV = (SELECT X2.KNUMV FROM SAPHEE.VBAK AS X2
+                                                                           --WHERE X2.MANDT = X.MANDT
+                                                                               --AND X2.ZZPJT_ID = A.POSID)
+                     --AND X.KBETR &lt;&gt; 0
+                     --AND KSCHL = 'MWST') AS RATE, 
+              --1.0 AS RATE,
+
+              B.ZZACTSS, E.WAERK AS WAERS, A.KUNNR_NM AS KUNNRT, A.KUNNR,
+              B.POSID_OLD AS ZZHOGIT,
+              0 AS SEQNO,
+              '' AS GJAHR,
+              '00000000' AS APPLD,  '' AS APPLI,  '00000000' AS APPRS,  '' AS APPRL,  
+              '00000000' AS APPLS,  '' AS APPLL, '' AS  STATE,
+              '' AS OPEYNA, '' OPEYNA2, '' AS OPEYN,  '' AS OPELI,  '00000000' AS OPELS, '' AS CHK,
+              A.ZQNTY AS TCONT,
+              '신청전' AS TXT01,
+              (SELECT VALUE(X.REQ_DATE,'00000000')AS REQ_DATE 
+                  FROM SAPHEE.ZPST0036 AS X
+                WHERE X.MANDT = C.MANDT 
+                     AND X.PSPID = C.PSPID 
+                     AND X.POSID = C.POSID
+                ORDER BY X.CHASU DESC 
+               FETCH FIRST 1 ROWS ONLY) AS REQ_DATE
+
+
+   FROM SAPHEE.ZMASTER01 AS A
+   INNER JOIN SAPHEE.ZMASTER02 AS B
+        ON A.MANDT = B.MANDT
+      AND A.POSID = B.POSID
+    LEFT OUTER JOIN SAPHEE.ZPST0023 AS C
+        ON B.MANDT = C.MANDT
+       AND B.POSID = C.PSPID
+       AND B.POSID_1 = C.POSID
+       AND C.ZTYPE = '1'
+       AND C.STATE NOT IN ('1','2','3','8')
+    LEFT OUTER JOIN SAPHEE.LFA1 AS D
+        ON B.MANDT = D.MANDT
+      AND B.LIFNR = D.LIFNR
+    LEFT OUTER JOIN SAPHEE.VBAK AS E
+        ON A.MANDT = E.MANDT
+      AND A.POSID = E.ZZPJT_ID
+
+ WHERE A.MANDT = #G_MANDT#
+     AND A.PRART IN ('01', '02', '11')
+     --AND B.ZZACTSS = #ZZACTSS#
+     AND B.ZZSHIP1 BETWEEN #DATEF# AND #DATET#
+     AND B.ZZCHAKG &lt;&gt; 'X'
+     AND B.ZZJUNGO &lt;&gt; 'X'
+     AND B.ZZGUBUN IN ('10', '11', '12', '20')
+     <isNotNull col="ZZACTSS">
+     AND B.ZZACTSS = #ZZACTSS#
+     </isNotNull>
+     <isNotNull col="ZZLIFNR">
+     AND B.LIFNR = #ZZLIFNR#
+     </isNotNull>
+     <isNotNull col="PSPID">
+     AND A.POSID = #PSPID#
+     </isNotNull>
+     <isNotNull col="COMBO2">
+     AND   B.TEMNO = #COMBO2#
+     </isNotNull>
+     AND NOT EXISTS (SELECT * 
+                                   FROM SAPHEE.ZPST0023 AS X 
+	                    WHERE X.MANDT = B.MANDT 
+                                      AND X.PSPID = B.POSID 
+                                      AND X.POSID = B.POSID_1 
+		          AND X.ZTYPE = '1' AND X.STATE  IN ('1','2','3','8') 	)	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

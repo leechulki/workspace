@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+SELECT
+	Z.MANDT,
+	SUBSTR(Z.ADTM,1,6) ADTM, -- 수주월
+	Z.VKBURNM,
+	Z.VKGRPNM,
+	Z.LIFNRNM,
+	Z.GNO,
+	Z.U_M_AMT,
+	Z.U_M_DMT,
+	Z.I_M_AMT,
+	Z.U_A_AMT,
+	Z.U_A_HMT,
+	Z.U_A_DMT,
+	Z.I_A_AMT,
+	Z.A_AMT,
+	Z.CS121_SPT,
+	Z.KUNNRNM,
+	Z.ADTM AS ADT -- 수주일
+FROM
+( 
+	SELECT
+		T1.MANDT,
+		(CASE WHEN T1.ADT &gt;= T1.UGS THEN T1.ADT WHEN T1.ADT &lt; T1.UGS THEN T1.UGS END) AS ADTM, -- 수주월
+		T4.CTEXT2 AS VKBURNM,  
+		T5.CTEXT2 AS VKGRPNM,  
+		T3.ABR_NM AS LIFNRNM,
+		T1.GNO,  
+		MAX(T1.U_M_AMT) AS U_M_AMT,
+		MAX(T1.U_M_HMT) AS U_M_HMT,
+		MAX(T1.U_M_DMT) AS U_M_DMT,
+		MAX(T1.I_M_AMT) AS I_M_AMT,			 
+		SUM(CASE WHEN T2.CS131_GND = 'E'  THEN 0  ELSE  T2.CS131_AMT END) AS U_A_AMT,  
+		SUM(CASE WHEN T2.CS131_GND = 'E'  THEN 0  ELSE  T2.CS131_HMT END) AS U_A_HMT,   
+		SUM(CASE WHEN T2.CS131_GND = 'E'  THEN 0  ELSE  T2.CS131_DMT END) AS U_A_DMT,  
+		SUM(CASE WHEN T2.CS131_GND = 'E'  THEN T2.CS131_AMT  ELSE  0 END) AS I_A_AMT,
+		( SUM(CASE WHEN T2.CS131_GND = 'E'  THEN 0  ELSE  T2.CS131_AMT END) + SUM(CASE WHEN T2.CS131_GND = 'E'  THEN 0  ELSE  T2.CS131_HMT END) +
+		  SUM(CASE WHEN T2.CS131_GND = 'E'  THEN 0  ELSE  T2.CS131_DMT END) + SUM(CASE WHEN T2.CS131_GND = 'E'  THEN T2.CS131_AMT  ELSE  0 END)     ) AS A_AMT,
+		T6.CS121_SPT,   
+		T7.NAME1 AS KUNNRNM
+		--T1.ADT
+
+	FROM 
+	(
+		SELECT 
+			CS126_T.MANDT,  
+		    CS126_T.ADT,  
+		    CS126_T.GNO,
+		    SUM(CS126_T.U_M_AMT) AS U_M_AMT,
+		    SUM(CS126_T.U_M_HMT) AS U_M_HMT,
+			SUM(CS126_T.U_M_DMT) AS U_M_DMT,
+			SUM(CS126_T.I_M_AMT) AS I_M_AMT,
+		    CS126_T.BSU,
+		    CS126_T.VKBUR,
+		    CS126_T.VKGRP,
+		  	SUBSTR(CS126_T.GNO, 1,6) AS UPN, 
+		  	RIGHT(CS126_T.GNO, 3) AS CST,
+		  	MIN(CS126_T.UGS) AS UGS -- 유상개시일				              
+				
+		FROM
+		(
+			SELECT 
+				A.MANDT,  
+			    MAX(A.CS126_ADT) AS  ADT,  
+				A.CS126_GNO AS GNO,  
+				SUM(A.CS126_AMT) AS U_M_AMT,
+				SUM(A.CS126_HMT) AS U_M_HMT,
+				SUM(A.CS126_DMT) AS U_M_DMT,
+				0 AS I_M_AMT,
+				A.CS126_BSU AS BSU,
+				A.VKBUR,
+				A.VKGRP,  --- 추가   											 											 
+				MIN(A.CS126_UGS) AS UGS							 
+			FROM SAPHEE.ZCST126 AS A
+			WHERE 
+				A.MANDT = #G_MANDT#
+			    AND ((A.CS126_ADT BETWEEN #SMON#  AND #EMON#) OR (A.CS126_UGS BETWEEN #SMON# AND #EMON#)) -- 자회사의 경우 수주승인일 및 유상개시일 중 큰 값을 표현
+			    AND A.CS126_ADT &gt;= '10000101'
+				AND A.VBELN LIKE 'Z%'
+				AND A.CS126_GNO &lt;&gt; ''
+				AND A.CS126_CST &lt;&gt; ''           
+				AND A.CS126_DDT  = ''           
+				AND A.VKBUR = 'H100'
+				<isNotNull col="PROJ">
+					AND A.CS126_GNO LIKE #PROJ# || '%'
+				</isNotNull>
+			GROUP BY A.MANDT, A.CS126_GNO, A.CS126_BSU, A.VKBUR, A.VKGRP
+									  
+			UNION ALL
+				
+			SELECT 
+				A.MANDT, 
+				MAX(A.CS127_ADT) AS ADT,  
+				A.CS127_GNO AS GNO,  
+				0 AS U_M_AMT,
+				0 AS U_M_HMT,
+				0 AS U_M_DMT,
+				SUM(A.CS127_AMT) AS I_M_AMT,
+				A.CS127_BSU AS BSU,
+				A.VKBUR,
+				A.VKGRP,  --- 추가
+				MIN(A.CS127_SFR) AS UGS   
+			FROM SAPHEE.ZCST127 AS A
+			WHERE 
+				A.MANDT = #G_MANDT#
+				AND ((A.CS127_ADT BETWEEN #SMON# AND #EMON#) OR (A.CS127_SFR BETWEEN #SMON# AND #EMON#)) -- 자회사의 경우 수주승인일 및 유상개시일 중 큰 값을 표현
+				AND A.CS127_ADT &gt;= '10000101'
+				AND A.VBELN LIKE 'Z%'
+				AND A.CS127_GNO &lt;&gt; ''
+				AND A.CS127_CST &lt;&gt; ''           
+				AND A.CS127_DDT  = ''            
+				AND A.VKBUR = 'H100'	  
+				<isNotNull col="PROJ">
+					AND A.CS127_GNO LIKE #PROJ# || '%'
+				</isNotNull>									  					  
+			GROUP BY A.MANDT, A.CS127_GNO, A.CS127_BSU, A.VKBUR, A.VKGRP
+		) AS CS126_T
+		GROUP BY CS126_T.MANDT, CS126_T.ADT, CS126_T.GNO, CS126_T.BSU, CS126_T.VKBUR, CS126_T.VKGRP		
+	) AS T1
+   LEFT OUTER JOIN SAPHEE.ZCST131 AS T2
+     ON T1.MANDT = T2.MANDT
+    AND T1.GNO     = T2.CS131_GNO
+	 
+   LEFT OUTER JOIN SAPHEE.ZWBT010 AS T3  --- 협력사
+	 ON T1.MANDT = T3.MANDT
+	AND T1.BSU = T3.LGORT
+	 
+   LEFT OUTER JOIN SAPHEE.ZLCODE AS T4  -- 부서 
+	 ON T1.MANDT = T4.MANDT	  
+    AND T1.VKBUR = T4.CODE2 
+	AND T4.LANG = 'ko'
+	AND T4.CODE1 = 'VKBUR'
+	 
+   LEFT OUTER JOIN SAPHEE.ZLCODE AS T5  -- 팀   
+	 ON T1.MANDT = T5.MANDT	  
+	AND T1.VKGRP = T5.CODE2 
+	AND T5.LANG = 'ko'
+	AND T5.CODE1 = 'VKGRP'	 
+	 
+   LEFT OUTER JOIN SAPHEE.ZCST121 AS T6  --현장 
+	 ON T1.MANDT = T6.MANDT
+    AND T1.UPN = T6.CS121_UPN
+	AND T1.CST = T6.CS121_CST 
+	 
+   LEFT OUTER JOIN SAPHEE.KNA1 AS T7  -- 고객
+	 ON T6.MANDT = T7.MANDT
+	AND T6.KUNNR = T7.KUNNR
+
+  WHERE T2.CS131_GND IN ('C','D','E')    
+    AND T2.CS131_MYB &lt;&gt; 'Y'  
+				
+  <isNotNull col="ARA">
+    AND T3.BSU_ARA = #ARA#
+  </isNotNull>
+  <isNotNull col="BSU">
+    AND T1.BSU = #BSU#
+  </isNotNull>
+  <isNotNull col="BPM">
+    AND T3.BSU_PM = #BPM#
+  </isNotNull>
+  <isNotNull col="TEM">
+    AND T1.VKGRP = #TEM#
+  </isNotNull>
+  <isNotNull col="DPT">
+    AND T1.VKBUR = #DPT#
+  </isNotNull>
+								
+  GROUP BY T1.MANDT, T4.CTEXT2, T5.CTEXT2, T3.ABR_NM, T1.GNO, T6.CS121_SPT, T7.NAME1
+  		   ,(CASE WHEN T1.ADT &gt;= T1.UGS THEN T1.ADT WHEN T1.ADT &lt; T1.UGS THEN T1.UGS END) 	
+) Z
+WHERE
+	Z.MANDT = #G_MANDT#
+	AND Z.ADTM BETWEEN #SMON# AND #EMON#			
+ORDER BY Z.GNO, Z.ADTM
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

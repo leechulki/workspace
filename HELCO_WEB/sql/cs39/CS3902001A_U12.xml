@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>update</type>
+	<description><![CDATA[회수]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>	
+	<![CDATA[
+	MERGE INTO  SAPHEE.ZCST950N AS A
+ 	USING (
+ 	       SELECT BSU
+ 	             ,COUNT(A.PJT) AS RCQ
+               ,SUM(CASE WHEN A.KND > ''  THEN 1 ELSE 0 END ) RCQ_F
+               ,SUM(CASE WHEN A.HYN = 'Y' THEN 1 ELSE 0 END ) RCQ_H
+               ,SUM(CASE WHEN A.GKD = '5' AND A.CCG ='B' THEN 1 ELSE 0 END ) RCQ_TS
+	       FROM (
+             
+                SELECT
+                         A.PJT
+                        ,A.HNO
+                        ,A.GNO
+                        ,A.GDATE
+                          ,CASE WHEN A.IKD > A.GDATE THEN C.CS157_CAB
+                                WHEN A.IKD <= A.GDATE THEN C.CS157_CAA
+                                ELSE A.ARA END ARA
+                          ,CASE WHEN A.IKD > A.GDATE THEN C.CS157_CHB
+                                WHEN A.IKD <= A.GDATE THEN C.CS157_CHA
+                                ELSE A.BSU END BSU
+                        ,A.KND
+                        ,A.HYN
+                        ,A.GKD
+                        ,B.CCG
+
+                  FROM (
+                         SELECT
+                               CS126_PJT   PJT
+                              ,CS126_HNO   HNO
+                              ,CS126_GNO   GNO
+                              ,MIN(CS126_USD) USD
+                              ,MIN(CS126_ADT) ADT
+                              ,MAX(CS126_UMR) UMR
+                              ,MAX(CS126_UHJ) UHJ
+                              ,CASE WHEN MIN(CS126_ADT) >= MIN(CS126_USD) THEN MIN(CS126_ADT) ELSE MIN(CS126_USD) END  GDATE
+                              ,MAX(CS126_KND) KND
+                              ,MAX(CS126_HYN) HYN
+                              ,MAX(CS126_GKD) GKD
+                              ,MAX(A.CS126_ARA) ARA
+                              ,MAX(A.CS126_BSU) BSU
+                              ,MIN(B.CS157_IKD) IKD
+
+                         FROM SAPHEE.ZCST126 A  LEFT OUTER JOIN SAPHEE.ZCST157 B
+                                                        ON A.MANDT = B.MANDT
+                                                       AND A.CS126_PJT = B.CS157_PJT
+                                                       AND A.CS126_HNO = B.CS157_HNO
+                                                       AND B.CS157_IKD > A.CS126_ADT
+                                                       AND B.CS157_GND = 'D'
+
+                         WHERE A.MANDT = #G_MANDT#
+
+                          AND A.CS126_PST = 'A6'
+                          AND A.CS126_DDT = ''
+                          AND A.CS126_GND = 'D'
+                          AND A.CS126_GKD IN ( '4', '5' )
+                          AND A.CS126_SLA = 'N'
+                          AND SUBSTR(A.CS126_HNO,1,1) IN ('L','S','W','C')
+                          AND CASE WHEN CS126_ADT >= CS126_USD THEN CS126_ADT ELSE CS126_USD END
+                               BETWEEN SUBSTR(#GDATE#,1,4)||'0101' AND #GDATE#
+
+                         GROUP BY CS126_PJT,CS126_HNO,CS126_GNO,CS126_SEQ
+
+                         ) A     INNER JOIN SAPHEE.ZCST111 B
+                                              ON B.MANDT = #G_MANDT#
+                                             AND A.PJT = B.PJT
+                                             AND A.HNO = B.HNO
+                                             AND B.EXC = ''
+
+                                 LEFT OUTER JOIN SAPHEE.ZCST157 C
+                                              ON C.MANDT = #G_MANDT#
+                                             AND A.PJT = C.CS157_PJT
+                                             AND A.HNO = C.CS157_HNO
+                                             AND A.IKD = C.CS157_IKD
+                                             AND C.CS157_GND = 'D'        
+             ) AS A
+           
+         GROUP BY BSU
+         
+        ) AS B  
+           ON A.BSU = B.BSU
+          AND A.YYYYMM = #YYYYMM#
+          AND A.MANDT = #G_MANDT#
+	
+	WHEN MATCHED
+	THEN
+	
+	UPDATE 	
+     SET 
+          RCQ    = B.RCQ   
+         ,RCQ_F  = B.RCQ_F 
+         ,RCQ_H  = B.RCQ_H 
+         ,RCQ_TS = B.RCQ_TS
+	
+]]>
+	</statement>	
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="_none">	
+	</output>
+	</query>

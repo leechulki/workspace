@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.ssa.dao.Ssa0070D">
+
+	<resultMap id="selectListMap" type="hdel.sd.ssa.domain.Ssa0070">
+	</resultMap>
+
+	<select id="selectList" parameterType="hdel.sd.ssa.domain.Ssa0070ParamVO" resultMap="selectListMap">
+		SELECT	  OH.MANDT		AS mandt
+				, 0 			AS chk
+				, '' 			AS status
+				, OH.PSPID	AS pspid	    	-- 프로젝트
+				, AP.HOGI		AS hogi		    	-- 호기
+				, ZM1.ZSITE_NM		AS bstnk			-- 현장명
+				, ZM.ZZSHIP1	AS zzship1	    	-- 착공예정일
+				, ZM.ZZCOMP2	AS zzcomp2	    	-- 준공예정일
+				, ZM.TEMNO		AS temno			-- 담당PM 사번
+				, ZM.NAMET		AS temnm			-- 담당PM 이름
+				, LF.NAME1		AS lfnm				-- 협력업체
+				, ''		AS vkbur
+				, ''		AS vkgrp
+				, ''			AS sadept			-- 영업담당자 소속
+				, A1.KUNNR		AS said				-- 영업담당자ID
+				, A1.NAME1		AS sanm				-- 영업담당자명
+				, A1.STRAS		AS stras			-- 영업담당자 연락처
+				, CASE Z23C.STATE WHEN '3' THEN 'Y' ELSE 'N' END			AS 	chakyn	        	-- 착공승인
+				, CASE Z23J.STATE WHEN '3' THEN 'Y' ELSE 'N' END			AS 	junyn	        	-- 준공승인
+				, CASE Z23J.OPEYN WHEN 'Y' THEN 'Y' ELSE 'N' END 		AS gadongyn		        	-- 가동여부
+				, ZM.ZQEMIDDL	AS zqemiddl	    	-- QC검사일
+				, ZM.ZBEPJEO	AS zbepjeo	    	-- 완성검사일
+				, ZM.ZBOSUOUT	AS zbosuout	    	-- 보수인계일
+				, ZM.ZBOSUIN	AS zbosuin	    	-- 보수인수일
+				, VALUE((SELECT MAX(IRATE) FROM SAPHEE.ZSDT0020 WHERE MANDT = '183' AND PSPID = OH.PSPID GROUP BY MANDT, PSPID) ,0) AS IRATE
+				, CASE oh.netwr WHEN 0 THEN 0 
+                	ELSE VALUE((SELECT SUM(HWBAS) FROM SAPHEE.ZSDT0029 WHERE MANDT = '183' AND BUKRS = '1000' AND ZCANDT= '00000000' AND KIDNO = OH.PSPID 
+                    GROUP BY MANDT, KIDNO),0) / oh.NETWR * 100 
+                  END AS sugm
+				--, ''			AS 		        	-- 수금일 입력일자
+				, Z81.ASUGM_DT	AS asugm_dt			-- A수금예정일
+				, Z81.BSUGM_DT	AS bsugm_dt			-- B수금예정일
+				, Z81.CSUGM_DT	AS csugm_dt			-- C수금예정일
+				, Z81.BIGO 		AS zdlybigo			-- 수금지연사유
+				--, '' 			AS 			    	-- 영업승인요청
+				, Z81.ERDAT		AS erdat
+				, Z81.ERZZT		AS erzzt
+				, Z81.ERNAM		AS ernam
+		
+		FROM              SAPHEE.ZSDT0002  AS OH  
+		INNER JOIN      SAPHEE.ZMASTER01 AS ZM1 ON OH.MANDT = ZM1.MANDT AND OH.PSPID = ZM1.POSID 
+		INNER JOIN      SAPHEE.KNA1      AS A1  ON ZM1.MANDT  = A1.MANDT  AND ZM1.ZMAN    = A1.KUNNR
+		INNER JOIN      SAPHEE.VBAP      AS AP  ON OH.MANDT  = AP.MANDT  AND OH.VBELN    = AP.VBELN 
+		INNER JOIN      SAPHEE.ZMASTER02 AS ZM  ON AP.MANDT  = ZM.MANDT  AND AP.HOGI     = ZM.POSID_1
+		LEFT OUTER JOIN SAPHEE.VBPA      AS PA2 ON OH.MANDT  = PA2.MANDT AND OH.VBELN    = PA2.VBELN   AND PA2.PARVW = 'Z1'
+		LEFT OUTER JOIN SAPHEE.LFA1      AS LF  ON PA2.MANDT = LF.MANDT  AND PA2.LIFNR   = LF.LIFNR
+		LEFT OUTER JOIN SAPHEE.ZSDT0801  AS Z81 ON OH.MANDT  = Z81.MANDT AND OH.PSPID = Z81.PSPID AND AP.HOGI = Z81.HOGI
+		LEFT OUTER JOIN SAPHEE.ZPST0023 AS Z23C ON ZM.MANDT = Z23C.MANDT AND ZM.POSID_1 = Z23C.POSID AND Z23C.ZTYPE = '1'
+		LEFT OUTER JOIN SAPHEE.ZPST0023 AS Z23J ON ZM.MANDT = Z23J.MANDT AND ZM.POSID_1 = Z23J.POSID AND Z23J.ZTYPE = '2'
+		WHERE   OH.MANDT = #{mandt}
+			<if test="dateFrShip != null and dateFrShip != ''"> AND ZM.ZZSHIP1 &gt;= #{dateFrShip} </if> -- 착공예정일
+			<if test="dateToShip != null and dateToShip != ''"> AND ZM.ZZSHIP1 &lt;= #{dateToShip} </if> -- 착공예정일
+			<if test="dateFrComp != null and dateFrComp != ''"> AND ZM.ZZCOMP2 &gt;= #{dateFrComp} </if> -- 준공예정일
+			<if test="dateToComp != null and dateToComp != ''"> AND ZM.ZZCOMP2 &lt;= #{dateToComp} </if> -- 준공예정일
+			<if test="zzactss != null and zzactss != ''"> AND ZM.ZZACTSS = #{zzactss} </if> -- 사무소
+			<if test="zzpmnum != null and zzpmnum != ''"> AND ZM.TEMNO   = #{zzpmnum} </if> -- PM
+			<if test="pspid != null and pspid != ''"> AND OH.PSPID = #{pspid} </if>
+			<if test="said  != null and said  != ''"> AND A1.KUNNR    = #{said}  </if>
+			<if test="asugm != null and asugm != ''"> AND Z81.ASUGM_DT &gt; '19900101' </if>
+			<if test="bsugm != null and bsugm != ''"> AND Z81.BSUGM_DT &gt; '19900101' </if>
+			<if test="csugm != null and csugm != ''"> AND Z81.CSUGM_DT &gt; '19900101' </if>
+		WITH UR
+	</select>
+	
+	<update id="mergeList" parameterType="hdel.sd.ssa.domain.Ssa0070">
+		MERGE INTO SAPHEE.ZSDT0801 AS T1
+		USING	(
+					SELECT    CAST(#{mandt} AS VARCHAR(9) ) AS MANDT
+							, CAST(#{pspid} AS VARCHAR(30)) AS PSPID
+							, CAST(#{hogi}  AS VARCHAR(30)) AS HOGI
+					FROM SYSIBM.SYSDUMMY1
+				) AS T2 ON  T1.MANDT = T2.MANDT
+						AND T1.PSPID = T2.PSPID
+						AND T1.HOGI  = T2.HOGI
+		WHEN MATCHED THEN
+				UPDATE SET T1.ASUGM_DT = #{asugm_dt}
+						 , T1.BSUGM_DT = #{bsugm_dt}
+						 , T1.CSUGM_DT = #{csugm_dt}
+						 , T1.BIGO     = #{zdlybigo}
+						 , T1.ERDAT    = HEX(CURRENT DATE)
+						 , T1.ERZZT    = #{erzzt}
+						 , T1.ERNAM    = #{ernam}
+		WHEN NOT MATCHED THEN
+				INSERT (
+					  MANDT
+					, PSPID
+					, HOGI
+					, ASUGM_DT
+					, BSUGM_DT
+					, CSUGM_DT
+					, BIGO
+					, ERDAT
+					, ERZZT
+					, ERNAM
+				) VALUES (
+					  #{mandt}
+					, #{pspid}
+					, #{hogi}
+					, #{asugm_dt}
+					, #{bsugm_dt}
+					, #{csugm_dt}
+					, #{zdlybigo}
+					, HEX(CURRENT DATE)
+					, #{erzzt}
+					, #{ernam}
+				)
+	</update>
+
+</mapper>

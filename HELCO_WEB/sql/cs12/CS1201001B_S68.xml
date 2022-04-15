@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[이전 계약 및 현재 계약의 영업그룹 구하기]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+	  Z.PJT,
+	  Z.HNO,
+	  CASE
+	  	  WHEN Z.CS157_CHB != '' THEN Z.CS157_CHB
+		  ELSE Z.BSU_B
+	  END AS BSU_B, -- 이관전 보수협력사
+	  CASE 
+	  	   WHEN Z.CS157_CHB != '' THEN  (SELECT  C.CODE2 VKBUR FROM SAPHEE.ZWBT010 AS A, SAPHEE.ZLCODE B , SAPHEE.ZLCODE C WHERE   A.MANDT = B.MANDT AND     A.VKGRP = B.CODE2 AND     B.MANDT = C.MANDT AND     B.LANG  = C.LANG AND     B.DTEXT1 = C.CODE2 AND     A.MANDT = #G_MANDT# AND     B.LANG  = 'ko' AND     B.CODE1 = 'VKGRP' AND     C.CODE1 = 'VKBUR' AND     A.LGORT = Z.CS157_CHB WITH UR)
+		   ELSE (SELECT  C.CODE2 VKBUR FROM SAPHEE.ZWBT010 AS A, SAPHEE.ZLCODE B , SAPHEE.ZLCODE C WHERE   A.MANDT = B.MANDT AND     A.VKGRP = B.CODE2 AND     B.MANDT = C.MANDT AND     B.LANG  = C.LANG AND     B.DTEXT1 = C.CODE2 AND     A.MANDT = #G_MANDT# AND     B.LANG  = 'ko' AND     B.CODE1 = 'VKGRP' AND     C.CODE1 = 'VKBUR' AND     A.LGORT = Z.BSU_B WITH UR) 
+	  END AS BSU_B_VKBUR, -- 이관전 보수협력사 영업그룹	   
+	  Z.BSU, -- 이관후 보수협력사
+	  (SELECT  C.CODE2 VKBUR FROM SAPHEE.ZWBT010 AS A, SAPHEE.ZLCODE B , SAPHEE.ZLCODE C WHERE   A.MANDT = B.MANDT AND     A.VKGRP = B.CODE2 AND     B.MANDT = C.MANDT AND     B.LANG  = C.LANG AND     B.DTEXT1 = C.CODE2 AND     A.MANDT = #G_MANDT# AND     B.LANG  = 'ko' AND     B.CODE1 = 'VKGRP' AND     C.CODE1 = 'VKBUR' AND     A.LGORT = Z.BSU WITH UR) AS BSU_VKBUR -- 이관후 보수협력사 영업그룹
+FROM
+(
+	SELECT
+		  A.PJT PJT,
+		  A.HNO HNO,
+		  A.BSU_B BSU_B,
+		  A.BSU BSU, -- 이관 후 보수 협력사
+		  CASE WHEN MAX(B.CS157_IGM) != '' THEN (SELECT CS157_CHB FROM SAPHEE.ZCST157 WHERE MANDT = #G_MANDT# AND CS157_PJT = #PJT# AND CS157_HNO = #HNO# AND CS157_IGM = MAX(B.CS157_IGM) AND CS157_IJU != '' ORDER BY CS157_DOC DESC FETCH FIRST 1 ROW ONLY) END AS CS157_CHB,
+		  MAX(B.CS157_IGM) IGM 
+	FROM
+		SAPHEE.ZCST111 A LEFT OUTER JOIN SAPHEE.ZCST157 B ON A.MANDT = B.MANDT AND A.PJT = B.CS157_PJT AND A.HNO = B.CS157_HNO AND CS157_IJU != ''
+	WHERE
+		 A.MANDT = #G_MANDT# AND
+		 A.PJT = #PJT# AND
+		 A.HNO = #HNO#
+	GROUP BY
+		  A.PJT, A.HNO, A.BSU_B, A.BSU
+) Z
+WITH UR     
+     
+]]></statement>
+	<input default-name="ds_beforecontract_cond">
+	</input>
+	<output default-name="ds_beforecontract">
+	</output>
+</query>

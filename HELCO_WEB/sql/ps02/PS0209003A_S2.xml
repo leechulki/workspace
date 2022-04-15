@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+
+SELECT  
+       T3.PSPID
+       ,G.ZSITE_NM
+       ,COUNT(T3.POSID) AS HO_CNT
+FROM (
+
+	 SELECT T.MANDT
+           ,T.PSPID
+           ,T.POSID
+           ,T.INP_DT
+           ,T.CHK
+	FROM (
+	     SELECT 'N' AS CHK
+               ,A.MANDT
+               ,A.POSID AS PSPID
+               ,A.POSID_1 AS POSID
+               ,'00000000' AS INP_DT       
+           FROM SAPHEE.ZMASTER02 AS A
+ 				LEFT OUTER JOIN ( 
+                           SELECT X.MANDT, X.PSPID, X.POSID, SUM(X.PRO_R)  AS PRO_R 
+                             FROM SAPHEE.ZPST0116 AS X
+                            WHERE X.MANDT = '183' 
+                              AND X.BELNR > '0000000000' 
+                            GROUP BY  X.MANDT, X.PSPID, X.POSID ) AS G         
+                        ON A.MANDT = G.MANDT
+                       AND A.POSID = G.PSPID
+                       AND A.POSID_1 = G.POSID                              
+			    LEFT OUTER JOIN SAPHEE.ZPST0002 AS D
+			            ON A.MANDT = D.MANDT
+			           AND A.LIFNR = D.LIFNR
+			           AND A.TEMNO2 = D.TEMNO 
+                LEFT OUTER JOIN SAPHEE.ZPST0112C AS F
+                        ON A.MANDT = F.MANDT
+                       AND A.POSID = F.PSPID
+                       AND A.POSID_1 = F.POSID
+		  WHERE A.MANDT = #G_MANDT#
+		    AND A.LIFNR  > '' 
+            AND A.TEMNO2 > '' 
+            AND D.DELEF  &lt;&gt; 'X'
+            -----------------------------------------------------
+       		-- 보수이체, 공사중단, 배치완료 제외 로직 추가
+       		-----------------------------------------------------
+            AND A.TXT04  &lt;&gt; 'C' --공사중단 제외 조건
+            --보수이체 건도 보이도록 수정 - 2019.03.05 강민석K (정태성K, 고범석K 요청사항 - 2019.02.27)
+            --AND (A.ZBOSUOUT = '' OR A.ZBOSUOUT = '00000000') --보수이체 제외 조건
+            AND NOT EXISTS (SELECT * FROM SAPHEE.ZPST0098 AS X
+                             WHERE X.MANDT = A.MANDT
+                               AND X.PSPID = A.POSID
+                               AND X.POSID = A.POSID_1
+                               AND X.APPL_DAT &lt;= '99990101') --공사중단 제외 조건
+            AND A.TYPE &lt;&gt; '' --배치완료  조건
+            AND A.VER  &lt;&gt; '' --배치완료  조건
+            -----------------------------------------------------
+		  <isNotNull col="ZZPMNUM">
+		    AND A.TEMNO = #ZZPMNUM# 	--PM
+		  </isNotNull>
+		  <isNotNull col="ZZACTSS">
+		    AND A.ZZACTSS = #ZZACTSS#   --사무소
+		  </isNotNull>
+		  <isNotNull col="ZZLIFNR">
+		    AND A.LIFNR = #ZZLIFNR#     --설치협력사
+		  </isNotNull>
+		    AND A.ZZGUBUN BETWEEN '10' AND '14' 
+            AND A.PRART IN ('01', '02', '11') 
+            AND (A.ZZCHAKG = 'X' OR F.POSID IS NOT NULL) 
+            AND VALUE(G.PRO_R,0) BETWEEN 0 AND 99.9   
+            AND NOT EXISTS ( SELECT * FROM SAPHEE.ZPSTW0302 AS ST2
+	   	                      WHERE ST2.MANDT = A.MANDT
+		                        AND ST2.PSPID  = A.POSID
+		                        AND ST2.POSID = A.POSID_1
+		                        AND ST2.INP_DT = #INP_DTF#  ) 
+		              
+	    UNION ALL 
+
+ 	SELECT 'I' AS CHK
+			,ST2.MANDT
+			,ST2.PSPID
+			,ST2.POSID
+			,ST2.INP_DT
+		FROM SAPHEE.ZPSTW0302 AS ST2
+		WHERE ST2.MANDT = #G_MANDT#
+		  AND ST2.INP_DT = #INP_DTF#
+		GROUP BY ST2.MANDT
+			,ST2.PSPID
+			,ST2.POSID
+			,ST2.INP_DT
+			 
+  	) AS T
+  WHERE T.MANDT = #G_MANDT#
+  <isNotNull col="PSPID">
+   AND T.PSPID = #PSPID#	 
+   </isNotNull>
+  ) AS T3 
+
+ INNER JOIN SAPHEE.ZMASTER02 AS B
+   ON T3.MANDT = B.MANDT
+  AND T3.PSPID  = B.POSID
+  AND T3.POSID = B.POSID_1
+  <isNotNull col="ZZPMNUM">
+  AND B.TEMNO = #ZZPMNUM#
+  </isNotNull>
+  <isNotNull col="ZZACTSS">
+  AND B.ZZACTSS = #ZZACTSS#
+  </isNotNull>
+  <isNotNull col="ZZLIFNR">
+  AND B.LIFNR = #ZZLIFNR#      
+  </isNotNull>    		 
+  LEFT OUTER JOIN SAPHEE.LFA1 AS E
+    ON B.MANDT = E.MANDT
+   AND B.LIFNR = E.LIFNR
+  
+  INNER JOIN SAPHEE.ZMASTER01 AS G
+     ON T3.MANDT = G.MANDT
+    AND T3.PSPID   = G.POSID
+
+GROUP BY T3.PSPID ,G.ZSITE_NM
+ORDER BY T3.PSPID
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list1">
+	</output>
+</query>

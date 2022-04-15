@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[인수인계 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT  A.POSID --프로젝트번호
+       ,B.POSID_1 --호기번호
+       ,B.ZZGUBUN --공사구분
+       ,A.ZSITE_NM --프로젝트명
+       ,A.KUNNR --고객명
+       ,A.KUNNR_NM --고객명
+       ,NULLIF( B.ZBOSUOUT , '00000000' ) AS ZBOSUOUT --보수인계일 ( 인계 )
+       ,NULLIF( B.ZINDO , '00000000' ) AS ZINDO --인도일(하자보증기간관련 추가) (인수)
+       ,NULLIF( B.ZBOSUIN , '00000000' ) AS ZBOSUIN --보수인수일 (인수) 
+       ,B.POSID_M -- 무상보수 WBS
+       ,B.ZMUSAOCNT2 -- 무상 일반 개월수
+       ,B.WAERK -- SD 문서 통화
+       ,B.NETWR --문서통화에서의 오더품목의 정가
+       ,B.MDATE -- 생성일
+       ,CASE WHEN B.ZINDO = '00000000' OR B.ZBOSUIN IS NULL THEN 'N' ELSE 'Y' END INSU_STAT
+       ,C.CONT_DATE --계약일
+       ,C.CMPL_DATE -- 최종완료일
+FROM    SAPHEE.ZMASTER01 A
+                JOIN SAPHEE.ZMASTER02 B
+                        ON ( A.MANDT = B.MANDT AND A.POSID = B.POSID AND A.PRART = B.PRART )
+                LEFT JOIN SAPHEE.ZFST0304 C
+                        ON ( B.MANDT = C.MANDT AND B.POSID_M = C.PSPID )
+WHERE   A.MANDT = #G_MANDT#
+AND     A.POSID LIKE 'F_____' -- 공사 건
+AND     B.PRART = '03'
+AND     TRIM( B.POSID_M || '' ) != '' -- 프로젝트 번호 없음
+AND     B.ABGRU = '' -- 거부 사유 없음
+AND     COALESCE(B.ZBOSUOUT, '00000000') != '00000000' -- 인도건
+AND     B.MDATE &gt;= DECODE( #BOSUOUT_FROM#||'' , '', B.MDATE, #BOSUOUT_FROM# ) 
+AND     B.MDATE &lt;= DECODE( #BOSUOUT_TO#||'' , '', B.MDATE, #BOSUOUT_TO# )
+<isNotNull col="POSID">
+AND     A.POSID = #POSID#
+</isNotNull>
+<isNotNull col="POSID_1">
+AND     B.POSID_1 = #POSID_1#
+</isNotNull>
+<isNotNull col="CUST_NAME">
+AND     A.KUNNR_NM LIKE #CUST_NAME# || '%'
+</isNotNull>
+<isNotNull col="PROJ_NUMB">
+AND     A.POSID LIKE #PROJ_NUMB# || '%'
+</isNotNull>
+<isNotNull col="PROJ_NAME">
+AND     A.ZSITE_NM LIKE '%' || #PROJ_NAME# || '%'
+</isNotNull>
+<isEqual col="INSU_STAT" value="Y">
+AND     COALESCE(B.ZINDO, '00000000') != '00000000' -- 인수건
+</isEqual>
+<isEqual col="INSU_STAT" value="N">
+AND     COALESCE(B.ZINDO, '00000000') = '00000000' -- 인수건
+</isEqual>
+ORDER   BY A.MDATE DESC 
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_insu">
+    </output>
+</query>

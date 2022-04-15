@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[고객정보 조회]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT SUBSTR(A.KUNNR, 5, 6) 	AS KUNNR_VIEW  		-- 거래선(6자리만)
+      ,A.NAME1 					AS NAME1            -- 거래선명
+	  ,A.SORTL 					AS SORTL            -- 거래선명 정렬기준
+	  ,A.ORT01||' '||A.STRAS 	AS ADDR             -- 거래선정보
+	  ,A.KUNNR   				AS KUNNR         	-- 거래선코드(10자리 모두)
+	  ,A.LAND1                	AS LAND1
+	  ,A.PSTLZ                  AS PSTLZ            -- 우편번호
+	  ,A.ORT01                  AS ORT01            -- LOC
+	  ,(SELECT LANDX FROM SAPHEE.T005T B WHERE B.MANDT = A.MANDT AND B.SPRAS = '3' AND B.LAND1 = A.LAND1) AS LAND1_NM -- 국가명
+	  ,C.ZAREA  														-- 권역코드
+	  ,(SELECT DDTEXT FROM SAPHEE.DD07T WHERE DOMNAME = 'ZSDDZAREA' AND DDLANGUAGE = '3' AND DOMVALUE_L = C.ZAREA) AS ZAREA_NM -- 권역명
+  FROM SAPHEE.KNA1 A
+	   LEFT JOIN SAPHEE.ZSDT0056 AS C ON C.MANDT = A.MANDT 				-- 국가별 권역
+                                      AND C.LAND1 = A.LAND1
+ WHERE 1=1
+   AND A.MANDT= #G_MANDT#
+   AND A.KTOKD IN ( 'Z001', 'Z002', 'Z004' )
+<isNotNull col="NAME1">
+   		AND A.NAME1 LIKE '%'||#NAME1#||'%'
+</isNotNull>
+<isNotNull col="KUNNR_VIEW">
+   AND A.KUNNR LIKE '%'|| TRIM(CHAR(REPEAT('0',4))) || #KUNNR_VIEW# ||'%' 
+</isNotNull>
+ORDER BY A.KUNNR
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+        <col name="MANDT" size="9" type="VARCHAR" description="클라이언트" />
+        <col name="KUNNR_VIEW" size="150" type="VARCHAR" description="고객코드" />
+        <col name="NAME1" size="150" type="VARCHAR" description="고객명" />
+    </input>
+    <output default-name="ds_kna1_cust">
+    </output>
+</query>

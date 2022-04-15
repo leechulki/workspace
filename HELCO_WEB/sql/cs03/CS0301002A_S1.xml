@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[자재정보 검색]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+-- 검색 조건 제약 추가(2019.04.09)	
+SELECT 
+         A.BISMT                            AS BISMT
+        ,A.BLOCK_NO                         AS BLOCK_NO
+        ,A.BRGEW                            AS BRGEW
+        ,A.DZEINR                           AS DZEINR
+        ,A.EXEDT                            AS EXEDT
+        ,A.EXEID                            AS EXEID
+        ,A.EXETM                            AS EXETM
+        ,A.EXTWG                            AS EXTWG
+        ,A.GEWEI                            AS GEWEI
+        ,A.MAKTX                            AS MAKTX
+        ,A.MANDT                            AS MANDT
+        ,A.MATKL                            AS MATKL
+        ,A.MATNR                            AS MATNR
+        ,A.MATNR_NM                         AS MATNR_NM
+        ,A.MATNR_NM2                         AS MATNR_NM2
+        ,A.MEINS                            AS MEINS
+        ,A.MTART                            AS MTART
+        ,A.NTGEW                            AS NTGEW
+        ,SAPHEE.GET_CURRDATA(A.WAERS,A.SAMTG1) AS SAMT1
+        ,SAPHEE.GET_CURRDATA(A.WAERS,A.SAMTG2) AS SAMT2
+        ,A.SPEC                             AS SPEC
+        ,A.VOLEH                            AS VOLEH
+        ,A.VOLUM                            AS VOLUM
+        ,A.WAERS                            AS WAERS
+        ,A.WRKST                            AS WRKST
+        ,A.ZSIZE                            AS ZSIZE
+        ,CASE WHEN C.MANDT IS NOT NULL THEN 'Y' ELSE 'N' END AS IMAGE
+        ,B.MATNR_CN  
+	      , ROUND(CASE WHEN  MR01.MRRAT_C IS NULL THEN A.SAMTG2*100 /SD0013.KRWUSD
+             ELSE A.SAMTG2*100 /SD0013.KRWUSD * MR01.MRRAT_C END ,2)           AS UNT                            
+
+FROM SAPHEE.ZMMT011 AS A
+                           LEFT OUTER JOIN SAPHEE.ZMMT154 AS B 
+                                        ON A.MANDT = B.MANDT
+                                       AND A.MATNR = B.MATNR
+                                       
+                           LEFT OUTER JOIN SAPHEE.ZCST011IMG AS C 
+                                        ON A.MANDT = C.MANDT
+                                       AND A.MATNR = C.MATNR
+                                       
+	                         LEFT OUTER JOIN SAPHEE.MARA AS MA --T:일반자재데이터
+	                                      ON A.MANDT = MA.MANDT
+	                                     AND A.MATNR = MA.MATNR
+                                  
+                           LEFT OUTER JOIN SAPHEE.ZCSTMR01 AS MR01
+                                        ON A.MANDT = MR01.MANDT
+                                       AND MA.MAT_CODE = MR01.MAT_CODE
+                                  
+                           LEFT OUTER JOIN SAPHEE.ZCSTMR02 AS MR02
+                                        ON A.MANDT = MR02.MANDT
+                                       AND MR01.MRGUBUN = MR02.MRGUBUN
+	                                 <isNotNull col="LGORT">
+	                                     AND MR02.LGORT = #LGORT#
+	                                 </isNotNull>
+	                                 <isNotNull col="LAND1">
+	                                     AND MR02.LAND1 = #LAND1#
+	                                 </isNotNull>
+	                                 
+	                         LEFT OUTER JOIN  (
+                                                SELECT     AA.MANDT
+                                                         , SUBSTR(HEX(CURRENT DATE),1,4) AS ZYEAR
+                                                 		     , CAST(MAX(AA.KRWUSD) AS DECIMAL(12,3)) AS KRWUSD
+                                                 FROM (
+                                                 				SELECT  A.MANDT
+                                                 					    , CASE WHEN A.FCURR = 'USD' THEN A.UKURS END AS KRWUSD
+                                                 				  FROM (
+                                                 						     SELECT MANDT, FCURR, UKURS
+                                                 						       FROM SAPHEE.ZTCURR
+                                                 						      WHERE MANDT = #G_MANDT#
+                                                 						        AND TCURR = 'KRW'
+                                                 						        AND FCURR = 'USD'
+                                                 						        AND KURST = 'Q'
+                                                 						        AND HEX(CURRENT DATE) BETWEEN FRDAT AND TODAT
+                                                 						 ) AS A
+                                                 				)AS AA
+                                                 GROUP BY AA.MANDT
+                                                 
+                                        ) AS SD0013
+                                      ON SD0013.MANDT = #G_MANDT#  
+WHERE A.MANDT = #G_MANDT#
+<isEqual col="GBN" value="1">
+  AND A.WRKST > ''
+</isEqual>
+<isEqual col="GBN" value="2">
+  AND A.WRKST = ''
+</isEqual>
+<isEqual col="KIND" value="1">
+  AND A.MATNR LIKE '%' || #PRAM# || '%'
+</isEqual>
+<isEqual col="KIND" value="2">
+  AND A.MAKTX LIKE '%' || #PRAM# || '%'
+</isEqual>
+<isEqual col="KIND" value="3">
+  AND A.SPEC LIKE '%' || #PRAM# || '%'
+</isEqual>
+<isEqual col="KIND" value="4">
+  AND A.ZSIZE LIKE '%' || #PRAM# || '%'
+</isEqual>
+<isEqual col="KIND" value="5">
+  AND A.WRKST LIKE '%' || #PRAM# || '%'
+</isEqual>
+<isEqual col="KIND" value="6">
+  AND A.DZEINR LIKE '%' || #PRAM# || '%'
+</isEqual>
+<isEqual col="KIND" value="7">
+  AND A.MATNR_NM2 LIKE '%' || #PRAM# || '%'
+</isEqual>
+<isEqual col="KIND" value="8">
+  AND B.MATNR_CN LIKE '%' || #PRAM# || '%'
+</isEqual>
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

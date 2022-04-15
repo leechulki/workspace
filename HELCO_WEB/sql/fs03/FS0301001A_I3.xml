@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+    <type>insert</type>
+    <description><![CDATA[수주 마스터 최초 생성 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement><![CDATA[
+INSERT INTO SAPHEE.ZFST0304(
+     MANDT -- 클라이언트
+    ,OCNT_NUMB -- 수주번호
+    ,PSPID
+    ,AUART
+    ,ORDR_TYPE
+    ,BSTNK
+    ,KUNNR
+    ,KUNWE
+    ,WAERK
+    ,NETWR
+    ,SLCS_RATE -- 예산시행율
+    ,OCNT_STAT -- 수주상태
+    ,WRIT_DATE -- 생성일
+    ,WRIT_TIME -- 생성시간
+    ,WRIT_USER -- 생성자
+)
+SELECT  X.MANDT
+       ,X.OCNT_NUMB
+       ,CASE WHEN Y.PSPID IS NULL THEN
+           CASE WHEN X.TYPE = 'NS' THEN
+                (SELECT 'F'||SAPHEE.FILLINZERO(INT(MAX(SUBSTR(POSID, 2, 5))) + 1, 5) FROM SAPHEE.ZMASTER01 WHERE MANDT = '183' AND POSID LIKE 'F%' AND  LENGTH(POSID) > 6)||'NS001'
+                WHEN X.TYPE = 'NB' THEN
+                (SELECT 'F'||SAPHEE.FILLINZERO(INT(MAX(SUBSTR(POSID, 2, 5))) + 1, 5) FROM SAPHEE.ZMASTER01 WHERE MANDT = '183' AND POSID LIKE 'F%' AND  LENGTH(POSID) > 6)||'NB001'
+                WHEN X.TYPE = 'U' THEN
+                (SELECT 'F'||SAPHEE.FILLINZERO(INT(MAX(SUBSTR(POSID, 2, 5))) + 1, 5) FROM SAPHEE.ZMASTER01 WHERE MANDT = '183' AND POSID LIKE 'F%' AND  LENGTH(POSID) > 6)||'U'||SUBSTR(TO_CHAR(CURRENT DATE, 'YYYYMM'),3,4)
+                ELSE
+                ''
+           END
+        ELSE
+           Y.PSPID
+        END AS PSPID
+       ,X.AUART
+       ,X.ORDR_TYPE
+       ,X.BSTNK
+       ,X.KUNNR
+       ,X.KUNWE
+       ,X.WAERK
+       ,X.NETWR
+       ,X.SLCS_RATE
+       ,X.OCNT_STAT
+       ,X.WRIT_DATE
+       ,X.WRIT_TIME
+       ,X.WRIT_USER
+FROM   (
+		SELECT CAST(#TYPE# AS VARCHAR(2)) AS TYPE
+		      ,CAST(#G_MANDT# AS VARCHAR(9)) AS MANDT     -- 클라이언트
+		      ,CAST(#OCNT_NUMB# AS VARCHAR(60)) AS OCNT_NUMB-- 수주번호
+		      ,CAST(#AUART# AS VARCHAR(60)) AS AUART
+		      ,CAST(#ORDR_TYPE# AS VARCHAR(60)) AS ORDR_TYPE
+		      ,CAST(#POST1# AS VARCHAR(60)) AS BSTNK
+		      ,CAST(#KUNNR# AS VARCHAR(60)) AS KUNNR
+		      ,CAST(#KUNNR# AS VARCHAR(60)) AS KUNWE
+		      ,CAST(#CR_WAERK# AS VARCHAR(60)) AS WAERK
+		      ,CAST(#CRNG_TAMT# AS DECIMAL(17, 2)) AS NETWR
+		      ,CAST(COALESCE( NULLIF( TRIM( #SLCS_RATE# ||'' ) , '' ) , '0') AS DECIMAL(11, 5)) AS SLCS_RATE -- 예산시행율
+		      ,CAST(#OCNT_STAT# AS VARCHAR(30)) AS OCNT_STAT -- 수주상태 수주작성중
+		      ,CAST(#WRIT_DATE# AS VARCHAR(24)) WRIT_DATE -- 작성일자
+		      ,CAST(#WRIT_TIME# AS VARCHAR(18)) WRIT_TIME -- 작성시간
+		      ,CAST(#G_USER_ID# AS VARCHAR(36)) AS WRIT_USER -- 작성자
+		FROM   SYSIBM.SYSDUMMY1
+		) X
+		LEFT OUTER JOIN TABLE (
+		SELECT A.PSPID2 AS TYPE
+		       ,TRIM(MAX(A.PSPID1)||A.PSPID2)||
+		        CASE WHEN A.PSPID2 = 'U' THEN
+		           CASE WHEN SUBSTR(TO_CHAR(CURRENT DATE, 'YYYYMM'),3,4) > MAX(A.PSPID3) THEN
+		               SUBSTR(TO_CHAR(CURRENT DATE, 'YYYYMM'),3,4)
+		           ELSE
+		               TRIM(TO_CHAR(INT(MAX(A.PSPID3))+10))
+		           END
+		        ELSE
+		           SAPHEE.FILLINZERO(INT(MAX(A.PSPID3))+1,3)
+		        END AS PSPID
+		       ,MAX(A.PSPID3) AS ORG
+		FROM   TABLE (
+		SELECT SUBSTR(POSID, 1, 6) AS PSPID1
+		       ,CASE WHEN SUBSTR(POSID, 7, 1) = 'U' THEN
+		           SUBSTR(POSID, 7, 1)
+		        ELSE
+		           SUBSTR(POSID, 7, 2)
+		        END AS PSPID2
+		       ,CASE WHEN SUBSTR(POSID, 7, 1) = 'U' THEN
+		           SUBSTR(POSID, 8, 4)
+		        ELSE
+		           SUBSTR(POSID, 9, 3)
+		        END AS PSPID3
+		FROM   SAPHEE.ZMASTER01
+		WHERE  MANDT = #G_MANDT#
+		  AND  KUNNR = #KUNNR#
+		  AND  LENGTH(POSID) > 6
+		) A
+		GROUP BY A.PSPID2
+		) Y ON X.TYPE = Y.TYPE
+    ]]></statement>
+    <input default-name="ds_zfst0301">
+    </input>
+    <output default-name="_none">
+    </output>
+</query>

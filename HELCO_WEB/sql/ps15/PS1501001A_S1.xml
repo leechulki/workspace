@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[PS1501001A_S1]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	SELECT  '0' AS DEL_CHK --삭제 콤보박스 추가를 위해 추가 2019.03.10 강민석K
+	      , T1.MANDT
+	      , T1.ORDERNO
+	      , T1.PSPID
+	      --, NVL(T1.SUM_J_BUDGET, 0 ) AS SUM_J_BUDGET
+          --, NVL(T1.J_ACTUAL, 0) AS J_ACTUAL
+	      , T1.ZSITE_NM
+	      , T1.TITLE
+	      , T1.EMPNO
+	      , T1.EMPNM
+	      , T1.EMP_MAIL
+	      , T1.EMP_AREA_N
+	      , T1.SUPRTCD
+	      , T1.SUPRTCDT
+	      , T1.FIRST_SUBJECTCDT
+	      , T1.CNT
+	      , (SELECT CASE WHEN T1.CNT > 0 THEN T1.FIRST_SUBJECTCDT || ' 외 ' || T1.CNT || '건'
+			             ELSE T1.FIRST_SUBJECTCDT
+			        END
+			   FROM SYSIBM.SYSDUMMY1) AS SUBJECTCDT_ITEMS
+	      , T1.LIFNR
+	      , T1.LIFNR_NM
+	      , T1.LIFNREMPNO
+	      , T1.STATE
+	      , T1.APPDATE1
+	      , T1.PCPNUM1 
+	      , T1.PCPNUM1_MAIL
+	      ,(SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = T1.MANDT AND USERNUMB = T1.PCPNUM1) AS PCPNM1
+		  , T1.MEMO1   
+		  , T1.APPDATE2
+		  , T1.PCPNUM2 
+		  , T1.PCPNUM2_MAIL
+		  ,(SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = T1.MANDT AND USERNUMB = T1.PCPNUM2) AS PCPNM2
+		  , T1.MEMO2   
+		  , T1.APPDATE3
+		  , T1.PCPNUM3
+		  , T1.PCPNUM3_MAIL 
+		  ,(SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = T1.MANDT AND USERNUMB = T1.PCPNUM3) AS PCPNM3
+		  , T1.MEMO3   
+		  , T1.SENDDATE
+		  , T1.RECDATE 
+		  , T1.RECID   
+		  ,(SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = T1.MANDT AND USERNUMB = T1.RECID) AS RECNM
+		  , T1.CRDAT   
+		  , T1.CRTIM   
+		  , T1.CRNAM   
+		  , T1.CHDAT   
+		  , T1.CHTIM   
+		  , T1.CHNAM   
+     	  , CASE WHEN T1.MEMO4 > '' THEN T1.MEMO4 -- 구매처 의견 추가 : 2019.03.20 강민석K
+     	         WHEN T1.MEMO3 > '' THEN T1.MEMO3
+	             WHEN T1.MEMO2 > '' THEN T1.MEMO2
+	             ELSE T1.MEMO1 END AS MEMO
+		  , T1.RECPART
+          , T1.RECRANK
+          , T1.RECNAME
+          , T1.RECTEL
+          , T1.NOTICE
+          , T1.IMPDATE
+          , T1.RECADDR
+          , T1.ZZPMNUM
+          , T1.ZZACTSS
+          , T1.PCPNUM1_AREA_N
+          , T1.PCPNUM2_AREA_N
+          , T1.PCPNUM3_AREA_N
+          , T1.PCPNUM1_NM
+          , T1.PCPNUM2_NM
+          , T1.PCPNUM3_NM
+          , T1.RECLASTMEMO
+		  , T1.RECLASTNAME
+		  , T1.ZZPMNUM_CD
+	FROM
+		(
+		SELECT
+		       P1.MANDT
+		     , P1.ORDERNO
+		     , P1.PSPID
+		     --, P2.SUM_J_BUDGET
+             --, P2.J_ACTUAL
+		     , (SELECT M.ZSITE_NM FROM SAPHEE.ZMASTER01 M WHERE M.MANDT = #G_MANDT# AND M.POSID = P1.PSPID) AS ZSITE_NM
+		     , (SELECT M.ZMAN_NM FROM SAPHEE.ZMASTER01 M WHERE M.MANDT = #G_MANDT# AND M.POSID = P1.PSPID) AS ZZPMNUM
+		     , (SELECT M.TEMNO FROM SAPHEE.ZMASTER02 M WHERE M.MANDT = #G_MANDT# AND M.POSID = P1.PSPID FETCH FIRST 1 ROW ONLY) AS ZZPMNUM_CD
+		     , (SELECT M.ZZACTSS FROM SAPHEE.ZMASTER01 M WHERE M.MANDT = #G_MANDT# AND M.POSID = P1.PSPID) AS ZZACTSS 
+		     , P1.TITLE
+		     , P1.EMPNO
+		     , (SELECT UF.USERNAME FROM SAPHEE.ZUSERF UF WHERE UF.MANDT = P1.MANDT AND UF.USERNUMB = P1.EMPNO) AS EMPNM --신청자
+		     , (SELECT AREA_N FROM SAPHEE.ZHRT001 HR WHERE HR.MANDT =  P1.MANDT AND HR.PSNO = 'H'||P1.EMPNO) EMP_AREA_N --신청자 지사
+		     , (SELECT USERMAIL FROM SAPHEE.ZUSERF HR WHERE HR.MANDT =  P1.MANDT AND HR.USERNUMB = P1.EMPNO) EMP_MAIL --신청자 메일
+		     , P1.SUPRTCD
+		     , (SELECT X1.SUPRTCDT FROM SAPHEE.ZPST0401 X1 WHERE X1.SUPRTCD = P1.SUPRTCD ) AS SUPRTCDT --구매처
+		     , (SELECT X1.NOTICE FROM SAPHEE.ZPST0401 X1 WHERE X1.SUPRTCD = P1.SUPRTCD ) AS NOTICE --공지사항
+		     , (SELECT DECODE(X1.SJTCDGB, '02', X1.SUBJECTCDT, (SELECT X2.SUBJECTCDT FROM SAPHEE.ZPST0400 X2 WHERE X1.SUBJECTCD = X2.SUBJECTCD FETCH FIRST 1 ROW ONLY)) 
+                    FROM SAPHEE.ZPSTW0412 X1
+                    WHERE X1.MANDT = #G_MANDT#
+                     AND X1.ORDERNO = P1.ORDERNO
+                   FETCH FIRST 1 ROW ONLY) AS FIRST_SUBJECTCDT
+		     , (SELECT count(X1.ORDERNO) - 1 FROM SAPHEE.ZPSTW0412 X1 left outer JOIN SAPHEE.ZPSTW0411 X2 ON X1.ORDERNO = X2.ORDERNO WHERE X1.ORDERNO = P1.ORDERNO) AS CNT
+		     , P1.LIFNR
+		     , (SELECT X1.NAME1 FROM SAPHEE.LFA1 X1 WHERE X1.MANDT = P1.MANDT AND X1.LIFNR = P1.LIFNR) AS LIFNR_NM
+		     , P1.LIFNREMPNO
+		     , P1.STATE
+		     , P1.APPDATE1
+		     , P1.PCPNUM1
+		     , (SELECT UF.USERNAME FROM SAPHEE.ZUSERF UF WHERE UF.MANDT = P1.MANDT AND UF.USERNUMB = P1.PCPNUM1) AS PCPNUM1_NM --신청자
+		     , (SELECT AREA_N FROM SAPHEE.ZHRT001 HR WHERE HR.MANDT =  P1.MANDT AND HR.PSNO = 'H'||P1.PCPNUM1) PCPNUM1_AREA_N --신청자 지사
+		     , (SELECT USERMAIL FROM SAPHEE.ZUSERF HR WHERE HR.MANDT =  P1.MANDT AND HR.USERNUMB = P1.PCPNUM1) PCPNUM1_MAIL --1차 결재자 메일
+		     , P1.MEMO1
+		     , P1.APPDATE2
+		     , P1.PCPNUM2
+		     , (SELECT UF.USERNAME FROM SAPHEE.ZUSERF UF WHERE UF.MANDT = P1.MANDT AND UF.USERNUMB = P1.PCPNUM2) AS PCPNUM2_NM --신청자
+		     , (SELECT AREA_N FROM SAPHEE.ZHRT001 HR WHERE HR.MANDT =  P1.MANDT AND HR.PSNO = 'H'||P1.PCPNUM2) PCPNUM2_AREA_N --신청자 지사
+		     , (SELECT USERMAIL FROM SAPHEE.ZUSERF HR WHERE HR.MANDT =  P1.MANDT AND HR.USERNUMB = P1.PCPNUM2) PCPNUM2_MAIL --2차 결재자 메일
+		     , P1.MEMO2
+		     , P1.APPDATE3
+		     , P1.PCPNUM3
+		     , (SELECT UF.USERNAME FROM SAPHEE.ZUSERF UF WHERE UF.MANDT = P1.MANDT AND UF.USERNUMB = P1.PCPNUM3) AS PCPNUM3_NM --신청자
+		     , (SELECT AREA_N FROM SAPHEE.ZHRT001 HR WHERE HR.MANDT =  P1.MANDT AND HR.PSNO = 'H'||P1.PCPNUM3) PCPNUM3_AREA_N --신청자 지사
+		     , (SELECT USERMAIL FROM SAPHEE.ZUSERF HR WHERE HR.MANDT =  P1.MANDT AND HR.USERNUMB = P1.PCPNUM3) PCPNUM3_MAIL --3차 결재자 메일
+		     , P1.MEMO3
+		     , P1.MEMO4 -- 구매처 의견 추가 : 2019.03.20 강민석K
+		     , P1.SENDDATE
+		     , P1.RECDATE
+		     , P1.RECID
+		     , P1.CRDAT
+		     , P1.CRTIM
+		     , P1.CRNAM
+		     , P1.CHDAT
+		     , P1.CHTIM
+		     , P1.CHNAM
+		     , P1.RECPART
+             , P1.RECRANK
+             , P1.RECNAME
+             , P1.RECTEL
+		     , P1.IMPDATE
+		     , P1.RECADDR
+		     , P1.RECLASTMEMO
+			 , P1.RECLASTNAME
+		 FROM
+		     SAPHEE.ZPSTW0411 AS P1
+				WHERE 1=1
+				<!-- 검색일 -->
+				<isNotNull col="DATEF">
+				  AND P1.CRDAT BETWEEN #DATEF# AND #DATET# 	
+				</isNotNull>
+				
+				<isNotNull col="PSPID">
+				  AND P1.PSPID = #PSPID#
+				</isNotNull>
+				
+				<!-- 지원대상 -->
+				<isNotNull col="SUPRTCD">
+				  AND P1.SUPRTCD = #SUPRTCD#
+				</isNotNull>
+				
+				<!-- 상태 -->
+				<isEqual col="STATE" value="ALL">
+					AND P1.STATE IN ('A3', 'B1', 'B2', 'C1') --B2(수령) 상태도 표시하도록 수정 : 2019.03.19 강민석K
+				</isEqual>
+				<isNotEqual col="STATE" value="ALL">
+				<isNotNull col="STATE">
+				  AND P1.STATE = #STATE#
+				</isNotNull>
+				</isNotEqual>
+				
+				<!-- PM -->
+				<isNotNull col="EMPNO">
+				  AND P1.EMPNO = #EMPNO#
+				</isNotNull>
+				
+				<!-- 구매처 -->
+				<isNotNull col="LIFNR">
+				  AND P1.LIFNR = #LIFNR#
+				</isNotNull>
+				  AND P1.DELYN != 'Y'
+		
+		) AS T1 
+		WHERE 1 = 1
+		<isNotNull col="ZZACTSS">
+		 AND T1.ZZACTSS = #ZZACTSS# 
+		</isNotNull>
+		
+		<isNotNull col="ZZPMNUM">
+		 AND T1.ZZPMNUM_CD = #ZZPMNUM#
+		</isNotNull>
+		
+		<isNotNull col="ORDERNO">
+		 AND T1.ORDERNO = #ORDERNO#
+		</isNotNull>
+		
+		--내가등록한 글 or 1차결재자인 경우 or 1차결재하고 2차결재자인경우 - 2019.03.29 강민석K
+		--협력사
+		<isEqual col="USERGROUP" value="10">
+        AND (
+	        EMPNO = #G_USER_ID# 
+	        or (T1.STATE = 'A0' AND T1.PCPNUM1 = #G_USER_ID#)
+	        or (T1.STATE = 'A1' AND T1.PCPNUM2 = #G_USER_ID#)
+        )
+		</isEqual>
+		<isEqual col="USERGROUP" value="20">
+        <![CDATA[
+        AND (
+	        EMPNO = #G_USER_ID# 
+	        or (T1.STATE = 'A0' AND T1.PCPNUM1 = #G_USER_ID#)
+	        or (T1.STATE = 'A1' AND T1.PCPNUM2 = #G_USER_ID#)
+        )
+        ]]>
+        </isEqual>
+        --사무소
+		<isEqual col="USERGROUP" value="30">
+        <![CDATA[
+        AND (
+	        EMPNO = #G_USER_ID# 
+	        or (T1.STATE = 'A0' AND T1.PCPNUM1 = #G_USER_ID#)
+	        or (T1.STATE = 'A1' AND T1.PCPNUM2 = #G_USER_ID#)
+        )
+        ]]>
+        </isEqual>
+        <isEqual col="APPR_AUTH" value="Y">
+        <![CDATA[
+        AND (
+        	EMPNO = #G_USER_ID# 
+			or (T1.STATE = 'A0' AND T1.PCPNUM1 = #G_USER_ID#)
+	        or (T1.STATE = 'A1' AND T1.PCPNUM2 = #G_USER_ID#)
+        )
+        ]]>
+        </isEqual>
+
+		ORDER BY T1.SENDDATE, T1.STATE ASC , T1.SUPRTCDT DESC, T1.FIRST_SUBJECTCDT, T1.ZSITE_NM
+
+FOR FETCH ONLY WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT 
+       A.CS126_GNO GNO
+      ,WB010.VKGRP TEM
+      , SAPHEE.CODE_CONV(#G_MANDT#, 'VKGRP', WB010.VKGRP) AS TEM_NM 
+      ,A.CS126_BSU BSU
+      ,(SELECT ABR_NM FROM SAPHEE.ZWBT010 WHERE LGORT = A.CS126_BSU) AS BSU_NM
+      ,A.CS126_UPN UPN
+      ,A.CS126_CST CST
+      ,A.CS126_PJT PJT
+      ,A.CS126_UPN || ' - ' || A.CS126_CST PJTNO
+      ,(SELECT CS121_SPT FROM SAPHEE.ZCST121 
+         WHERE CS121_UPN = A.CS126_UPN AND CS121_CST = A.CS126_CST) AS SPT
+      ,(SELECT CS121_NAM FROM SAPHEE.ZCST121 
+         WHERE CS121_UPN = A.CS126_UPN AND CS121_CST = A.CS126_CST) AS NAM
+      ,A.CS126_USD USD
+      ,A.CS126_UMR UMR
+      , CASE WHEN MAX(A.CS126_KND) = '' AND MAX(A.CS126_HYN) <> 'Y' THEN 'POG'
+             WHEN MAX(A.CS126_KND) = '' AND MAX(A.CS126_HYN)  = 'Y' THEN 'PRTS'
+             WHEN MAX(A.CS126_KND) > '' AND MAX(A.CS126_HYN) <> 'Y' THEN 'FM'
+             WHEN MAX(A.CS126_KND) > '' AND MAX(A.CS126_HYN)  = 'Y' THEN 'FRTS'
+             ELSE ''
+         END GBN1
+      ,COUNT(*) CNT
+      ,SUM(CS126_AMT) + SUM(CS126_HMT) + SUM(CS126_DMT) + SUM(CS126_ACMT) TOTMT -- 공기청정기 추가 20200515 Han.JH
+	  ,'' D_NAME
+      ,'' DRAFT_DATE  
+      ,DECODE(A.CS126_BDGBN,'X','1','') AS BDGBN
+FROM 
+      SAPHEE.ZCST126 A LEFT OUTER JOIN SAPHEE.ZWBT010 WB010
+                               ON A.MANDT = WB010.MANDT
+                              AND A.CS126_BSU = WB010.LGORT
+WHERE A.MANDT = #G_MANDT#
+  AND A.CS126_GNO = #GNO#
+  AND A.CS126_DDT = ''
+  AND A.CS126_PST = 'A6'       
+GROUP BY 
+        A.CS126_GNO,
+        WB010.VKGRP,
+        A.CS126_BSU,
+        A.CS126_UPN,
+        A.CS126_CST,
+        A.CS126_PJT,
+        A.CS126_USD,
+        A.CS126_UMR,
+        DECODE(A.CS126_BDGBN,'X','1','')
+WITH UR	]]></statement>
+	<input default-name="ds_cond_d">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="GNO" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list_d">
+	</output>
+</query>

@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT A.LIFNR, A.PSPID, A.POSID ,A.INIT_DT , E.NAME1, B.ZSPEC1, B.ZSPEC2, B.ZZSHIP1, B.ZZCOMP2 , B.NAMET ,A.INP_DT, 
+               ( CASE WHEN B.POSID_DONG = 'X' OR B.POSID_DONG = 'x' THEN '' ELSE B.POSID_DONG END ) AS POSID_DONG ,
+              (SELECT X.NAMET FROM SAPHEE.ZPST0002 AS X WHERE D.MANDT = X.MANDT AND D.LIFNR = X.LIFNR AND D.TMCD = X.TEMNO ) AS NAMET2, 
+              A.M_MH, A.N_MH , A.A_MH, ( A.M_MH + A.N_MH +  A.A_MH ) AS SUM_MH,
+              (SELECT VALUE(SUM(ST2.PRO_R),0) 
+                 FROM SAPHEE.ZPST0112 AS ST2 
+               WHERE ST2.MANDT = A.MANDT AND ST2.PSPID = A.PSPID AND ST2.POSID = A.POSID ) AS PRO_R,
+			   (SELECT X.NAMEE FROM SAPHEE.ZPST0001 AS X WHERE X.MANDT = A.MANDT AND X.LIFNR = A.LIFNR AND X.PERNO = A.PERNO AND X.GBN = 'A') AS NAMEE,
+			   (SELECT X.PROWRK 
+			      FROM SAPHEE.ZPSTW0304 AS X 
+			     WHERE X.MANDT = A.MANDT  
+			       AND X.INP_DT = A.INP_DT 
+			       AND X.PSPID = A.PSPID 
+			       AND X.POSID  = A.POSID 
+			     ORDER BY  X.PRONR DESC  FETCH FIRST 1 ROWS ONLY ) AS PROWRK,
+			 
+             CASE WHEN (SELECT COUNT(*)  FROM SAPHEE.ZPSTW0207 AS T  WHERE T.MANDT = A.MANDT
+                                       AND T.PSPID = A.PSPID    AND T.POSID = A.POSID AND T.GUBUN = 'A')  > 0  THEN '1'
+                       ELSE ''
+             END AS SAFE1,
+             CASE WHEN (SELECT COUNT(*)  FROM SAPHEE.ZPSTW0207 AS T  WHERE T.MANDT = A.MANDT
+                                       AND T.PSPID = A.PSPID    AND T.POSID = A.POSID AND T.GUBUN = 'B')  > 0  THEN '1'
+                       ELSE ''
+             END AS SAFE2,
+            CASE WHEN (SELECT COUNT(*)  FROM SAPHEE.ZPSTW0207 AS T  WHERE T.MANDT = A.MANDT
+                                       AND T.PSPID = A.PSPID    AND T.POSID = A.POSID AND T.GUBUN = 'C')  > 0  THEN '1'
+                       ELSE ''
+             END AS SAFE3,
+             CASE WHEN (SELECT COUNT(*)  FROM SAPHEE.ZPSTW0207 AS T  WHERE T.MANDT = A.MANDT
+                                       AND T.PSPID = A.PSPID    AND T.POSID = A.POSID AND T.GUBUN = 'A')  > 0  THEN '1'
+                       ELSE ''
+             END AS SAFE1_CHK,
+             CASE WHEN (SELECT COUNT(*)  FROM SAPHEE.ZPSTW0207 AS T  WHERE T.MANDT = A.MANDT
+                                       AND T.PSPID = A.PSPID    AND T.POSID = A.POSID AND T.GUBUN = 'B')  > 0  THEN '1'
+                       ELSE ''
+             END AS SAFE2_CHK,
+           CASE WHEN (SELECT COUNT(*)  FROM SAPHEE.ZPSTW0207 AS T  WHERE T.MANDT = A.MANDT
+                                       AND T.PSPID = A.PSPID    AND T.POSID = A.POSID AND T.GUBUN = 'C')  > 0  THEN '1'
+                       ELSE ''
+             END AS SAFE3_CHK , T2.PRO_R AS TOT_PRO , G.ZSITE_NM, B.TEXT30
+
+
+
+FROM SAPHEE.ZPSTW0302 AS A
+
+LEFT OUTER JOIN SAPHEE.ZPSTW0301 AS D
+ ON A.MANDT = D.MANDT
+ AND A.INP_DT = D.INP_DT
+ AND A.LIFNR = D.LIFNR
+ AND A.PERNO = D.PERNO
+ 
+INNER JOIN SAPHEE.ZMASTER02 AS B
+
+       ON A.MANDT = B.MANDT
+     AND A.PSPID  = B.POSID
+     AND A.POSID = B.POSID_1
+   INNER JOIN SAPHEE.ZMASTER01 AS G
+        ON A.MANDT = G.MANDT
+      AND A.PSPID   = G.POSID
+	  
+	LEFT OUTER JOIN (
+           SELECT T.MANDT, T.PSPID, T.POSID, MAX(T.PRO_SUM) AS PRO_R
+             FROM SAPHEE.ZPSTW0304_TOT3 AS T 
+            WHERE T.MANDT = #G_MANDT#
+              AND T.INP_DT <![CDATA[<=]]> HEX(CURRENT DATE)
+            GROUP BY T.MANDT, T.PSPID, T.POSID
+                ) AS T2
+                  ON A.MANDT = T2.MANDT
+                  AND A.PSPID = T2.PSPID
+                  AND A.POSID = T2.POSID
+
+   LEFT OUTER JOIN SAPHEE.LFA1 AS E
+      ON A.MANDT = E.MANDT
+    AND A.LIFNR = E.LIFNR
+WHERE A.MANDT = #G_MANDT#
+   
+       <isNotNull col="PSPID">
+            AND A.PSPID = #PSPID#	 
+            </isNotNull>
+
+             <isNotNull col="ZZPMNUM">
+              AND B.TEMNO = #ZZPMNUM#
+             </isNotNull>
+ 	        
+ 		      	<isNotNull col="TMCD">
+              AND D.TMCD = #TMCD#
+             </isNotNull>
+ 
+           <isNull col="PSPID">
+            AND A.INP_DT BETWEEN  #INP_DTF# AND #INP_DTT#
+           </isNull>
+
+            <isNotNull col="ZZSHIP1_F">
+              AND B.ZZSHIP1 BETWEEN #ZZSHIP1_F# AND #ZZSHIP1_T#	 
+            </isNotNull>
+
+
+            <isNotNull col="ZZLIFNR">
+            AND A.LIFNR = #ZZLIFNR#      
+            </isNotNull>
+	  
+            <isNotNull col="ZZACTSS">
+            AND B.ZZACTSS = #ZZACTSS#
+			</isNotNull>
+			
+<isNotNull col="ZZSAWONNUM">
+             --AND A.TMCD = #TMCD#
+			 AND  A.PERNO = #ZZSAWONNUM# 
+            </isNotNull>
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list1">
+	</output>
+</query>

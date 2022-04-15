@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[사양별 특성값 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+ 		 A.GRP GRP
+		,A.COD COD
+		,A.CNM CNM
+		,A.KND KND
+		,CASE WHEN A.NUM = 'Y' AND A.KNM = '' THEN '0'
+		 ELSE A.KNM
+		 END KNM
+		,CASE WHEN A.KND IN( 'KEYIN', 'KEY IN') THEN A.EXP 
+		 ELSE '' 
+		 END EXP
+		,A.NUM NUM
+		,A.NEC NEC
+		,A.POSID POSID
+		,A.VBELN VBELN
+		,A.SEQ SEQ
+		,'' AS TMPCOD
+		,CASE WHEN A.NUM = 'Y' AND A.KNM = '' THEN '0'
+		 ELSE A.KNM
+		 END ORGKNM
+		,'R' AS STATUS
+		,'' AS DUTYVALUE
+FROM (
+SELECT A.CS800_GRP GRP
+   ,A.CS800_COD COD
+   ,MAX(A.CS800_CNM) CNM 
+   ,MAX(B.CS801_KND) KND
+   ,MAX(VALUE(C.KNM,'')) KNM
+   ,MAX(VALUE(B.CS801_EXP,'')) EXP
+   ,MAX(VALUE(A.CS800_NUM,'')) NUM
+   ,MAX(VALUE(A.CS800_NEC,'')) NEC
+   ,MAX(VALUE(C.POSID,'')) POSID
+   ,MAX(VALUE(D.VBELN,'')) VBELN
+   ,MAX(VALUE(C.SEQ,'')) SEQ
+   ,ROW_NUMBER() OVER(PARTITION BY A.CS800_COD ORDER BY C.SEQ DESC) AS SEQ2
+FROM SAPHEE.ZCST800 A
+	 INNER JOIN SAPHEE.ZCST801 B
+	 	   ON A.MANDT= B.MANDT
+		   AND A.CS800_COD = B.CS801_COD
+		   AND A.TYPE = B.TYPE
+               LEFT OUTER JOIN SAPHEE.ZCST802 C
+                               ON A.MANDT = C.MANDT
+                               AND A.CS800_GRP = C.GRP
+                               AND A.CS800_COD = C.COD
+                          --   AND A.CS800_CNM = C.CNM
+               <isNotNull col="POSID">
+              --    AND C.REQNO = #REQNO#
+              		AND C.POSID = #POSID#
+                </isNotNull>
+                <isNotNull col="REQNO">
+                  AND C.REQNO = #REQNO#
+                 </isNotNull>
+                LEFT OUTER JOIN SAPHEE.ZCST126 D
+                               ON A.MANDT = D.MANDT
+                <isNotNull col="POSID">
+                  AND D.CS126_GNO = #POSID#
+                </isNotNull>
+WHERE A.MANDT = #G_MANDT#
+ <isNull col ="PARAMNCYS">
+   AND A.CS800_GRP NOT IN ('EL_MM', 'EL_CHANGE', 'EL_REUSE')
+ </isNull>
+ <isNotNull col ="PARAMNCYS">
+   AND  A.CS800_COD &lt;&gt; 'EL_111'
+ </isNotNull>
+    GROUP BY A.CS800_GRP, A.CS800_COD, A.CS800_SRT ,C.SEQ
+    ORDER BY A.CS800_GRP, A.CS800_SRT ,C.SEQ DESC
+) A
+WHERE A.SEQ2 = '1'
+FOR FETCH ONLY
+  WITH UR
+</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list2">
+	</output>
+</query>

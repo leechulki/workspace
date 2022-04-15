@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[PS1505003A_S1]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--알림내역 조회
+SELECT '' AS CHK
+     , VALUE(CASE WHEN R3.GBN = 'A' THEN '설치' ELSE '구매' END,'') AS GUBUN -- 설치/구매 구분 (A:설치, B:구매)
+     , R3.JOB_NAME_S AS JOB_NAME--외주작업명(약식)
+     , M1.ZSITE_NM AS ZSITE_NM--프로젝트명
+     , H.READ_DATE AS READ_DATE
+     , T0414.PSPID
+     , T0414.POSID
+     , T0414.LIFNR
+     , T0414.SEQ
+     , T0414.JOB_CODE
+     , T0414.M_TYPE
+     --, T0414.CONTENTS
+     , (CASE WHEN LOCATE(CHR(10), T0414.CONTENTS) = '0'
+             THEN (
+                   CASE WHEN LOCATE(CHR(13), T0414.CONTENTS) = '0'
+                        THEN T0414.CONTENTS
+                        ELSE SUBSTR(T0414.CONTENTS, 1, LOCATE(CHR(13), T0414.CONTENTS) - 1)
+                   END
+                  )
+             ELSE SUBSTR(T0414.CONTENTS, 1, LOCATE(CHR(10), T0414.CONTENTS) - 1)
+        END) AS CONTENTS--메모내용(그리드 표시용)
+     , T0414.CONTENTS AS CONTENTS_ORIG--메모내용(상세 표시용)
+     , T0414.ALM_INDC
+     , T0414.CRDAT
+     , T0414.CRTIM
+     , T0414.CRNAM
+     , T0414.BELONG
+     , U.USERNAME
+  FROM SAPHEE.ZPST0414 AS T0414 -- 메모테이블
+       LEFT       JOIN SAPHEE.ZUSERF AS U 
+                    ON T0414.MANDT = U.MANDT
+                   AND T0414.CRNAM = U.USERNUMB
+       LEFT OUTER JOIN SAPHEE.ZPST0410 AS R3--외주공사 작업항목 마스터 테이블
+                    ON T0414.MANDT = R3.MANDT
+                   AND T0414.JOB_CODE = R3.JOB_CODE
+       LEFT       JOIN SAPHEE.ZMASTER01 M1 --프로젝트 마스터 테이블
+                    ON T0414.MANDT = M1.MANDT
+                   AND T0414.PSPID = M1.POSID
+       LEFT OUTER JOIN SAPHEE.ZPST0414C AS H--읽음 처리 테이블
+                    ON T0414.MANDT = H.MANDT
+                   AND T0414.POSID = H.POSID 
+                   AND T0414.LIFNR = H.LIFNR  
+                   AND T0414.SEQ = H.SEQ 
+                   AND H.READ_ID = #G_USER_ID#
+ WHERE T0414.MANDT = #G_MANDT#
+   AND T0414.DEL_INDC = 'N'
+   AND T0414.M_TYPE = '1'
+   AND (T0414.CRDAT BETWEEN #SUP_DTF# AND #SUP_DTT#)--작성일 기준 조회
+<isNotNull col="BELONG">
+   AND BELONG = #BELONG#
+</isNotNull>
+<isNotNull col="PSPID">
+   AND T0414.PSPID = #PSPID#
+</isNotNull>
+<isNotNull col="POSID">
+   AND T0414.POSID = #POSID#
+</isNotNull>
+<isNotNull col="LIFNR">
+   AND T0414.LIFNR = #LIFNR#
+</isNotNull>
+<isNotNull col="GUBUN">
+   AND R3.GBN = #GUBUN#
+</isNotNull>
+<isNotNull col="JOB_CODE">
+   AND T0414.JOB_CODE = #JOB_CODE#
+</isNotNull>
+<isNotNull col="CRNAM">
+   AND U.USERNAME LIKE '%'||#CRNAM#||'%'
+</isNotNull>
+ ORDER BY T0414.CRDAT DESC, T0414.CRTIM DESC
+FOR FETCH ONLY
+WITH UR
+	</statement>
+	<input default-name="ds_memo">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

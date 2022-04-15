@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[바닥재 소요시기 입력 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+CASE WHEN VALUE(C.CEFLRDAT,'') = '' THEN 'I' ELSE '' END AS FLAG
+	,A.POSID_1 AS NUM
+	,B.ZSITE_NM AS NAM
+	,B.ADDR1||B.ADDR2 AS ADD
+	,B.ZSITE_TEL AS TEL
+	,VALUE(C.CEFLREND,CASE WHEN length(gr.banfn) > 1 THEN 
+                         (CASE WHEN length(gr.ebeln) > 1 THEN 
+                         (CASE WHEN length(gr.belnr) > 1 THEN 'Y' ELSE '' END)ELSE '' END) ELSE '' END) AS END
+	 ,VALUE(C.CEFLRFIN,'') AS FIN
+               ,VALUE(C.CEFLRGIF,'') AS GIF
+ 	,VALUE(C.CEFLRQUT,'') AS QUT
+	,VALUE(C.CEFLRDAT,'') AS DAT
+	,VALUE(C.CEFLRDOC,'') AS DOC
+	,CASE WHEN VALUE(C.CEFLRGBN,'') = '' OR VALUE(C.CEFLRGBN,'') &lt;&gt; #GBN# 
+                    THEN #GBN# ELSE C.CEFLRGBN END AS GBN
+					
+					
+FROM SAPHEE.ZMASTER02 AS A
+LEFT OUTER JOIN 
+(
+  --입고정보
+  SELECT po.banfn, po.bnfpo, po.pspnr, po.ebeln, po.ebelp, a.belnr, po.mandt , po.posid
+  FROM
+  (
+    -- PO 정보
+     SELECT pr.banfn, pr.bnfpo, pr.pspnr, a.ebeln, a.ebelp, pr.mandt , pr.posid
+     FROM
+     (
+        --PR정보 
+        SELECT a.menge, a.badat, a.matnr, a.banfn, a.bnfpo,c.posid, c.pspnr, a.mandt
+          FROM       saphee.eban AS a
+         INNER JOIN  saphee.ebkn AS b  ON b.banfn = a.banfn
+                                      AND b.bnfpo = a.bnfpo
+         INNER JOIN  saphee.prps AS c  ON c.pspnr = b.ps_psp_pnr
+         WHERE a.mandt =#G_MANDT#
+           AND b.mandt =#G_MANDT#
+           AND c.mandt =#G_MANDT#
+           AND a.matnr IN (SELECT substr(code2,1,9) from saphee.zlcode where mandt =#G_MANDT# and lang = 'ko' and code1 = '114')
+           AND a.loekz = ''
+          -- AND c.posid = '138418L01-P'
+		  AND c.POSID LIKE #NUM# || '%'
+ 
+      ) AS pr
+     LEFT OUTER JOIN saphee.ekpo AS a ON pr.mandt = a.mandt
+                                     AND pr.banfn = a.banfn
+                                     AND pr.bnfpo = a.bnfpo 
+     INNER JOIN saphee.ekko AS b ON b.ebeln = a.ebeln
+     INNER JOIN saphee.ekkn AS c ON c.ebeln = a.ebeln
+                                AND c.ebelp = a.ebelp
+     WHERE pr.mandt =#G_MANDT# 
+       AND a.mandt =#G_MANDT#
+       AND b.mandt =#G_MANDT#
+       AND c.mandt =#G_MANDT# 
+       AND a.loekz = ''
+   ) AS po
+  LEFT OUTER JOIN saphee.ekbe AS a ON po.mandt = a.mandt
+                                  AND po.ebeln = a.ebeln
+                                  AND po.ebelp = a.ebelp
+                                  AND a.vgabe = '1'
+								  
+) AS GR ON A.MANDT = GR.MANDT AND A.POSID_1 = SUBSTR(GR.POSID,1,9)
+
+LEFT OUTER JOIN SAPHEE.ZTBEFLR AS C ON  C.MANDT = A.MANDT
+             AND C.CEFLRNUM = A.POSID_1 AND C.CEFLRNUM = A.POSID_1 AND C.CEFLRGBN =  #GBN# 
+	,SAPHEE.ZMASTER01 AS B
+WHERE
+	A.MANDT =#G_MANDT#
+	AND B.MANDT = A.MANDT
+	AND B.POSID = A.POSID
+	AND B.POSID LIKE  #NUM# || '%'	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="NUM" size="72" type="VARCHAR" description="" /> 
+		<col name="GBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="FLAG" size="0" type="VARCHAR" description="" /> 
+		<col name="NUM" size="72" type="VARCHAR" description="" /> 
+		<col name="NAM" size="105" type="VARCHAR" description="" /> 
+		<col name="ADD" size="210" type="VARCHAR" description="" /> 
+		<col name="TEL" size="60" type="VARCHAR" description="" /> 
+		<col name="END" size="3" type="VARCHAR" description="" /> 
+		<col name="FIN" size="24" type="VARCHAR" description="" /> 
+		<col name="GIF" size="60" type="VARCHAR" description="" /> 
+		<col name="QUT" size="12" type="VARCHAR" description="" /> 
+		<col name="DAT" size="24" type="VARCHAR" description="" /> 
+		<col name="DOC" size="600" type="VARCHAR" description="" /> 
+	</output>
+</query>

@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[무상발주청구상세내역조회 - 결재번호에 의해 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT '' AS CHK,							/* 체크 */
+	   '' AS FLAG,							/* 입력,수정,삭제 플래그 상태: I, U, D */
+       CS116A.CS116_PJT AS PJT,            	/* 프로젝트 */
+       CS116A.CS116_HNO AS HNO,            	/* 호기 */
+       ( CS116A.CS116_PJT || CS116A.CS116_HNO ) AS PJTHNO,  /* ZMASTER02 업데이트시 필요 */
+       CS116A.CS116_SEQ AS SEQ,				/* 순번 */
+       CS101A.CS101_HNA AS HNA,            	/* 호기명 */
+       MASTER02A.ZSPEC1 AS TYP,          	/* 기종 */
+       MASTER02A.ZSPEC2 AS ZSPEC2,          /* 사양 */
+       CS116A.CS116_FDT AS ISD,            	/* 보수인수일 */
+       CS116A.CS116_FDT AS FDT,            	/* 보수인수일 */
+       MASTER02A.ZMUSAOCNT,         		/* 무상공사예정개월 */
+       MASTER02A.ZMUSAUCNT,         		/* 무상공사사용개월 */
+       MASTER02A.ZMUSAOCNT2,        		/* 무상일반예정개월 */
+       MASTER02A.ZMUSAUCNT2,        		/* 무상일반사용개월 */
+       CS116A.CS116_GND AS GND,             /* 발주구분 */
+       CS116A.CS116_BGT AS BGT,            	/* 발주개시일자 */
+       CS116A.CS116_BMT AS BMT,            	/* 발주만료일자 */
+       (CASE WHEN CS116A.CS116_GND = 'A' THEN CS116A.CS116_BGT 
+             ELSE
+               (SELECT CS116_BGT 
+			     FROM SAPHEE.ZCST116 
+			    WHERE     MANDT    =CS116A.MANDT 
+			          AND CS116_PJT=CS116A.CS116_PJT 
+			          AND CS116_HNO=CS116A.CS116_HNO
+			          AND CS116_GND='A' 
+			    ORDER BY (MANDT||CS116_PJT||CS116_HNO||CS116_SEQ) DESC
+			    FETCH FIRST 1 ROW ONLY)
+        END)        AS BGT_A,
+		(CASE WHEN CS116A.CS116_GND = 'A' THEN CS116A.CS116_BMT 
+             ELSE
+               (SELECT CS116_BMT 
+			     FROM SAPHEE.ZCST116 
+			    WHERE     MANDT    =CS116A.MANDT 
+			          AND CS116_PJT=CS116A.CS116_PJT 
+			          AND CS116_HNO=CS116A.CS116_HNO
+			          AND CS116_GND='A' 
+			    ORDER BY (MANDT||CS116_PJT||CS116_HNO||CS116_SEQ) DESC
+			    FETCH FIRST 1 ROW ONLY)
+        END)        AS BMT_A,
+       (CASE WHEN CS116A.CS116_GND = 'B' THEN CS116A.CS116_BGT 
+             ELSE ''
+         END)		AS BGT_B,
+	   (CASE WHEN CS116A.CS116_GND = 'B' THEN CS116A.CS116_BMT 
+             ELSE ''
+         END)       AS BMT_B,
+       CS116A.CS116_IJD AS IJD,				/* 입주일자 */
+       CS116A.CS116_MG1 AS MON,            	/* 발주개월수 */
+       MASTER01A.ZSITE_NM AS ZSITE_NM, 		/* 현장명 */
+	   MASTER01A.KUNNR    AS KUNNR,    		/* 고객코드 */
+	   MASTER01A.KUNNR_NM AS KUNNR_NM, 		/* 고객명 */
+       B010.VKGRP AS TEM,														/* 팀 */
+	   VALUE(SAPHEE.CODE_CONV(CS116A.MANDT,'VKGRP',B010.VKGRP),'') AS TEM_NM,	/* 팀명 */
+       CS111A.BSU,
+       VALUE(SAPHEE.GET_VENDER_N_NAME(CS111A.MANDT,CS111A.BSU),'') AS BSU_NM,
+       ( SELECT  CS151_JUN FROM SAPHEE.ZCST151 WHERE MANDT = CS116A.MANDT AND CS151_JUC = CS116A.CS116_JUC ) AS JUN,	/* 주택공사업체 */
+       ( SELECT TELF1 
+           FROM SAPHEE.KNA1 
+          WHERE MANDT = MASTER01A.MANDT 
+                AND KUNNR = MASTER01A.KUNNR) AS TELF1, 	/* 고객연락처 */
+       CASE WHEN CS116A.CS116_GND = 'A' THEN '무상공사'
+            ELSE '무상일반'
+       END  GND_NM,							/* 발주구분 */
+       CASE WHEN WBAP01.APSTAT = '6' THEN										
+	       (  SELECT  VALUE(SUM( CS136_BAM + CS136_IY1 + CS136_IY2 + CS136_IY3 + CS136_IY4 + CS136_RET ), 0) 
+	            FROM  SAPHEE.ZCST136 	
+	           WHERE  MANDT = CS116A.MANDT
+	            	  AND CS136_PJT = CS116A.CS116_PJT
+	                  AND CS136_HNO = CS116A.CS116_HNO
+	                  AND CS136_SEQ = CS116A.CS116_SEQ
+	            	  AND CS136_GND = CS116A.CS116_GND
+	            	  AND (CS136_MGB = '' OR (CS136_MGB = 'Y' AND CS136_MSA = '09'))
+	            	  AND ((CS136_GBU = '3' AND CS136_GGB = '' ) OR (CS136_GBU = '1' AND CS136_GGB = '9'))
+	                  AND CS136_GYM BETWEEN SUBSTR(CS116A.CS116_BGT,1,6) AND SUBSTR(CS116A.CS116_BMT,1,6)
+	        ) 
+        ELSE 0 END AS AMT,	/* 월정금액 */
+		CS116_MUT AS MUT,					/* 무상보수기준단가(월) */
+        WBAP01.APSTAT,						/* 전자결재상태 */
+        VALUE(WBAP01.CRDPT1,'') AS CRDPT1,	/* 기안부서 */
+		VALUE(WBAP01.REDPT1,'') AS REDPT1,	/* 수신부서 */
+        FA.NAME1 		AS B_VNDNM, 		/* 업체명 */	
+	    FA.ORT01 		AS B_VNDADR, 		/* 업체주소 */
+		FA.J_1KFREPRE 	AS B_REPNM 			/* 대표자 */ 									
+  FROM ( SELECT * FROM SAPHEE.ZCST116 WHERE MANDT = #G_MANDT# AND CS116_DNO=#DNO# ) CS116A
+  	   LEFT OUTER JOIN SAPHEE.ZWBAP01 WBAP01			/* 전자문서 마스터 */
+                    ON CS116A.MANDT = WBAP01.MANDT
+	               AND CS116A.CS116_DNO = WBAP01.DOCNO 
+       LEFT OUTER JOIN SAPHEE.ZWBT010 B010 				/* 협력업체 참조정보 */
+                    ON CS116A.MANDT = B010.MANDT 
+                   AND CS116A.CS116_BSU = B010.LGORT
+       LEFT OUTER JOIN SAPHEE.LFA1 FA
+                    ON FA.MANDT = B010.MANDT
+                   AND FA.LAND1 = 'KR'
+                   AND FA.LIFNR = B010.LIFNR, 
+       SAPHEE.ZMASTER01 MASTER01A,
+       SAPHEE.ZMASTER02 MASTER02A,
+       SAPHEE.ZCST101 CS101A,
+       SAPHEE.ZCST111 CS111A		                  	/* 보수대상 호기Master */
+ WHERE     CS116A.MANDT = #G_MANDT#
+       AND CS116A.MANDT = MASTER02A.MANDT 
+       AND CS116A.CS116_PJT = MASTER02A.POSID 
+       AND (CS116A.CS116_PJT||CS116A.CS116_HNO) = MASTER02A.POSID_1
+       AND MASTER01A.MANDT = MASTER02A.MANDT
+       AND MASTER01A.POSID = MASTER02A.POSID
+       AND CS116A.MANDT = CS101A.MANDT
+       AND CS116A.CS116_PJT = CS101A.CS101_PJT
+       AND CS116A.CS116_HNO = CS101A.CS101_HNO
+       AND CS116A.MANDT = CS111A.MANDT
+	   AND CS116A.CS116_PJT = CS111A.PJT
+	   AND CS116A.CS116_HNO = CS111A.HNO
+       AND CS116A.CS116_DNO = #DNO#  
+       <isNotNull col="PJT">
+       AND CS116A.CS116_PJT = #PJT#
+       </isNotNull>
+ORDER BY CS116A.CS116_PJT, CS116A.CS116_HNO
+FOR FETCH ONLY                                                                                                                                          
+WITH UR
+	</statement>
+	<input  default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

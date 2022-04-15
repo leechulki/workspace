@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--2020.09.09 제약조건 현업과 협의상 사항으로 적용됨	
+SELECT 
+       A.ARA ARA
+      ,A.BSU BSU
+      ,SAPHEE.CODE_CONV(A.MANDT,'CS115',A.ARA) ARA_NM
+      ,SAPHEE.CODE_CONV(A.MANDT,'VKGRP',B010.VKGRP) TEM_NM
+      ,VALUE(B010.ABR_NM,'')  BSU_NM
+      ,SUM(CASE SUBSTR(A.EDD,5,2) WHEN '01' THEN 1 ELSE 0 END) M01 
+      ,SUM(CASE SUBSTR(A.EDD,5,2) WHEN '02' THEN 1 ELSE 0 END) M02
+      ,SUM(CASE SUBSTR(A.EDD,5,2) WHEN '03' THEN 1 ELSE 0 END) M03
+      ,SUM(CASE SUBSTR(A.EDD,5,2) WHEN '04' THEN 1 ELSE 0 END) M04
+      ,SUM(CASE SUBSTR(A.EDD,5,2) WHEN '05' THEN 1 ELSE 0 END) M05
+      ,SUM(CASE SUBSTR(A.EDD,5,2) WHEN '06' THEN 1 ELSE 0 END) M06
+      ,SUM(CASE SUBSTR(A.EDD,5,2) WHEN '07' THEN 1 ELSE 0 END) M07
+      ,SUM(CASE SUBSTR(A.EDD,5,2) WHEN '08' THEN 1 ELSE 0 END) M08
+      ,SUM(CASE SUBSTR(A.EDD,5,2) WHEN '09' THEN 1 ELSE 0 END) M09
+      ,SUM(CASE SUBSTR(A.EDD,5,2) WHEN '10' THEN 1 ELSE 0 END) M10
+      ,SUM(CASE SUBSTR(A.EDD,5,2) WHEN '11' THEN 1 ELSE 0 END) M11
+      ,SUM(CASE SUBSTR(A.EDD,5,2) WHEN '12' THEN 1 ELSE 0 END) M12
+
+  FROM
+       (      
+        SELECT 
+               A.MANDT,
+               A.CS101_PJT PJT,
+               A.CS101_HNO HNO,
+               A.CS101_IGD IGD,
+               A.CS101_ISD ISD,
+               CASE WHEN C.CS157_IKD > '' THEN VALUE(C.CS157_CAB, '')
+                ELSE A.CS101_ARA END AS ARA,
+               CASE WHEN C.CS157_IKD > '' THEN VALUE(C.CS157_CHB, '')
+                ELSE A.CS101_BSU END AS BSU,		
+               ROW_NUMBER() OVER(PARTITION BY A.CS101_PJT, A.CS101_HNO ORDER BY C.CS157_PJT, C.CS157_HNO, C.CS157_IGM) AS SEQN,
+               A.CS101_BPM BPM,
+        <isEqual col="GBN2" value="IGD">
+               A.CS101_IGD AS EDD
+        </isEqual>
+        <isEqual col="GBN2" value="ISD">
+               B.EDD
+        </isEqual>
+               
+          FROM SAPHEE.ZCST101 A LEFT OUTER JOIN SAPHEE.ZCST111 B
+                                             ON A.MANDT = B.MANDT
+                                            AND A.CS101_PJT = B.PJT
+                                            AND A.CS101_HNO = B.HNO
+                                            
+                                LEFT OUTER JOIN SAPHEE.ZCST157 C
+                                             ON A.MANDT = C.MANDT
+                                            AND C.CS157_PJT = A.CS101_PJT
+                                            AND C.CS157_HNO = A.CS101_HNO
+                                            AND C.CS157_CHB = B.BSU_B
+     
+         WHERE A.MANDT = #G_MANDT#
+           AND A.CS101_PJT NOT LIKE 'M%'
+           AND SUBSTR(A.CS101_HNO,1,1) NOT IN ('J','G')  
+        <isEqual col="GBN2" value="IGD">
+           AND A.CS101_IGD BETWEEN #FYM#||'01' AND #TYM#||'31'
+        </isEqual>
+        <isEqual col="GBN2" value="ISD">
+           --AND A.CS101_ISD BETWEEN #FYM#||'01' AND #TYM#||'31'
+           AND B.EDD BETWEEN #FYM#||'01' AND #TYM#||'31'
+        </isEqual>
+        <isNotNull col="PJT">
+           AND A.CS101_PJT = #PJT#
+        </isNotNull>
+           AND A.MDATE &lt;= #TYM#||'31'
+           AND A.CS101_ARA > ''
+       
+) A    
+           
+         LEFT OUTER JOIN SAPHEE.ZWBT010 B010
+                  ON A.MANDT = B010.MANDT
+                  AND A.BSU = B010.LGORT
+                  AND A.BSU != ''
+                           
+ WHERE 1=1      
+ AND A.SEQN = 1 
+<isNotNull col="ARA">
+   AND A.ARA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+   AND A.BSU = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+   AND A.BPM = #BPM#
+</isNotNull>
+<isNotNull col="TEM">
+   AND B010.VKGRP = #TEM#
+</isNotNull>  
+<isNotNull col="DPT">
+   AND SUBSTR(B010.VKGRP,1,2)||'00' = #DPT#
+</isNotNull>   
+
+ GROUP BY  A.MANDT,A.ARA,A.BSU, B010.VKGRP ,B010.ABR_NM
+ ORDER BY  A.MANDT,A.ARA,A.BSU, B010.VKGRP ,B010.ABR_NM
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

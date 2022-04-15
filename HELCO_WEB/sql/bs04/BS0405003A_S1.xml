@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+ SELECT A.POSID,
+       VALUE(E.JUDGE,'') JUDGE,
+       VALUE(F.ACT,VALUE(G.ACT,'')) ACT,
+       B.CONTR_DA CONTR,
+       A.RECAD_DA RECAD,
+       VALUE(C.ZZSHIP1,'') ZZSHIP1,
+       B.VDATU,
+       B.BSTDK,
+       VALUE(C.ZBEPJEO,'') WDT,
+       VALUE(C.ZSPEC2,'') ZSPEC2,
+       CASE WHEN A.VKBUR IN ('B500','B600') THEN A.SUOLD_U+A.SUNEW_U
+            ELSE (A.SUOLD_K+A.SUNEW_K)/10
+       END SUJU,
+       CASE WHEN (A.SUOLD_F+A.SUNEW_F) > 0 THEN A.KZWI5_F/(A.SUOLD_F+A.SUNEW_F)*100
+            ELSE 0
+       END WON_R,
+       VALUE(D.PRO_R,0) PRO_R,
+       CASE WHEN A.VKBUR IN ('B500','B600') THEN A.WLOLD_U+A.WLNEW_U
+            ELSE (A.WLOLD_K+A.WLNEW_K)/10
+       END MECHUL,
+       '' BIGO
+  FROM SAPHEE.ZEIST103V A INNER JOIN SAPHEE.VBAK B
+                                  ON A.MANDT = B.MANDT
+                                 AND A.PSPID = B.ZZPJT_ID
+                          LEFT OUTER JOIN SAPHEE.ZMASTER02 C
+                                       ON A.MANDT = C.MANDT
+                                      AND A.PSPID = C.POSID
+                                      AND A.POSID = C.POSID_1
+                          LEFT OUTER JOIN (
+                                           SELECT PSPID,
+                                                  POSID,
+                                                  SUM(PRO_R) PRO_R
+                                             FROM SAPHEE.ZPST0112
+                                            WHERE MANDT = #G_MANDT#
+                                              AND CRDAT &lt;= #GIJUN#
+                                            GROUP BY PSPID,
+                                                     POSID
+                                          ) D
+                                       ON A.PSPID = D.PSPID
+                                      AND A.POSID = D.POSID
+                          LEFT OUTER JOIN SAPHEE.ZSDT0500 E
+                                       ON B.MANDT = E.MANDT
+                                      AND B.KUNNR = E.KUNNR
+                          LEFT OUTER JOIN (
+                                           SELECT PSPID,
+                                                  CASE WHEN ACTTYPE = '01' THEN '각서        '
+                                                       WHEN ACTTYPE = '02' THEN '지급명령    '
+                                                       WHEN ACTTYPE = '03' THEN '소송        '
+                                                       WHEN ACTTYPE = '04' THEN '채권압류    '
+                                                       WHEN ACTTYPE = '05' THEN '부동산압류  '
+                                                       WHEN ACTTYPE = '06' THEN '경매        '
+                                                       WHEN ACTTYPE = '07' THEN '채권가압류  '
+                                                       WHEN ACTTYPE = '08' THEN '부동산가압류'
+                                                       WHEN ACTTYPE = '09' THEN '재산명시    '
+                                                       WHEN ACTTYPE = '10' THEN '채무불이행  '
+                                                       WHEN ACTTYPE = '11' THEN '근저당      '
+                                                       WHEN ACTTYPE = '12' THEN '기타        '
+                                                       ELSE ''
+                                                  END ACT
+                                             FROM SAPHEE.ZSDT0067
+                                            WHERE MANDT = #G_MANDT#
+                                              AND PSPID = #PSPID#
+                                            ORDER BY ASKDT DESC
+                                            FETCH FIRST 1 ROWS ONLY
+                                          ) F
+                                       ON A.PSPID = F.PSPID
+                          LEFT OUTER JOIN (
+                                           SELECT PSPID,
+                                                  CASE WHEN MEKIND = '01' THEN '지불각서            '
+                                                       WHEN MEKIND = '02' THEN '가압류              '
+                                                       WHEN MEKIND = '03' THEN '지급명령            '
+                                                       WHEN MEKIND = '04' THEN '소송                '
+                                                       WHEN MEKIND = '05' THEN '재산명시            '
+                                                       WHEN MEKIND = '06' THEN '압류                '
+                                                       WHEN MEKIND = '07' THEN '채무不              '
+                                                       WHEN MEKIND = '08' THEN '주민말소            '
+                                                       WHEN MEKIND = '09' THEN '화해조정            '
+                                                       WHEN MEKIND = '10' THEN '화해조정-수금완료   '
+                                                       WHEN MEKIND = '11' THEN '지체배상금(증빙참조)'
+                                                       ELSE '기타'
+                                                  END ACT
+                                             FROM SAPHEE.ZSDT0045
+                                            WHERE MANDT = #G_MANDT#
+                                              AND PSPID = #PSPID#
+                                            ORDER BY MEDAT DESC
+                                            FETCH FIRST 1 ROWS ONLY
+                                          ) G
+                                       ON A.PSPID = G.PSPID             
+ WHERE A.MANDT = #G_MANDT#
+   AND A.GJAHR = SUBSTR(#GIJUN#,1,4)
+   AND A.VERMM = SUBSTR(#GIJUN#,5,2)
+   AND A.PSPID = #PSPID#
+   AND (A.ABGRU_DAT = '' OR A.ABGRU_DAT = '00000000')
+ ORDER BY 1
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

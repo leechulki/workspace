@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.MANDT 
+     , A.CS126_UPN UPN 
+     , A.CS126_CST CST 
+     , A.CS126_DNO 
+     , Z.APSTAT APSTAT 
+     , Z.REDPT1 REDPT1 
+     , Z.DOCKIND DOCKIND
+     , MAX(A.CS126_KND) AS KND
+     , MAX(A.CS126_HYN) AS HYN
+     , MAX(A.CS126_GKD) AS GKD_MAX
+     , MIN(A.CS126_GKD) AS GKD_MIN
+     , CASE WHEN MIN(A.CS126_GKD) = '1' THEN '전환계약'
+            WHEN MIN(A.CS126_GKD) = '2' THEN '갱신계약'
+            WHEN MIN(A.CS126_GKD) IN( '4','5') THEN '회수계약' END AS GKD
+            
+     , CASE WHEN MAX(A.CS126_KND) = '' AND MAX(A.CS126_HYN) = 'N' THEN 'POG'
+            WHEN MAX(A.CS126_KND) = '' AND MAX(A.CS126_HYN) = 'Y' THEN 'PRTS'
+            WHEN MAX(A.CS126_KND) != '' AND MAX(A.CS126_HYN) = 'N' THEN 'FM'
+            WHEN MAX(A.CS126_KND) != '' AND MAX(A.CS126_HYN) = 'Y' THEN 'FRTS' END AS GUBUN
+	   , MAX(B.KND) AS KND_B
+	   , MAX(B.HYN) AS HYN_B
+	   , MAX(B.GNO) AS GNO_B
+     , CASE WHEN MAX(B.KND) = ''  AND MAX(B.HYN) = 'N' THEN 'POG'
+            WHEN MAX(B.KND) = ''  AND MAX(B.HYN) = 'Y' THEN 'PRTS'
+            WHEN MAX(B.KND) != '' AND MAX(B.HYN) = 'N' THEN 'FM'
+            WHEN MAX(B.KND) != '' AND MAX(B.HYN) = 'Y' THEN 'FRTS' END AS GUBUN_B
+	   , CASE WHEN  MAX(A.CS126_GKD) IN ('1','4','5') OR  MIN(A.CS126_GKD) IN ('1','4')    THEN 1 ELSE 0 END AS CHK_GKD  -- 전환,회수계약의 경우 수신부서 결재완료
+	   , CASE WHEN  MAX(A.CS126_GKD) = '2' AND MAX(A.CS126_KND) != '' AND MAX(B.KND)  = '' THEN 1 ELSE 0 END AS CHK_FM   -- POG TO FM 경우 수신부서 결재완료
+	   , CASE WHEN  MAX(A.CS126_GKD) = '2' AND MAX(A.CS126_HYN) = 'Y' AND MAX(B.HYN) = 'N' THEN 1 ELSE 0 END AS CHK_HRTS -- 갱신 HRTS 전환인 경우 수신부서 결재완료
+	 	 
+  FROM SAPHEE.ZCST126 A 
+       LEFT OUTER JOIN 
+           (SELECT DOCNO, APSTAT, REDPT1,DOCKIND 
+             FROM SAPHEE.ZWBAP01 
+            WHERE DOCNO = #DOCNO#
+           ) Z ON Z.DOCNO = A.CS126_DNO 
+		   
+       LEFT OUTER JOIN 
+           (SELECT    CS126_PJT , CS126_HNO , CS126_GNO AS GNO
+		                , MAX(CS126_USD) AS USD
+		                , MAX(CS126_UMR) AS UMR
+		                , MAX(CS126_GKD) AS GKD
+		                , MAX(CS126_KND) AS KND
+		                , MAX(CS126_HYN) AS HYN
+						        , ROW_NUMBER() OVER(PARTITION BY CS126_PJT , CS126_HNO ORDER BY MAX(CS126_UMR) DESC ) AS SEQNO
+             FROM SAPHEE.ZCST126
+			      WHERE MANDT = #G_MANDT#
+ 				      AND (CS126_PJT,CS126_HNO ) IN ( 
+ 				                                       SELECT CS126_PJT , CS126_HNO
+ 				                                         FROM SAPHEE.ZCST126
+ 				                                        WHERE MANDT = #G_MANDT#
+ 				                                          AND CS126_DDT = ''
+ 				                                          AND CS126_UPN = #UPN#
+ 				                                          AND CS126_CST = #CST#
+ 				                                          AND CS126_DNO = #DOCNO#
+ 				                                        GROUP BY CS126_PJT , CS126_HNO
+ 				                                     )
+   					  AND CS126_DDT = ''
+   					  AND CS126_PST = 'A6'
+			
+			      GROUP BY CS126_PJT , CS126_HNO , CS126_GNO
+			      
+           ) B ON B.SEQNO = '1'
+
+ WHERE A.MANDT = #G_MANDT#
+   AND A.CS126_DNO = #DOCNO#
+   AND A.CS126_UPN = #UPN#
+   AND A.CS126_CST = #CST#
+   AND A.CS126_DDT = ''
+   
+ GROUP BY A.MANDT 
+     , A.CS126_UPN 
+     , A.CS126_CST 
+     , A.CS126_DNO 
+     , Z.APSTAT 
+     , Z.REDPT1 
+     , Z.DOCKIND
+     
+WITH UR     
+     
+]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_doc_status_add">
+	</output>
+</query>

@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT A.PJT AS PSPID,            C.ZSITE_NM,       A.PJT || A.HNO AS POSID,    A.SEQNO,  
+             B.NAMET AS PMNM,     
+              (A.T_DATE || ' ' || A.T_TIME) AS T_DT,
+              (A.M_DATE || ' ' || A.M_TIME) AS M_DT,
+              (SELECT X.USERNAME FROM SAPHEE.ZUSERF AS X 
+                 WHERE X.MANDT = A.MANDT AND X.USERNUMB = A.M_USER) AS M_USER,
+              
+              VALUE((SELECT X3.NAME1
+                  FROM SAPHEE.VBAK AS X1 
+                  INNER JOIN SAPHEE.VBPA AS X2
+    	        ON X1.MANDT = X2.MANDT
+	      AND X1.VBELN = X2.VBELN 
+                 INNER JOIN SAPHEE.KNA1 AS X3
+	        ON X3.MANDT = X2.MANDT
+	      AND X3.KUNNR = X2.KUNNR
+                WHERE X1.MANDT = A.MANDT
+                    AND X1.ZZPJT_ID = A.PJT
+                    AND X2.PARVW = 'Z3'), '') AS PERNO2,
+
+               (CASE WHEN (SELECT COUNT(*)  
+                                        FROM SAPHEE.ZCMFL001 AS X 
+                                       WHERE X.MANDT = B.MANDT
+                                           AND X.GBN = 'K'
+                                           AND X.PSPID = B.POSID
+                                           AND X.POSID = B.POSID_1) > 0 THEN '파일첨부'
+                         ELSE '' 
+                 END ) AS FILE,
+                A.CONF,                
+                --(CASE WHEN A.CONF_DATE = '00000000' THEN '' ELSE A.CONF_DATE END) AS CONF_DATE ,
+                A.CONF_DATE,
+                '' AS CHECK,
+                (CASE WHEN B.ZZSHIP1 = '00000000' THEN '' ELSE B.ZZSHIP1 END) AS ZZSHIP1,
+                (CASE WHEN B.ZZCHAKG = 'X' THEN '확정' ELSE '' END) AS ZZCHAKG,
+                ZSPEC1,  ZSPEC2,
+                VALUE((SELECT X.ILDAT  
+                               FROM SAPHEE.ZPPT027 AS X
+                              WHERE X.MANDT = B.MANDT   AND X.PSPID = B.POSID
+                                  AND X.POSID = B.POSID_1    AND X.BLOCK = 'C'
+                                  AND X.ACTIV = '02'              AND X.GUBUN = '02'), '')     AS  ILDAT,
+               C.CDATE
+
+
+              ,VALUE((SELECT MIN(X.CR_DATE)
+	              FROM SAPHEE.ZSDT0005 AS X
+	            WHERE X.MANDT = B.MANDT   
+	                AND X.HOGI = B.POSID_1
+		  AND X.CHARACTERISTIC LIKE 'ES%' ), '') AS CR_DATE
+
+
+    FROM SAPHEE.ZPST11075MB AS A
+    INNER JOIN SAPHEE.ZMASTER02 AS B
+         ON A.MANDT = B.MANDT
+       AND A.PJT = B.POSID
+       AND A.PJT || A.HNO = B.POSID_1 
+    
+    INNER JOIN SAPHEE.ZMASTER01 AS C
+         ON C.MANDT = B.MANDT
+       AND C.POSID = B.POSID
+
+
+ WHERE A.MANDT = #G_MANDT#      
+     AND A.T_DATE BETWEEN #TRAN_F# AND #TRAN_T#
+   <isNotNull col="PSPID">
+     AND C.POSID = #PSPID#
+   </isNotNull>
+   <isNotNull col="ZZACTSS">
+     AND B.ZZACTSS = #ZZACTSS#
+--서울사무소 코드화로 인한 주석처리
+--     <isEqual col="ZZACTSS" value="02">
+--        <isEqual col="SO_GBN" value="1TEM">
+--           AND B.ZTEAM &lt;&gt; 'X'
+--        </isEqual>	   
+--        <isEqual col="SO_GBN" value="2TEM">
+--           AND B.ZTEAM = 'X'
+--       </isEqual>		 
+--    </isEqual>
+    </isNotNull>
+
+    <isNotNull col="ZZPMNUM">
+       AND B.TEMNO = #ZZPMNUM#
+    </isNotNull>	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list1">
+	</output>
+</query>

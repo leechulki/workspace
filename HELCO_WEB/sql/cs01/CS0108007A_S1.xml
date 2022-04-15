@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[정합성 마스터 조회]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>1</result-count>
+    <statement>
+        SELECT A.MANDT
+              ,A.CTYPE
+              ,A.TYPE
+              ,A.BLOCKNO
+              ,ROW_NUMBER() OVER() AS SEQN
+              ,MAX(A.MESSAGE) AS MESSAGE
+              ,CASE WHEN A.CTYPE = 'D' THEN
+                  'N'
+               ELSE   
+                  MAX(A.TRANS)
+               END AS TRANS
+              ,MAX(A.DFLAG) AS DFLAG
+              ,MAX(A.CUSER) AS CUSER
+        FROM   SAPHEE.ZCSTMATCHMS A
+               LEFT OUTER JOIN SAPHEE.ZCSTMATCHDT B ON A.MANDT = B.MANDT
+                                              AND A.CTYPE = B.CTYPE
+                                              AND A.TYPE  = B.TYPE
+                                              AND A.BLOCKNO = B.BLOCKNO
+        WHERE  A.MANDT = #G_MANDT#
+        <isNotNull col="CTYPE">
+          AND  A.CTYPE = #CTYPE#
+        </isNotNull>
+        <isNotNull col="TYPE">
+          AND  A.TYPE = #TYPE#
+        </isNotNull>
+        <isNotNull col="TRANS">
+			<isEqual col="TRANS" value="N">
+			AND  A.TRANS = ''
+			</isEqual>
+			<isEqual col="TRANS" value="Y">
+			AND  A.TRANS = 'Y'
+			</isEqual>
+        </isNotNull>
+        <isNotNull col="DFLAG">
+			<isEqual col="DFLAG" value="Y">
+			AND  A.DFLAG = ''
+			</isEqual>
+			<isEqual col="DFLAG" value="N">
+			AND  A.DFLAG = 'N'
+			</isEqual>
+			<isEqual col="DFLAG" value="D">
+			AND  A.DFLAG = 'D'
+			</isEqual>
+        </isNotNull>
+        <isNotNull col="BLOCKNO">
+          AND  A.BLOCKNO LIKE '%' || #BLOCKNO# || '%'
+        </isNotNull>
+        <isNotNull col="MESSAGE">
+          AND  A.MESSAGE LIKE '%' || #MESSAGE# || '%'
+        </isNotNull>
+        <isNotNull col="BLOCKNOSEQ">
+          AND  B.BLOCKNOSEQ LIKE '%' || #BLOCKNOSEQ# || '%'
+        </isNotNull>
+        <isNotNull col="SPEC">
+          AND  A.CTYPE||A.BLOCKNO IN(
+                           SELECT X.CTYPE||Y.BLOCKNO 
+                           FROM   SAPHEE.ZCSTMATCHMS X
+                                  INNER JOIN SAPHEE.ZCSTMATCHDT Y ON X.MANDT = Y.MANDT AND X.CTYPE = Y.CTYPE AND X.TYPE = Y.TYPE AND X.BLOCKNO = Y.BLOCKNO
+                           WHERE  X.MANDT = #G_MANDT#
+					        <isNotNull col="CTYPE">
+					          AND X.CTYPE = #CTYPE#
+					        </isNotNull>
+					        <isNotNull col="TYPE">
+					          AND X.TYPE = #TYPE#
+					        </isNotNull>
+					          AND Y.SPEC LIKE '%' || #SPEC# || '%'
+				           GROUP BY X.CTYPE||Y.BLOCKNO 
+				           )
+        </isNotNull>
+        GROUP BY A.MANDT
+                ,A.CTYPE
+                ,A.TYPE
+                ,A.BLOCKNO
+        ORDER BY A.CTYPE DESC, A.TYPE, A.BLOCKNO
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_zcstmatchms">
+    </output>
+</query>

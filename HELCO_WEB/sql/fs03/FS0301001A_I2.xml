@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+    <type>insert</type>
+    <description><![CDATA[시행예산관리품목 최초 생성 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement><![CDATA[
+INSERT INTO SAPHEE.ZFST0302(
+     MANDT -- 클라이언트
+    ,OCNT_NUMB -- 수주번호
+    ,EBDG_MGSQ -- 시행예산관리순번
+    ,EBDG_ITSQ -- 시행예산품목순번
+    ,EBDG_GROP -- 시행예산그룹
+    ,ESCS_UPBG -- 상위시행예산그룹
+    ,BDGT_ITEM -- 예산항목
+    ,EBDG_NAME -- 시행예산명
+    ,WAERK -- 통화 키
+    ,ESMT_AMT -- 견적금액
+    ,BFOR_BAMT -- 변경전시행예산금액
+    ,EBDG_AMT -- 시행예산금액
+    ,WRIT_DATE -- 작성일자
+    ,WRIT_TIME -- 작성시간
+    ,WRIT_USER -- 작성자
+)
+SELECT A.MANDT
+      ,#OCNT_NUMB# AS OCNT_NUMB
+      ,1 AS EBDG_MGSQ       
+      ,B.EBDG_ITSQ
+      ,A.BDGT_NUMB AS EBDG_GROP
+      ,A.BDGT_UPNB AS ESCS_UPBG
+      ,A.ESCS_CODE AS BDGT_ITEM
+      ,A.BDGR_NAME AS EBDG_NAME
+      ,'KRW' AS WAERK
+      ,CAST(COALESCE( NULLIF( TRIM( B.ESMT_AMT ||'' ) , '' ) , '0') AS DECIMAL(17, 2)) AS ESMT_AMT
+      ,CAST(COALESCE( NULLIF( TRIM( B.ESMT_AMT ||'' ) , '' ) , '0') AS DECIMAL(17, 2)) AS BFOR_BAMT
+      ,CAST(COALESCE( NULLIF( TRIM( B.ESMT_AMT ||'' ) , '' ) , '0') AS DECIMAL(17, 2)) AS EBDG_AMT
+      ,HEX(CURRENT DATE) AS WRIT_DATE -- 작성일자
+      ,HEX(CURRENT TIME) AS WRIT_TIME -- 작성시간
+      ,CAST(#G_USER_ID# AS VARCHAR(10)) AS WRIT_USER -- 작성자
+FROM  SAPHEE.ZFST0101 A
+      INNER JOIN TABLE (
+                SELECT  MANDT
+                       ,ROW_NUMBER() OVER () AS EBDG_ITSQ
+                       ,ESCS_ITEM
+                       ,SUM(SALE_COST) AS ESMT_AMT -- 시행예산 금액은 판매원가 기준으로 생성함
+                FROM   SAPHEE.ZFST0201
+                WHERE  MANDT = #G_MANDT#
+                  AND  ESCS_NUMB||TRIM(CAST(ESCS_NTIM AS VARCHAR(5))) IN ( #PK_ESCS_NUMB# )
+                  AND  ITEM_DIYN = 'D'
+                GROUP BY MANDT  
+                        ,ESCS_ITEM
+      ) AS B ON A.MANDT = B.MANDT AND A.ESCS_CODE = B.ESCS_ITEM
+WHERE A.MANDT = #G_MANDT#       
+  AND A.BGCL_DTIL = '000000000000'
+ORDER BY A.BDGR_CDSQ
+    ]]></statement>
+    <input default-name="ds_zfst0301">
+    </input>
+    <output default-name="_none">
+    </output>
+</query>

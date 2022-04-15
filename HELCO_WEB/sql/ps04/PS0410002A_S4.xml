@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT  T.MANDT
+       ,T.POSID AS PSPID 
+       ,T.POSID_1
+       ,T.ZSITE_NM
+       ,T.ZQNTY
+       ,T.TEMNO2
+       ,T.VALUE
+       ,M12.LIFNR AS LIFNR 
+       ,M12.NAME1
+       , M12.TELF1
+       ,(SELECT X.CELLP FROM SAPHEE.ZPST0001 AS X WHERE M12.MANDT = X.MANDT AND M12.LIFNR = X.LIFNR AND T.TEMNO2 = X.TEMNO  AND X.POSIT = 'X' AND X.GBN = 'A') AS CELLP
+	    ,  VALUE((SELECT  SUM(M.EQME53+M.EQME55+M.EQME56+M.EQME57+M.EQME58+M.EQME59+M.EQME60+M.EQME61+M.EQME62+M.EQME63+M.EQME64+M.EQME65+M.EQME66+M.EQME67+M.EQME69+M.EQME70+M.EQME71+M.EQME72+M.EQME73+M.EQME74+M.EQME91) * 100                                       
+                    FROM SAPHEE.ZCOBT300 AS M
+                  WHERE T.MANDT =  M.MANDT
+                       AND T.POSID  = M.PSPID
+                       AND T.ZZGUBUN IN ('10', '11', '12', '13', '14', '91', '92')
+                       AND T.PRART IN ('01', '11')
+                       AND M.DIV = '5'             ), 0)  AS NETWR
+	   , 'N' AS INSERT_INDC
+     --  ,'0053037040' AS HKONT
+FROM (
+        SELECT  DISTINCT
+                MASTER01A.MANDT
+               ,MASTER01A.POSID
+               ,MASTER01A.ZSITE_NM
+               ,MASTER01A.ZQNTY
+               ,MASTER02B.VALUE
+               ,MASTER02C.LIFNR
+               ,MASTER02C.POSID_1
+               ,MASTER02C.TEMNO2
+               ,MASTER02C.ZZGUBUN
+               ,MASTER02C.PRART
+			   
+        FROM  SAPHEE.ZMASTER01 AS MASTER01A
+        	  LEFT OUTER JOIN
+        	  ( SELECT  SD.MANDT
+        	           ,SD.POSID
+        	           ,SUM(SD.VALUE) AS VALUE
+                   --    ,SD.LIFNR
+					--   ,SD.TEMNO2
+                FROM  (
+                       SELECT  MASTER02A.MANDT
+            	                ,MASTER02A.POSID
+            	   		          ,ROWNUMBER() OVER(PARTITION BY SD0005.HOGI  ORDER BY SD0005.HOGI , SD0005.SEQ DESC ) AS RN
+                              ,(CASE WHEN VALUE(SD0005.VALUE,'0') = '' THEN 0 ELSE  INT(VALUE(SD0005.VALUE,'0')) END) AS VALUE
+							  ,MASTER02A.LIFNR
+							  ,MASTER02A.TEMNO2
+                       FROM  SAPHEE.ZSDT0005 AS SD0005
+            	   	          ,SAPHEE.ZMASTER02 MASTER02A
+                       WHERE SD0005.MANDT = MASTER02A.MANDT
+        		           AND MASTER02A.MANDT = #G_MANDT#
+        		           AND MASTER02A.POSID = #PSPID#
+                       AND MASTER02A.ZZGUBUN IN ('10','13')        -- 제품구분(10:EL,13:EL선박)
+                       AND MASTER02A.PRART IN ('01','11')          -- 프로젝트유형(01:승강기(국내),11:교체공사)
+                       AND SD0005.HOGI = MASTER02A.POSID_1
+                       AND SD0005.CHARACTERISTIC = 'EL_ASTQ'    -- 정지층수
+                      ) AS SD
+                WHERE SD.RN = 1
+                GROUP BY SD.MANDT,SD.POSID-- ,SD.LIFNR ,SD.TEMNO2
+             ) AS MASTER02B
+        	 ON MASTER01A.MANDT = MASTER02B.MANDT
+             AND MASTER01A.POSID = MASTER02B.POSID
+        	 ,SAPHEE.ZMASTER02 AS MASTER02C
+        WHERE MASTER01A.MANDT = #G_MANDT#
+        AND MASTER01A.POSID = #PSPID#
+	    AND MASTER01A.MANDT = MASTER02C.MANDT
+        AND MASTER01A.POSID = MASTER02C.POSID
+    ) AS T
+	       LEFT OUTER JOIN SAPHEE.ZMMT012 AS M12
+      ON T.MANDT = M12.MANDT
+      AND T.LIFNR = M12.LIFNR
+
+ORDER BY T.POSID_1
+    
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_head">
+	</output>
+</query>

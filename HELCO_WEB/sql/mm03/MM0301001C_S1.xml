@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[현장별 거래명세서 헤더정보 -sum]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+--20190409 제니퍼 SQL 부하로 인한 수정 LCH
+SELECT 
+   '0' AS CHECK
+  , MM017.INVNR  AS INVNR    
+  , MM017.EKGRP  AS EKGRP    
+  , MM017.LGORT  AS LGORT
+  , MM017.LGOBE  AS LGOBE    
+  , MM017.EKGRP1 AS EKGRP1   
+  , MM017.EINDT   AS EINDT    
+  , MM017.RDATE_P AS RDATE_P  
+  , MM017.RECE_DATE AS RECE_DATE
+  , MM017.RECE_TIME AS RECE_TIME
+  , MM017.DEL_DATE  AS DEL_DATE 
+  , MM017.DEL_TIME  AS DEL_TIME 
+  , MM017.MBLNR  AS MBLNR    
+  , MM017.BUDAT  AS BUDAT    
+  , MM017.IN_DT  AS IN_DT    
+  , MM017.IN_TM  AS IN_TM    
+  , MM017.STO_MBLNR AS STO_MBLNR
+  , MM017.CA_DT  AS CA_DT    
+  , MM017.CA_TM  AS CA_TM    
+  , MM017.PRO_F  AS PRO_F    
+  , MM017.UDATE  AS UDATE    
+  , MM017.LIFNR  AS LIFNR     
+  , MM017.POSID  AS POSID
+  , MM017.POST1  AS POST1
+  , MM017.EXTWG  AS EXTWG
+  , MM012.J_1KFREPRE AS J_1KFREPRE
+ -- , MM012.LIFNR  AS LIFNR
+  , MM012.MCOD3  AS MCOD3    
+  , MM012.NAME1  AS NAME1    
+  , MM012.PSTLZ  AS PSTLZ    
+  , MM012.STRAS  AS STRAS    
+  , MM012.TELF1  AS TELF1    
+  , MM012.TELFX  AS TELFX    
+  , MM028.CTEXT2 AS CTEXT2
+  , MM028.DTEXT1 AS DTEXT1
+  , MM028.DTEXT2 AS DTEXT2
+  , MM028.DTEXT3 AS DTEXT3
+  , MM028.DTEXT4 AS DTEXT4
+  , MM028.DTEXT5 AS DTEXT5
+  , MM017.BIGO AS BIGO
+  , TOT_NET
+  , CASE WHEN MM017.INVTAG > '' THEN 'Y' ELSE '' END AS INVTAG
+--  , VALUE(MM017.SHIPDAT,'') AS SHIPDAT
+  , CASE WHEN MM017.WERKS = '1000' THEN VALUE(MM017.SHIPDAT, '') ELSE '' END AS SHIPDAT
+  , MM017.COMPLET_YN AS COMPLET_YN
+  , (SELECT COUNT ( DISTINCT MATNR ) FROM SAPHEE.ZMMT017 WHERE MANDT = #G_MANDT# AND INVNR = MM017.INVNR   ) AS TOTCNT
+  , MM017.EXPCOUNT
+FROM (
+
+  SELECT 
+      MM017B.MANDT  AS MANDT
+    , MM017B.INVNR    AS INVNR
+    , MAX(MM017B.EKGRP) AS EKGRP
+    , MAX(MM017B.LGORT) AS LGORT
+    , MAX(MM017B.LGOBE) AS LGOBE
+    , (SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = #G_MANDT# AND LANG = #G_LANG# 
+         AND CODE1 = '10' AND CODE2 = MAX(MM017B.EKGRP) ) AS EKGRP1
+    , MAX(MM017B.EINDT) AS EINDT
+    , SAPHEE.GET_ZERODATE(MAX(MM017B.RDATE_P)) AS RDATE_P
+    , SAPHEE.GET_ZERODATE(MAX(MM017B.RECE_DATE)) AS RECE_DATE
+    , SAPHEE.GET_ZERODATE(MAX(MM017B.RECE_TIME)) AS RECE_TIME
+    , SAPHEE.GET_ZERODATE(MAX(MM017B.DEL_DATE)) AS DEL_DATE
+    , SAPHEE.GET_ZERODATE(MAX(MM017B.DEL_TIME)) AS DEL_TIME
+    , MAX(MM017B.MBLNR) AS MBLNR
+    , MAX(MM017B.POSID) AS POSID
+    , MAX(MM017B.POST1) AS POST1
+    , MAX(MM017B.EXTWG) AS EXTWG
+    , SAPHEE.GET_ZERODATE(MAX(MM017B.BUDAT)) AS BUDAT
+    , SAPHEE.GET_ZERODATE(MAX(MM017B.IN_DT)) AS IN_DT
+    , SAPHEE.GET_ZERODATE(MAX(MM017B.IN_TM)) AS IN_TM
+    , MAX(MM017B.STO_MBLNR) AS STO_MBLNR
+    , SAPHEE.GET_ZERODATE(MAX(MM017B.CA_DT)) AS CA_DT
+    , SAPHEE.GET_ZERODATE(MAX(MM017B.CA_TM)) AS CA_TM
+    , MAX(MM017B.PRO_F) AS PRO_F
+    , SAPHEE.GET_ZERODATE(MAX(MM017B.UDATE)) AS UDATE
+    , MAX(MM017B.LIFNR) AS LIFNR
+    , MIN(MM017B.WERKS) AS WERKS
+    , CASE WHEN ( MAX(MM017B.WERKS) &lt;&gt; '2000' AND MIN(SAPHEE.GET_JAJEA_BALJU(MM017B.MANDT, MM017B.POSID,MM017B.MATNR)) &lt; 0) THEN '1' ELSE '0' END   AS BIGO
+   -- ,'0' AS BIGO
+    , ROUND(SUM(MM017B.MENGE  * SAPHEE.GET_CURRDATA(MM017B.WAERS,MM017B.NETPR)))  AS TOT_NET
+    , VALUE(MAX(MM017B.INVTAG),'') AS INVTAG
+    , 
+     CASE WHEN MAX(MM017B.LGORT) = '9500' THEN (
+    	SAPHEE.GET_BOSU_SHIPDAT(MM017B.MANDT, MIN(MM017B.EBELN), MIN(MM017B.EBELP))
+    ) ELSE (	
+     CASE WHEN MAX(MM017B.EXTWG) IS NULL OR MAX(MM017B.EXTWG) = '' OR (MAX(MM017B.BOX_CK) = '' AND MAX(MM017B.EXTWG) = 'BOX33') OR (MAX(MM017B.BOX_CK) = '24' AND MAX(MM017B.EXTWG)='BOX24') THEN 
+		  (CASE WHEN MAX(MM025.SHIPDAT1) IS NULL    THEN '00000000'
+ 	                WHEN MAX(MM011.BLOCK_NO) = ''       THEN (CASE WHEN MAX(SUBSTR(MM017B.POSID,7,2)) = 'NC' THEN MAX(PP027.ILDAT) ELSE MAX(MM025.SHIPDAT2) END )
+  	              WHEN MAX(MM011.BLOCK_NO) LIKE 'A%'  THEN (CASE WHEN MAX(SUBSTR(MM017B.POSID,7,2)) = 'NC' THEN MAX(PP027.ILDAT) ELSE MAX(MM025.SHIPDAT1) END )
+  	              WHEN MAX(MM011.BLOCK_NO) LIKE 'B%'  THEN (CASE WHEN MAX(SUBSTR(MM017B.POSID,7,2)) = 'NC' THEN MAX(PP027.ILDAT) ELSE MAX(MM025.SHIPDAT2) END )
+ 	                WHEN MAX(MM011.BLOCK_NO) LIKE 'C%'  THEN (CASE WHEN MAX(SUBSTR(MM017B.POSID,7,2)) = 'NC' THEN MAX(PP027.ILDAT) ELSE MAX(MM025.SHIPDAT3) END ) 
+ 	                WHEN MAX(MM011.BLOCK_NO) LIKE 'D%'  THEN (CASE WHEN MAX(SUBSTR(MM017B.POSID,7,2)) = 'NC' THEN MAX(PP027.ILDAT) ELSE MAX(MM025.SHIPDAT4) END ) 
+ 	                WHEN MAX(MM011.BLOCK_NO) LIKE 'E%'  THEN (CASE WHEN MAX(SUBSTR(MM017B.POSID,7,2)) = 'NC' THEN MAX(PP027.ILDAT) ELSE MAX(MM025.SHIPDAT5) END ) ELSE '00000000' END) 
+		   ELSE		   
+		   (CASE ( CASE WHEN MAX(MM017B.BOX_CK) = '24' THEN  (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026_1 WHERE MANDT= MM017B.MANDT AND BOXNO = MAX(MM017B.EXTWG))
+	                           ELSE  (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026 WHERE MANDT= MM017B.MANDT AND BOXNO = MAX(MM017B.EXTWG)) END )
+			    WHEN '1' THEN (CASE WHEN MAX(SUBSTR(MM017B.POSID,7,2)) = 'NC' THEN MAX(PP027.ILDAT) ELSE MAX(MM025.SHIPDAT1) END )
+			    WHEN '2' THEN (CASE WHEN MAX(SUBSTR(MM017B.POSID,7,2)) = 'NC' THEN MAX(PP027.ILDAT) ELSE MAX(MM025.SHIPDAT2) END )
+			    WHEN '3' THEN (CASE WHEN MAX(SUBSTR(MM017B.POSID,7,2)) = 'NC' THEN MAX(PP027.ILDAT) ELSE MAX(MM025.SHIPDAT3) END )
+			    WHEN '4' THEN (CASE WHEN MAX(SUBSTR(MM017B.POSID,7,2)) = 'NC' THEN MAX(PP027.ILDAT) ELSE MAX(MM025.SHIPDAT4) END )
+			    WHEN '5' THEN (CASE WHEN MAX(SUBSTR(MM017B.POSID,7,2)) = 'NC' THEN MAX(PP027.ILDAT) ELSE MAX(MM025.SHIPDAT5) END ) ELSE '00000000' END)  END ) END   AS SHIPDAT
+    , MAX(MM017Z.COMPLET_YN) AS COMPLET_YN
+    , COUNT(DISTINCT MM186.MATNR) AS EXPCOUNT
+   FROM SAPHEE.ZMMT017 AS MM017B
+       LEFT OUTER JOIN SAPHEE.ZMMT011 AS MM011 ON MM017B.MANDT = MM011.MANDT 
+                     AND MM017B.MATNR = MM011.MATNR 
+       LEFT OUTER JOIN SAPHEE.ZMMT025 AS MM025 ON  MM017B.MANDT = MM025.MANDT
+                                         AND SUBSTR(MM017B.POSID,1,9) = MM025.POSID
+                                         AND MM025.PSTYPE = '02'
+      LEFT OUTER JOIN SAPHEE.ZPPT027 AS PP027 ON MM017B.MANDT = PP027.MANDT
+                                                                         AND MM017B.POSID = PP027.POSID
+                                                                         AND PP027.ACTIV = '05'
+                                                                         AND PP027.BLOCK = 'A'
+                                                                         AND PP027.GUBUN = '01'
+      LEFT OUTER JOIN SAPHEE.ZMMT017_Z AS MM017Z ON MM017B.MANDT = MM017Z.MANDT
+      									AND MM017B.INVNR = MM017Z.INVNR
+      LEFT OUTER JOIN SAPHEE.ZMMT186 AS MM186 ON MM017B.MANDT = MM186.MANDT AND MM017B.MATNR = MM186.MATNR
+   WHERE MM017B.MANDT = #G_MANDT#
+--      AND MM017B.INVNR IN ( 
+--           SELECT 
+--               INVNR
+--           FROM SAPHEE.ZMMT017
+--           WHERE MANDT = #G_MANDT#
+--     <isNotNull col="INVNR">
+--              AND INVNR = #INVNR#
+--     </isNotNull>
+--              AND LIFNR = #LIFNR#
+--              AND RDATE_P BETWEEN #RDATE_P_FM# AND #RDATE_P_TO#                      
+--              AND POTYPE = ''
+--     <isNotNull col="PRO_F">
+--              AND PRO_F = #PRO_F#
+--     </isNotNull>
+--     <isEqual col="PRO_F" value="">
+--              AND PRO_F > '0'
+--     </isEqual>   
+--     <isNotNull col="WERKS">
+--              AND WERKS = #WERKS#
+--     </isNotNull>
+--     <isNotNull col="EKGRP">
+--              AND EKGRP = #EKGRP#
+--     </isNotNull>
+--     <isNotNull col="RECE_DATE_FM">
+--              AND RECE_DATE BETWEEN #RECE_DATE_FM# AND #RECE_DATE_TO#
+--     </isNotNull>
+--   <isNotNull col="POSID1">
+--              AND POSID BETWEEN #POSID1# AND #POSID2#
+--   </isNotNull>
+--     <isNotNull col="MATNR">
+--              AND MATNR LIKE #MATNR# || '%'
+--     </isNotNull>
+--       )
+      AND MM017B.LIFNR = #LIFNR#
+      AND MM017B.RDATE_P BETWEEN #RDATE_P_FM# AND #RDATE_P_TO#
+      AND MM017B.POTYPE = ''
+     <isNotNull col="POSID1">
+              AND MM017B.POSID BETWEEN #POSID1# AND #POSID2#
+     </isNotNull>
+     <isNotNull col="INVNR">
+              AND MM017B.INVNR = #INVNR#
+     </isNotNull>
+     <isNotNull col="PRO_F">
+              AND MM017B.PRO_F = #PRO_F#
+     </isNotNull>
+     <isEqual col="PRO_F" value="">
+              AND MM017B.PRO_F > '0'
+     </isEqual>
+     <isNotNull col="WERKS">
+              AND MM017B.WERKS = #WERKS#
+     </isNotNull>
+     <isNotNull col="EKGRP">
+              AND MM017B.EKGRP = #EKGRP#
+     </isNotNull>
+     <isNotNull col="RECE_DATE_FM">
+              AND MM017B.RECE_DATE BETWEEN #RECE_DATE_FM# AND #RECE_DATE_TO#
+     </isNotNull>
+   <isNotNull col="POSID1">
+              AND MM017B.POSID BETWEEN #POSID1# AND #POSID2#
+   </isNotNull>
+     <isNotNull col="MATNR">
+              AND MM017B.MATNR LIKE #MATNR# || '%'
+     </isNotNull>
+    
+           AND MM017B.DDATE = '00000000'
+     GROUP BY MM017B.MANDT,MM017B.INVNR
+) AS MM017
+LEFT OUTER JOIN SAPHEE.ZMMT012 AS MM012 ON MM017.MANDT = MM012.MANDT
+        AND MM017.LIFNR = MM012.LIFNR
+LEFT OUTER JOIN SAPHEE.ZLCODE AS MM028 ON MM017.MANDT = MM028.MANDT  AND MM028.LANG = #G_LANG# 
+        AND MM028.CODE1 = '4' AND CODE2= '1000'  --MM017.WERKS
+WHERE MM017.MANDT=#G_MANDT#
+  ORDER BY MM017.INVNR
+   FOR FETCH ONLY
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="RDATE_P_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="RDATE_P_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="WERKS" size="255" type="VARCHAR" description="" /> 
+		<col name="PRO_F" size="255" type="VARCHAR" description="" /> 
+		<col name="EKGRP" size="255" type="VARCHAR" description="" /> 
+		<col name="RECE_DATE_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="RECE_DATE_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID1" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID2" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_sum">
+		<col name="BIGO" size="1" type="VARCHAR" description="" /> 
+		<col name="BUDAT" size="8" type="VARCHAR" description="" /> 
+		<col name="CA_DT" size="8" type="VARCHAR" description="" /> 
+		<col name="CA_TM" size="8" type="VARCHAR" description="" /> 
+		<col name="CHECK" size="1" type="VARCHAR" description="" /> 
+		<col name="CTEXT2" size="60" type="VARCHAR" description="" /> 
+		<col name="DEL_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="DEL_TIME" size="8" type="VARCHAR" description="" /> 
+		<col name="DTEXT1" size="60" type="VARCHAR" description="" /> 
+		<col name="DTEXT2" size="765" type="VARCHAR" description="" /> 
+		<col name="DTEXT3" size="60" type="VARCHAR" description="" /> 
+		<col name="DTEXT4" size="60" type="VARCHAR" description="" /> 
+		<col name="DTEXT5" size="60" type="VARCHAR" description="" /> 
+		<col name="EINDT" size="24" type="VARCHAR" description="" /> 
+		<col name="EKGRP" size="9" type="VARCHAR" description="" /> 
+		<col name="EKGRP1" size="60" type="VARCHAR" description="" /> 
+		<col name="EXTWG" size="54" type="VARCHAR" description="" /> 
+		<col name="IN_DT" size="8" type="VARCHAR" description="" /> 
+		<col name="IN_TM" size="8" type="VARCHAR" description="" /> 
+		<col name="INVNR" size="30" type="VARCHAR" description="" /> 
+		<col name="J_1KFREPRE" size="30" type="VARCHAR" description="" /> 
+		<col name="LGOBE" size="48" type="VARCHAR" description="" /> 
+		<col name="LGORT" size="12" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="30" type="VARCHAR" description="" /> 
+		<col name="MBLNR" size="30" type="VARCHAR" description="" /> 
+		<col name="MCOD3" size="75" type="VARCHAR" description="" /> 
+		<col name="NAME1" size="105" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POST1" size="120" type="VARCHAR" description="" /> 
+		<col name="PRO_F" size="3" type="VARCHAR" description="" /> 
+		<col name="PSTLZ" size="30" type="VARCHAR" description="" /> 
+		<col name="RDATE_P" size="8" type="VARCHAR" description="" /> 
+		<col name="RECE_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="RECE_TIME" size="8" type="VARCHAR" description="" /> 
+		<col name="STO_MBLNR" size="30" type="VARCHAR" description="" /> 
+		<col name="STRAS" size="90" type="VARCHAR" description="" /> 
+		<col name="TELF1" size="48" type="VARCHAR" description="" /> 
+		<col name="TELFX" size="93" type="VARCHAR" description="" /> 
+		<col name="UDATE" size="8" type="VARCHAR" description="" />
+		<col name="COMPLET_YN" size="1" type="VARCHAR" description="" />
+		<col name="TOTCNT" size="30" type="VARCHAR" description="" />
+		<col name="EXPCOUNT" size="30" type="VARCHAR" description="" />
+	</output>
+</query>

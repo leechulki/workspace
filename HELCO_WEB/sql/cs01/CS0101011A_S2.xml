@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[kit자재 판매 리스트조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+
+	SELECT  --D.REQKIND_TXT --AS "청구종류"
+	
+		    CASE WHEN A.REQKIND = '1' THEN '부품판매'
+	             WHEN A.REQKIND = '7' THEN '수리공사'
+	             WHEN A.REQKIND = '8' THEN '재청구'
+	             WHEN A.REQKIND = 'S' THEN '시스템공사'
+	        END AS REQKIND_TXT  -- "청구종류"
+	
+	
+	       ,A.QTNUM --AS "견적번호" 
+	       ,A.VBELN --AS "S/O NO"
+	       ,A.PS_PSPID --AS "프로젝트번호"
+	       ,A.CRDAT --AS "견적작성일"
+	       ,A.SOAPDAT --AS "수주일"
+		   ,CASE WHEN A.SUM_STD > 0 THEN   A.SUM_STD * 100  ELSE A.NETWR * 100  END AS BF_SUM_STD   --"할인전 판가"
+		   ,CASE WHEN A.SUM_OFR > 0 THEN  A.SUM_OFR * 100   ELSE A.AMOUNT * 100 END AS SUM_OFR     --"PJ견적가"
+		   ,A.SUR_RATE * 100 AS DC_RATE  --"할인율"
+		   ,B.MATNR --AS "자재번호"
+		   ,B.MAKTX --AS "자재내역"
+		   ,B.MENGE --AS "자재수량"
+		   ,B.MEINS --AS "자재단위"
+		   ,B.NETPR * 100 AS NETPR  --"자재단가"
+		   ,B.NETWR * 100 AS NETWR  --"자재판가"
+		   ,F.GUBUNS  -- 구분명
+		   
+		   ,A.SEQ 
+		   ,A.MA_PSPID 
+		   ,SAPHEE.GET_VENDER_NAME(A.MANDT,A.LIFNR) AS BSUNM
+		   ,VALUE((SELECT RTRIM(X.CTEXT2) FROM SAPHEE.ZLCODE AS X WHERE X.MANDT = A.MANDT AND X.LANG = #G_LANG# and X.CODE1 = 'VKGRP' AND X.CODE2 = A.VKGRP ), '') AS VKGRPNM
+		   ,CASE WHEN A.SPT > '' THEN A.SPT
+	           	 WHEN A.MA_PSPID > '' THEN CS121.CS121_SPT
+	             ELSE ''
+	        END AS SPT 
+	        
+	  FROM SAPHEE.ZCST001 AS A 
+	 INNER JOIN SAPHEE.VBAK AS C
+	    ON A.MANDT = C.MANDT
+	   AND A.VBELN = C.VBELN
+	 INNER JOIN SAPHEE.ZCST002 AS B
+	    ON  A.MANDT = B.MANDT
+	   AND A.QTNUM = B.QTNUM
+	   AND A.SEQ = B.SEQ    
+	 INNER JOIN SAPHEE.ZCST001K AS E
+	    ON E.MANDT = B.MANDT
+	   AND E.MATNR = B.MATNR   
+	  LEFT OUTER JOIN SAPHEE.ZCST001L AS F
+	    ON F.MANDT = E.MANDT  
+	   AND F.GUBUN = E.GUBUN   
+	   
+	  --LEFT OUTER JOIN SAPHEE.ZMMT002 AS D
+	  --  ON A.MANDT = D.MANDT
+	  -- AND A.REQKIND = D.REQKIND	
+	   
+	 INNER JOIN SAPHEE.ZWBT010 AS WB010
+        ON WB010.MANDT = A.MANDT
+       AND WB010.LIFNR = A.LIFNR	   
+	      
+      LEFT OUTER JOIN SAPHEE.ZCST121 AS CS121
+	    ON CS121.MANDT= A.MANDT
+	   AND CS121.CS121_UPN = SUBSTR(A.MA_PSPID,1,6)
+	   AND CS121.CS121_CST = SUBSTR(A.MA_PSPID,7,3)	      
+	      
+	 WHERE A.MANDT = #G_MANDT#   	   
+	   AND A.SOAPDAT BETWEEN #FROM_DT# AND #TO_DT# 
+	   AND C.NETWR > 0
+		  
+	 <isNotNull col="PSPID">
+	   AND A.MA_PSPID LIKE #PSPID#||'%'
+	 </isNotNull>
+	 <isNotNull col="MATNR">
+	   AND E.MATNR = #MATNR#
+	 </isNotNull>
+	 <isNotNull col="GUBUN">
+	   AND E.GUBUN = #GUBUN#
+	 </isNotNull>
+	 <isNotNull col="JKUNNR">
+	   AND A.KUNNR = #JKUNNR#
+	 </isNotNull>
+		 
+		 
+	 <isNotNull col="ARA">
+	   AND WB010.BSU_ARA = #ARA#
+	 </isNotNull>
+	 <isNotNull col="BSU">
+   	   AND WB010.LGORT = #BSU#
+	 </isNotNull>
+	 <isNotNull col="BPM">
+	   AND WB010.BSU_PM = #BPM#
+	 </isNotNull>
+     <isNotNull col="TEM">
+	   AND A.VKGRP = #TEM#
+	 </isNotNull>
+	 <isNull col="TEM">
+	   <isNotNull col="DPT">
+		 AND A.VKGRP IN (SELECT CODE2 AS CODE
+                       	      FROM SAPHEE.ZLCODE
+                      		 WHERE MANDT = #G_MANDT#
+                        	   AND LANG  = #G_LANG#
+                        	   AND CODE1 = 'VKGRP'
+                        	   AND DTEXT1 = #DPT#)
+	   </isNotNull>
+	  </isNull>		 
+		 
+		 
+	ORDER BY A.QTNUM DESC
+	FOR FETCH ONLY
+	WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list_master">
+	</output>
+</query>

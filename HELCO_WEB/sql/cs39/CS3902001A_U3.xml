@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>update</type>
+	<description><![CDATA[미발주]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>	
+	<![CDATA[
+	MERGE INTO  SAPHEE.ZCST950N AS A
+ 	USING (
+ 	       SELECT ARA
+ 	             ,BSU
+               ,SUM(CASE WHEN A.ZMUSAOCNT2 > '00' AND A.PJTM = '' AND A.PJTU = '' THEN 1 ELSE 0 END) MBQ
+               ,SUM(CASE WHEN A.MON < 2  AND A.ZMUSAOCNT2 > '00' AND A.PJTM = '' AND A.PJTU = '' THEN 1 ELSE 0 END) MBQ_1
+               ,SUM(CASE WHEN A.MON >= 2 AND A.MON < 4 AND A.ZMUSAOCNT2 > '00' AND A.PJTM = '' AND A.PJTU = '' THEN 1 ELSE 0 END) MBQ_3
+               ,SUM(CASE WHEN A.MON >= 4 AND A.MON < 6 AND A.ZMUSAOCNT2 > '00' AND A.PJTM = '' AND A.PJTU = '' THEN 1 ELSE 0 END) MBQ_6
+               ,SUM(CASE WHEN A.MON >= 6 AND A.ZMUSAOCNT2 > '00' AND A.PJTM = '' AND A.PJTU = '' THEN 1 ELSE 0 END) MBQ_7
+               ,SUM(CASE WHEN (A.PJTM > '' OR  A.PJTU > '') THEN 1 ELSE 0 END) MGQ
+               ,SUM(CASE WHEN A.PJTM > '' THEN 1 ELSE 0 END) MGQ1
+               ,SUM(CASE WHEN A.PJTU > '' THEN 1 ELSE 0 END) UGQ
+	       FROM (
+
+                                   SELECT     A.PJT
+                                             ,A.HNO
+                                             ,CASE WHEN A.IKD > #GDATE# THEN C.CS157_CAB ELSE A.ARA END ARA
+                                             ,CASE WHEN A.IKD > #GDATE# THEN C.CS157_CHB ELSE A.BSU END BSU
+                                             ,A.BGT
+                                             ,A.USD
+                                             ,A.PJTM
+                                             ,A.PJTMI
+                                             ,A.PJTU
+                                             ,A.IGD
+                                             ,SAPHEE.MONTH_BETWEEN( A.IGD,CAST(#GDATE# AS VARCHAR(8)),'2') MON
+                                             ,A.ISD
+                                             ,A.ZMUSAOCNT2
+
+                                    FROM (
+                                             SELECT   A.PJT
+                                                     ,A.HNO
+                                                     ,MAX(A.ARA        ) ARA
+                                                     ,MAX(A.BSU        ) BSU
+                                                     ,MAX(A.BGT        ) BGT
+                                                     ,MAX(A.USD        ) USD
+                                                     ,MAX(A.PJTM       ) PJTM
+                                                     ,MAX(A.PJTMI      ) PJTMI
+                                                     ,MAX(A.PJTU       ) PJTU
+                                                     ,MAX(A.IGD        ) IGD
+                                                     ,MAX(A.ISD        ) ISD
+                                                     ,MAX(A.ZMUSAOCNT2 ) ZMUSAOCNT2
+                                                     ,MIN(F.CS157_IKD) IKD
+                                               FROM (
+                                                     SELECT
+                                                             B.CS101_PJT PJT
+                                                            ,B.CS101_HNO HNO
+                                                            ,MAX(B.CS101_ARA) ARA
+                                                            ,MAX(B.CS101_BSU) BSU
+                                                            ,MIN(B.CS101_IGD) IGD
+                                                            ,MIN(B.CS101_ISD) ISD
+                                                            ,MIN(VALUE(A.CS116_BGT,'')) BGT
+                                                            ,MIN(VALUE(C.CS126_USD,'')) USD
+                                                            ,MIN(VALUE(D.CS116_PJT,'')) PJTM
+                                                            ,MIN(VALUE(I.CS116_PJT,'')) PJTMI
+                                                            ,MIN(VALUE(E.CS126_PJT,'')) PJTU
+                                                            ,MAX(Y.ZMUSAOCNT2) ZMUSAOCNT2
+                                                       FROM SAPHEE.ZCST101 B
+                                                                              INNER JOIN SAPHEE.ZMASTER02 Y
+                                                                                        ON B.MANDT = Y.MANDT
+                                                                                       AND B.CS101_PJT = Y.POSID
+                                                                                       AND B.CS101_PJT||B.CS101_HNO = Y.POSID_1
+                                                                                       AND (ZMUSAOCNT  > '00' OR  ZMUSAOCNT2 > '00' )
+
+                                                            LEFT OUTER JOIN SAPHEE.ZCST116 A ON  A.MANDT = B.MANDT
+                                                                                            AND A.CS116_PJT = B.CS101_PJT
+                                                                                            AND A.CS116_HNO = B.CS101_HNO
+                                                                                            AND A.CS116_PST = 'A6'
+                                                                                            AND A.CS116_GND = 'B'
+                                                                                            AND A.CS116_BST <= #GDATE#
+                                                            LEFT OUTER JOIN SAPHEE.ZCST126 C ON  C.MANDT = B.MANDT
+                                                                                            AND C.CS126_PJT = B.CS101_PJT
+                                                                                            AND C.CS126_HNO = B.CS101_HNO
+                                                                                            AND C.CS126_PST = 'A6'
+                                                                                            AND C.CS126_DDT = ''
+                                                                                            AND C.CS126_GND = 'D'
+                                                                                            AND C.CS126_ADT <= #GDATE#
+                                                            LEFT OUTER JOIN SAPHEE.ZCST116 I ON  I.MANDT = B.MANDT
+                                                                                            AND I.CS116_PJT = B.CS101_PJT
+                                                                                            AND I.CS116_HNO = B.CS101_HNO
+                                                                                            AND I.CS116_PST = 'A6'
+                                                                                            AND I.CS116_GND = 'B'
+                                                                                            AND I.CS116_BST <= #GDATE#
+                                                                                            AND I.CS116_BGT <= #GDATE#
+                                                                                            AND I.CS116_BMT >= SUBSTR(#GDATE#,1,6)||'01'
+                                                            LEFT OUTER JOIN SAPHEE.ZCST116 D ON  D.MANDT = B.MANDT
+                                                                                            AND D.CS116_PJT = B.CS101_PJT
+                                                                                            AND D.CS116_HNO = B.CS101_HNO
+                                                                                            AND D.CS116_PST = 'A6'
+                                                                                            AND D.CS116_GND = 'A'
+                                                                                            AND D.CS116_BST <= #GDATE#
+                                                                                            AND D.CS116_BGT <= #GDATE#
+                                                                                            AND D.CS116_BMT >= SUBSTR(#GDATE#,1,6)||'01'
+                                                            LEFT OUTER JOIN SAPHEE.ZCST126 E ON  E.MANDT = B.MANDT
+                                                                                            AND E.CS126_PJT = B.CS101_PJT
+                                                                                            AND E.CS126_HNO = B.CS101_HNO
+                                                                                            AND E.CS126_PST = 'A6'
+                                                                                            AND E.CS126_DDT = ''
+                                                                                            AND E.CS126_GND = 'C'
+                                                                                            AND E.CS126_ADT <= #GDATE#
+                                                                                            AND E.CS126_USD <= #GDATE#
+                                                                                            AND E.CS126_UHJ >= SUBSTR(#GDATE#,1,6)||'01'
+
+                                                      WHERE B.MANDT = #G_MANDT#
+                                                        AND B.CS101_IGD <= #GDATE#
+                                                        AND SUBSTR(B.CS101_HNO,1,1) IN ('L','S','W','C')
+                                                        AND B.CS101_PST = 'A6'
+                                                        AND B.CS101_ARA > ''
+                                                        AND B.CS101_BSU > ''
+                                                        AND B.CS101_PJT NOT LIKE 'M%'
+                                                        AND B.MDATE <= #GDATE#
+                                                       GROUP BY B.CS101_PJT, B.CS101_HNO
+
+                                                     ) A
+                                                          LEFT OUTER JOIN (
+                                                                           SELECT
+                                                                                  CS144_PJT PJT,
+                                                                                  CS144_HNO HNO,
+                                                                                  MAX(CS143_FSD) JHD
+                                                                             FROM SAPHEE.ZCST144 A, SAPHEE.ZCST143 B
+                                                                            WHERE A.MANDT     = B.MANDT
+                                                                              AND A.CS144_SEQ = B.CS143_SEQ
+                                                                              AND A.MANDT     = #G_MANDT#
+                                                                              AND A.CS144_PST = 'A6'
+                                                                              AND B.CS143_FSD <= #GDATE#
+                                                                              AND B.CS143_FSD <= #GDATE#
+                                                                            GROUP BY CS144_PJT, CS144_HNO
+                                                                          ) B
+                                                                              ON A.PJT = B.PJT
+                                                                             AND A.HNO = B.HNO
+                                                          LEFT OUTER JOIN (
+                                                                           SELECT CS172_PJO PJO, CS172_HNO HNO, MAX(CS172_MDT) MDT
+                                                                             FROM SAPHEE.ZCST172
+                                                                            WHERE MANDT     = #G_MANDT#
+                                                                            GROUP BY CS172_PJO, CS172_HNO
+                                                                          ) D
+                                                                              ON A.PJT = D.PJO
+                                                                             AND A.HNO = D.HNO
+
+                                                          LEFT OUTER JOIN SAPHEE.ZCST157 F
+                                                                  ON F.MANDT = #G_MANDT#
+                                                                 AND F.CS157_PJT = A.PJT
+                                                                 AND F.CS157_HNO = A.HNO
+
+                                                          INNER JOIN SAPHEE.ZCST111 E
+                                                                  ON E.MANDT = #G_MANDT#
+                                                                 AND A.PJT = E.PJT
+                                                                 AND A.HNO = E.HNO
+                                                                 AND E.EXC = ''
+
+                                                WHERE
+                                                      (E.HST <> 'D' OR (E.HST = 'D' AND VALUE(D.PJO,'') > ''))
+                                                  AND (SUBSTR(VALUE(A.BGT,''),1,6) > SUBSTR(#GDATE#,1,6) OR VALUE(A.BGT,'') = '' OR A.PJTU != '')
+                                                  AND (VALUE(A.USD,'') > #GDATE# OR VALUE(A.USD,'') = '')
+                                                  AND (VALUE(B.JHD,'') > #GDATE# OR VALUE(B.JHD,'') = '')
+                                                  AND (VALUE(D.MDT,'') > #GDATE# OR VALUE(D.MDT,'') = '')
+                                                  AND A.ARA > ''
+
+
+                                               GROUP BY A.PJT, A.HNO
+
+                                            ) A
+
+                                                          LEFT OUTER JOIN SAPHEE.ZCST157 C
+                                                                  ON C.MANDT = #G_MANDT#
+                                                                 AND C.CS157_PJT = A.PJT
+                                                                 AND C.CS157_HNO = A.HNO
+                                                                 AND C.CS157_IKD = A.IKD
+
+                                 	UNION ALL
+
+                                  SELECT B.CS101_PJT PJT
+                                        ,B.CS101_HNO HNO
+                                        ,B.CS101_ARA ARA
+                                        ,B.CS101_BSU BSU
+                                        ,'' BGT
+                                        ,'' USD
+                                        ,'' PJTM
+                                        ,'' PJTMI
+                                        ,'' PJTU
+                                        ,B.CS101_IGD IGD
+                                        ,SAPHEE.MONTH_BETWEEN( B.CS101_IGD,CAST(#GDATE# AS VARCHAR(8)),'2') MON
+                                        ,B.CS101_ISD ISD
+                                        ,Y.ZMUSAOCNT2
+
+                                    FROM SAPHEE.ZCST101 B     INNER JOIN SAPHEE.ZMASTER02 Y
+                                                                      ON B.MANDT = Y.MANDT
+                                                                     AND B.CS101_PJT = Y.POSID
+                                                                     AND B.CS101_PJT||B.CS101_HNO = Y.POSID_1
+                                                                     AND (ZMUSAOCNT  > '00' OR  ZMUSAOCNT2 > '00' )
+                                   WHERE B.MANDT = #G_MANDT#
+                                    AND B.CS101_IGD  <= #GDATE#
+                                    AND SUBSTR(B.CS101_HNO,1,1) IN ('L','S','W','C')
+                                    AND B.CS101_PST = 'A1'
+                                    AND B.CS101_ARA > ''
+
+                                    AND B.CS101_PJT NOT LIKE 'M%'
+                                    AND B.MDATE <= #GDATE#
+
+         
+             ) AS A
+           
+         GROUP BY ARA, BSU
+         
+        ) AS B  
+           ON A.ARA = B.ARA
+          AND A.BSU = B.BSU
+          AND A.YYYYMM = #YYYYMM#
+          AND A.MANDT = #G_MANDT#
+	
+	WHEN MATCHED
+	THEN
+	
+	UPDATE 	
+     SET  MBQ   = B.MBQ   
+         ,MBQ_1 = B.MBQ_1 
+         ,MBQ_3 = B.MBQ_3 
+         ,MBQ_6 = B.MBQ_6 
+         ,MBQ_7 = B.MBQ_7 
+         ,MGQ   = B.MGQ   
+         ,MGQ1  = B.MGQ1  
+         ,UGQ   = B.UGQ   
+	
+]]>
+	</statement>	
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="_none">	
+	</output>
+	</query>

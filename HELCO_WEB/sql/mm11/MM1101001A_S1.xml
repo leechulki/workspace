@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[M사발주조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT * FROM (
+SELECT MM.*	
+	, CASE WHEN VALUE(MT001.BUDAT,'') > '11111111' AND MM.STATE = '2' THEN MT001.BUDAT ELSE '' END AS CH_DT -- 출고일
+	, USER.USERNAME AS USERNAME
+	, ACUSER.USERNAME AS USERNAME_A
+	, RANK() OVER (PARTITION BY MM.EBELN, MM.EBELP ORDER BY MM031.REQNO, MM031.REQSN) RANK
+FROM	
+(	
+SELECT 
+    MK.CHAR1 AS CHAR1
+     , MK.CHDAT AS CHDAT -- 자재특성치 변경일
+     , MK.CHTIM AS CHTIM -- 자재특성치 변경시간
+     , MK.DDATE AS DDATE -- PO삭제일
+     , MK.DNAME AS DNAME -- PO삭제담당자
+     , MK.DTIME AS DTIME -- PO삭제시간
+     , MK.EBELN AS EBELN -- 발주번호
+     , MK.EBELP AS EBELP -- 발주품목번호
+     , MK.EDATE AS EDATE -- 납기일 UPDATE 일자
+     , MK.EINDT AS EINDT -- 품목납기일
+     , MK.EKGRP AS EKGRP -- 구매그룹
+     , MK.ETIME AS ETIME -- 납기일 UPDATE 시간 
+     , MK.MANDT AS MANDT -- 클라이언트
+     , MK.MATNR AS MATNR -- 자재번호
+     , MK.MEINS AS MEINS -- 단위
+     , MK.MENGE AS MENGE -- 발주수량
+     , MK.MENGE1 AS MENGE1 -- 발주잔량
+     , MK.NETPR AS NETPR -- 현대단가
+     , MK.POSID AS POSID -- 호기번호
+     , MK.POST1 AS POST1 -- 호기명
+     , MK.SDATE AS SDATE -- PO릴리즈일
+     , MK.SNAME AS SNAME -- PO승인담당자
+     , MK.STIME AS STIME -- PO승인시간
+     , MK.STATE AS STATE -- 처리상태
+     , MK.UDATE AS UDATE -- 업데이트된 납기일
+     , CASE WHEN SUBSTR(MK.POSID,1,1) = 'H' or SUBSTR(MK.POSID,1,1) = 'E' 
+            --THEN (select max(rdate) from saphee.zmmt001 where mandt = '183' and posid like substr(MK.POSID,1,6)||'%' and matnr = MK.MATNR WITH UR)
+            THEN (select max(rdate) from saphee.zmmt001 where mandt = '183' and posid = MK.POSID and matnr = MK.MATNR WITH UR)
+ 	        ELSE '' END  AS UDATE2
+     , MK.MAKTX AS MAKTX -- 자재내역
+     , MK.VALUE AS VALUE -- 특성값
+     , MK.WAERS AS WAERS -- 화폐단위
+     , MK.ZEINR AS ZEINR -- 도면번호
+     , MK.CHECK AS CHECK 
+     , MK.RV_NAME AS RV_NAME 
+     , MK.NETPR * MK.MENGE AS BRTWR
+     , MK.R_EKGRP AS R_EKGRP -- 구매그룹
+     , MK.LNAME_M AS LNAME_M
+     , MK.EBELN_M AS EBELN_M
+     , MK.EBELP_M AS EBELP_M 
+     , MK.STATUS AS STATUS
+     , MK.LIFNR AS LIFNR
+     , MK.LNAME AS LNAME  
+     , MK.LIFNR_A AS LIFNR_A  
+
+     , CASE WHEN MK.STATUS = '' THEN (CASE WHEN (SELECT VALUE(STATE,'') FROM SAPHEE.ZMMT013_M WHERE MANDT = '183' AND EBELN = MK.EBELN AND EBELP = MK.EBELP AND LIFNR = MK.LIFNR AND STATE='2') = '2' THEN '0' 
+                                                  ELSE (CASE WHEN (SELECT VALUE(STATE,'') FROM SAPHEE.ZMMT013 WHERE MANDT = '183' AND EBELN = MK.EBELN AND EBELP = MK.EBELP AND LIFNR = MK.LIFNR AND STATE='2') = '' THEN '1' 
+                                                             ELSE '' END) END) 
+                          ELSE MK.STATUS END AS STATUS2
+     , SAPHEE.GET_CURRDATA(MK.WAERS,MK.NETPR_M) * MK.MENGE AS BRTWR_M
+     , SAPHEE.GET_CURRDATA(MK.WAERS,MK.NETPR_M) AS NETPR_M
+     , MK.NETPR_M AS NETPR_A       
+     , MK.DFLAG AS DFLAG  
+     , MK.IN_DT                       
+FROM 
+(
+SELECT 
+       A.CHAR1 AS CHAR1 -- 자재특성치
+     , A.CHDAT AS CHDAT -- 자재특성치 변경일
+     , A.CHTIM AS CHTIM -- 자재특성치 변경시간
+     , A.DDATE AS DDATE -- PO삭제일
+     , A.DNAME AS DNAME -- PO삭제담당자
+     , A.DTIME AS DTIME -- PO삭제시간
+     , A.EBELN AS EBELN -- 발주번호
+     , A.EBELP AS EBELP -- 발주품목번호
+     , A.EDATE AS EDATE -- 납기일 UPDATE 일자
+     , A.EINDT AS EINDT -- 품목납기일
+     , A.EKGRP AS EKGRP -- 구매그룹
+     , A.ETIME AS ETIME -- 납기일 UPDATE 시간
+  --   , A.LIFNR AS LIFNR -- 업체코드 
+  --   , A.LNAME AS LNAME -- 업체명
+     , A.MANDT AS MANDT -- 클라이언트
+     , A.MATNR AS MATNR -- 자재번호
+     , A.MEINS AS MEINS -- 단위
+     , A.MENGE AS MENGE -- 발주수량
+     , A.MENGE1 AS MENGE1 -- 발주잔량
+     , A.NETPR AS NETPR -- 현대단가
+     , A.POSID AS POSID -- 호기번호
+     , A.POST1 AS POST1 -- 호기명
+     , A.SDATE AS SDATE -- PO릴리즈일
+     , A.SNAME AS SNAME -- PO승인담당자
+     , A.STIME AS STIME -- PO승인시간
+     , A.STATE AS STATE -- 처리상태
+     , A.UDATE AS UDATE -- 업데이트된 납기일
+     , A.MAKTX AS MAKTX -- 자재내역
+     , A.VALUE AS VALUE -- 특성값
+     , A.WAERS AS WAERS -- 화폐단위
+     , A.ZEINR AS ZEINR -- 도면번호
+     , A.CHECK AS CHECK 
+     , A.RV_NAME AS RV_NAME 
+   --  , A.NETPR_M AS NETPR_M  -- M사발주단가
+     , A.NETPR * A.MENGE AS BRTWR
+  --   , A.NETPR_M * A.MENGE AS BRTWR_M
+     , A.R_EKGRP AS R_EKGRP -- 구매그룹
+     --, '' AS LIFNR 
+     --, '' AS LNAME
+     , (SELECT NAME1 FROM SAPHEE.ZMMT012 WHERE MANDT = #G_MANDT# AND LIFNR = MM993.LIFNR) AS LNAME_M
+     , VALUE(MM013_M.EBELN,'') AS EBELN_M
+     , VALUE(MM013_M.EBELP,'') AS EBELP_M
+     , CASE WHEN A.PRO_F = '1' THEN '2' ELSE
+            ( CASE WHEN A.PRO_F = '2' THEN '3' ELSE (
+              CASE WHEN A.PRO_F = '4' THEN '4' ELSE '' END) END) END AS STATUS     
+     , VALUE (MM013_M.LIFNR,'') AS LIFNR
+     , MM013_M.LNAME AS LNAME  
+     , VALUE (MM993.LIFNR,'') AS LIFNR_A  
+    -- , VALUE (MM993.NETPR,0) AS NETPR_A       
+     , VALUE (MM993.NETPR,0) AS NETPR_M   
+     , VALUE (MM993.DFLAG,'') AS DFLAG
+     , A.IN_DT
+FROM	
+(	
+SELECT 
+	 MM013.CHAR1 AS CHAR1
+	, SAPHEE.GET_ZERODATE(MM013.CHDAT) AS CHDAT
+	, SAPHEE.GET_ZERODATE(MM013.CHTIM) AS CHTIM
+	, SAPHEE.GET_ZERODATE(MM013.DDATE) AS DDATE
+	, MM013.DNAME AS DNAME
+	, SAPHEE.GET_ZERODATE(MM013.DTIME) AS DTIME
+	, MM013.EBELN AS EBELN
+	, MM013.EBELP AS EBELP
+	, SAPHEE.GET_ZERODATE(MM013.EDATE) AS EDATE
+	, SAPHEE.GET_ZERODATE(MM013.EINDT) AS EINDT
+	, MM013.EKGRP AS EKGRP
+	, SAPHEE.GET_ZERODATE(MM013.ETIME) AS ETIME
+--	, MM013.EXTWG AS EXTWG
+--	, MM013.GROES AS GROES
+--	, MM013.INFNR AS INFNR
+--	, MM013.KNTTP AS KNTTP
+--	, MM013.LGOBE AS LGOBE
+--	, MM013.LGORT AS LGORT
+	, MM013.LIFNR AS LIFNR
+	, MM013.LNAME AS LNAME
+	, MM013.MANDT AS MANDT
+	, MM013.MATNR AS MATNR
+--	, VALUE(MM011.BISMT,'') AS BISMT
+	, MM013.MEINS AS MEINS
+	, MM013.MENGE AS MENGE
+	, (MM013.MENGE - VALUE(MM017A.MENGE, 0)) AS MENGE1
+	, VALUE(MM017A.B_MENGE, 0) AS B_MENGE
+	, MM013.NAME1 AS NAME1
+	, SAPHEE.GET_CURRDATA(MM013.WAERS,MM013.NETPR) AS NETPR
+	, MM013.POSID AS POSID
+	, CASE WHEN SUBSTR(MM013.POSID,1,2) = 'QM' THEN SUBSTR(MM013.POSID,1,8)
+				WHEN SUBSTR(MM013.POSID,1,1) = 'Q' THEN SUBSTR(MM013.POSID,1,7)
+                          ELSE SUBSTR(MM013.POSID,1,6) END  AS PROJ
+	, MM013.POST1 AS POST1
+	, MM013.POTYPE AS POTYPE
+	, MM013.PSTYP AS PSTYP
+	, SAPHEE.GET_ZERODATE(MM013.SDATE) AS SDATE
+	, MM013.SNAME AS SNAME
+	, MM013.STATE AS STATE
+	, SAPHEE.GET_ZERODATE(MM013.STIME) AS STIME
+	, MM013.SUBMI AS SUBMI
+	, (MM011.MATNR_NM ||','|| MM011.ZSIZE ||','|| MM011.SPEC) AS MAKTX
+	, SAPHEE.GET_ZERODATE(MM013.UDATE) AS UDATE
+	, MM013.VALUE AS VALUE
+	, MM013.WAERS AS WAERS
+	, MM013.WERKS AS WERKS
+	, MM013.ZEINR AS ZEINR
+              , '0' AS CHECK
+              , SAPHEE.GET_VENDER_NAME(MM013.MANDT, MM013.LIFNR) AS RV_NAME
+              , (SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = #G_MANDT#  AND LANG = #G_LANG# AND CODE1 = '10' 
+                        AND CODE2 = MM013.EKGRP) AS R_EKGRP               
+              ,SAPHEE.GET_REMARK(MM013.MANDT, SUBSTR(MM013.POSID,1,9),MM013.MATNR,' | ',270) AS TEX01
+            --  , CASE WHEN MM013.WERKS &lt;&gt; '2000' AND SAPHEE.GET_JAJEA_BALJU(MM013.MANDT, MM013.POSID,MM013.MATNR) &lt; 0 THEN '1' ELSE '0' END AS BIGO
+       --  ,'0' AS BIGO
+--	, CASE WHEN SUBSTR(MM013.MATNR,1,3) = '361' THEN SAPHEE.GET_SILCHEUK(MM013.MANDT,MM013.POSID) ELSE  '' END AS SILCHEUK
+         --     , VALUE(SAPHEE.GET_PROJ_END(MM013.MANDT,MM013.POSID ),'') AS P_END
+         --     , VALUE(SAPHEE.GET_SEOLCHI_VEND_NAME(MM013.MANDT,MM013.POSID ),'') AS S_VEND
+         --     , CASE WHEN MM013.BOX_CK = '24' THEN '신박스' ELSE '구박스' END AS BOXCK
+   --  ,SAPHEE.GET_CURRDATA(MM013.WAERS,MM013.NETPR) / 1.12 AS NETPR_M  
+     ,VALUE(MM017A.PRO_F,'') AS PRO_F  
+     ,MM013.NETPR AS NETPR_A 
+     ,MM017A.IN_DT
+ FROM SAPHEE.ZMMT013 AS MM013
+ LEFT OUTER JOIN SAPHEE.ZMMT011 AS MM011 ON MM013.MANDT = MM011.MANDT AND MM013.MATNR = MM011.MATNR 
+ LEFT OUTER JOIN ( 
+                  SELECT 
+                       MANDT
+                     , EBELN
+                     , EBELP 
+                     ,COALESCE(SUM(MM017.MENGE - MM017.B_MENGE),0) AS MENGE
+                     ,COALESCE(SUM(MM017.B_MENGE),0) AS B_MENGE
+                     ,MAX(PRO_F) AS PRO_F
+                     ,CASE WHEN VALUE(IN_DT,'') > VALUE(CA_DT,'') THEN VALUE(IN_DT,'') ELSE '' END AS IN_DT
+                  FROM SAPHEE.ZMMT017 AS MM017
+                  WHERE MM017.MANDT = #G_MANDT#
+                  --업체코드 우진전장->마운트 변경 필요 마운트 : 2148898192
+                      AND MM017.LIFNR = '2148898192'
+                      AND MM017.SDATE BETWEEN #SDATE_FM# AND #SDATE_TO#
+                      AND MM017.WERKS = '2000'
+                      AND MM017.LGORT = '9500'
+          
+	 <isNotNull col="MATNR">
+	    AND MM017.MATNR LIKE #MATNR# || '%'
+	 </isNotNull>
+	 <isNotNull col="EBELN">
+	    AND MM017.EBELN = #EBELN#
+	 </isNotNull>
+	
+                    AND MM017.PRO_F &gt;= '1' 
+                      GROUP BY MM017.MANDT,MM017.EBELN,MM017.EBELP, IN_DT, CA_DT) AS MM017A
+                  ON MM013.MANDT = MM017A.MANDT 
+                  AND MM013.EBELN = MM017A.EBELN
+                  AND MM013.EBELP = MM017A.EBELP
+ WHERE  MM013.MANDT = #G_MANDT#
+  
+ --   AND MM013.LIFNR = #LIFNR#
+    AND MM013.SDATE BETWEEN #SDATE_FM# AND #SDATE_TO#
+ --   AND MM013.STATE = '2'
+    AND MM013.POTYPE = ''
+    AND MM013.WERKS = '2000'
+    AND MM013.LGORT = '9500'
+ --업체코드 우진전장->마운트 변경 필요 마운트 : 2148898192
+    AND MM013.LIFNR = '2148898192'
+ <isNotNull col="MATNR">
+    AND MM013.MATNR LIKE #MATNR# || '%'
+ </isNotNull>
+ <isNotNull col="EBELN">
+    AND MM013.EBELN = #EBELN#
+ </isNotNull>
+ <isNotNull col="POSID">
+    AND MM013.POSID LIKE #POSID# || '%' 
+ </isNotNull>
+ <isEqual col="EKGRP" value="1">
+    AND (MM013.EKGRP = '106' OR MM013.EKGRP = '108' OR MM013.EKGRP = '109' OR MM013.EKGRP = '117')
+</isEqual>    
+ <isEqual col="EKGRP" value="2">
+   AND (MM013.EKGRP = '101' OR MM013.EKGRP = '102' OR MM013.EKGRP = '103' OR MM013.EKGRP = '104' OR
+        MM013.EKGRP = '105' OR MM013.EKGRP = '107' OR MM013.EKGRP = '114' OR MM013.EKGRP = '116' OR 
+        MM013.EKGRP = '118' OR MM013.EKGRP = '119' OR MM013.EKGRP = '123' OR MM013.EKGRP = '124')
+</isEqual> 
+ <isEqual col="EKGRP" value="3">
+    AND (MM013.EKGRP = '110' OR MM013.EKGRP = '111' OR MM013.EKGRP = '113' OR MM013.EKGRP = '115')
+</isEqual>  
+ --<isNotNull col="EKGRP">
+ --   AND MM013.EKGRP = #EKGRP#
+ --</isNotNull>
+  ORDER BY MM013.EBELN,MM013.EBELP,MM013.EINDT,MM013.POSID
+) AS A  LEFT OUTER JOIN SAPHEE.ZMMT013_M AS MM013_M ON A.MANDT = MM013_M.MANDT
+                                                   AND A.EBELN = MM013_M.EBELN
+                                                   AND A.EBELP = MM013_M.EBELP
+                                                   AND MM013_M.STATE = '2'
+        LEFT OUTER JOIN SAPHEE.ZMMT993 AS MM993 ON A.MANDT = MM993.MANDT
+                                               AND A.EBELN = MM993.EBELN
+                                               AND A.EBELP = MM993.EBELP
+                                              -- AND MM993.DFLAG = ''        
+ <isNotNull col="LIFNR">
+    WHERE MM013_M.LIFNR LIKE #LIFNR# || '%'
+ </isNotNull>                                                                                
+--  WHERE A.STATE = '2'
+ --  AND MM013_M.STATE &lt;&gt; '2'
+ -- AND (VALUE(MM013_M.EBELN,'') = '' OR VALUE(MM013_M.DDATE,'') &lt;&gt; '')
+ ) AS MK
+ 
+ <isEqual col="NOTPO" value="1">
+          WHERE MK.EBELN_M = ''
+</isEqual>
+<isEqual col="NOTPO" value="0">
+          --WHERE LENGTH(MK.EBELN_M) &gt; 0
+          WHERE MK.EBELN_M &lt;&gt; ''
+</isEqual>  
+) AS MM
+LEFT OUTER JOIN SAPHEE.EKPO AS PO ON MM.MANDT = PO.MANDT 
+                                 AND MM.EBELN = PO.EBELN 
+                                 AND MM.EBELP = PO.EBELP
+LEFT OUTER JOIN SAPHEE.EBAN AS AN ON PO.MANDT = AN.MANDT 
+                                 AND PO.BANFN = AN.BANFN
+                                 AND PO.BNFPO = AN.BNFPO                                                         
+LEFT OUTER JOIN SAPHEE.ZMMT001 AS MT001 ON AN.MANDT = MT001.MANDT AND AN.BANFN = MT001.BANFN AND AN.BNFPO = MT001.BNFPO
+LEFT OUTER JOIN SAPHEE.ZMMT031 AS MM031 ON MM031.MANDT = MT001.MANDT
+                                 AND MM031.REQNR = MT001.REQNR
+                                 AND MM031.REQITEM = MT001.REQITEM
+                                 AND ( MM031.LGORT BETWEEN '9000' AND '9500' OR MM031.LGORT LIKE '98%' ) --서비스자회사  관련
+LEFT OUTER JOIN SAPHEE.ZUSERF AS USER ON MM031.MANDT= USER.MANDT
+                                 AND MM031.CREID = USER.USERNUMB
+LEFT OUTER JOIN SAPHEE.ZUSERF AS ACUSER ON MM031.MANDT= ACUSER.MANDT
+                                 AND MM031.ACNAM = ACUSER.USERNUMB
+WHERE 1=1 
+<isEqual col="STATUS2" value="0">
+          AND MM.STATUS2 = '0'
+</isEqual>   
+<isEqual col="STATUS2" value="1">
+          AND MM.STATUS2 = '1'
+</isEqual>   
+<isEqual col="STATUS2" value="2">
+          AND MM.STATUS2 = '2'
+</isEqual>   
+<isEqual col="STATUS2" value="3">
+          AND MM.STATUS2 = '3'
+</isEqual>   
+<isEqual col="STATUS2" value="4">
+          AND MM.STATUS2 = '4'
+</isEqual>  
+) AS A
+  WHERE RANK = '1' 
+  FOR FETCH ONLY
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="SDATE_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="SDATE_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="EBELN" size="255" type="VARCHAR" description="" /> 
+		<col name="AFNAM" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="NOTPO" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="STATUS" size="255" type="NUMERIC" description="" /> 
+		<col name="SDATE" size="255" type="VARCHAR" description="" /> 
+		<col name="EBELN" size="255" type="VARCHAR" description="" /> 
+		<col name="EBELP" size="255" type="VARCHAR" description="" /> 
+		<col name="EBELN_M" size="255" type="VARCHAR" description="" /> 
+		<col name="EBELP_M" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="255" type="VARCHAR" description="" /> 
+		<col name="MAKTX" size="255" type="VARCHAR" description="" /> 
+		<col name="AFNAM" size="255" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="255" type="VARCHAR" description="" /> 
+		<col name="MENGE_M" size="255" type="VARCHAR" description="" /> 
+		<col name="MEINS" size="255" type="VARCHAR" description="" /> 
+		<col name="NETPR" size="255" type="VARCHAR" description="" /> 
+		<col name="NETPR_M" size="255" type="VARCHAR" description="" /> 
+		<col name="BRTWR" size="255" type="VARCHAR" description="" /> 
+		<col name="BRTWR_M" size="255" type="VARCHAR" description="" /> 
+		<col name="WAERS" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="LNAME" size="255" type="VARCHAR" description="" /> 
+		<col name="LFDAT" size="255" type="VARCHAR" description="" /> 
+		<col name="EKNAM" size="255" type="VARCHAR" description="" /> 
+		<col name="SDATE_M" size="255" type="VARCHAR" description="" />
+		<col name="CHAR1" size="255" type="VARCHAR" description="" />  
+		<col name="USERNAME" size="255" type="VARCHAR" description="" />
+		<col name="USERNAME_A" size="255" type="VARCHAR" description="" />
+	</output>
+</query>

@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.ARA,
+       A.ARA_NM,
+       A.BSU,
+       A.BSU_NM,
+       A.UPN,
+       A.PJT,
+       A.HNO,
+       A.GNO,
+       A.SPT,
+       A.AMT,
+       A.GBN,
+       VALUE(B.BAMT,0) BAMT,
+       (
+        SELECT 
+               AA.CTEXT2 
+          FROM 
+               SAPHEE.ZLCODE AA,
+               SAPHEE.ZCST111 BB
+         WHERE 
+               AA.MANDT = #G_MANDT#
+           AND AA.LANG = #G_LANG#
+           AND AA.CODE1 = 'CS123'
+           AND AA.CODE2 = BB.BLD
+           AND AA.MANDT = BB.MANDT
+           AND BB.PJT = A.PJT
+           AND BB.HNO = A.HNO
+       ) BLD
+  FROM (
+        SELECT
+               A.CS126_ARA ARA,
+               MAX(B.CTEXT2) ARA_NM,
+               A.CS126_BSU BSU,
+               MAX(C.ABR_NM) BSU_NM,
+               D.CS121_UPN UPN,
+               A.CS126_PJT PJT,
+               A.CS126_HNO HNO,
+               A.CS126_GNO GNO,
+               MAX(D.CS121_SPT) SPT,
+               SUM(A.CS126_AMT) AMT,
+               MAX(E.GBN) GBN,
+               A.CS126_GKD GKD
+          FROM
+               SAPHEE.ZCST126 A,
+               SAPHEE.ZLCODE B,
+               SAPHEE.ZWBT010 C,
+               SAPHEE.ZCST121 D,
+               (
+                SELECT
+                       A.CS126_PJT PJT,
+                       A.CS126_HNO HNO,
+                       MIN(A.CS126_USD) USD,
+                       MIN(CASE WHEN A.CS126_GKD IN ('1','4','5') THEN '신규' ELSE '전환' END) GBN
+                  FROM
+                       SAPHEE.ZCST126 A,
+                       SAPHEE.ZWBT010 B
+                 WHERE 1=1
+                <isNotNull col="ARA">
+                   AND A.CS126_ARA = #ARA#
+                </isNotNull>
+                <isNotNull col="BSU">
+                   AND A.CS126_BSU = #BSU#
+                </isNotNull>
+                <isNotNull col="BPM">
+                   AND A.CS126_BPM = #BPM#
+                </isNotNull>
+                <isNotNull col="TEM">
+                   AND B.VKGRP = #TEM#
+                </isNotNull>
+                   AND A.MANDT = #G_MANDT#
+                   AND A.MANDT = B.MANDT
+                   AND A.CS126_BSU = B.LGORT
+                   AND A.CS126_DDT = ''
+                   AND A.CS126_PST = 'A6'
+                   AND A.CS126_KND > ''
+                   AND A.CS126_USD BETWEEN #YYMM# || '01' AND #YYMM# || '31'                   
+                   AND SUBSTR(A.CS126_HNO,1,1) NOT IN ('J','G')
+                GROUP BY
+                       A.CS126_PJT,
+                       A.CS126_HNO
+               ) E
+         WHERE
+               A.MANDT = #G_MANDT#
+           AND A.CS126_DDT = ''
+           AND A.CS126_PST = 'A6'
+           AND A.CS126_KND > ''
+           AND A.CS126_USD BETWEEN #YYMM# || '01' AND #YYMM# || '31'
+           AND A.MANDT = B.MANDT
+           AND A.CS126_ARA = B.CODE2
+           AND B.CODE1 = 'CS115'
+           AND B.LANG = 'ko'
+           AND A.MANDT = C.MANDT
+           AND A.CS126_BSU = C.LGORT
+           AND A.MANDT = D.MANDT
+           AND A.CS126_UPN = D.CS121_UPN
+           AND A.CS126_CST = D.CS121_CST
+           AND A.CS126_PJT = E.PJT
+           AND A.CS126_HNO = E.HNO
+           AND A.CS126_USD = E.USD
+         GROUP BY
+               A.CS126_ARA,
+               A.CS126_BSU,
+               D.CS121_UPN,
+               A.CS126_PJT,
+               A.CS126_HNO,
+               A.CS126_GNO,
+               A.CS126_GKD ) A LEFT OUTER JOIN (
+                                                SELECT A.PJT,
+                                                       A.HNO,
+                                                       A.KND,
+                                                       A.BAMT
+                                                  FROM (
+                                                        SELECT CS126_PJT PJT,
+                                                               CS126_HNO HNO,
+                                                               CS126_KND KND,
+                                                               CS126_AMT BAMT,
+                                                               ROW_NUMBER() OVER(PARTITION BY CS126_PJT, CS126_HNO ORDER BY CS126_USD DESC) AS ROWN
+                                                          FROM SAPHEE.ZCST126 F
+                                                         WHERE MANDT = #G_MANDT#
+                                                           AND CS126_DDT = ''
+                                                           AND CS126_PST = 'A6'
+                                                           AND SUBSTR(CS126_HNO,1,1) NOT IN ('J','G')
+                                                           AND CS126_USD &lt; #YYMM# || '01'
+                                                       ) A
+                                                 WHERE A.ROWN = 1
+                                               ) B  ON A.PJT = B.PJT
+                                                   AND A.HNO = B.HNO
+ WHERE (A.GKD = '4' OR VALUE(B.KND,'') = '')
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="YYMM" size="255" type="VARCHAR" description="" /> 
+		<col name="ARA" size="255" type="VARCHAR" description="" /> 
+		<col name="BSU" size="255" type="VARCHAR" description="" /> 
+		<col name="BPM" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

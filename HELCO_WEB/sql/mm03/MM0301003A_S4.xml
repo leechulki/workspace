@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[box거래명세서 내역 조회-DETAIL(발주번호있는경우)]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+
+<![CDATA[
+SELECT
+    MM017B.INVNR
+  , MM017B.EXTWG AS EXTWG
+  , CASE WHEN MAX(MM017B.BOX_CK) = '24' THEN (SELECT EWBEZ FROM SAPHEE.ZMMT008_1 WHERE MANDT = MM017B.MANDT AND EXTWG = MM017B.EXTWG) 
+             ELSE  (SELECT EWBEZ FROM SAPHEE.ZMMT008 WHERE MANDT = MM017B.MANDT AND EXTWG = MM017B.EXTWG) END AS MAKTX
+  , MM017B.POSID AS POSID
+  , MAX(MM017B.POST1) AS POST1
+  , SAPHEE.GET_CURRDATA(MAX(MM017B.WAERS),SUM(MM017B.NETPR*MM017B.MENGE)) AS NETPR
+  , MAX(MM017B.WAERS) AS WAERS
+  , SAPHEE.GET_ZERODATE(MAX(MM017B.DDATE)) AS DDATE
+  , SAPHEE.GET_ZERODATE(MAX(MM017B.UDATE)) AS UDATE
+  , SAPHEE.GET_ZERODATE(MAX(MM017B.EDATE)) AS EDATE
+  , SAPHEE.GET_ZERODATE(MAX(MM017B.ETIME)) AS ETIME
+  , SAPHEE.GET_ZERODATE(MAX(MM017B.RECE_DATE)) AS RECE_DATE
+  , SAPHEE.GET_ZERODATE(MAX(MM017B.RECE_TIME)) AS RECE_TIME
+  , MIN(MM013B.STATE) AS STATE
+  , CASE WHEN MAX(STO_MBLNR) > '' THEN '5' ELSE MIN(MM017B.PRO_F) END AS PRO_F
+  , MAX(MM017B.POTYPE) AS POTYPE
+  , MM017B.EXTWG AS MATNR
+  , MM017B.EXTWG AS INVITEM
+  , MIN(MM017B.EBELN) AS EBELN
+  , 1 AS MENGE
+  , 'EA' AS MEINS
+  , MAX(INS_Q) AS INS_Q
+  , '0' AS CHECK
+  , SAPHEE.TO_DATETIME(CURRENT TIMESTAMP,'EE','.',':') AS UDT
+-- 신구박스 변경으로 출하예정이 조회 변경 2012.02.10 HSS
+--  ,CASE MAX(SUBSTR(MM026.BLOCK,1,1)) WHEN '1'  THEN MAX(MM025.SHIPDAT1)  
+--        WHEN '2'  THEN MAX(MM025.SHIPDAT2) 
+--        WHEN '3' THEN MAX(MM025.SHIPDAT3)  
+--        WHEN '4'  THEN MAX(MM025.SHIPDAT4)  
+--        WHEN '5'  THEN MAX(MM025.SHIPDAT5) 
+--        ELSE (
+--           CASE WHEN MAX(MM025.SHIPDAT1) IS NULL    THEN '00000000'
+--               WHEN MAX(MM011.BLOCK_NO) = ''       THEN MAX(MM025.SHIPDAT2)
+--               WHEN MAX(MM011.BLOCK_NO) LIKE 'A%'  THEN MAX(MM025.SHIPDAT1)  
+--               WHEN MAX(MM011.BLOCK_NO) LIKE 'B%'  THEN MAX(MM025.SHIPDAT2) 
+--               WHEN MAX(MM011.BLOCK_NO) LIKE 'C%'  THEN MAX(MM025.SHIPDAT3)  
+--               WHEN MAX(MM011.BLOCK_NO) LIKE 'D%'  THEN MAX(MM025.SHIPDAT4)  
+--               WHEN MAX(MM011.BLOCK_NO) LIKE 'E%'  THEN MAX(MM025.SHIPDAT5) ELSE '00000000' END) END AS SHIPDAT  
+  , CASE WHEN MAX(MM017B.EXTWG) IS NULL OR MAX(MM017B.EXTWG) = '' OR (MAX(MM017B.BOX_CK) = '' AND MAX(MM017B.EXTWG) = 'BOX33') OR (MAX(MM017B.BOX_CK) = '24' AND MAX(MM017B.EXTWG)='BOX24') THEN 
+	  (CASE WHEN MAX(MM025.SHIPDAT1) IS NULL    THEN '00000000'
+                 WHEN MAX(MM011.BLOCK_NO) = ''           THEN MAX(MM025.SHIPDAT2)
+                 WHEN MAX(MM011.BLOCK_NO) LIKE 'A%'  THEN MAX(MM025.SHIPDAT1)
+                 WHEN MAX(MM011.BLOCK_NO) LIKE 'B%'  THEN MAX(MM025.SHIPDAT2) 
+                 WHEN MAX(MM011.BLOCK_NO) LIKE 'C%'  THEN MAX(MM025.SHIPDAT3)  
+                 WHEN MAX(MM011.BLOCK_NO) LIKE 'D%'  THEN MAX(MM025.SHIPDAT4)  
+                 WHEN MAX(MM011.BLOCK_NO) LIKE 'E%'  THEN MAX(MM025.SHIPDAT5) ELSE '00000000' END) 
+	   ELSE		   
+	   (CASE ( CASE WHEN MAX(MM017B.BOX_CK) = '24' THEN  (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026_1 WHERE MANDT= MM017B.MANDT AND BOXNO = MAX(MM017B.EXTWG))
+                            ELSE  (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026 WHERE MANDT= MM017B.MANDT AND BOXNO = MAX(MM017B.EXTWG)) END )
+		    WHEN '1' THEN MAX(MM025.SHIPDAT1)
+		    WHEN '2' THEN MAX(MM025.SHIPDAT2)
+		    WHEN '3' THEN MAX(MM025.SHIPDAT3)
+		    WHEN '4' THEN MAX(MM025.SHIPDAT4)
+		    WHEN '5' THEN MAX(MM025.SHIPDAT5)  ELSE '00000000' END)  END   AS SHIPDAT 
+  , CASE WHEN MIN(SAPHEE.GET_JAJEA_BALJU(MM017B.MANDT, MM017B.POSID,MM017B.MATNR)) < 0 THEN '1' ELSE '0' END   AS BIGO 
+-- ,'0' AS BIGO
+  , VALUE(SAPHEE.GET_PROJ_END(MM017B.MANDT,MM017B.POSID ),'') AS P_END
+   , MAX(MM017B.BOX_CK) AS BOX_CK
+  , CASE WHEN SUBSTR(MM017B.POSID,7,2) IN  ('NB','NS','NC') THEN 'N' ELSE 'Y' END  AS MISU_GUBN
+ FROM SAPHEE.ZMMT017 AS MM017B
+ LEFT OUTER JOIN SAPHEE.ZMMT013 AS MM013B ON MM017B.MANDT = MM013B.MANDT 
+                      AND MM017B.EBELN = MM013B.EBELN 
+                      AND MM017B.EBELP = MM013B.EBELP 
+ LEFT OUTER JOIN SAPHEE.ZMMT011 AS MM011 ON MM017B.MANDT = MM011.MANDT 
+                     AND MM017B.MATNR = MM011.MATNR 
+-- LEFT OUTER JOIN SAPHEE.ZMMT026 AS MM026 ON  MM011.MANDT = MM026.MANDT
+--                     AND MM011.EXTWG = MM026.BOXNO
+ LEFT OUTER JOIN SAPHEE.ZMMT025 AS MM025 ON  MM017B.MANDT = MM025.MANDT
+                     AND SUBSTR(MM017B.POSID,1,9) = MM025.POSID
+                     AND MM025.PSTYPE = '02'
+WHERE MM017B.MANDT = #G_MANDT#
+    AND MM017B.LIFNR = #LIFNR#
+    AND MM017B.DDATE = '00000000'
+    AND MM017B.EBELN = #EBELN#
+    AND MM017B.POTYPE = 'X'
+   GROUP BY MM017B.MANDT,MM017B.INVNR, MM017B.POSID, MM017B.EXTWG
+   ORDER BY INVNR,EXTWG,UDATE
+  FOR FETCH ONLY
+  WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="EBELN" size="30" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="INVNR" size="30" type="VARCHAR" description="" /> 
+		<col name="EXTWG" size="54" type="VARCHAR" description="" /> 
+		<col name="MAKTX" size="60" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POST1" size="120" type="VARCHAR" description="" /> 
+		<col name="NETPR" size="22" type="DOUBLE" description="" /> 
+		<col name="WAERS" size="15" type="VARCHAR" description="" /> 
+		<col name="DDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="UDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="EDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="ETIME" size="8" type="VARCHAR" description="" /> 
+		<col name="STATE" size="3" type="VARCHAR" description="" /> 
+		<col name="PRO_F" size="3" type="VARCHAR" description="" /> 
+		<col name="POTYPE" size="3" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="INVITEM" size="54" type="VARCHAR" description="" /> 
+		<col name="EBELN" size="30" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="11" type="INTEGER" description="" /> 
+		<col name="MEINS" size="2" type="VARCHAR" description="" /> 
+		<col name="INS_Q" size="15" type="DECIMAL" description="" /> 
+		<col name="CHECK" size="1" type="VARCHAR" description="" /> 
+		<col name="UDT" size="50" type="VARCHAR" description="" /> 
+		<col name="SHIPDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="BIGO" size="1" type="VARCHAR" description="" /> 
+	</output>
+</query>

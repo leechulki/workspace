@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[DI_PBX 집계 현황]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+	  AA.*, (AA.NTT + AA.M_COST) AS TOT
+FROM (
+	SELECT
+		A.CS661_GBN AS GBN   -- 계약방식
+		, CASE WHEN (A.DNO IS NULL OR A.DNO ='')
+		  	   		THEN ''
+					WHEN (SUBSTR(A.DNO,1,3) ='010' )
+					THEN '0'
+					ELSE '1'
+		  END WYN   --  통신방식 
+		 , A.CS661_TEM AS TEM -- 팀코드
+		 , VALUE(SAPHEE.CODE_CONV(A.MANDT,'VKGRP',A.CS661_TEM),'')  AS TEM_NM  -- 팀 명
+		 , A.CS661_BSU AS BSU -- 협력사 코드
+		 , VALUE(SAPHEE.GET_VENDER_N_NAME(A.MANDT,A.CS661_BSU),'') AS BSU_NM  -- 협력사명 
+		 , A.CS661_UPN AS UPN  --통합프로젝트
+		 , A.CS661_CST AS CST  --거래선
+		 , A.CS661_PJT AS PJT  -- 원프로젝트 
+		 , A.CS661_HNO AS HNO  -- 호기
+		 , A.CS661_SPT AS SPT  -- 현장명
+		 , A.CS661_MDD AS MDD  --자재납품일
+		 , A.CS661_HST AS HST_NM  -- 호기상태
+		 , A.CS661_MGSD AS MGSD  -- 무상공사개시일
+		 , A.CS661_MISD AS MISD  -- 무상일반개시일
+		 , A.CS661_UISD AS UISD  -- 유상개시일
+		 , A.CS661_UIED AS UIED  --  유상만료일
+		 , A.CS661_CED AS CED -- 통신비 만료일
+		 , A.DNO AS MODEM    -- 모뎀번호 	   				
+		 , A.CS661_OHD AS OHD  -- ON HAND 여부
+		 , A.CS661_DNTT AS NTT   -- 누적지급액
+		 , CASE WHEN ( COALESCE(Z7.CS657_TOT,'0') ='0' OR COALESCE(Z7.CS657_CNT,'0') ='0' )
+		   			 THEN '0' 
+					 ELSE ( Z7.CS657_TOT / Z7.CS657_CNT )
+		   END AS M_COST
+	FROM 
+	(
+		SELECT 
+			Z1.*, 
+			Z6.CS656_HRNO AS HRNO, 
+			Z6.CS656_DNO AS DNO
+		FROM SAPHEE.ZCST661 Z1 , SAPHEE.ZCST656 Z6
+		WHERE
+			 Z1.MANDT=#G_MANDT#
+			 AND Z1.MANDT = Z6.MANDT
+			 AND Z1.CS661_PJT = Z6.CS656_PJT
+			 AND Z1.CS661_HNO = Z6.CS656_HNO
+			 AND Z1.CS661_YEA = #YEAR#
+			 AND Z1.CS661_MON = #MONTH#
+
+		<isNotNull col="PJT">
+			 AND Z1.CS661_PJT = #PJT#
+		</isNotNull>			 
+
+		<isNotNull col="TEM">
+			 AND Z1.CS661_TEM = #TEM# 
+		</isNotNull>
+		
+		<isNull col="TEM">
+			 <isNotNull col="DPT">
+			 	AND Z1.CS661_TEM IN (SELECT CODE2 AS CODE
+			 						   FROM SAPHEE.ZLCODE
+			 						  WHERE MANDT=#G_MANDT#
+			 						    AND LANG =#G_LANG#
+			 						    AND CODE1 = 'VKGRP'
+			 						    AND DTEXT1 = #DPT#)
+			 </isNotNull> 
+		</isNull>
+
+		<isNotNull col="BSU">
+			 AND Z1.CS661_BSU = #BSU# 
+		</isNotNull>
+		
+		<isNotNull col="STATE">
+			 AND Z1.CS661_HST = #STATE# 
+		</isNotNull>
+		
+	
+	) A
+	INNER JOIN SAPHEE.ZCST657 Z7
+	ON 	 A.DNO = Z7.CS657_MNO
+	AND Z7.MANDT= #G_MANDT#
+	AND A.CS661_YEA = Z7.CS657_YEA
+	AND A.CS661_MON = Z7.CS657_MON
+) AA
+
+WHERE	1=1
+<isNotNull col="WYN">
+  AND AA.WYN = #WYN# 
+</isNotNull>
+<isNotNull col="GBN">
+  AND AA.GBN = #GBN# 
+</isNotNull>
+
+FOR FETCH ONLY
+WITH UR
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

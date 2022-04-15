@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+WITH SUJU AS (  -------수주   
+
+SELECT  A.MANDT, A.VBELN,  D.QTNUM,  B.ZZPJT_ID   ,C.INCGBN_TX
+             ,E.CTEXT2  --국가 
+             ,B.AUART -- 오더유형			 
+	 ,D.QTNAM --견적명  
+	 ,B.BSTNK  --현장명  
+	 ,B.KUNNR  --고객번호  
+	 ,C.ABR_NM --고객명			 
+	 ,MIN(SUBSTR(B.BSTDK,1,6)) AS YEARM   
+	 ,MIN(B.BSTDK) AS BSTDK
+	 ,SUM(A.CHNETWR) AS CHNETWR  ,  A.WAERK			
+     ,MAX(C.REPRES) AS REPRES --------------------------------------담당자추가
+     
+   FROM SAPHEE.ZSDT0011 AS A
+  INNER JOIN SAPHEE.VBAK AS B
+       ON A.MANDT = B.MANDT
+     AND A.VBELN = B.VBELN
+   LEFT OUTER JOIN SAPHEE.ZCSTEP01 AS C
+      ON B.MANDT = C.MANDT
+    AND B.KUNNR = C.LIFNR	  
+ INNER JOIN SAPHEE.ZCST001G AS D
+      ON B.MANDT = D.MANDT
+    AND B.ZZPJT_ID = D.PS_PSPID
+  LEFT OUTER JOIN SAPHEE.ZLCODE AS E
+     ON C.MANDT = E.MANDT
+   AND E.LANG = #G_LANG#
+   AND E.CODE1 = 'LAND1'
+   AND C.LAND1 = E.CODE2
+
+WHERE A.MANDT = #G_MANDT#
+    AND B.BSTDK BETWEEN #SMON# AND #EMON#
+    AND ( A.CHMENG &lt;&gt; 0 OR A.CHNETWR &lt;&gt; 0 )  
+    AND B.VKGRP = 'EH1'
+    AND B.SPART = '10'
+    AND B.VBTYP &lt;&gt; 'B'
+    AND A.YEARM &gt;= SUBSTR(B.BSTDK, 1,6)  AND B.AUART  = 'ZC01'  --B.AUART NOT LIKE  'ZR%' 
+
+<isNotNull col="PROJ">
+    AND B.ZZPJT_ID LIKE #PROJ# || '%'    
+</isNotNull>
+<isNotNull col="INCGBN">
+    AND C.INCGBN = #INCGBN#  -- 1 :중국법인   2.:기타법인   3:대리점    
+</isNotNull>
+<isNotNull col="LAND1"> 
+    AND C.LAND1 = #LAND1# 
+</isNotNull>
+	  
+   GROUP BY A.MANDT, A.VBELN,  D.QTNUM,  B.ZZPJT_ID,  C.INCGBN_TX  ,  A.WAERK  ,E.CTEXT2, B.AUART ,D.QTNAM  ,B.BSTNK  ,B.KUNNR   ,C.ABR_NM 
+HAVING SUM(A.CHNETWR) > 0   
+   
+)
+
+SELECT   TT.MANDT, TT.VBELN
+        ,TT.REPRES  -----------------------------------------------------------담당자추가
+              ,TT.QTNUM --견적번호
+	  ,TT.ZZPJT_ID --WBS번호
+	  ,TT.INCGBN_TX,  TT.CTEXT2, TT.AUART
+	  ,TT.YEARM -- 수주월  
+	  ,TT.BSTDK  --수주일  
+	  ,TT.ZCPTYM--청구월  
+	  ,TT.FKDAT --청구일			 
+	  ,( CASE WHEN  TT.FKDAT = '00000000' THEN 9999
+	                ELSE    (DAYS(SUBSTR(TT.FKDAT, 1,4) || '-' || SUBSTR(TT.FKDAT, 5,2) || '-' || SUBSTR(TT.FKDAT, 7,2))
+	                               -
+			 DAYS(SUBSTR(TT.BSTDK, 1,4) || '-' || SUBSTR(TT.BSTDK, 5,2) || '-' || SUBSTR(TT.BSTDK, 7,2)))
+	      END
+	   ) AS LEADTIME
+	  ,TT.QTNAM --견적명
+	  ,TT.BSTNK  --현장명			 
+	  ,TT.KUNNR  --고객번호 
+	  ,TT.ABR_NM --고객명 
+	  ,TT.WAERK  --수주통화 			
+	  		 
+	  ,TT.CHNETWR --수주금액  		
+	  ,TT.SJUSD -- 수주 달러환산	
+	  ,TT.SJKRW -- 수주 원화환산
+			  
+	  ,TT.NETWR --청구금액 
+	  ,TT.CGUSD -- 청구 달러환산	
+	  ,TT.CGKRW -- 청구 원화환산
+			  
+	  ,(TT.CHNETWR - TT.NETWR) AS MCG
+	  ,(TT.SJUSD - TT.CGUSD) AS MCGUSD
+	  ,(TT.SJKRW - TT.CGKRW) AS MCGKRW
+			  			  
+	  ,TT.DMBTR --수금액  
+	  ,TT.SGUSD -- 수금 달러환산	
+	  ,TT.SGKRW -- 수금 원화환산			  		
+			  
+	  ,(TT.NETWR - TT.DMBTR) AS KG
+	  ,(TT.CGUSD - TT.SGUSD) AS KGUSD
+	  ,(TT.CGKRW - TT.SGKRW) AS KGKRW			  	  
+                --,CASE WHEN (TT.NETWR - TT.DMBTR) &lt;= 0 THEN 0 ELSE (TT.NETWR - TT.DMBTR) END AS KG
+                --,CASE WHEN (TT.CGUSD - TT.SGUSD) &lt;= 0 THEN 0 ELSE (TT.NETWR - TT.DMBTR) END AS KGUSD
+                --,CASE WHEN (TT.CGKRW - TT.SGKRW) &lt;= 0 THEN 0 ELSE (TT.NETWR - TT.DMBTR) END AS KGKRW
+
+			  
+	  ,( CASE WHEN  TT.FKDAT = '00000000' THEN 9999
+	          WHEN  (TT.CGKRW - TT.SGKRW) &lt;= 0 THEN 0
+	          ELSE  (days(CURRENT DATE)
+	                  -
+			         DAYS(SUBSTR(TT.FKDAT, 1,4) || '-' || SUBSTR(TT.FKDAT, 5,2) || '-' || SUBSTR(TT.FKDAT, 7,2)))
+	      END
+	    ) AS AGING
+			  
+			  
+   FROM (
+		
+	SELECT  SST.MANDT, SST.VBELN
+	             ,SST.QTNUM --견적번호
+	             ,SST.ZZPJT_ID --WBS번호 
+		 ,SST.INCGBN_TX,  SST.CTEXT2, SST.AUART
+		 ,SST.YEARM -- 수주월
+		 ,SST.BSTDK  --수주일
+		 ,max(SST.ZCPTYM) as ZCPTYM--청구월
+		 ,max(SST.FKDAT) as FKDAT --청구일
+		 ,SST.QTNAM --견적명
+		 ,SST.BSTNK  --현장명			 
+		 ,SST.KUNNR  --고객번호 
+		 ,SST.ABR_NM --고객명 
+		 ,SST.WAERK  --수주통화 					 
+		 ,SST.CHNETWR --수주금액  			
+						 
+		,(SELECT round(SST.CHNETWR * X.UKURS, 0)
+		     FROM SAPHEE.TCURR AS X
+		   WHERE X.MANDT = SST.MANDT
+		        AND X.KURST = 'M'
+	                      AND X.FCURR = SST.WAERK
+		        AND X.TCURR = 'KRW'
+		        AND CAST((99999999-INT(GDATU)) AS CHAR(8)) = SST.BSTDK 
+                              ) AS SJKRW
+								
+		,(SELECT			
+			(SELECT SST.CHNETWR * X.UKURS
+			    FROM SAPHEE.TCURR AS X
+		                 WHERE X.MANDT = SST.MANDT   AND X.KURST = 'M'  AND X.FCURR = SST.WAERK
+			     AND X.TCURR = 'KRW'
+			    AND CAST((99999999-INT(GDATU)) AS CHAR(8)) = SST.BSTDK )  / X2.UKURS
+		     FROM SAPHEE.TCURR AS X2	
+		   WHERE X2.MANDT = SST.MANDT
+		        AND X2.KURST = 'M'
+		        AND X2.FCURR = 'USD'
+		       AND X2.TCURR = 'KRW'
+		      AND CAST((99999999-INT(GDATU)) AS CHAR(8)) = SST.BSTDK 										
+		   ) AS SJUSD						 
+						 
+						 			 			  	 
+		 ,sum(SST.NETWR) as NETWR --청구금액 
+						 
+		,(SELECT round(sum(SST.NETWR) * X.UKURS, 0)
+		     FROM SAPHEE.TCURR AS X
+		   WHERE X.MANDT = SST.MANDT
+		       AND X.KURST = 'M'
+		       AND X.FCURR = SST.WAERK
+		       AND X.TCURR = 'KRW'
+		       AND CAST((99999999-INT(GDATU)) AS CHAR(8)) = SST.BSTDK 
+                               ) AS CGKRW
+								
+		,(SELECT			
+			(SELECT --round(sum(SST.NETWR) * X.UKURS, 0)
+			        sum(SST.NETWR) * X.UKURS
+			    FROM SAPHEE.TCURR AS X
+			  WHERE X.MANDT = SST.MANDT
+		                    AND X.KURST = 'M'
+	   		      AND X.FCURR = SST.WAERK
+			     AND X.TCURR = 'KRW'
+		  	     AND CAST((99999999-INT(GDATU)) AS CHAR(8)) = SST.BSTDK )  / X2.UKURS
+		     FROM SAPHEE.TCURR AS X2	
+		   WHERE X2.MANDT = SST.MANDT
+		       AND X2.KURST = 'M'
+		       AND X2.FCURR = 'USD'
+		       AND X2.TCURR = 'KRW'
+		      AND CAST((99999999-INT(GDATU)) AS CHAR(8)) = SST.BSTDK 										
+		   ) AS CGUSD				 
+						 			 			 			 			 			 
+		 ,SUM(SST.DMBTR) as DMBTR --수금액  
+						 
+		,(SELECT round(SUM(SST.DMBTR) * X.UKURS, 0)
+		     FROM SAPHEE.TCURR AS X
+		   WHERE X.MANDT = SST.MANDT
+		       AND X.KURST = 'M'
+		       AND X.FCURR = SST.WAERK
+		       AND X.TCURR = 'KRW'
+		       AND CAST((99999999-INT(GDATU)) AS CHAR(8)) = SST.BSTDK 
+                               ) AS SGKRW
+								
+		,(SELECT			
+			(SELECT --round(SUM(SST.DMBTR) * X.UKURS, 0)
+			        SUM(SST.DMBTR) * X.UKURS
+     			    FROM SAPHEE.TCURR AS X
+			  WHERE X.MANDT = SST.MANDT
+			       AND X.KURST = 'M'
+			       AND X.FCURR = SST.WAERK
+			       AND X.TCURR = 'KRW'
+			       AND CAST((99999999-INT(GDATU)) AS CHAR(8)) = SST.BSTDK )  / X2.UKURS
+		     FROM SAPHEE.TCURR AS X2	
+		   WHERE X2.MANDT = SST.MANDT
+		        AND X2.KURST = 'M'
+		       AND X2.FCURR = 'USD'
+		       AND X2.TCURR = 'KRW'
+		       AND CAST((99999999-INT(GDATU)) AS CHAR(8)) = SST.BSTDK 										
+		   ) AS SGUSD					 
+						 						 
+		,MAX(SST.REPRES) AS REPRES  ------------------------------------------------------담당자추가
+		 				 
+	   FROM (
+		----------------청구
+		SELECT  X.MANDT, X.VBELN,  X.QTNUM,  X.ZZPJT_ID 	 ,X.INCGBN_TX ,X.CTEXT2	 ,X.AUART
+			 ,X.YEARM -- 수주월
+			 ,X.BSTDK  --수주일
+			 ,X.CHNETWR --수주금액  
+			 ,X.WAERK  --수주통화 
+			 ,value(max(A2.ZCPTYM), '00000000') as ZCPTYM--청구월  
+			 ,value(max(A2.FKDAT), '00000000') as FKDAT --청구일  
+			 ,value(sum(A2.NETWR), 0) as NETWR --청구금액  
+			 , 0 as DMBTR --수금액  
+			 ,X.QTNAM --견적명  
+		               ,X.BSTNK  --현장명  
+			 ,X.KUNNR  --고객번호
+		               ,X.ABR_NM --고객명			
+		               		               
+		     ,MAX(X.REPRES) AS REPRES  -------------------------------------------------담당자추가          
+		               				 
+		   FROM SUJU AS X
+		   LEFT OUTER JOIN SAPHEE.ZSDT0040 AS A2	   
+		     ON X.MANDT = A2.MANDT
+		   AND X.ZZPJT_ID = A2. PSPID
+		   and A2.FKSTO &lt;&gt; 'X'
+		   --AND (A2.ZCPTYM &gt;= '201907' OR A2.ZCANYM &gt;= '201907' )   							 
+		group by  X.MANDT, X.VBELN,  X.QTNUM,  X.ZZPJT_ID ,X.INCGBN_TX  ,X.YEARM	,X.BSTDK ,X.CHNETWR 
+	                            ,X.WAERK ,X.CTEXT2 , X.AUART ,X.QTNAM  ,X.BSTNK ,X.KUNNR   ,X.ABR_NM 
+							 
+	               UNION ALL
+														 
+		----------------수금
+		SELECT  X.MANDT, X.VBELN,  X.QTNUM,  X.ZZPJT_ID   ,X.INCGBN_TX ,X.CTEXT2 ,X.AUART
+			 ,X.YEARM -- 수주월  
+			 ,X.BSTDK  --수주일
+			 ,X.CHNETWR --수주금액  
+			 ,X.WAERK  --수주통화 
+			 ,MIN('00000000') as ZCPTYM--청구월
+			 ,MIN('00000000') as FKDAT --청구일
+			 , 0 as NETWR --청구금액
+			 ,value(sum(A3.DMBTR), 0) as DMBTR --수금액  
+			 ,X.QTNAM --견적명
+		               ,X.BSTNK  --현장명
+			 ,X.KUNNR  --고객번호
+			 ,X.ABR_NM --고객명
+			 
+			 ,MAX(X.REPRES) AS REPRES  -----------------------------------------------담당자추가
+			 
+		   FROM SUJU AS X
+		    LEFT OUTER JOIN SAPHEE.ZSDT0029 AS A3
+		     ON X.MANDT = A3.MANDT
+		   AND X.ZZPJT_ID = A3.KIDNO
+		   AND A3. ZCANDT &lt; '19990101'
+		group by X.MANDT, X.VBELN,  X.QTNUM,  X.ZZPJT_ID ,X.INCGBN_TX ,X.YEARM 	,X.BSTDK 	 
+		              ,X.CHNETWR ,X.WAERK  ,X.CTEXT2 , X.AUART ,X.QTNAM  ,X.BSTNK ,X.KUNNR   ,X.ABR_NM  
+										 	   			 
+	   ) AS SST	 
+						 
+        GROUP BY SST.MANDT, SST.VBELN,  SST.QTNUM,  SST.ZZPJT_ID,  SST.INCGBN_TX,  SST.CTEXT2 , SST.AUART
+	         ,SST.YEARM -- 수주월
+	 ,SST.BSTDK  --수주일
+	 ,SST.CHNETWR --수주금액  
+	 ,SST.WAERK  --수주통화 			 
+	 ,SST.QTNAM --견적명
+	 ,SST.BSTNK  --현장명
+	 ,SST.KUNNR  --고객번호
+	 ,SST.ABR_NM --고객명
+  ) AS TT
+	 
+--ORDER BY TT.ZZPJT_ID 
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

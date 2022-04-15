@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[BOM견적대상 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+WITH PPT4 AS (
+SELECT
+ PP004.WOKNUM AS HOGIN
+,(SELECT ZSITE_NM FROM SAPHEE.ZMASTER01 AS MS001 WHERE MS001.MANDT=PP004.MANDT AND MS001.POSID=PP004.POSID) AS SITE_NM
+,PP004.MATNR  AS MATNR
+,PP004.IDNRK  AS IDNRK
+,MM011.MAKTX   AS MAKTX
+,CASE WHEN MM011.MATNR_NM='' THEN MM011.MAKTX ELSE  MM011.MATNR_NM END AS MATNR_NM
+,MM011.MTART   AS MTART
+,MM011.SPEC   AS SPEC
+,MM011.ZSIZE  AS SIZE
+,PP004.DZEINR AS DZEINR
+,PP004.MATKL  AS MATKL
+,PP004.BOM_LEVEL AS BOM_LEVEL
+,PP004.PART AS PART
+,CASE WHEN PP004.PART=11 THEN '기계-구조물'
+      WHEN PP004.PART=12 THEN '기계-의장'
+      WHEN PP004.PART=21 THEN '전기-CP'
+      WHEN PP004.PART=22 THEN '전기-의장'
+      WHEN PP004.PART=23 THEN '전기-CABLE'
+      WHEN PP004.PART=50 THEN '주차'
+      WHEN PP004.PART=60 THEN 'E/S,M/W'
+      WHEN PP004.PART=70 THEN '물류' ELSE '' END AS PART_NM
+,CASE PP004.PRCTYP WHEN 'C' THEN '변경' WHEN 'D' THEN '삭제' WHEN 'N' THEN '추가' ELSE '' END AS PRCTYP
+,PP004.PRCTYP AS PRC_ORG
+,PP004.MANDT AS MANDT
+FROM (
+
+      SELECT
+       MANDT
+      ,CRDAT
+      ,SEQNO
+      ,WOKNUM
+      ,MATNR
+      ,IDNRK
+      ,ITEM_SEQ
+      ,MENGE
+      ,MEINS
+      ,MATKL
+      ,UPMATKL
+      ,DZEINR
+      ,PRCTYP
+      ,VERSION
+      ,BOM_LEVEL
+      ,CRUSER
+      ,CRTIM
+      ,ROW_NUMBER() OVER(PARTITION BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,MATKL ORDER BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,CRDAT DESC,SEQNO DESC) AS ROWNO
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,6)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,6) ELSE SUBSTR(WOKNUM,1,6) END AS POSID
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,9)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,9) ELSE SUBSTR(WOKNUM,1,9) END AS POSID_1
+      ,CASE WHEN ZPART='M'             THEN 11
+            WHEN ZPART='C'             THEN 12
+            WHEN ZPART='1'             THEN 21
+            WHEN ZPART='2'             THEN 22
+            WHEN ZPART='3'             THEN 23
+            WHEN SUBSTR(MATKL,2,1)='5' THEN 50
+            WHEN SUBSTR(MATKL,2,1)='6' THEN 60
+            WHEN SUBSTR(MATKL,2,1)='7' THEN 70
+            WHEN SUBSTR(MATKL,2,1)='1' THEN 11
+            WHEN SUBSTR(MATKL,2,1)='2' THEN 21
+            WHEN SUBSTR(MATKL,2,1)='3' THEN 12 ELSE 90 END AS PART
+      FROM SAPHEE.ZPPT004
+      WHERE MANDT = #G_MANDT#
+      AND WOKNUM LIKE #HOGIN#||'%' 
+      AND LENGTH(CAST(#HOGIN# AS VARCHAR(15))) &gt;= 6 
+
+
+      UNION          -- 1 LEVEL 자재인 경우, 2 LEVEL 자재도 선택
+
+      SELECT
+       MANDT
+      ,CRDAT
+      ,SEQNO
+      ,WOKNUM
+      ,MATNR
+      ,IDNRK
+      ,ITEM_SEQ
+      ,MENGE
+      ,MEINS
+      ,MATKL
+      ,UPMATKL
+      ,DZEINR
+      ,PRCTYP
+      ,VERSION
+      ,BOM_LEVEL
+      ,CRUSER
+      ,CRTIM
+      ,ROW_NUMBER() OVER(PARTITION BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,MATKL ORDER BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,CRDAT DESC,SEQNO DESC) AS ROWNO
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,6)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,6) ELSE SUBSTR(WOKNUM,1,6) END AS POSID
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,9)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,9) ELSE SUBSTR(WOKNUM,1,9) END AS POSID_1
+      ,CASE WHEN ZPART='M'             THEN 11
+            WHEN ZPART='C'             THEN 12
+            WHEN ZPART='1'             THEN 21
+            WHEN ZPART='2'             THEN 22
+            WHEN ZPART='3'             THEN 23
+            WHEN SUBSTR(MATKL,2,1)='5' THEN 50
+            WHEN SUBSTR(MATKL,2,1)='6' THEN 60
+            WHEN SUBSTR(MATKL,2,1)='7' THEN 70
+            WHEN SUBSTR(MATKL,2,1)='1' THEN 11
+            WHEN SUBSTR(MATKL,2,1)='2' THEN 21
+            WHEN SUBSTR(MATKL,2,1)='3' THEN 12 ELSE 90 END AS PART
+      FROM SAPHEE.ZPPT004
+      WHERE MANDT = #G_MANDT#
+      AND WOKNUM LIKE #HOGIN#||'%' 
+      AND LENGTH(CAST(#HOGIN# AS VARCHAR(15))) &gt;= 6 
+      AND MATNR IN (
+
+           SELECT
+           DISTINCT IDNRK
+           FROM SAPHEE.ZPPT004
+           WHERE MANDT = #G_MANDT#
+              AND WOKNUM LIKE #HOGIN#||'%' 
+              AND LENGTH(CAST(#HOGIN# AS VARCHAR(15))) &gt;= 6 
+
+      )
+
+      UNION          -- 2 LEVEL 자재인 경우, 1 LEVEL 자재도 선택
+
+      SELECT
+       MANDT
+      ,CRDAT
+      ,SEQNO
+      ,WOKNUM
+      ,MATNR
+      ,IDNRK
+      ,ITEM_SEQ
+      ,MENGE
+      ,MEINS
+      ,MATKL
+      ,UPMATKL
+      ,DZEINR
+      ,PRCTYP
+      ,VERSION
+      ,BOM_LEVEL
+      ,CRUSER
+      ,CRTIM
+      ,ROW_NUMBER() OVER(PARTITION BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,MATKL ORDER BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,CRDAT DESC,SEQNO DESC) AS ROWNO
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,6)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,6) ELSE SUBSTR(WOKNUM,1,6) END AS POSID
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,9)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,9) ELSE SUBSTR(WOKNUM,1,9) END AS POSID_1
+      ,CASE WHEN ZPART='M'             THEN 11
+            WHEN ZPART='C'             THEN 12
+            WHEN ZPART='1'             THEN 21
+            WHEN ZPART='2'             THEN 22
+            WHEN ZPART='3'             THEN 23
+            WHEN SUBSTR(MATKL,2,1)='5' THEN 50
+            WHEN SUBSTR(MATKL,2,1)='6' THEN 60
+            WHEN SUBSTR(MATKL,2,1)='7' THEN 70
+            WHEN SUBSTR(MATKL,2,1)='1' THEN 11
+            WHEN SUBSTR(MATKL,2,1)='2' THEN 21
+            WHEN SUBSTR(MATKL,2,1)='3' THEN 12 ELSE 90 END AS PART
+      FROM SAPHEE.ZPPT004
+      WHERE MANDT = #G_MANDT#
+      AND WOKNUM LIKE #HOGIN#||'%' 
+      AND LENGTH(CAST(#HOGIN# AS VARCHAR(15))) &gt;= 6 
+      AND IDNRK IN (
+
+           SELECT
+           DISTINCT MATNR
+           FROM SAPHEE.ZPPT004
+           WHERE MANDT = #G_MANDT#
+           AND WOKNUM LIKE #HOGIN#||'%' 
+           AND LENGTH(CAST(#HOGIN# AS VARCHAR(15))) &gt;= 6 
+        )
+
+    ) AS PP004
+    LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MS002 ON MS002.MANDT=PP004.MANDT 
+                                             AND MS002.POSID=PP004.POSID 
+                                             AND MS002.POSID_1=PP004.POSID_1
+    LEFT OUTER JOIN SAPHEE.ZMMT011   AS MM011 ON MM011.MANDT=PP004.MANDT 
+                                             AND MM011.MATNR=PP004.IDNRK
+WHERE ROWNO=1
+     AND PART > 0 
+     AND MTART = 'ROH'
+     AND PRCTYP&lt;&gt;'D'
+
+ )
+
+SELECT 
+    HOGIN AS POSID 
+, SITE_NM AS POST1
+, IDNRK AS MATNR
+, MAKTX 
+, MATNR_NM
+, SPEC
+, SIZE
+, PART_NM
+, '' AS CHECK
+, '' AS ZKIND
+, '' AS LIFNR_IF
+, '' AS MATNR_IF
+, '' AS NETPR_IF
+   
+FROM
+(		 
+   SELECT DISTINCT
+                A.HOGIN AS HOGIN
+              , A.SITE_NM AS SITE_NM
+              , A.IDNRK  AS IDNRK
+              , A.MAKTX   AS MAKTX
+              , A.MATNR_NM AS MATNR_NM
+              , A.SPEC   AS SPEC
+              , A.SIZE  AS SIZE
+              , A.PART_NM AS PART_NM
+              ,( SELECT NA.INFNR 
+	      FROM SAPHEE.EINA AS NA
+	      INNER JOIN SAPHEE.LFA1 AS A1 ON NA.MANDT = A1.MANDT 
+	                                                     AND NA.LIFNR = A1.LIFNR 
+                     INNER JOIN SAPHEE.EINE AS NE ON NA.MANDT = NE.MANDT
+                                                                    AND NA.INFNR = NE.INFNR
+                    WHERE NA.MATNR = A.IDNRK
+                        AND NA.LOEKZ = ''
+                        AND A1.LOEVM = ''
+                        AND A1.SPERM = ''
+                        AND NE.LOEKZ = ''
+                 FETCH FIRST 1 ROW ONLY  ) AS STATUS
+       FROM PPT4 A
+     WHERE 1=1
+<isNotNull col="MATNR">
+     AND IDNRK LIKE #MATNR#||'%' 
+</isNotNull>
+<isNotNull col="MATNR_NM">
+     AND MAKTX LIKE '%'||#MATNR_NM#||'%' 
+</isNotNull>
+      ORDER BY HOGIN,PART_NM DESC,IDNRK
+)
+WHERE VALUE(STATUS,'') = ''
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_hogi">
+	</input>
+	<output default-name="ds_list_d1">
+	</output>
+</query>

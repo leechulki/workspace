@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT  0 AS CHK,  T.PSPID,  T.POSID,  T.ZSITE_NM,  T.ZSPEC1,   T.ZSPEC2,  T.STATE,
+             T.INSLFN, T.GBN , 
+             T.INSLFN_NM,
+             T.WRKLFN,
+             T.WRKLFN_NM,
+             T.MWBTR,
+             T.CNFDT,
+             T.ZFDAT,
+             T.BLDAT,
+             '' AS LIFNR,
+           T.TEXT30,
+  	        T.CHARACTERISTIC  , T.VALUE , T.IN_GBN ,T.ECKEY ,T.CONF
+FROM
+(SELECT  A.MANDT, A.PSPID,  A.POSID,  B.ZSITE_NM,  C.ZSPEC1,   C.ZSPEC2,  A.STATE,
+             A.INSLFN, A.GBN , 
+             (SELECT X.NAME1 FROM SAPHEE.LFA1 AS X 
+                WHERE X.MANDT = A.MANDT AND X.LIFNR = A.INSLFN) AS INSLFN_NM,
+             A.WRKLFN,
+             (SELECT X.NAME1 FROM SAPHEE.LFA1 AS X 
+                WHERE X.MANDT = A.MANDT AND X.LIFNR = A.WRKLFN) AS WRKLFN_NM,
+             (A.MWBTR * 100) AS MWBTR,
+             D.MDATE AS  CNFDT,
+             CASE WHEN CAST(A.BLDAT AS INT) &lt;= 20160331 AND CAST(A.BLDAT AS INT) &lt;&gt; 0   THEN D.MDATE  ELSE A.ZFDAT END ZFDAT,
+             A.BLDAT,
+
+             C.TEXT30
+  	       , F.CHARACTERISTIC  , F.VALUE   ,A.ECKEY ,A.CONF
+             ,(SELECT X.GBN FROM SAPHEE.ZTBEVADF1 AS X WHERE A.MANDT = X.MANDT AND SUBSTR(A.ECKEY,1,6) = X.YYM AND SUBSTR(A.ECKEY,7,2) = X.TYP AND SUBSTR(A.ECKEY,9,4) = X.SNO) AS IN_GBN
+   FROM SAPHEE.ZPSTW1401 AS A
+   INNER JOIN SAPHEE.ZMASTER01 AS B
+        ON A.MANDT = B.MANDT
+      AND A.PSPID = B.POSID
+   INNER JOIN SAPHEE.ZMASTER02 AS C
+        ON A.MANDT = C.MANDT
+      AND A.PSPID = C.POSID
+      AND A.POSID = C.POSID_1
+
+--   INNER JOIN SAPHEE.ZPSTW0207 AS D
+    LEFT OUTER JOIN SAPHEE.ZPSTW0207 AS D
+       ON A.MANDT = D.MANDT
+     AND A.PSPID = D.PSPID
+     AND A.POSID = D.POSID
+     AND D.GUBUN = 'A'
+	 
+	INNER JOIN SAPHEE.ZSDT0005 AS F
+        ON A.MANDT = F.MANDT
+	  AND A.POSID =  F.HOGI
+	  AND F.CHARACTERISTIC in ( 'EL_DREUSE' , 'EL_DKEY') -- 철거비 특성값 
+	 --AND F.CHARACTERISTIC = 'EL_ACD1'
+	 AND F.SEQ = ( SELECT MAX(X.SEQ)
+               FROM SAPHEE.ZSDT0005 AS X
+               WHERE X.MANDT = F.MANDT  AND X.HOGI = F.HOGI
+                 AND X.CHARACTERISTIC = F.CHARACTERISTIC)
+
+
+ WHERE A.MANDT = #G_MANDT#
+     
+--AND (C.ZZSHIP1 BETWEEN #ZZSHIPF# AND #ZZSHIPT#)
+  <isEqual col="PERIOD" value="A">
+     AND (C.ZZSHIP1 BETWEEN #ZZSHIPF# AND #ZZSHIPT#)
+   </isEqual>
+   <isEqual col="PERIOD" value="B">
+   AND (A.BLDAT BETWEEN #ZZSHIPF#  AND #ZZSHIPT#)
+   </isEqual>
+        
+  AND A.STATE = #STATE2#
+  AND A.GBN = 'G'
+--  AND A.CONF  = 'X'
+ -- AND A.ECKEY &lt;&gt;''
+  <isEqual col="USER_GRUP" value="40">
+	 
+   <isNotNull col="PSPID">
+     AND   A.PSPID = #PSPID#
+   </isNotNull>
+
+   <isNull col="PSPID">
+     <isNotNull col="LIFNR">
+        <isEqual col="GBN2" value="A">
+             AND A.INSLFN = #LIFNR# 
+       --    AND (A.INSLFN = #LIFNR# OR A.WRKLFN = #LIFNR#)
+        </isEqual>
+        <isEqual col="GBN2" value="B">
+           AND A.WRKLFN = #LIFNR#   -- 신청업체 기준으로 조회 (고희수 sw요청)
+         </isEqual>     
+      </isNotNull>
+    </isNull>
+	
+</isEqual> 
+
+<isEqual col="USER_GRUP" value="30">
+	 
+   <isNotNull col="PSPID">
+     AND   A.PSPID = #PSPID#
+   </isNotNull>
+
+   <isNull col="PSPID">
+     <isNotNull col="LIFNR">
+        <isEqual col="GBN2" value="A">
+             AND A.INSLFN = #LIFNR# 
+       --    AND (A.INSLFN = #LIFNR# OR A.WRKLFN = #LIFNR#)
+        </isEqual>
+        <isEqual col="GBN2" value="B">
+           AND A.WRKLFN = #LIFNR#   -- 신청업체 기준으로 조회 (고희수 sw요청)
+         </isEqual>     
+      </isNotNull>
+    </isNull>
+	
+</isEqual>    
+
+ <isEqual col="USER_GRUP" value="20">
+	 
+   <isNotNull col="PSPID">
+     AND   A.PSPID = #PSPID#
+   </isNotNull>
+
+   <isNull col="PSPID">
+     <isNotNull col="LIFNR">
+        <isEqual col="GBN2" value="A">
+             AND A.INSLFN = #LIFNR# 
+       --    AND (A.INSLFN = #LIFNR# OR A.WRKLFN = #LIFNR#)
+        </isEqual>
+        <isEqual col="GBN2" value="B">
+           AND A.WRKLFN = #LIFNR#   -- 신청업체 기준으로 조회 (고희수 sw요청)
+         </isEqual>     
+      </isNotNull>
+    </isNull>
+	
+</isEqual> 
+
+
+ <isEqual col="USER_GRUP" value="10">
+	 
+   <isNotNull col="PSPID">
+      <isNotNull col="LIFNR">
+        <isEqual col="GBN2" value="A">
+             AND A.INSLFN = #LIFNR# 
+		    AND   A.PSPID = #PSPID#
+       --    AND (A.INSLFN = #LIFNR# OR A.WRKLFN = #LIFNR#)
+        </isEqual>
+        <isEqual col="GBN2" value="B">
+           AND A.WRKLFN = #LIFNR#   -- 신청업체 기준으로 조회 (고희수 sw요청)
+ 	      AND   A.PSPID = #PSPID#
+         </isEqual>     
+      </isNotNull>
+   </isNotNull>
+
+   <isNull col="PSPID">
+     <isNotNull col="LIFNR">
+        <isEqual col="GBN2" value="A">
+             AND A.INSLFN = #LIFNR# 
+       --    AND (A.INSLFN = #LIFNR# OR A.WRKLFN = #LIFNR#)
+        </isEqual>
+        <isEqual col="GBN2" value="B">
+           AND A.WRKLFN = #LIFNR#   -- 신청업체 기준으로 조회 (고희수 sw요청)
+         </isEqual>     
+      </isNotNull>
+    </isNull>
+	
+</isEqual> 
+
+   <isNotNull col="ZZACTSS">
+     AND C.ZZACTSS = #ZZACTSS#
+   </isNotNull>
+
+   
+ ) AS T 
+ WHERE T.MANDT = #G_MANDT#
+      AND T.VALUE = 'Y' 
+ 
+ 
+FOR FETCH ONLY 
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

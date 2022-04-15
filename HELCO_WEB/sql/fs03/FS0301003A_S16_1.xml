@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[SAP 수주 파트너 리스트 조회]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT  X.MANDT
+       ,X.OCNT_NUMB
+       ,Y.PRTN_SEQN
+       ,Y.KUNNR
+       ,B.NAME1 AS KUNNR_NAME -- 판매처명
+       ,B.ORT01||' '||B.STRAS AS KUNNR_ADDR
+       ,B.PSTLZ AS KUNNR_PSTLZ
+       ,B.ORT01 AS KUNNR_ORT01
+       ,(SELECT IRUM FROM SAPHEE.ZHRT001 WHERE MANDT = X.MANDT AND PSNO = Y.KUNNR) AS IRUM
+       ,Y.VKORG
+       ,Y.VTWEG
+       ,Y.SPART
+       ,Y.PARVW
+       ,(SELECT CODE_NAME FROM SAPHEE.ZFST0100 WHERE MANDT = X.MANDT AND CODE_GROP = 'S17' AND CODE = Y.PARVW) AS PARVW_NAME
+FROM   SAPHEE.ZFST0304 AS X
+       INNER JOIN TABLE (
+            SELECT A.MANDT
+                  ,CAST('HEOI20160621133' AS VARCHAR(60)) AS OCNT_NUMB
+                  ,ROW_NUMBER() OVER(PARTITION BY A.MANDT, A.VBELN) AS PRTN_SEQN
+                  ,C.KUNNR
+                  ,A.VKORG
+                  ,A.VTWEG
+                  ,A.SPART
+                  ,C.PARVW AS PARVW
+                  ,A.VBELN
+                  ,A.ZZPJT_ID AS PSPID
+            FROM   SAPHEE.VBAK A
+                   INNER JOIN SAPHEE.VBKD B ON A.MANDT = B.MANDT AND A.VBELN = B.VBELN AND B.POSNR = '000000'
+                   INNER JOIN SAPHEE.VBPA C ON A.MANDT = C.MANDT AND A.VBELN = C.VBELN AND C.POSNR = '000000'
+             WHERE  A.MANDT = #G_MANDT#
+               AND  A.VBELN = #VBELN#
+            ) AS Y ON X.MANDT = Y.MANDT AND X.OCNT_NUMB = Y.OCNT_NUMB
+	  LEFT OUTER JOIN SAPHEE.KNA1 AS B
+	  ON   Y.MANDT = B.MANDT
+	  AND  Y.KUNNR = B.KUNNR
+	  AND  B.KTOKD IN ( 'Z001', 'Z002', 'Z004' )
+WHERE  X.MANDT = #G_MANDT#
+  AND  X.OCNT_NUMB = #OCNT_NUMB#
+ORDER BY Y.VBELN, Y.PRTN_SEQN 
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_zfst0306_list">
+    </output>
+</query>

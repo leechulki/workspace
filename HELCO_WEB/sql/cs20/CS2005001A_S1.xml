@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[승강원 연계 유상계약정보]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+         A.UPN
+        ,A.PJT           
+        ,A.HNO           
+        ,A.HNA           
+        ,A.SPT           
+        ,A.GNO           
+        ,A.BSU           
+        ,A.SID           
+        ,A.USD           
+        ,A.UGS           
+        ,A.UMR           
+        ,A.HYN           
+        ,A.HEP  
+        ,A.ABR_NM         
+        ,A.VKGRP
+        ,ZLCOD.CTEXT2 AS VKGRP_NM         
+        ,A.LIFNR         
+        ,CASE WHEN A.BSU_GB = '1' THEN '3' ELSE '1' END AS GNO_GB        
+
+		,(CASE WHEN A.VKGRP = 'H11' AND VALUE(A.GBN,'') = '무상' THEN A.SAFECODE  ELSE  ''        END ) AS  SBCONTCODE
+	 	,(CASE WHEN A.VKGRP = 'H11' AND VALUE(A.GBN,'') = '무상' THEN  ''         ELSE A.SAFECODE END ) AS  SAFECODE  
+        --,A.SAFECODE
+        
+        ,A.MAINTCODE
+  		,VALUE(A.GBN,'') AS GBN
+  		,'1268104267' AS LIFNR2
+  		,CASE WHEN A.BSU_GB = '1' THEN 'Y' ELSE 'N' END AS QTY
+   FROM (
+	       SELECT    	
+         					 CS126.MANDT AS MANDT
+         					,CS126.CS126_UPN  AS UPN          					 
+         					,CS126.CS126_PJT  AS PJT
+         					,CS126.CS126_HNO  AS HNO
+         					,CS101.CS101_HNA  AS HNA
+         					,CS121.CS121_SPT  AS SPT
+         					,CS126.CS126_GNO  AS GNO
+         					,CS126.CS126_BSU  AS BSU 
+         					,CS111.SID        AS SID
+         					,CS126.CS126_USD  AS USD
+         					,CS126.CS126_UGS  AS UGS
+         					
+         					
+         					--,CS126.CS126_UMR  AS UMR  
+         					,(CASE WHEN CS126.CS126_UMRO > CS126.CS126_UMR THEN CS126.CS126_UMRO ELSE CS126.CS126_UMR END) AS UMR --유상만 값 비교하여 종료일자 구함
+         					
+         					,CS126.CS126_HYN  AS HYN
+         					,CS126.CS126_HEP  AS HEP
+         					,WB010.VKGRP      AS VKGRP   
+         					,WB010.ABR_NM     AS ABR_NM     
+         					,WB010.LIFNR      AS LIFNR    
+         					,WB010.BSU_GB     AS BSU_GB   
+         					,WB010.SAFECODE   AS SAFECODE
+         					,WB010.MAINTCODE  AS MAINTCODE
+         					,WB010.BSU_ARA    AS ARA
+         					,'' 			  AS COCODE
+         					,'유상'			  AS GBN      
+         	FROM SAPHEE.ZCST126  AS CS126 LEFT OUTER JOIN SAPHEE.ZCST101 AS CS101
+         	                                     ON CS101.MANDT = CS126.MANDT
+         	                                      AND CS101.CS101_PJT = CS126.CS126_PJT
+         	                                      AND CS101.CS101_HNO = CS126.CS126_HNO 
+         														
+         	                              LEFT OUTER JOIN SAPHEE.ZCST111 AS CS111
+         	                                     ON CS111.MANDT = CS126.MANDT
+         	                                      AND CS111.PJT = CS126.CS126_PJT
+         	                                      AND CS111.HNO = CS126.CS126_HNO 
+         																		  
+         	                              LEFT OUTER JOIN SAPHEE.ZCST121 AS CS121
+         	                                     ON CS121.MANDT = CS126.MANDT
+         	                                      AND CS121.CS121_UPN = CS126.CS126_UPN
+         	                                      AND CS121.CS121_CST = CS126.CS126_CST
+         																		  
+         	                              LEFT OUTER JOIN SAPHEE.ZWBT010 AS WB010
+         	                                     ON WB010.MANDT = CS126.MANDT
+         	                                    AND WB010.LGORT = CS126.CS126_BSU
+         	
+         	
+         	WHERE CS126.MANDT = #G_MANDT#
+         	  AND CS126.CS126_DDT = ''
+         	  AND CS126.CS126_PST = 'A6'
+         	  --AND CS126.CS126_SLA = ''
+                AND CS126.CS126_SLA &lt;&gt; 'Y'
+
+<isEqual col="GBN" value="01">
+           AND 1=1
+</isEqual>
+<isEqual col="GBN" value="02">
+           AND 1=1
+</isEqual>
+<isEqual col="GBN" value="03">
+           AND 1=2
+</isEqual>        
+<isNotNull col="PJT">
+         	  AND CS126.CS126_PJT = #PJT#
+</isNotNull> 	  
+<isNotNull col="ARA">
+         	  AND CS126.CS126_ARA = #ARA#
+</isNotNull> 
+<isNotNull col="BSU">
+         	  AND CS126.CS126_BSU = #BSU#
+</isNotNull> 
+<isNotNull col="TEM">
+         	  AND WB010.VKGRP = #TEM#
+</isNotNull>
+<isNotNull col="DPT">
+         	  AND SUBSTR(WB010.VKGRP,1,2)||'00' = #DPT#
+</isNotNull>         	  
+         	  AND SUBSTR(CS126.CS126_HNO,1,1) NOT IN ('J','G')
+         	  AND #DAT2# BETWEEN CS126.CS126_USD AND CS126.CS126_UMR
+         	  AND CS111.EXC = ''
+
+	UNION ALL
+	
+		SELECT
+                  CS116.MANDT AS MANDT
+                 ,'' AS UPN
+                 ,CS116.CS116_PJT AS PJT
+                 ,CS116.CS116_HNO AS HNO
+                 ,CS101.CS101_HNA  AS HNA
+                 ,ZMS01.ZSITE_NM AS SPT
+                 ,CS116.CS116_GNO AS GNO
+                 ,CS116.CS116_BSU AS BSU
+                 ,CS111.SID AS SID
+                 ,CS116.CS116_BGT AS USD
+                 ,CS116.CS116_BGT AS UGS
+                 ,CS116.CS116_BMT AS UMR
+             --  ,CS116.CS116_TGB AS TGB
+             --  ,CS116.CS116_GND AS GND
+            --   ,CS116.CS116_JBF AS JBF
+            --   ,CS116.CS116_RMK AS RMK
+            --   ,CS101.CS101_ISD AS ISD
+            --   ,CS111.ABG
+                 ,'N' AS HYN
+                 ,'1' AS HEP
+                 ,WB010.VKGRP
+                 ,WB010.ABR_NM
+                 ,WB010.LIFNR AS LIFNR
+                 ,WB010.BSU_GB
+                 ,WB010.SAFECODE
+                 ,WB010.MAINTCODE
+                 ,WB010.BSU_ARA AS ARA
+                 ,'' COCODE
+                 ,'무상'	AS GBN
+             FROM SAPHEE.ZCST116 AS CS116   LEFT OUTER JOIN SAPHEE.ZCST111 AS CS111
+                                                    ON CS111.MANDT = CS116.MANDT
+                                                   AND CS111.PJT = CS116.CS116_PJT
+                                                   AND CS111.HNO = CS116.CS116_HNO
+                                         
+                                            LEFT OUTER JOIN SAPHEE.ZCST101 AS CS101
+                                                    ON CS101.MANDT = CS116.MANDT
+                                                   AND CS101.CS101_PJT = CS116.CS116_PJT
+                                                   AND CS101.CS101_HNO = CS116.CS116_HNO
+                                            
+                                            LEFT OUTER JOIN SAPHEE.ZMASTER02 AS ZMS02
+                                                    ON ZMS02.MANDT = CS116.MANDT
+                                                   AND ZMS02.POSID = CS116.CS116_PJT
+                                                   AND ZMS02.POSID_1 = CS116.CS116_PJT||CS116.CS116_HNO
+                                            
+                                            LEFT OUTER JOIN SAPHEE.ZMASTER01 AS ZMS01
+                                                    ON ZMS01.MANDT = CS116.MANDT
+                                                   AND ZMS01.POSID = CS116.CS116_PJT
+                                         
+                                            LEFT OUTER JOIN SAPHEE.ZWBT010 AS WB010
+                                                    ON WB010.MANDT = CS116.MANDT
+                                                   AND WB010.LGORT = CS116.CS116_BSU
+            
+            WHERE CS116.MANDT = #G_MANDT#
+
+<isEqual col="GBN" value="01">
+           AND 1=1
+</isEqual>
+<isEqual col="GBN" value="02">
+           AND 1=2
+</isEqual>
+<isEqual col="GBN" value="03">
+           AND 1=2
+</isEqual>
+<isNotNull col="PJT">
+         	 AND CS116.CS116_PJT = #PJT#
+</isNotNull>          	  
+<isNotNull col="ARA">
+           AND CS116.CS116_ARA = #ARA#
+</isNotNull> 
+<isNotNull col="BSU">
+           AND CS116.CS116_BSU = #BSU#
+</isNotNull> 
+<isNotNull col="TEM">
+           AND WB010.VKGRP = #TEM#
+</isNotNull>
+<isNotNull col="DPT">
+           AND SUBSTR(WB010.VKGRP,1,2)||'00' = #DPT#
+</isNotNull>         	  
+           AND CS116_PST = 'A6'
+           AND SUBSTR(CS116_HNO,1,1) NOT IN ('J','G')
+           AND CS116_BGT &lt;= #DAT2#
+           AND CS116_BMT &gt;= #DAT2# 
+ 
+	UNION ALL
+	
+
+	/*MOD 무상 추가 */
+		SELECT
+                  CS116M.MANDT         AS MANDT
+                 ,''                   AS UPN
+                 ,CS116M.CS116M_PJT    AS PJT
+                 ,CS116M.CS116M_HNO    AS HNO
+                 ,CS101.CS101_HNA      AS HNA
+                 ,ZMS01.ZSITE_NM       AS SPT
+                 ,CS116M.CS116M_GNO    AS GNO
+                 ,CS116M.CS116M_BSU    AS BSU
+                 ,CS111.SID            AS SID
+                 ,CS116M.CS116M_BGT    AS USD
+                 ,CS116M.CS116M_BGT    AS UGS
+                 ,CS116M.CS116M_BMT    AS UMR
+             --  ,''                   AS TGB
+             --  ,''                   AS GND
+            --   ,''                   AS JBF
+            --   ,''                   AS RMK
+            --   ,CS101.CS101_ISD      AS ISD
+            --   ,CS111.ABG
+                 ,'N' AS HYN
+                 ,'1' AS HEP
+                 ,WB010.VKGRP
+                 ,WB010.ABR_NM
+                 ,WB010.LIFNR AS LIFNR
+                 ,WB010.BSU_GB
+                 ,WB010.SAFECODE
+                 ,WB010.MAINTCODE
+                 ,WB010.BSU_ARA AS ARA
+                 ,'' COCODE
+                 ,'MOD 무상'	AS GBN
+             FROM SAPHEE.ZCST116M AS CS116M   LEFT OUTER JOIN SAPHEE.ZCST111 AS CS111
+                                                    ON CS111.MANDT = CS116M.MANDT
+                                                   AND CS111.PJT = CS116M.CS116M_PJT
+                                                   AND CS111.HNO = CS116M.CS116M_HNO
+                                         
+                                            LEFT OUTER JOIN SAPHEE.ZCST101 AS CS101
+                                                    ON CS101.MANDT = CS116M.MANDT
+                                                   AND CS101.CS101_PJT = CS116M.CS116M_PJT
+                                                   AND CS101.CS101_HNO = CS116M.CS116M_HNO
+                                            
+                                            LEFT OUTER JOIN SAPHEE.ZMASTER02 AS ZMS02
+                                                    ON ZMS02.MANDT = CS116M.MANDT
+                                                   AND ZMS02.POSID = CS116M.CS116M_PJT
+                                                   AND ZMS02.POSID_1 = CS116M.CS116M_PJT||CS116M.CS116M_HNO
+                                            
+                                            LEFT OUTER JOIN SAPHEE.ZMASTER01 AS ZMS01
+                                                    ON ZMS01.MANDT = CS116M.MANDT
+                                                   AND ZMS01.POSID = CS116M.CS116M_PJT
+                                         
+                                            LEFT OUTER JOIN SAPHEE.ZWBT010 AS WB010
+                                                    ON WB010.MANDT = CS116M.MANDT
+                                                   AND WB010.LGORT = CS116M.CS116M_BSU
+            
+            WHERE CS116M.MANDT = #G_MANDT#
+
+<isEqual col="GBN" value="01">
+           AND 1=2
+</isEqual>
+<isEqual col="GBN" value="02">
+           AND 1=2
+</isEqual>
+<isEqual col="GBN" value="03">
+           AND 1=1
+</isEqual>
+<isNotNull col="PJT">
+         	 AND CS116M.CS116M_PJT = #PJT#
+</isNotNull>          	  
+<isNotNull col="ARA">
+           AND CS116M.CS116M_ARA = #ARA#
+</isNotNull> 
+<isNotNull col="BSU">
+           AND CS116M.CS116M_BSU = #BSU#
+</isNotNull> 
+<isNotNull col="TEM">
+           AND WB010.VKGRP = #TEM#
+</isNotNull>
+<isNotNull col="DPT">
+           AND SUBSTR(WB010.VKGRP,1,2)||'00' = #DPT#
+</isNotNull>         	  
+           AND CS116M_PST = 'A6'
+           AND SUBSTR(CS116M_HNO,1,1) NOT IN ('J','G')
+           AND CS116M_BGT &lt;= #DAT2#
+           AND CS116M_BMT &gt;= #DAT2# 
+                   
+         ) AS A    LEFT OUTER JOIN SAPHEE.ZLCODE AS ZLCOD
+                           ON ZLCOD.MANDT = #G_MANDT#
+                          AND ZLCOD.CODE1 = 'VKGRP'
+                          AND ZLCOD.CODE2 = A.VKGRP
+                          AND ZLCOD.LANG = #G_LANG#
+  WHERE A.MANDT = #G_MANDT#
+<isEqual col="GBN" value="01">
+    AND A.GBN = '무상' 
+</isEqual>
+<isEqual col="GBN" value="02">
+    AND A.GBN = '유상'
+</isEqual>
+	WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT  MANDT   ,POSID AS PSPID    ,MAX(LIFNR) LIFNR     ,MAX(PINYN) PINYN    ,SUM(VALUE) VALUE     ,SUM(XVALUE) XVALUE
+   FROM (
+               SELECT  MANDT, POSID,  LIFNR,  PINYN
+                            ,CASE WHEN  ZSPEC2 > '' THEN    (CASE WHEN LOCATE('/',SUBSTR(SUBSTR(ZSPEC2, LOCATE( '-', ZSPEC2 )+1),LOCATE('-',SUBSTR(ZSPEC2, LOCATE( '-', ZSPEC2 )+1))+1)) >0 THEN
+                                                                                                                                                     INT(SUBSTR(SUBSTR(SUBSTR(ZSPEC2, LOCATE( '-', ZSPEC2 )+1),LOCATE('-',SUBSTR(ZSPEC2, LOCATE( '-', ZSPEC2 )+1))+1),LOCATE('/',SUBSTR(SUBSTR(ZSPEC2, LOCATE( '-', ZSPEC2 )+1),LOCATE('-',SUBSTR(ZSPEC2, LOCATE( '-', ZSPEC2 )+1))+1))+1))
+                                                                                 ELSE   INT(SUBSTR(SUBSTR(ZSPEC2, LOCATE( '-', ZSPEC2 )+1),LOCATE('-',SUBSTR(ZSPEC2, LOCATE( '-', ZSPEC2 )+1))+1))
+                                                                                 END     )
+                                       ELSE 0 
+                             END AS VALUE
+                            ,XVALUE
+                  FROM (
+                              SELECT  B.MANDT    ,B.POSID    ,B.LIFNR 
+                                           ,VALUE((SELECT MAX(X.PINYN) FROM SAPHEE.ZPSTW0133  AS X WHERE X.MANDT = B.MANDT AND X.PSPID = B.POSID),'N')  AS PINYN
+                                           ,CASE WHEN  B.ZSPEC2 > '' THEN (CASE SUBSTR(B.ZSPEC2,LENGTH(B.ZSPEC2)-1,2) WHEN '/T' THEN SUBSTR(B.ZSPEC2,1,LENGTH(B.ZSPEC2)-2) 
+                                                                                                                                                                        ELSE B.ZSPEC2 
+                                                                                             END )
+			            ELSE '' 
+                                            END AS ZSPEC2
+                                           ,INT(VALUE(P.XVALUE,'0')) XVALUE         
+                                 FROM SAPHEE.ZMASTER02 AS B 
+                                  LEFT OUTER JOIN SAPHEE.ZPSTW0133 P 
+                                     ON B.MANDT = P.MANDT AND B.POSID = P.PSPID AND B.POSID_1 = P.POSID 
+                               WHERE B.MANDT = #G_MANDT#
+                                   AND B.POSID = #POSID#
+                                   AND B.POSID_1 LIKE '______L%'
+                                   AND B.TXT30 <> '취소'
+                                   AND B.ZSPEC2 NOT LIKE  'FT%'   
+                              ) T
+              ) T
+GROUP BY MANDT, POSID
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_pin">
+	</output>
+</query>

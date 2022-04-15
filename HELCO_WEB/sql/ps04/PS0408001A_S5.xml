@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+WITH LT (MANDT,PSPID,LIFNR,SUB_SUM,VAT_SUM,TOT_SUM) AS (
+SELECT  P1.MANDT
+       ,P1.PSPID
+       ,P1.LIFNR
+       ,SUM(P1.TOT) AS SUB_SUM
+       ,INT(SUM(P1.TOT*0.1)) AS VAT_SUM
+       ,SUM(P1.TOT) + INT(SUM(P1.TOT*0.1)) AS TOT_SUM	   	   
+FROM   SAPHEE.ZPST0100 P1,
+       (
+        SELECT  P01.MANDT
+               ,P01.PSPID
+               ,P01.POSID
+               ,MAX(P01.CHGNO) CHGNO
+        FROM  SAPHEE.ZPST0113 P02
+             ,SAPHEE.ZPST0100 P01
+        WHERE P02.MANDT = #G_MANDT#
+        AND   P02.GUBUN = '5'
+        AND   P02.STATE = 'Y'
+        AND   P02.CNF_GBN = 'A'
+        AND   P02.MANDT = P01.MANDT
+        AND   P02.PSPID = P01.PSPID
+        AND   P02.POSID = P01.POSID
+        AND   P01.GUBUN IN ('10','11','12','20')
+ 	    GROUP BY P01.MANDT,P01.PSPID,P01.POSID
+       ) P2
+	   ,(
+	     SELECT P.MANDT,P.POSID,P.ZSITE_ADDR,P.CHAGDT,P.JUNDT,P.LIFNR   ,'' as HHADO
+       ,'' as VAT2
+       ,'' as HVAT3
+       ,'' as TOTAL2
+       ,'' as HTOTAL2  
+       , '' as LAB_C
+       ,'' as HLAB_C
+         FROM SAPHEE.ZPST0134 AS P,
+              (
+               SELECT  MANDT
+                      ,POSID
+                      ,MAX(SEQ) SEQ
+               FROM SAPHEE.ZPST0134
+               WHERE MANDT = #G_MANDT#
+               AND   POSID = #POSID#		  	
+               GROUP BY MANDT,POSID
+              ) T
+         WHERE P.MANDT = T.MANDT
+         AND P.POSID = T.POSID
+         AND P.SEQ = T.SEQ
+	    ) AS P
+WHERE P1.MANDT = P2.MANDT
+AND   P1.PSPID = P2.PSPID
+AND   P1.POSID = P2.POSID
+AND   P1.CHGNO = P2.CHGNO
+AND   P1.MANDT = P.MANDT
+AND   P1.PSPID = P.POSID
+AND   P1.PSPID = #POSID#
+GROUP BY P1.MANDT,P1.PSPID,P1.LIFNR 
+)
+
+SELECT  CHAR(ROWNUMBER() OVER(PARTITION BY P1.MANDT,P1.LIFNR ORDER BY P1.LIFNR,P1.POSID)) ROWNUM
+       ,P1.PSPID
+       ,P1.POSID
+       ,P1.BSTKD
+       ,P.ZSITE_ADDR
+       ,P.CHAGDT
+       ,P.JUNDT
+       ,P1.KINDS
+       ,P1.SPECT
+       ,P1.LIFNR
+       ,M.NAME1 LIFNR_NM
+       ,M.MCOD3||' '||M.STRAS LIFNR_ADDR
+       ,M.J_1KFREPRE
+       ,P1.ERDAT
+       ,P1.TOT
+       ,'' as LAB_C
+       ,LT.SUB_SUM
+       ,LT.VAT_SUM	   
+       ,LT.TOT_SUM		 
+	    ,'' AS HHADO
+       ,'' as VAT2
+       ,'' as HVAT3
+       ,'' as TOTAL2
+       ,'' as HTOTAL2  
+
+       ,'' as HLAB_C  
+FROM   SAPHEE.ZPST0100 P1,
+       (
+        SELECT  P01.MANDT
+               ,P01.PSPID
+               ,P01.POSID
+               ,MAX(P01.CHGNO) CHGNO
+        FROM  SAPHEE.ZPST0113 P02
+             ,SAPHEE.ZPST0100 P01
+        WHERE P02.MANDT = #G_MANDT#
+        AND   P02.GUBUN = '5'
+        AND   P02.STATE = 'Y'
+        AND   P02.CNF_GBN = 'A'
+        AND   P02.MANDT = P01.MANDT
+        AND   P02.PSPID = P01.PSPID
+        AND   P02.POSID = P01.POSID
+        AND   P01.GUBUN IN ('10','11','12','20')
+ 	    GROUP BY P01.MANDT,P01.PSPID,P01.POSID
+       ) P2
+	   ,SAPHEE.ZMMT012 AS M
+	   ,(
+	     SELECT P.MANDT,P.POSID,P.ZSITE_ADDR,P.CHAGDT,P.JUNDT,P.LIFNR   ,'' as HHADO
+       ,'' as VAT2
+       ,'' as HVAT3
+       ,'' as TOTAL2
+       ,'' as HTOTAL2  
+       ,'' as LAB_C
+
+       ,'' as HLAB_C
+         FROM SAPHEE.ZPST0134 AS P,
+              (
+               SELECT  MANDT
+                      ,POSID
+                      ,MAX(SEQ) SEQ
+               FROM SAPHEE.ZPST0134
+               WHERE MANDT = #G_MANDT#
+               AND   POSID = #POSID#		  	
+               GROUP BY MANDT,POSID
+              ) T
+         WHERE P.MANDT = T.MANDT
+         AND P.POSID = T.POSID
+         AND P.SEQ = T.SEQ
+	    ) AS P
+		,LT
+WHERE P1.MANDT = P2.MANDT
+AND   P1.PSPID = P2.PSPID
+AND   P1.POSID = P2.POSID
+AND   P1.CHGNO = P2.CHGNO
+AND   P1.MANDT = M.MANDT
+AND   P1.LIFNR = M.LIFNR
+AND   P1.MANDT = P.MANDT
+AND   P1.PSPID = P.POSID
+AND   P1.PSPID = #POSID#
+AND   P1.MANDT = LT.MANDT
+AND   P1.PSPID = LT.PSPID
+AND   P1.LIFNR = LT.LIFNR
+ORDER BY P1.LIFNR,P1.POSID
+
+FOR FETCH ONLY WITH UR	]]></statement>
+	<input default-name="ds_list_p">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list_p2">
+		<col name="PSPID" size="72" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="BSTKD" size="105" type="VARCHAR" description="" /> 
+		<col name="ZSITE_ADDR" size="300" type="VARCHAR" description="" /> 
+		<col name="CHAGDT" size="24" type="VARCHAR" description="" /> 
+		<col name="JUNDT" size="24" type="VARCHAR" description="" /> 
+		<col name="KINDS" size="90" type="VARCHAR" description="" /> 
+		<col name="SPECT" size="60" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="30" type="VARCHAR" description="" /> 
+		<col name="LIFNR_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="LIFNR_ADDR" size="166" type="VARCHAR" description="" /> 
+		<col name="J_1KFREPRE" size="30" type="VARCHAR" description="" /> 
+		<col name="ERDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="TOT" size="15" type="DECIMAL" description="" /> 
+		<col name="VAT" size="11" type="INTEGER" description="" /> 
+		<col name="SUB_SUM" size="16" type="DECIMAL" description="" /> 
+		<col name="SUM" size="11" type="INTEGER" description="" /> 
+	</output>
+</query>

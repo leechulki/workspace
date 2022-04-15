@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT CHAR(ROWNUMBER() OVER(PARTITION BY A.MANDT)) AS ROWNUM 
+       ,A.PSPID_R
+       ,D.ZSITE_NM ZSITE_NMR
+       ,A.LIFNR
+       ,C.NAME1
+       ,INT(A.ZNUM) AS ZNUM
+       ,A.TFR
+       ,A.MATCD
+       ,A.PSPID_F
+       ,E.ZSITE_NM ZSITE_NMF
+       ,B.ZZACTSS
+       ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE AS F WHERE F.MANDT = A.MANDT AND F.CODE1 = 'PS003' AND F.LANG = #G_LANG# AND F.CODE2 = B.ZZACTSS ) AS CTEXT2
+       ,A.INDATE
+       ,A.INCNT
+       ,A.TRCNT
+       ,A.LOSCNT
+       ,A.COST
+       ,A.PURCH
+       ,A.ZUSE
+       ,A.MDATE
+       ,A.MTIME
+       ,A.ERNAM
+       ,A.EDATE
+       ,A.ETIME
+       ,A.AENAM
+       ,G.BEZEI
+       ,G.NAME1 NAMEK
+       ,C.J_1KFREPRE
+       ,A.INCNT - A.TRCNT - A.LOSCNT AS CURCNT
+       ,CASE WHEN (A.INCNT - A.TRCNT - A.LOSCNT) > 0 THEN 'Y' ELSE 'N' END PRT
+       ,VALUE((SELECT SUM(PRO_R) AS PRO_R
+               FROM SAPHEE.ZPST0112
+               WHERE MANDT = A.MANDT
+               AND PSPID = A.PSPID_R
+             ),0)/INT(D.ZQNTY) AS PRO_R
+
+        ,(CASE WHEN A.SUP_CD = 'A'  THEN '자재지원'
+                   WHEN A.SUP_CD = 'B'  THEN '구매지원'
+                   ELSE ''
+          END ) AS SUP_CD
+
+FROM SAPHEE.ZPST0078 AS A 
+      LEFT OUTER JOIN SAPHEE.ZWBT010 AS B ON A.MANDT = B.MANDT AND A.LIFNR = B.LIFNR
+      LEFT OUTER JOIN SAPHEE.ZMMT012 AS C ON A.MANDT = C.MANDT AND A.LIFNR = C.LIFNR
+      LEFT OUTER JOIN SAPHEE.ZMASTER01 AS D ON A.MANDT = D.MANDT AND A.PSPID_R = D.POSID
+      LEFT OUTER JOIN SAPHEE.ZMASTER01 AS E ON A.MANDT = E.MANDT AND A.PSPID_F = E.POSID
+      ,(
+        SELECT DISTINCT P.MANDT,P.PSPID_R,TV.BEZEI, KN.NAME1
+        FROM SAPHEE.ZPST0078 AS P
+            , SAPHEE.VBAK VB
+            , SAPHEE.TVKBT AS TV
+            , SAPHEE.VBPA AS VP
+            , SAPHEE.KNA1 AS KN			
+       WHERE P.MANDT = #G_MANDT# 
+       AND P.MANDT = VB.MANDT
+       AND P.PSPID_R = VB.ZZPJT_ID
+       AND VB.MANDT = TV.MANDT
+       AND TV.SPRAS = '3'
+       AND TV.VKBUR = VB.VKBUR
+       AND VB.MANDT = VP.MANDT
+       AND VB.VBELN = VP.VBELN
+       AND VP.PARVW = 'Z2'
+       AND VP.MANDT = KN.MANDT
+       AND VP.KUNNR = KN.KUNNR
+      ) AS G
+WHERE A.MANDT = #G_MANDT#
+AND A.MANDT = G.MANDT
+AND A.PSPID_R = G.PSPID_R
+
+<isNotNull col="DATEF">
+AND A.INDATE BETWEEN #DATEF# AND #DATET#
+</isNotNull>
+<isNotNull col="PSPID">
+AND A.PSPID_R = #PSPID#
+</isNotNull>
+<isNotNull col="LIFNR">
+AND A.LIFNR = #LIFNR#
+</isNotNull>
+<isNotNull col="TFR">
+AND A.ZUSE = #TFR#
+</isNotNull>
+ORDER BY A.INDATE,A.MDATE,A.MTIME,B.ZZACTSS,LIFNR,PSPID_R
+
+FOR FETCH ONLY WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

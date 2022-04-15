@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT '0' AS CHECK
+             ,A.PSPID  ,B.ZSITE_NM
+             ,INTEGER(B.ZQNTY) AS ZQNTY
+             ,C.POSID_1 AS POSID
+             ,C.ZZSHIP1
+             ,C.POSID_OLD
+             ,RTRIM(C.POSID_DONG) AS POSID_DONG
+             ,(CASE WHEN A.U_PDF = 'TRUE' OR A.U_PDF = 'true' THEN 'O'  ELSE '' END) AS U_PDF
+             , (CASE WHEN C.ZZGUBUN = '10' 
+             		THEN '동'
+                    ELSE ''
+                    END
+                    ) DFCHAR
+             , A.UFDATE
+             , D.UKEY
+             , '' AS TEMP
+			 , '' AS TEMP_POSID
+			 , '' AS SEQ
+			 , '' AS FLG
+   FROM SAPHEE.ZPSTPDF AS A
+   INNER JOIN SAPHEE.ZMASTER01 AS B
+        ON A.MANDT = B.MANDT
+	  AND A.PSPID = B.POSID
+   INNER JOIN SAPHEE.ZMASTER02 AS C
+        ON B.MANDT = C.MANDT
+	  AND B.POSID = C.POSID
+   LEFT OUTER JOIN SAPHEE.ZPSTDONG AS D
+                ON C.MANDT = D.MANDT
+               AND C.POSID = D.PSPID
+               AND C.POSID_1 = D.POSID
+  WHERE A.MANDT = #G_MANDT#
+      AND B.PRART IN ('01', '11')
+      AND B.ZQNTY &gt;= 3
+      -- AND C.POSID_DONG = ''
+      AND C.ZZGUBUN IN ('10','11')  
+      AND C.TXT04 &lt;&gt; 'C'
+      AND (A.CATE IN ('', 'L') OR A.CATE IS NULL)
+      AND A.PSPID IN (
+      						SELECT X1.POSID
+      						  FROM SAPHEE.ZMASTER02 AS X1
+      						  INNER JOIN SAPHEE.ZMASTER01 AS X2
+      						          ON X1.MANDT = X2.MANDT
+      						         AND X1.POSID = X2.POSID
+      						 WHERE X1.MANDT = A.MANDT
+      						   AND X1.POSID = A.PSPID
+      						   AND X2.PRART IN ('01', '11')
+      						   AND X2.ZQNTY &gt;= 3
+      						   AND X1.ZZGUBUN IN ('10','11')      
+      						   AND X1.TXT04 &lt;&gt; 'C'
+      						   AND X1.POSID_DONG = ''
+      						   WITH UR
+      				  )
+      
+      
+<isNotNull col="PSPID">
+      AND  A.PSPID = #PSPID#
+</isNotNull>
+<isNull col="PSPID">
+      --AND C.ZZSHIP1 BETWEEN #FROM_DT# AND #TO_DT#
+      AND A.UFDATE BETWEEN #UF_FROM_DT# AND #UF_TO_DT#
+</isNull>
+
+order by A.PSPID, C.POSID_1 
+	  
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

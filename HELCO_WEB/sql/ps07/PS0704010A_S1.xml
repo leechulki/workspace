@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT   '' CHECK
+              ,A.PSPID,    C.ZSITE_NM,   A.POSID,   B.POSID_OLD,    B.ZSPEC1,   B.ZSPEC2,   B.ZZACTSS,  D.TEXT30
+              ,A.CHASU,   A.LIFNR,         E.NAME1,  A.PERNO,
+                            A.REQ_CELL AS REQ_CELL
+              --,A.REQ_DATE  AS ASK_DATE   
+              ,(CASE WHEN A.REQ_DATE = '00000000' THEN '' ELSE A.REQ_DATE  END) AS ASK_DATE   
+
+              --,A.REQ_DATE2 AS REQ_DATE
+              ,(CASE WHEN A.REQ_DATE2 = '00000000' THEN '' ELSE A.REQ_DATE2 END) AS REQ_DATE              
+
+              --,(CASE WHEN ( A.REQ_DATE2 = '' OR A.REQ_DATE2 = '00000000' ) THEN A.REQ_DATE
+              --           ELSE A.REQ_DATE2
+              --  END) AS  REQ_DATE
+
+           ,G.NAMEE       AS PER_NM
+              ,A.REQ_GBN   AS REQ_STATE
+              
+              --,H.STATE,      
+              ,(CASE WHEN H.STATE = '3' THEN H.STATE
+                         ELSE '1'
+                END) AS STATE
+
+              ,A.CHK_KIND,        A.CHK_LIFNR,    A.CDATE,    A.BIGO
+              ,E2.NAME1 AS CHK_NAME1
+              
+              --,I.ZTEAM
+              
+            --  ,B.ZTEAM
+              --,A.CFM_DATE
+              ,(CASE WHEN A.CFM_DATE = '00000000' THEN '' ELSE A.CFM_DATE END) AS CFM_DATE              
+
+              --,A.FRO_DATE
+              ,(CASE WHEN A.FRO_DATE = '00000000' THEN '' ELSE A.FRO_DATE END) AS FRO_DATE              
+
+              ,(CASE WHEN  (SELECT SUM( X.TWBTR ) * 100
+                                        FROM SAPHEE.ZPST0137 AS X
+                                      WHERE X.MANDT = A.MANDT
+                                          AND X.PSPID = A.PSPID   AND  X.POSID = A.POSID
+                                          AND X.GUBUN = '1'          AND  X.HKONT = '0053027010'
+                                          AND X.STATE = '2')  > 0                                                   THEN '처리'
+                          ELSE ''
+                 END ) AS BALANCE
+
+              ,(CASE WHEN A.CHK_KIND = 'A' AND (SELECT COUNT(*)
+                                                                         FROM SAPHEE.ZPST0024 AS X
+                                                                       WHERE X.MANDT = A.MANDT
+                                                                           AND X.PSPID = A.PSPID
+                                                                           AND X.POSID = A.POSID) > 1         THEN 'X'
+                          WHEN A.CHK_KIND = 'C' AND (SELECT COUNT(*)
+                                                                         FROM SAPHEE.ZPST0037 AS X
+                                                                       WHERE X.MANDT = A.MANDT
+                                                                           AND X.PSPID = A.PSPID
+                                                                           AND X.POSID = A.POSID
+                                                                           AND X.CHASU = A.CHASU) > 1         THEN 'X'
+                          ELSE ''
+                 END) AS CHK1
+               ,'' AS GUBUN
+               , C.ZMAN   --담당 영업사원
+	 , (SELECT USERNAME FROM SAPHEE.ZUSERF AS X WHERE C.MANDT = X.MANDT AND SUBSTR(C.ZMAN,2,8) =  X.USERNUMB) AS ZMAN_NM  --영업사원이름
+	  , C.ZTEL --영업사원 전화번호
+
+
+    FROM SAPHEE.ZPST0036 AS A
+   INNER JOIN SAPHEE.ZMASTER02 AS B
+      ON A.MANDT = B.MANDT
+     AND A.PSPID = B.POSID
+     AND A.POSID = B.POSID_1
+  INNER JOIN SAPHEE.ZMASTER01 AS C
+      ON A.MANDT = C.MANDT
+     AND B.POSID = C.POSID
+   INNER JOIN SAPHEE.J_1AACTT AS D
+      ON  B.MANDT = D.MANDT
+     AND D.SPRAS = '3'
+     AND B.ZZACTSS = D.J_1AACT
+   INNER JOIN SAPHEE.LFA1 AS E
+      ON B.MANDT = E.MANDT
+     AND B.LIFNR = E.LIFNR
+    LEFT OUTER JOIN SAPHEE.LFA1 AS E2
+      ON A.MANDT = E2.MANDT
+    AND A.CHK_LIFNR = E2.LIFNR
+   LEFT OUTER JOIN SAPHEE.ZPST0001_V AS G
+     ON A.MANDT = G.MANDT
+   AND A.LIFNR  = G.LIFNR
+  AND A.PERNO  = G.TEMNO  
+   LEFT OUTER JOIN SAPHEE.ZPST0023 AS H
+      ON B.MANDT = H.MANDT
+     AND B.POSID = H.PSPID
+     AND B.POSID_1 = H.POSID
+     AND H.ZTYPE = '2'
+
+  --INNER JOIN ZMASTER02 AS I
+  --    ON A.MANDT = I.MANDT
+  --   AND A.PSPID = I.POSID
+  --   AND A.POSID = I.POSID_1
+
+
+ WHERE A.MANDT = #G_MANDT#
+    <isNotNull col="PSPID">
+      AND A.PSPID = #PSPID#
+    </isNotNull>
+      AND A.REQ_GBN = #GBN1#
+      AND A.CDATE BETWEEN #REDAT_FROM#  AND #REDAT_TO#
+      
+     <isNotNull col="GBN2">
+      AND A.CHK_KIND = #GBN2#
+     </isNotNull>
+
+     <isNotNull col="GBN3">
+      <isEqual col="GBN3" value="3">
+        AND H.STATE = #GBN3#
+      </isEqual>
+      <isEqual col="GBN3" value="1">
+        AND H.STATE IN ('1','2','4','8','9')
+      </isEqual>
+     </isNotNull>
+
+     <isNotNull col="ZZACTSS">
+      AND   A.ZZACTSS = #ZZACTSS#
+     </isNotNull>
+--team제거
+--    <isNotNull col="SO_GBN">
+--      <isEqual col="SO_GBN" value="1TEM">
+--        AND   B.ZTEAM = ''
+--      </isEqual>
+--     <isEqual col="SO_GBN" value="2TEM">
+--        AND   B.ZTEAM = 'X'
+--      </isEqual>
+ --   </isNotNull>
+
+    <isNotNull col="CFMDAT_FROM">
+      AND A.CFM_DATE BETWEEN #CFMDAT_FROM# AND #CFMDAT_TO#
+    </isNotNull>
+
+    <isNotNull col="FRDAT_FROM">
+      AND A.FRO_DATE BETWEEN #FRDAT_FROM# AND #FRDAT_TO#
+    </isNotNull>
+
+
+     
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

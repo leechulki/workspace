@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[종전단가 대상 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+WITH TMP AS(
+SELECT 
+   A.MATNR
+, A.MATNR_NM
+, A.MANDT
+, A.ZSIZE
+, A.SPEC
+, A.DZEINR
+, B.MAKTX
+   FROM SAPHEE.MARA AS A
+   LEFT OUTER JOIN SAPHEE.MAKT AS B ON A.MANDT = B.MANDT
+                                                            AND A.MATNR = B.MATNR
+                                                            AND B.SPRAS = '3'
+  WHERE A.MANDT = #G_MANDT#
+<isNotNull col="MATNR">
+      AND A.MATNR LIKE #MATNR#||'%'
+</isNotNull>
+<isNotNull col="MATNR_NM">
+      AND A.MATNR_NM LIKE '%'||#MATNR_NM#||'%'
+</isNotNull> 
+)
+
+SELECT DISTINCT
+             A.MATNR AS MATNR
+           , A.MATNR_NM AS MATNR_NM
+           , A.ZSIZE AS ZSIZE
+           , A.SPEC AS SPEC
+           , A.DZEINR AS DZEINR
+           , A.MAKTX AS MAKTX
+           , '업체추가' AS ZKIND
+           , '' AS CHECK
+           , (C.NETPR*100) AS NETPR
+   FROM
+      (
+         SELECT A.MATNR, A.MATNR_NM, B.INFNR, B.LIFNR, B.LOEKZ, A.MANDT, A.ZSIZE, A.SPEC, A.DZEINR, A.MAKTX
+            FROM TMP AS A
+             LEFT OUTER JOIN SAPHEE.EINA AS B ON A.MANDT = B.MANDT
+                                                                    AND A.MATNR = B.MATNR
+       ) AS A
+  INNER JOIN SAPHEE.LFA1 AS B ON A.MANDT = B.MANDT
+                                                AND A.LIFNR = B.LIFNR
+  INNER JOIN SAPHEE.EINE AS C ON A.MANDT = C.MANDT
+                                                AND A.INFNR = C.INFNR  
+  WHERE A.LOEKZ = ''
+      AND B.LOEVM = ''
+      AND B.SPERM = ''
+      AND C.LOEKZ = ''	</statement>
+	<input default-name="ds_idnrk">
+	</input>
+	<output default-name="ds_list_g1">
+	</output>
+</query>

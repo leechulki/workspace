@@ -1,0 +1,419 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.ses.dao.Ses0243D"> 
+  
+	<resultMap id="selectListHeaderMap" type="hdel.sd.ses.domain.Ses0243"> 
+	    <result property="mandt" column="MANDT"/>
+	    <result property="vbeln" column="VBELN"/>
+	    <result property="zseq" column="ZSEQ"/>
+	    <result property="bstkd" column="BSTKD"/>
+	    <result property="region" column="REGION"/>
+	    <result property="inco1" column="INCO1"/>
+	    <result property="inco2" column="INCO2"/>
+	    <result property="ztermt" column="ZTERMT"/>
+	    <result property="specdwg" column="SPECDWG"/>
+	    <result property="edatu" column="EDATU"/>
+	    <result property="zfwding" column="ZFWDING"/>
+	    <result property="sedat" column="SEDAT"/>
+	    <result property="sezzt" column="SEZZT"/>
+	    <result property="erdat" column="ERDAT"/>
+	    <result property="erzzt" column="ERZZT"/>
+	    <result property="ernam" column="ERNAM"/>
+	    <result property="recad_da" column="RECAD_DA"/>
+	    <result property="vkbur" column="VKBUR"/>
+	    <result property="vkgrp" column="VKGRP"/>
+	    <result property="zkunnr" column="ZKUNNR"/>
+	    <result property="ponetwr" column="PONETWR"/>
+	    <result property="acdat" column="ACDAT"/>
+	    <result property="remark1" column="REMARK1"/>
+	    <result property="remark2" column="REMARK2"/>
+	    <result property="remark3" column="REMARK3"/>
+	    <result property="remark4" column="REMARK4"/>
+	    <result property="remark5" column="REMARK5"/>
+	</resultMap>
+	
+	<select id="selectListHeader" parameterType="hdel.sd.ses.domain.Ses0243ParamVO" resultMap="selectListHeaderMap">
+		SELECT  
+					  Z.MANDT  
+					, Z.VBELN 
+					, V.ZZPJT_ID
+					, Z.ZSEQ  
+					, Z.BSTKD 
+					, Z.REGION
+					, B.LAND1 		
+					, VALUE(T.LANDX, B.LAND1) AS LANDNM-- 국가명
+					, S1.NETWR				-- 수주금액
+				    , S1.KZWI5				-- 영업원가
+				    , S1.WAERK				-- 통화단위
+					, S2.NETWR	AS PONETWR 	-- 상해금액
+				    , S2.WAERK	AS POWAERK	-- 상해통화단위
+					, S3.USERMAIL AS MAILADDR -- 국가별 담당자 메일 주소
+					, Z.INCO1 
+					, Z.INCO2 
+					, Z.ZTERMT
+					, Z.SPECDWG		
+					, Z.EDATU 
+					, Z.ZFWDING		
+					, Z.SEDAT 
+					, Z.SEZZT 
+					, Z.ERDAT 
+					, Z.ERZZT 
+					, Z.ERNAM 
+					, V.RECAD_DA
+					, V.VKBUR
+					, V.VKGRP
+					, Z.REMARK1
+					, Z.REMARK2
+					, Z.REMARK3
+					, Z.REMARK4
+					, Z.REMARK5
+					, Z.ACDAT
+		 FROM SAPHEE.ZSDT0107 AS Z 
+		  INNER JOIN SAPHEE.VBAK AS V   ON Z.MANDT = V.MANDT AND Z.VBELN = V.VBELN  AND AUART = 'ZT01'
+		   LEFT JOIN SAPHEE.VBPA AS B ON B.MANDT = Z.MANDT AND B.VBELN = Z.VBELN AND B.PARVW = 'WE' 				-- 국가명
+		   LEFT JOIN SAPHEE.T005T		AS T ON T.MANDT	= B.MANDT	AND T.LAND1 	= B.LAND1	AND T.SPRAS = 'E' 	-- 국가명
+		   LEFT JOIN SAPHEE.VBPA		AS VBPA ON VBPA.MANDT	= Z.MANDT	AND VBPA.VBELN 	= Z.VBELN	AND VBPA.POSNR='000000' AND VBPA.PARVW = 'Z2'  --담당자코드
+		   LEFT JOIN TABLE (
+ 		 				   SELECT MANDT, VBELN, SUM(NETWR) NETWR, SUM(KZWI5) KZWI5, MAX(WAERK) WAERK
+ 						     FROM SAPHEE.VBAP
+							WHERE MANDT = Z.MANDT
+							  AND VBELN = Z.VBELN 						     
+						   GROUP BY MANDT, VBELN
+		                   )	AS S1  ON S1.MANDT = Z.MANDT AND S1.VBELN = Z.VBELN									-- 수주금액
+		  LEFT JOIN TABLE (
+	 	   					SELECT MANDT, VBELN, ZSEQ, SUM(NETWR) NETWR, MAX(WAERK) WAERK
+							  FROM SAPHEE.ZSDT0108
+							 WHERE MANDT = Z.MANDT AND VBELN = Z.VBELN AND ZSEQ = Z.ZSEQ							 
+				  	         GROUP BY MANDT, VBELN, ZSEQ
+				  	 	   )    AS S2  ON S2.MANDT = Z.MANDT AND S2.VBELN = Z.VBELN AND S2.ZSEQ = Z.ZSEQ 			--상해금액
+		  LEFT JOIN TABLE (
+						    SELECT ZL.MANDT, ZL.LANG, ZL.CODE1, ZL.CODE2 AS LAND1, ZU.USERNUMB, ZU.USERMAIL 
+					 		 FROM SAPHEE.ZLCODE ZL
+							INNER JOIN SAPHEE.ZUSERF ZU ON ZL.MANDT = ZU.MANDT AND ZL.DTEXT1 = ZU.USERNUMB
+							WHERE ZL.CODE1 = 'SD113' AND ZL.LANG = 'ko'
+				  	      ) 	     AS S3  ON S3.LAND1 = B.LAND1		  														--국가별담당자이메일주소
+  	      LEFT JOIN SAPHEE.ZSDT0082 AS Z2 ON Z2.MANDT=Z.MANDT AND Z2.VBELN = Z.VBELN AND Z2.ZSEQ=Z.ZSEQ		--PO헤더
+		WHERE Z.MANDT = #{mandt}
+		 <if test="vbeln !=null and vbeln !=''"> AND V.VBELN LIKE '%'||#{vbeln}||'%'		</if>
+	     <if test="edatufr !=null and edatufr !=''"> AND Z.EDATU >= #{edatufr} </if>	
+	      <if test="edatuto !=null and edatuto !=''"> AND Z.EDATU  &lt;= #{edatuto} </if>	
+	     <if test="bstkd !=null and bstkd !=''"> AND Z.BSTKD LIKE '%'||#{bstkd}||'%'		</if>
+	     <if test="sedat !=null and sedat !=''"> AND Z.SEDAT != '00000000' AND Z.SEDAT IS NOT NULL 		</if>
+	     <if test="vkbur !=null and vkbur !=''"> AND V.VKBUR = #{vkbur}	</if>
+	     <if test="vkgrp !=null and vkgrp !=''"> AND V.VKGRP = #{vkgrp}	</if>
+	     <if test="region !=null and region !=''"> AND B.LAND1 = #{region}	</if>
+	     <if test="zkunnr !=null and zkunnr !=''"> AND VBPA.KUNNR = #{zkunnr}	</if>	     
+	     ORDER BY Z.MANDT, Z.VBELN, INT(Z.ZSEQ)
+		WITH UR
+
+	</select>
+
+	<resultMap id="selectListDetailMap" type="hdel.sd.ses.domain.Ses0243"> 
+	    <result property="mandt" column="MANDT"/>
+	    <result property="vbeln" column="VBELN"/>
+	    <result property="zseq" column="ZSEQ"/>	
+	    <result property="posnr" column="POSNR"/>	
+	    <result property="posid" column="POSID"/>	
+	    <result property="edatu" column="EDATU"/>	
+	    <result property="wwmod" column="WWMOD"/>	
+	    <result property="arktx" column="ARKTX"/>	
+	    <result property="kwmeng" column="KWMENG"/>
+	    <result property="vrkme" column="VRKME"/>	
+	    <result property="netwr" column="NETWR"/>	
+	    <result property="waerk" column="WAERK"/>	
+	    <result property="erdat" column="ERDAT"/>
+	    <result property="erzzt" column="ERZZT"/>
+	    <result property="ernam" column="ERNAM"/>	    
+	</resultMap>
+	
+	<select id="selectListDetail" parameterType="hdel.sd.ses.domain.Ses0243ParamVO" resultMap="selectListDetailMap">
+		SELECT  
+				     0 AS FLAG
+					, Z3.MANDT 
+					, Z3.VBELN 
+					, Z3.ZSEQ  
+					, Z3.POSNR 
+					, Z3.POSID 
+					, Z3.WWMOD 
+					, Z3.ARKTX 
+					, Z3.KWMENG
+					, Z3.VRKME 
+					, Z3.NETWR AS PONETWR
+					, Z3.WAERK AS POWAERK
+					, Z3.ERDAT 
+					, Z3.ERZZT 
+					, Z3.ERNAM 
+					, Z3.EDATU 
+					, Z4.NETWR				
+				    , Z4.KZWI5			
+					, Z4.WAERK			
+		 FROM SAPHEE.ZSDT0107 AS Z2 
+		 LEFT OUTER JOIN SAPHEE.ZSDT0108 AS Z3 ON Z2.MANDT = Z3.MANDT  AND Z2.VBELN = Z3.VBELN AND Z2.ZSEQ = Z3.ZSEQ
+   		 LEFT OUTER JOIN SAPHEE.VBAP     AS Z4 ON Z3.MANDT = Z4.MANDT AND Z3.VBELN = Z4.VBELN AND Z3.POSNR = Z4.POSNR
+		WHERE Z3.MANDT = #{mandt}
+		  AND Z3.VBELN = #{vbeln}
+		  AND Z3.ZSEQ = #{zseq}
+	   ORDER BY Z3.POSNR ASC	  
+		WITH UR	      
+	</select>
+	
+	
+	<!--  MN생성 팝업의 호기번호조회-->
+	<select id="selectListHogi" parameterType="hdel.sd.ses.domain.Ses0243ParamVO" resultMap="selectListDetailMap">
+		SELECT  
+					  V.MANDT  
+					, V.ZZPJT_ID 
+				    , V.VBELN 
+					, Z.ZSEQ  
+					, Z3.POSNR
+					, Z3.POSID
+					, Z.BSTKD
+					, PA.LAND1 AS REGION
+					, VALUE(T.LANDX, PA.LAND1) AS LANDNM
+					, Z.INCO1
+					, Z.INCO2
+					, KD.ZTERM AS ZTERMT
+					, Z.SPECDWG
+					, EP.EDATU
+					, Z3.EDATU AS POEDATU					
+					, Z.ZFWDING
+					, Z3.WWMOD
+					, Z3.ARKTX
+					, Z3.KWMENG
+					, Z3.VRKME
+					, AP.NETWR
+					, Z3.NETWR AS PONETWR
+					, AP.KZWI5
+					, Z3.WAERK
+					, V.RECAD_DA
+					, Z.ACDAT
+					, Z.SEDAT
+					, Z.SEZZT	
+					, Z.REMARK1			
+					, Z.REMARK2
+					, Z.REMARK3		
+					, Z.REMARK4		
+					, Z.REMARK5			
+		 FROM SAPHEE.ZSDT0082 AS Z 
+		 	  	   INNER JOIN SAPHEE.VBAK		AS V  ON Z.MANDT	= V.MANDT	AND Z.VBELN 	= V.VBELN AND AUART = 'ZT01'
+		           LEFT OUTER JOIN SAPHEE.ZSDT0083 AS Z3 ON Z.MANDT = Z.MANDT AND Z.VBELN = Z3.VBELN AND Z.ZSEQ = Z3.ZSEQ
+				   LEFT OUTER JOIN SAPHEE.VBAP     AS AP ON Z3.MANDT = AP.MANDT AND Z3.VBELN = AP.VBELN AND Z3.POSNR = AP.POSNR				   
+		  		   LEFT OUTER JOIN SAPHEE.VBKD    AS KD ON Z3.MANDT = KD.MANDT AND Z3.VBELN = KD.VBELN AND Z3.POSNR = KD.POSNR
+				   LEFT JOIN SAPHEE.VBPA		AS PA ON PA.MANDT	= Z.MANDT	AND PA.VBELN 	= Z.VBELN	AND PA.PARVW = 'WE'
+				   LEFT JOIN SAPHEE.T005T		AS T ON T.MANDT	= PA.MANDT	AND T.LAND1 	= PA.LAND1	AND T.SPRAS = 'E' 
+				   LEFT JOIN SAPHEE.VBPA		AS PA2 ON PA2.MANDT	= Z.MANDT	AND PA2.VBELN 	= Z.VBELN	AND PA2.POSNR='000000' AND PA2.PARVW = 'Z2' 
+				   LEFT JOIN SAPHEE.VBEP AS EP ON EP.MANDT = Z.MANDT AND EP.VBELN = Z.VBELN AND EP.POSNR = AP.POSNR AND EP.ETENR='0001'
+		WHERE V.MANDT = #{mandt}
+		  <if test="vbeln !=null and vbeln !=''"> AND V.VBELN LIKE '%'||#{vbeln}||'%'		</if>
+		  <if test="edatufr !=null and edatufr !=''"> AND V.EDATU >= #{edatufr} </if>	
+	       <if test="edatuto !=null and edatuto !=''"> AND V.EDATU  &lt;= #{edatuto} </if>	
+	       <if test="vkbur !=null and vkbur !=''"> AND 	V.VKBUR = #{vkbur}	</if>
+	       <if test="vkgrp !=null and vkgrp !=''"> AND V.VKGRP = #{vkgrp}	</if>
+	       <if test="region !=null and region !=''"> AND PA.LAND1 = #{region}	</if>
+	       <if test="zkunnr !=null and zkunnr !=''"> AND PA2.KUNNR = #{zkunnr}	</if>
+	       AND Z.ZSEQ = (SELECT MAX(ZSEQ) FROM SAPHEE.ZSDT0082 WHERE MANDT=V.MANDT AND VBELN=V.VBELN)
+		  ORDER BY Z.MANDT, Z.VBELN, Z.ZSEQ, AP.POSNR, Z3.POSID						     
+		WITH UR	      
+	</select>	
+	
+	<resultMap id="selectListDetailMap2" type="hdel.sd.ses.domain.Ses0243"> 
+	    <result property="mandt" column="MANDT"/>
+	    <result property="vbeln" column="VBELN"/>
+	    <result property="zseq" column="ZSEQ"/>	
+	    <result property="posnr" column="POSNR"/>
+	    <result property="characteristic" column="CHARACTERISTIC"/>
+	    <result property="characteristicnm" column="CHARACTERISTICNM"/>	
+	    <result property="posid" column="POSID"/>	
+	    <result property="cuobj" column="CUOBJ"/>	
+	    <result property="value" column="VALUE"/>	
+	    <result property="erdat" column="ERDAT"/>
+	    <result property="erzzt" column="ERZZT"/>
+	    <result property="ernam" column="ERNAM"/>	    
+	</resultMap>
+	
+	<select id="searchAttribute" parameterType="hdel.sd.ses.domain.Ses0243ParamVO" resultMap="selectListDetailMap2">
+		SELECT  
+					  Z4.MANDT 
+					, Z4.VBELN 
+					, Z4.ZSEQ  
+					, Z4.POSNR
+					, Z4.CHARACTERISTIC
+					, C.ATBEZ AS CHARACTERISTICNM    
+					, Z4.POSID 					
+					, Z4.CUOBJ 
+					, Z4.VALUE
+					, Z4.ERDAT 
+					, Z4.ERZZT 
+					, Z4.ERNAM 
+		 FROM SAPHEE.ZSDT0109 AS Z4 LEFT OUTER JOIN SAPHEE.CABN B 
+		   ON Z4.MANDT = B.MANDT
+		  AND Z4.CHARACTERISTIC = B.ATNAM		 
+		 LEFT OUTER JOIN SAPHEE.CABNT AS C 
+		   ON B.MANDT = C.MANDT 
+		  AND B.ATINN = C.ATINN 
+		WHERE Z4.MANDT = #{mandt}
+		  AND Z4.VBELN = #{vbeln}
+		  AND Z4.ZSEQ = #{zseq}
+		  AND Z4.POSNR = #{posnr}
+		WITH UR	      
+	</select>	
+
+	<!--  메일전송 sendMailheader update -->
+	<update id="sendMailheader" parameterType="hdel.sd.ses.domain.Ses0243ParamVO" >
+		<![CDATA[
+			UPDATE SAPHEE.ZSDT0107						
+			SET
+			        SEDAT 		= HEX(CURRENT DATE)									
+			       ,SEZZT 		= HEX(CURRENT time)			
+			 WHERE MANDT  		= #{mandt}         							
+			   AND VBELN  		= CAST(#{vbeln} AS VARCHAR(30))       						
+			   AND ZSEQ  		= CAST(#{zseq} AS VARCHAR(6))
+			  WITH UR			  
+	    ]]>
+	</update>	
+	
+	<!--  MN Header update -->
+	<update id="updateHeader" parameterType="hdel.sd.ses.domain.Ses0243ParamVO" >
+			UPDATE SAPHEE.ZSDT0107						
+			     SET EDATU  		= #{edatu}	
+			         , REMARK1  	= #{remark1}	
+				     , REMARK2  	= #{remark2}
+				     , REMARK3  	= #{remark3}	
+				     , REMARK4  	= #{remark4}
+				     , REMARK5  	= #{remark5}
+			 WHERE MANDT  		= #{mandt}         							
+			   AND VBELN  	= CAST(#{vbeln} AS VARCHAR(30))       						
+			   AND ZSEQ  	= CAST(#{zseq} AS VARCHAR(6))
+			  WITH UR			  
+	</update>	
+	
+	<!--  MN Header Receipt Date update -->
+	<update id="updateHeaderReceiptDate" parameterType="hdel.sd.ses.domain.Ses0243ParamVO" >
+			UPDATE SAPHEE.ZSDT0107						
+			     SET ACDAT  		= HEX(CURRENT DATE)
+			 WHERE MANDT  		= #{mandt}         							
+			   AND VBELN  	= CAST(#{vbeln} AS VARCHAR(30))       						
+			   AND ZSEQ  	= CAST(#{zseq} AS VARCHAR(6))
+			  WITH UR			  
+	</update>	
+	
+
+	<!-- MN Detail update--> 
+	<update id="updateDetail" parameterType="hdel.sd.ses.domain.Ses0243ParamVO">
+		<![CDATA[
+			UPDATE SAPHEE.ZSDT0108		--  상해본부PO DETAIL
+			   SET
+					 EDATU    	= CAST(#{edatu} AS VARCHAR(8))			--  납기일자
+					,NETWR    	= CAST(#{ponetwr} AS DECIMAL(15,2))		--  판매금액		
+			 WHERE MANDT  	= #{mandt}         							
+			   AND VBELN  		= CAST(#{vbeln} AS VARCHAR(30))       						
+			   AND ZSEQ  		= CAST(#{zseq} AS VARCHAR(6))
+			   AND POSNR  	= CAST(#{posnr} AS VARCHAR(18))          
+			  WITH UR
+		]]>  
+	</update>
+	
+	<select id="checkVbak" parameterType="hdel.sd.ses.domain.Ses0243ParamVO" resultMap="selectListHeaderMap">
+	<![CDATA[
+		SELECT  
+					  MANDT 
+					, VBELN
+					, RECAD_DA  
+		 FROM SAPHEE.VBAK
+		WHERE MANDT = #{mandt}
+		  AND VBELN = #{vbeln} 
+		WITH UR	   
+	]]>   
+	</select>	
+	
+	<select id="getSeq" parameterType="hdel.sd.ses.domain.Ses0243ParamVO" resultMap="selectListHeaderMap">
+		SELECT VALUE(MAX(CAST(ZSEQ AS SMALLINT))+1, 1) AS ZSEQ
+							   FROM SAPHEE.ZSDT0107
+							 WHERE MANDT    = #{mandt}		
+								AND VBELN 	= #{vbeln}
+		WITH UR	      
+	</select>		
+	
+	<!--  PO header insertVblen-->
+	<insert id="insertVblen" parameterType="hdel.sd.ses.domain.Ses0243ParamVO" >
+		<![CDATA[
+		
+			INSERT INTO
+			SAPHEE.ZSDT0107 (
+											MANDT,					VBELN,					ZSEQ,
+											BSTKD,					REGION,					INCO1,
+											INCO2,					ZTERMT,					SPECDWG,
+											EDATU,					ZFWDING,				SEDAT,
+											SEZZT,					ERDAT,					ERZZT,
+											ERNAM,					ACDAT		
+						  			 )
+					VALUES		(
+											CAST(#{mandt} AS VARCHAR(9)) ,					CAST(#{vbeln} AS VARCHAR(30)),										CAST(#{zseq} AS VARCHAR(6)),
+											CAST(#{bstkd} AS VARCHAR(105)),					CAST(#{region} AS VARCHAR(9)),										CAST(#{inco1} AS VARCHAR(9)),
+											CAST(#{inco2} AS VARCHAR(84)) ,					CAST(#{ztermt} AS VARCHAR(90)),									'',
+											CAST(#{edatu} AS VARCHAR(24)),						'',																			'00000000',
+											'000000' ,													HEX(CURRENT DATE),			 										HEX(CURRENT TIME),
+											CAST(#{ernam} AS VARCHAR(36)),					''
+									)
+			  WITH UR			  
+	    ]]>
+	</insert>		
+
+	<!--  PO detail insertVblenDetail-->
+	<insert id="insertVblenDetail" parameterType="hdel.sd.ses.domain.Ses0243ParamVO" >
+		<![CDATA[
+		
+			INSERT INTO 
+			SAPHEE.ZSDT0108	(
+											MANDT,										VBELN,										ZSEQ,				
+											POSNR,										POSID,										EDATU,
+											WWMOD,										ARKTX,										KWMENG,
+											VRKME,										NETWR,										WAERK,
+											ERDAT,										ERZZT,										ERNAM
+									)
+				  	 VALUES		(
+				  							#{mandt},										#{vbeln},										#{zseq},
+											#{posnr} ,										#{posid},										#{poedatu},
+											 #{wwmod} ,									#{arktx},										#{kwmeng},
+											#{vrkme},										#{ponetwr},									#{waerk},
+											HEX(CURRENT DATE),						HEX(CURRENT TIME),						#{ernam}
+				  	 				) 		  	 	  
+	    ]]>
+	</insert>		
+	
+	<!--  PO SAP insertSap-->
+	<insert id="insertSap" parameterType="hdel.sd.ses.domain.Ses0243ParamVO" >
+		<![CDATA[
+		
+			INSERT INTO SAPHEE.ZSDT0109 (
+								  MANDT 
+								, VBELN 
+								, ZSEQ  
+								, POSNR
+								, CHARACTERISTIC
+								, POSID 					
+								, CUOBJ 
+								, VALUE
+								, ERDAT 
+								, ERZZT 
+								, ERNAM )
+			VALUES(
+								  CAST(#{mandt} AS VARCHAR(10))
+								, CAST(#{vbeln}  AS VARCHAR(10))
+								, CAST(#{zseq}   AS VARCHAR(3))
+								, CAST(#{posnr} AS VARCHAR(6))
+								, CAST(#{characteristic} AS VARCHAR(30))
+								, CAST(#{posid} AS VARCHAR(24)) 							
+								, '' 
+								, CAST(#{value} AS VARCHAR(30))
+								, HEX(CURRENT DATE) 
+								, HEX(CURRENT TIME)
+								, CAST(#{ernam} AS VARCHAR(12))
+					)					
+			WITH UR			  
+	    ]]>
+	</insert>		
+
+</mapper>  

@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form BKColor="user0" Height="22" Id="Coms031" Left="8" OnLoadCompleted="fn_OnLoadCompleted" PidAttrib="7" Title="영업담당자&#32;코드/명&#32;검색" Top="8" Ver="1.0" Width="184" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_error">
+				<Contents>
+					<colinfo id="IDX" size="256" type="STRING"/>
+					<colinfo id="ERRMSG" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_cond">
+				<Contents>
+					<colinfo id="DEALER_CD" size="256" summ="default" type="STRING"/>
+					<colinfo id="DEALER_NAME" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_list">
+				<Contents>
+					<colinfo id="SDFIELD" size="256" summ="default" type="STRING"/>
+					<colinfo id="DEALER_CD" size="256" summ="default" type="STRING"/>
+					<colinfo id="DEALER_NAME" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Edit Border="Flat" Column="SMAN" Height="20" Id="ed_dealer_cd" LeftMargin="4" OnChanged="ed_dealer_cd_OnChanged" OnCharChanged="ed_dealer_cd_OnCharChanged" OnFocus="fn_OnFocus" OnKillFocus="fn_OnKillFocus" RightMargin="4" Style="sty_ipt_form" TabOrder="1" UpperOnly="TRUE" Width="80"></Edit>
+		<Button Height="18" Id="btn_popDealer" ImageID="btn_icon_search" Left="81" OnClick="fn_OnClick_popup" TabOrder="2" Text="Button0" Top="1" Transparent="TRUE" Width="18"></Button>
+		<Static Height="16" Id="Static1" Left="8" TabOrder="3" Text="담당자코드/담당자명" Top="40" Width="146"></Static>
+		<Edit Border="Flat" CheckLength="Byte" Enable="FALSE" Height="20" Id="ed_dealer_name" ImeMode="none" Left="100" LeftMargin="4" MaxLength="105" OnKeyDown="ed_dealer_name_OnKeyDown" RightMargin="4" Style="sty_ipt_search" TabOrder="4" Width="80"></Edit>
+	</Form>
+	<Script><![CDATA[/*
+ ******************************************************************************************
+ * 기      능   : 영업담당자 팝업 조회기능 
+ * 작  성  자   : 
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */ 
+#include "LIB::commons.js";	// 공통 스크립트 
+#include "LIB::nsfRequest.js";	// 공통 스크립트  /* GNY 추가 */
+#include "LIB::common_hdel.js";	// 공통 스크립트  /* GNY 추가 */
+#include "LIB::common_sd.js";
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+
+// 필요 시 부모 화면에 선언되어야 할 폼변수
+// var F_SMAN_WIDTH 	= "";  	// 담당자코드 서브화면 폼 WIDTH
+// var F_SMAN_CD_WIDTH	= "";  	// 담당자코드 서브화면 코드 WIDTH
+// var F_SMAN_NM_WIDTH	= "";  	// 담당자코드 서브화면 코드명 WIDTH 
+var f_user_auth = "";  			// 사용자권한 (G_USER_GROUP_B)
+var f_user_id = "";  
+var f_user_name = "";
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) 
+{  
+	// 영업담당자 정보 불러옴
+	switch (G_VEND_WGBN) {
+		case "E" : 
+			f_user_id   = G_SAP_USER_PM_B;
+			f_user_name = G_SAP_USER_PMNM_B;
+			break;
+		default  : 
+			f_user_id   = G_SAP_USER_ID;
+			f_user_name = G_SAP_USER_NAME;
+			break;
+	}
+	f_user_auth = G_USER_GROUP_B;
+	fn_setting_user_auth(f_user_auth);
+
+	// 폼사이즈 및 컨트롤 사이즈/위치 재조정
+	fn_setSize(); 
+}
+
+// 사용자 권한별 설정
+function fn_setting_user_auth(userAuth)
+{  
+	switch (userAuth)  
+	{
+		// 영업담당자인 경우 부서, 팀을 리턴된 담당자코드로 SET
+		case "B10" : fn_init_dealer(); break;  // 부서, 팀 제어 불가능
+		case "B20" : fn_init_dealer(); break;	// 부서, 팀 제어 불가능
+		default:
+			break;
+	} 
+}
+
+/********************************************************************************
+* 기      능   : 담당자팝업 =  기본값 강제설정
+********************************************************************************/ 
+function fn_init_dealer()
+{	 
+	ed_dealer_cd.text = f_user_id;	// 리턴된 담당자코드로 검색조건 SET
+	ed_dealer_name.text = f_user_name; 
+		
+	ed_dealer_cd.Enable = false;
+	btn_popDealer.Enable = false;
+}
+
+/********************************************************************************
+* 기      능   :  담당자 조회   
+********************************************************************************/
+function fn_query_dealer() { 
+
+	gfn_clearMsgBar();   
+	
+	// 출력데이타셋 초기화
+	ds_list.ClearData();
+	ds_cond.ClearData();
+	ds_cond.AddRow();
+	ds_cond.SetColumn(ds_cond.row, "DEALER_CD", trim(ed_dealer_cd.text));
+	ds_cond.SetColumn(ds_cond.row, "DEALER_NAME", trim(ed_dealer_name.text));
+
+	// 서비스호출
+	nsfRequest("query"									// srvId
+				, "com0300/find"						// url
+				, "ds_cond=ds_cond ds_list=ds_list"		// inDsList
+				, "ds_list=ds_list ds_error=ds_error"	// outDsList
+				, ""									// strParam
+				, "fn_afterQuery");				// CallBackFunc
+}
+
+/********************************************************************************
+* 기      능   : 영업담당자조회 Callback  
+********************************************************************************/
+function fn_afterQuery(strSvcID, nErrorCode, strErrorMag)
+{  
+	if(ds_error.rowcount() > 0) { 	// 호출결과처리
+	} else {
+		if (ds_list.RowCount() = 1) { // 한 건 조회된 경우
+			// 조회해 온 값으로 담당자 검색정보 SET
+			ed_dealer_cd.Text = ds_list.GetColumn(ds_list.row, "DEALER_CD");
+			ed_dealer_name.Text = ds_list.GetColumn(ds_list.row, "DEALER_NAME");
+		} 
+		else if (ds_list.RowCount() > 1) { // 다 건 조회된 경우	
+			fn_OnClick_popup(btn_popDealer); // 담당자조회 팝업화면  호출
+		}
+	}
+}
+
+// 담당자명에서 엔터키 누르면
+function ed_dealer_name_OnKeyDown(obj,nChar,bShift,bCtrl, bAlt,LLParam,HLParam) {
+	if (nChar == 13) {
+		// 입력된 조건이 없으면
+		if (length(trim(ed_dealer_cd.text)) == 0 && length(trim(ed_dealer_name.text)) == 0) {
+			fn_OnClick_popup(btn_popDealer);  // 팝업화면 호출
+		} else {
+			fn_query_dealer();  				// 담당자조회 서비스 호출
+		}
+	}
+}
+
+function fn_OnClick_popup(obj)
+{
+	var arg = "fa_dealer_cd= " 	+ quote(ed_dealer_cd.text) // 담당자코드
+			 + " fa_dealer_name = " + quote(ed_dealer_name.text); // 담당자명 
+			 	
+	var arr = gfn_openPopUpUrlHdel("Com::Com0300.xml", true, arg);	
+	if (arr != null && arr != 0) {
+		ed_dealer_cd.text = arr[0];	// 리턴된 담당자코드로 검색조건 SET
+		ed_dealer_name.text = arr[1];	// 리턴된 담당자명으로 검색조건 SET
+		ed_dealer_name.SetFocus();
+	} 
+} 
+
+// 폼사이즈 및 컨트롤 사이즈 재조정
+function fn_setSize()
+{  
+	btn_popDealer.left = ed_dealer_cd.left 	+ ed_dealer_cd.Width 	+ 1;
+	ed_dealer_name.left  = btn_popDealer.left + btn_popDealer.Width + 1;   
+}
+
+function ed_dealer_cd_OnChanged(obj,strText)
+{
+	// 입력된 조건이 있으면
+	if (length(trim(ed_dealer_cd.text)) != 0 || length(trim(ed_dealer_name.text)) != 0) {
+		fn_query_dealer();  				// 담당자조회 서비스 호출
+	}
+}
+
+
+/******************************************************
+// 포커스 인
+******************************************************/
+function fn_OnFocus(obj)
+{
+	// 공백이 포함되지 않도록 처리
+	ed_dealer_cd.Text = trim(ed_dealer_cd.Text);
+	ufn_OnFocus(obj);
+}
+
+/******************************************************
+// 포커스 아웃
+******************************************************/
+function fn_OnKillFocus(obj)
+{
+	// 공백이 포함되지 않도록 처리
+	ed_dealer_cd.Text = trim(ed_dealer_cd.Text);
+	ufn_OnKillFocus(obj);
+}
+
+/******************************************************
+// 담당자코드값 변경시 명칭 clear처리
+******************************************************/
+
+function ed_dealer_cd_OnCharChanged(obj,strPreText,strPostText)
+{
+	if (strPreText != strPostText)
+		ed_dealer_name.Text = "";
+}
+]]></Script>
+</Window>

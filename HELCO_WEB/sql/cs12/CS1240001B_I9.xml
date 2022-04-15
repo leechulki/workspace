@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>insert</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+INSERT INTO SAPHEE.ZWBMESG( 
+			 MANDT
+			, MESGSEND
+			, MESGNUMB
+			, MESGACCP
+			, MESGTITL
+			, MESGDESC
+			, MESGCHEK
+			, MESGDATE
+			, MESGTIME
+			, MESGFNAM
+			, MESGFSIZ
+			, MESGACDE
+			, MESGSEDE
+			, MESGACTM
+		)
+		SELECT MANDT
+		    , SUBSTR(APNUM,2)
+		    , (SELECT CASE WHEN MAX(MESGNUMB) IS NULL THEN 1 ELSE MAX(MESGNUMB) + 1 END AS MAX_SEQ
+		        FROM SAPHEE.ZWBMESG
+		        WHERE MANDT = #G_MANDT#
+		        AND MESGSEND = SUBSTR(APNUM,2)
+		        WITH UR)
+		    , MESGACCP
+		    , '견적 결재가 승인되었습니다. (결재문서번호 : '||DOCNO||')'
+		    --, '(견적번호 '||ETN||' : '||SIR||'차) '||APDPT1_N||' '||APIRUM||'('||APRNK||')님이 '||TO_CHAR(TO_DATE(APDATE,'YYYYMMDD'),'YYYY-MM-DD')||'에 최종승인하셨습니다.'
+                                ,CAST('(견적번호 '||ETN||' : '||SIR||'차) '||APDPT1_N||' '||APIRUM||'('||APRNK||')님이 '||TO_CHAR(TO_DATE(APDATE,'YYYYMMDD'),'YYYY-MM-DD')||'에 최종승인하셨습니다.'  AS VARCHAR(500))
+		    , 'N'
+		    , HEX(CURRENT DATE)
+		    , HEX(CURRENT TIME)
+		    , ''
+		    , 0
+		    , 'N'
+		    , 'N'
+		    , ''
+		FROM    
+			(SELECT A.*, B.MESGACCP
+			    , CASE WHEN VALUE(CS301.CS301_TEM,'') > '' THEN CS301.CS301_TEM || '-' || CS301.CS301_RDT || '-' || CS301.CS301_SEQ
+			           ELSE ''
+			       END ETN
+			    , CS301_SIR AS SIR  
+			FROM (SELECT ROW_NUMBER() OVER (ORDER BY WB02.APPGUBN, WB02.SEQNO DESC) AS RNUM
+			          , WB01.MANDT, WB01.DOCNO, WB02.APDPT1_N, WB02.APRNK, WB02.APIRUM, WB02.APDATE, WB02.APTIM, WB02.APNUM
+			        FROM SAPHEE.ZWBAP01 WB01
+			           , SAPHEE.ZWBAP02 WB02
+			       WHERE WB01.MANDT = #G_MANDT#
+			         AND WB01.MANDT = WB02.MANDT
+			         AND WB01.DOCNO = #DOCNO#
+			         AND WB01.DOCNO = WB02.DOCNO
+			         AND WB01.APSTAT = '6')  A
+		                      LEFT OUTER JOIN 
+		                          (SELECT CS301_MID AS MESGACCP    
+		                             FROM SAPHEE.ZCST301
+		                            WHERE MANDT = #G_MANDT#
+		                              AND CS301_DOC = #DOCNO#
+		                              AND CS301_DEL <> 'Y'  
+		                           UNION ALL
+		                           SELECT CS649_BNU
+		                             FROM SAPHEE.ZCST649
+		                            WHERE MANDT = #G_MANDT#
+		                              AND CS649_DOC = #DOCNO#
+		                           FETCH FIRST  1 ROWS ONLY ) B ON 1=1
+			    , SAPHEE.ZCST301 CS301
+			WHERE A.MANDT = CS301.MANDT
+			  AND A.DOCNO = CS301.CS301_DOC
+			  AND SUBSTR(A.APNUM,1,1) = 'H'
+			  AND CS301_DEL <> 'Y' 
+			  AND RNUM = 1
+			)
+		WITH UR	]]></statement>
+	<input default-name="ds_list_0">
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

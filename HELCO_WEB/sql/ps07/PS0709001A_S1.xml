@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT '0' CHECK
+             ,A.ZSITE_NM
+             ,A.POSID
+			 ,B.POSID_1
+			 ,B.ZSPEC1
+			 ,(CASE WHEN B.ZSPEC1 = 'STVF' OR B.ZSPEC1 = 'LXVF' OR B.ZSPEC1 = 'WBST' OR B.ZSPEC1 = 'WBLX' OR B.ZSPEC1 = 'WBHS' THEN 'MR' 
+			             WHEN B.ZSPEC1 = 'WBSS'  OR B.ZSPEC1 = 'SSVF' THEN 'MRL'
+				  		 ELSE '기타(' || B.ZSPEC1 || ')'
+			    END) AS TYPE   
+				
+			 ,B.ZSPEC2
+			 
+			 --,B.ZSPEC4
+			 ,(CASE WHEN SUBSTR(B.ZSPEC2, 1,1) = 'O' THEN '전망용'
+			             WHEN SUBSTR(B.ZSPEC2, 1,1) = 'H' THEN '장애인용'
+			             WHEN SUBSTR(B.ZSPEC2, 1,1) = 'E' THEN '비상용'
+                         ELSE '기타(' || SUBSTR(B.ZSPEC2,1,2)  || ')'
+			    END) AS USES
+			
+			  ,(SELECT X.VALUE  FROM SAPHEE.ZSDT0005 AS X   WHERE X.MANDT = B.MANDT  AND X.HOGI = B.POSID_1   AND X.CHARACTERISTIC = 'EL_EHP'
+					 ORDER BY X.SEQ DESC  FETCH FIRST 1 ROWS ONLY ) AS EL_EHP   
+
+			  ,(SELECT X.VALUE  FROM SAPHEE.ZSDT0005 AS X   WHERE X.MANDT = B.MANDT  AND X.HOGI = B.POSID_1   AND X.CHARACTERISTIC = 'EL_ECJJ'
+					 ORDER BY X.SEQ DESC  FETCH FIRST 1 ROWS ONLY ) AS EL_ECJJ  				
+				
+			  ,(SELECT X.VALUE  FROM SAPHEE.ZSDT0005 AS X   WHERE X.MANDT = B.MANDT  AND X.HOGI = B.POSID_1   AND X.CHARACTERISTIC = 'EL_ECHH'
+					 ORDER BY X.SEQ DESC  FETCH FIRST 1 ROWS ONLY ) AS EL_ECHH   			
+
+                                            ,(SELECT X.VALUE  FROM SAPHEE.ZSDT0005 AS X   WHERE X.MANDT = B.MANDT  AND X.HOGI = B.POSID_1   AND X.CHARACTERISTIC = 'EL_EHM'
+					 ORDER BY X.SEQ DESC  FETCH FIRST 1 ROWS ONLY ) AS EL_EHM  	--- E011  승강로 재질  
+					 			                                 
+                                            ,(SELECT  VALUE( (  SELECT CHAR_VALUE 
+                                                                               FROM SAPHEE.ZSDT0094 AS Z94 
+					       WHERE MANDT=VBAP.MANDT 
+					           AND Z94.HOGI=VBAP.HOGI 
+					           AND Z94.SEQ = (SELECT MAX(SEQ) 
+					                                       FROM SAPHEE.ZSDT0090 
+					                                    WHERE MANDT=Z94.MANDT 
+				   	                                        AND PSPID=Z94.PSPID 
+					                                        AND FINL = 'X'  ) 
+					           AND Z94.NAM_CHAR=Z48.PRH), Z48.PRD)
+                                                                              FROM SAPHEE.VBAP AS VBAP
+                                                                              INNER JOIN SAPHEE.ZSDT1048 AS Z48 
+                                            	                           ON VBAP.MANDT=Z48.MANDT 
+	                                                                   AND VBAP.QTNUM=Z48.QTNUM 
+	                                                                   AND VBAP.QTSER=Z48.QTSER 
+	                                                                   AND VBAP.QTSEQ=Z48.QTSEQ
+                                                                             WHERE VBAP.MANDT= B.MANDT
+                                                                                 AND VBAP.HOGI= B.POSID_1
+                                                                                 AND Z48.PRH='EL_EHTT'   )  AS EL_EHTT                -- 승강장 문턱거리
+
+                                            ,(SELECT  VALUE( (  SELECT CHAR_VALUE 
+                                                                               FROM SAPHEE.ZSDT0094 AS Z94 
+					       WHERE MANDT=VBAP.MANDT 
+					           AND Z94.HOGI=VBAP.HOGI 
+					           AND Z94.SEQ = (SELECT MAX(SEQ) 
+					                                       FROM SAPHEE.ZSDT0090 
+					                                    WHERE MANDT=Z94.MANDT 
+				   	                                        AND PSPID=Z94.PSPID 
+					                                        AND FINL = 'X'  ) 
+					           AND Z94.NAM_CHAR=Z48.PRH), Z48.PRD)
+                                                                              FROM SAPHEE.VBAP AS VBAP
+                                                                              INNER JOIN SAPHEE.ZSDT1048 AS Z48 
+                                            	                           ON VBAP.MANDT=Z48.MANDT 
+	                                                                   AND VBAP.QTNUM=Z48.QTNUM 
+	                                                                   AND VBAP.QTSER=Z48.QTSER 
+	                                                                   AND VBAP.QTSEQ=Z48.QTSEQ
+                                                                             WHERE VBAP.MANDT= B.MANDT
+                                                                                 AND VBAP.HOGI= B.POSID_1
+                                                                                 AND Z48.PRH='EL_EHPB'   )  AS EL_EHPB                                  -- 피트하부 공간
+
+
+
+              , 0 AS chk_1_1, 0 AS chk_1_2, 0 AS chk_1_3
+              , 0 AS chk_2_1, 0 AS chk_2_2
+              , 0 AS chk_3_1, 0 AS chk_3_2
+              , 0 AS chk_4_1, 0 AS chk_4_2				
+              , 0 AS chk_5_1, 0 AS chk_5_2
+              , 0 AS chk_6_1, 0 AS chk_6_2
+
+
+				
+   FROM SAPHEE.ZMASTER01 AS A
+   INNER JOIN SAPHEE.ZMASTER02 AS B
+        ON A.MANDT = B.MANDT
+	  AND A.POSID = B.POSID
+   
+   
+WHERE A.MANDT = #G_MANDT#
+     AND A.POSID = #POSID#
+	 AND A.PRART IN ('01', '11')   
+	 AND B.ZZGUBUN IN ('10', '13') 
+	 AND B.TXT04 <> 'C'
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

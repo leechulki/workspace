@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[프로젝트 발주현황 조회]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT X.MANDT
+       ,X.OCNT_NUMB  -- 수주번호
+       ,X.EBDG_MGSQ  -- 예산차수
+       ,X.BSTDK      -- 수주일
+       ,X.PSPID      -- 프로젝트번호
+       ,X.BSTNK      -- 프로젝트명
+       ,Y.ESMT_TAMT  -- 수주금액
+       ,CAST(ROUND(Y.SALE_COST/Y.ESMT_TAMT*100,2) AS DECIMAL(11,5)) AS ESMT_RATE -- 수주시행율
+       ,Y.SLCS_RATE  -- 시행예산시행율
+       ,Z.CONT_CMPY
+       ,R.EBDG_NAME
+       ,(SELECT NAME1 FROM SAPHEE.LFA1 WHERE MANDT = X.MANDT AND LIFNR = Z.CONT_CMPY) AS CONT_CMPY_NAME -- 업체명
+       ,R.ESMT_AMT -- 시행예산액
+       ,R.SPEN_AMT -- 시예산지출 금액
+       ,Z.PAMT     -- 지급계획일별 예산지출 금액
+       ,X.ORDR_TYPE
+       ,(SELECT CODE_NAME FROM SAPHEE.ZFST0100 WHERE MANDT = X.MANDT AND CODE_GROP = 'A03' AND CODE = X.ORDR_TYPE) AS ORDR_TYPE_NAME
+FROM   TABLE (
+        SELECT A.MANDT
+               ,A.OCNT_NUMB
+               ,MAX(A.EBDG_MGSQ) AS EBDG_MGSQ
+               ,B.BSTDK
+               ,B.BSTNK
+               ,B.PSPID
+               ,B.ORDR_TYPE
+        FROM   SAPHEE.ZFST0301 A
+               INNER JOIN SAPHEE.ZFST0304 B
+               ON  A.MANDT = B.MANDT
+               AND A.OCNT_NUMB = B.OCNT_NUMB
+               AND A.EBDG_MGST IN ( '350', '360')
+        WHERE  A.MANDT = #G_MANDT#
+          AND  B.WRIT_DATE BETWEEN #ESCS_MONTH_FROM# AND #ESCS_MONTH_TO#
+<isNotNull col="PSPID">
+          AND  B.PSPID LIKE '%'||#PSPID#||'%'
+</isNotNull>
+<isNotNull col="KUNNR">
+          AND  B.KUNNR = #KUNNR#
+</isNotNull>
+        GROUP BY  A.MANDT
+                 ,A.OCNT_NUMB
+                 ,B.BSTDK
+                 ,B.BSTNK
+                 ,B.PSPID
+                 ,B.ORDR_TYPE
+        ) X
+        INNER JOIN SAPHEE.ZFST0301 AS Y
+        ON X.MANDT = Y.MANDT
+        AND X.OCNT_NUMB = Y.OCNT_NUMB
+        AND X.EBDG_MGSQ = Y.EBDG_MGSQ
+        LEFT OUTER JOIN TABLE (
+        SELECT A.MANDT
+               ,A.OCNT_NUMB
+               ,A.EBDG_ITSQ
+               ,A.ORDR_NUMB
+               ,A.CONT_CMPY -- 계약추진업체
+               ,SUM(C.PAMT) AS PAMT       -- 지급금액
+        FROM   SAPHEE.ZFST0400 A
+               INNER JOIN SAPHEE.ZFST0403 B
+               ON A.MANDT = B.MANDT
+               AND A.ORDR_NUMB = B.ORDR_NUMB
+               AND B.CONT_STAT = '650' -- 계약상태
+               INNER JOIN SAPHEE.ZFST0404 C
+               ON B.MANDT = C.MANDT
+               AND B.CONT_NUMB = C.CONT_NUMB
+               AND B.CONT_NTIM = C.CONT_NTIM
+               AND C.PAYT_TIMI &lt;= TO_CHAR(CURRENT_DATE, 'YYYYMMDD')
+        WHERE A.MANDT = #G_MANDT#
+          AND A.ORDR_STAT = '450'  -- 발주상태
+        GROUP BY  A.MANDT
+                  ,A.OCNT_NUMB
+                  ,A.EBDG_ITSQ
+                  ,A.ORDR_NUMB
+                  ,A.CONT_CMPY -- 계약추진업체
+        ) AS Z
+        ON X.MANDT = Z.MANDT
+        AND X.OCNT_NUMB = Z.OCNT_NUMB
+        LEFT OUTER JOIN SAPHEE.ZFST0302 R
+        ON X.MANDT = R.MANDT
+        AND X.OCNT_NUMB = R.OCNT_NUMB
+        AND X.EBDG_MGSQ = R.EBDG_MGSQ
+        AND R.EBDG_ITSQ = Z.EBDG_ITSQ
+ORDER   BY X.OCNT_NUMB DESC 
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_zfst0400_list">
+    </output>
+</query>

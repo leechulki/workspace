@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT   A.POSID AS PSPID, A.ZSITE_NM   ,A.KUNNR_NM , '현대엘리베이터(주)' AS COMP , '일반건설공사(을)' AS TXT ,
+               T.NAMET , T.CELLP, 
+               CASE WHEN T.ZZCHAKD = 0 OR T.ZZCHAKD = 0 THEN '' ELSE SUBSTR(T.ZZCHAKD,1,4)||'.'||SUBSTR(T.ZZCHAKD,5,2)||'.'||SUBSTR(T.ZZCHAKD,7,2)||'~' ||SUBSTR(T.ZZCOMP2,1,4)||'.'||SUBSTR(T.ZZCOMP2,5,2)||'.'||SUBSTR(T.ZZCOMP2,7,2)  END AS DATE ,
+              FLOOR( CASE WHEN T.SAFEE <> 0  THEN T.SAFEE*100 ELSE ( CASE WHEN V.NETWR >= 400000 AND V.NETWR < 5000000  THEN (V.NETWR*0.7*0.0309*100) --4천만원 이상
+	       WHEN V.NETWR >= 5000000 AND V.NETWR < 50000000 THEN  (V.NETWR*0.7*0.0199*100) +5499000  -- 5억원 이상 
+                     WHEN V.NETWR >= 50000000 THEN (V.NETWR*0.7*0.021*100) ELSE 0 END ) END )AS NETWR,  --50억이상  
+              SAPHEE.GET_CURRENCY2(CAST(S.WAERK AS VARCHAR(15) ), CAST( S.NETWR2  AS DECIMAL(13, 2) ) )  AS NETWR2,
+	 SAPHEE.GET_CURRENCY2(CAST(S.WAERK AS VARCHAR(15) ), CAST( S.NETWR_A  AS DECIMAL(13, 2) ) )  AS NETWR_A,
+	 SAPHEE.GET_CURRENCY2(CAST(S.WAERK AS VARCHAR(15) ), CAST( S.NETWR_B  AS DECIMAL(13, 2) ) )  AS NETWR_B , 
+	 SAPHEE.GET_CURRENCY2(CAST(S.WAERK AS VARCHAR(15) ), CAST( S.NETWR_C  AS DECIMAL(13, 2) ) )  AS NETWR_C,
+	 SAPHEE.GET_CURRENCY2(CAST(S.WAERK AS VARCHAR(15) ), CAST( S.NETWR_D  AS DECIMAL(13, 2) ) )  AS NETWR_D,
+											                                              SAPHEE.GET_CURRENCY2(CAST(S.WAERK  AS VARCHAR(15) ), CAST( S.NETWR_E  AS DECIMAL(13, 2) ) )  AS NETWR_E,
+												                                 SAPHEE.GET_CURRENCY2(CAST(S.WAERK AS VARCHAR(15) ), CAST( S.NETWR_F  AS DECIMAL(13, 2) ) )  AS NETWR_F,
+													                   SAPHEE.GET_CURRENCY2(CAST(S.WAERK AS VARCHAR(15) ), CAST( S.NETWR_G  AS DECIMAL(13, 2) ) )  AS NETWR_G,
+														             SAPHEE.GET_CURRENCY2(CAST(S.WAERK AS VARCHAR(15) ), CAST( S.NETWR_H  AS DECIMAL(13, 2) ) )  AS NETWR_H, S.WAERK
+FROM SAPHEE.ZMASTER01 AS A
+  INNER JOIN (
+    SELECT X.MANDT, X.POSID, X.NAMET ,P.CELLP 
+                  ,MIN(VALUE(X.ZZCHAKD,0)) AS ZZCHAKD , MAX(VALUE(X.ZZCOMP2,0)) AS ZZCOMP2
+                  ,VALUE((SELECT Z.SAFEE FROM SAPHEE.ZSDT0800  AS Z WHERE X.MANDT  = Z.MANDT AND X.POSID = Z.PSPID),0) AS SAFEE
+       FROM SAPHEE.ZMASTER02 AS X 
+                    INNER JOIN SAPHEE.ZPST0011 AS P 
+	           ON  P.MANDT = X.MANDT  
+	          AND P.NAMET = X.NAMET  
+                        AND P.RETIF = ''
+	          AND P.ZZACTSS = X.ZZACTSS 
+                        AND X.POSID = #PSPID#
+	     WHERE X.MANDT = #G_MANDT# 
+	GROUP BY X.MANDT, X.POSID ,X.NAMET ,P.CELLP
+	     FETCH FIRST 1 ROWS ONLY
+  ) AS T
+  ON A.MANDT = T.MANDT 
+  AND A.POSID = T.POSID
+  
+  INNER JOIN SAPHEE.VBAK AS V
+      ON  A.MANDT = V.MANDT
+    AND A.POSID = V.ZZPJT_ID
+	
+  LEFT OUTER JOIN SAPHEE.ZPST0061 AS S
+      ON S.MANDT = A.MANDT
+     AND S.PSPID = A.POSID
+
+WHERE A.MANDT  = #G_MANDT#	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_head">
+	</output>
+</query>

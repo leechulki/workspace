@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[수리부품 이동계획 현황 - 연/월별 이동계획 리스트]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	
+	
+	SELECT CS196.ARA, 
+	       SAPHEE.CODE_CONV('183', 'CS115', CS196.ARA) ARANM, 
+	       CS196.VKGRP, 
+	       SAPHEE.CODE_CONV('183', 'VKGRP', CS196.VKGRP) AS VKGRPNM, 
+	       CS196.LIFNR, 
+	       SAPHEE.GET_VENDER_NAME('183', CS196.LIFNR) AS LIFNRNM, 
+	       CS196.GBNA, 
+	       CASE 
+	           WHEN GBNA = 'A' THEN '수리공사' 
+	           ELSE '부품판매' 
+	       END AS GBNANM, 
+	       CS196.UPN, 
+	       CS196.NAM, 
+	       CS196.TEXT, 
+	       CS196.BLD, 
+	       SAPHEE.CODE_CONV('183', 'CS123', CS196.BLD) AS BLDNM,
+	       CS196.YDT, 
+	       CS196.YDA, 
+	       CS196.SHDAT, 
+	       CS196.MDT, 
+	       CS196.QTNUM, 
+	       CS196.SEQ, 
+	       CS001.MA_PSPID AS MA_PSPID 
+	  FROM SAPHEE.ZWBT010 AS WB010,
+           SAPHEE.ZCST196 AS CS196 
+      LEFT OUTER JOIN SAPHEE.ZCST001 AS CS001
+        ON CS001.QTNUM = CS196.QTNUM
+       AND CS001.SEQ = CS196.SEQ
+       AND CS001.MANDT = CS196.MANDT    	  
+     WHERE CS196.MANDT = #G_MANDT#
+  	   AND CS196.YYMM = #SYEAR# || #SMONTH#
+	   AND CS196.VKGRP &lt;&gt; ''
+	   AND CS196.QTNUM > ''
+	   AND WB010.MANDT = CS196.MANDT
+       AND WB010.LIFNR = CS196.LIFNR
+	<isNotNull col="ARA">
+	   AND WB010.BSU_ARA = #ARA#
+	</isNotNull>
+	<isNotNull col="BSU">
+  	   AND WB010.LGORT = #BSU#
+	</isNotNull>
+	<isNotNull col="BPM">
+	   AND WB010.BSU_PM = #BPM#
+	</isNotNull>                         	   
+    <isNotNull col="TEM">
+	   AND CS196.VKGRP = #TEM#
+   	</isNotNull>
+   	<isNull col="TEM">
+		<isNotNull col="DPT">
+		   AND CS196.VKGRP IN (SELECT CODE2 AS CODE
+                      	  	     FROM SAPHEE.ZLCODE
+                     			WHERE MANDT = #G_MANDT#
+                        		  AND LANG  = #G_LANG# 
+                        	 	  AND CODE1 = 'VKGRP'
+                        		  AND DTEXT1 = #DPT#)												
+		</isNotNull>
+   </isNull>     
+      ORDER BY CS196.ARA, VKGRPNM, LIFNRNM
+        FOR FETCH ONLY
+       WITH UR	
+      
+  	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

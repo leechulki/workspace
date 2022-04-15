@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  M12.NAME1
+       ,T.PSPID
+       ,T.POSID
+       ,M2.POSID_OLD
+       ,M1.ZSITE_NM
+       ,M2.ZSPEC1
+       ,M2.ZSPEC2
+       ,M2.NAMET2
+       ,(SELECT CTEXT2 FROM SAPHEE.ZMMT028 AS M28 WHERE M28.MANDT = T.MANDT AND M28.CODE1 = 'PS003' AND M28.CODE2 = M2.ZZACTSS) AS ZZACTSS
+       ,T.GUBUN
+       ,T.TOT
+       ,B_PRO_R
+       ,A_PRO_R
+       ,T.PRO_R
+       ,ROUND(T.TOT*A_PRO_R/100,0) AS AMT
+       ,T.CRDAT
+       ,CASE WHEN M2.ZQEGEMSA = '00000000' THEN '' ELSE M2.ZQEGEMSA END ZQEGEMSA
+       ,CASE WHEN M2.ZBEPJEO = '00000000' THEN '' ELSE M2.ZBEPJEO END ZBEPJEO
+       ,CASE WHEN M2.ZBOSUOUT = '00000000' THEN '' ELSE M2.ZBOSUOUT END ZBOSUOUT
+FROM (
+        SELECT  T1.MANDT,T1.PSPID
+               ,T1.POSID
+               ,T1.LIFNR
+               ,T1.GUBUN
+               ,T3.TOT
+               ,VALUE(T2.B_PRO_R,0) B_PRO_R
+               ,T1.PRO_R - VALUE(T2.B_PRO_R,0) AS A_PRO_R 
+               ,T1.PRO_R
+               ,T1.CRDAT
+        FROM  (
+                SELECT P.MANDT,P.PSPID,P.POSID,P.GUBUN,SUM(PRO_R) AS PRO_R,M.LIFNR,MAX(P.CRDAT) CRDAT
+                FROM SAPHEE.ZPST0112 AS P,SAPHEE.ZMASTER02 AS M
+                WHERE P.MANDT = #G_MANDT#
+                AND P.MANDT = M.MANDT
+                AND P.PSPID = M.POSID
+                AND P.POSID = M.POSID_1
+<isNotNull col="ZZACTSS">
+AND M.ZZACTSS = #ZZACTSS#
+</isNotNull>
+                <isEqual col="GBN" value="N">
+                AND M.LIFNR = #LIFNR#
+                </isEqual>
+                <isNotNull col="PSPID">
+                AND P.PSPID = #PSPID#
+                </isNotNull>
+                AND P.CRDAT &lt;= #CRDAT#				
+                GROUP BY P.MANDT,P.PSPID,P.POSID,P.GUBUN,M.LIFNR
+                HAVING MAX(CRDAT) &gt;= #CRDAT2#
+            ) T1
+        	LEFT OUTER JOIN
+            (
+                SELECT  P.MANDT
+                       ,P.PSPID
+                       ,P.POSID
+                       ,P.LIFNR
+                       ,P.GUBUN
+--                       ,SUM(P.PRO_R) B_PRO_R
+                       ,(SELECT SUM(P16.PRO_R) 
+                          FROM   SAPHEE.ZPST0116 P16
+                                 ,SAPHEE.ZPST0116A P16A
+                          WHERE P16.MANDT = P16A.MANDT
+                          AND   P16.PSPID = P16A.PSPID
+                          AND   P16.POSID = P16A.POSID
+                          AND   P16.SEQNO = P16A.SEQNO
+                          AND   P16.MANDT = P.MANDT
+                          AND   P16A.GUBUN = '5'
+                          AND   P16A.STATE = 'Y'
+                          AND   P16.BELNR > ' '
+                          AND   P16.TAXDATE &lt; #TAXDATE#
+                          AND   P16.PSPID = P.PSPID
+                          AND   P16.POSID = P.POSID
+                        ) B_PRO_R
+                FROM   SAPHEE.ZPST0116 P
+                      ,SAPHEE.ZPST0116A A
+                WHERE P.MANDT = A.MANDT
+                AND   P.PSPID = A.PSPID
+                AND   P.POSID = A.POSID
+                AND   P.SEQNO = A.SEQNO
+                AND   P.MANDT = #G_MANDT#
+                AND   A.GUBUN = '5'
+                AND   A.STATE = 'Y'
+                AND   P.BELNR > ' '
+                AND   P.TAXDATE &lt; #TAXDATE#
+                <isEqual col="GBN" value="N">
+                AND P.LIFNR = #LIFNR#
+                </isEqual>
+                <isNotNull col="PSPID">
+                AND P.PSPID = #PSPID#
+                </isNotNull>
+                GROUP BY P.MANDT,P.PSPID,P.POSID,P.GUBUN,P.LIFNR     
+            ) T2
+            ON T1.MANDT = T2.MANDT
+            AND T1.PSPID = T2.PSPID
+            AND T1.POSID = T2.POSID
+            AND T1.GUBUN = T2.GUBUN
+            AND T1.LIFNR = T2.LIFNR
+            LEFT OUTER JOIN
+            (
+            SELECT  T1.MANDT
+                   ,T1.PSPID
+                   ,T1.POSID
+                   ,T1.TOT
+				   ,T1.LIFNR
+            FROM   SAPHEE.ZPST0100 T1,
+                 (
+                    SELECT  P1.MANDT
+                           ,P1.PSPID
+                           ,P1.POSID
+                           ,P1.LIFNR
+                           ,MAX(P1.CHGNO) CHGNO
+                    FROM  SAPHEE.ZPST0100 P1
+                         ,SAPHEE.ZPST0113 P2
+                    WHERE P1.MANDT = #G_MANDT#
+                    AND   P1.MANDT = P2.MANDT
+                    AND   P1.PSPID = P2.PSPID
+                    AND   P1.POSID = P2.POSID
+                    <isEqual col="GBN" value="N">
+                    AND   P1.LIFNR = #LIFNR#
+                    </isEqual>
+                    <isNotNull col="PSPID">
+                    AND   P1.PSPID = #PSPID#
+                    </isNotNull>          
+                    AND   P1.GUBUN IN ('10','11','12','20')
+                    AND   P2.GUBUN = '5'
+                    AND   P2.STATE = 'Y'
+                    AND   P2.CNF_GBN = 'A'
+                    GROUP BY P1.MANDT,P1.PSPID,P1.POSID,P1.LIFNR
+                 ) AS T2
+            WHERE T1.MANDT = T2.MANDT
+            AND   T1.PSPID = T2.PSPID
+            AND   T1.POSID = T2.POSID
+            AND   T1.CHGNO = T2.CHGNO
+            ) AS T3
+             ON T1.MANDT = T3.MANDT
+             AND T1.PSPID = T3.PSPID
+             AND T1.POSID = T3.POSID
+             AND T1.LIFNR = T3.LIFNR			 
+    ) T        
+    ,SAPHEE.ZMASTER02 AS M2
+    ,SAPHEE.ZMASTER01 AS M1	
+    ,SAPHEE.ZMMT012 AS M12		
+WHERE T.MANDT = M2.MANDT
+AND T.PSPID = M2.POSID
+AND T.POSID = M2.POSID_1
+AND T.MANDT = M1.MANDT
+AND T.PSPID = M1.POSID
+AND T.MANDT = M12.MANDT
+AND T.LIFNR = M12.LIFNR
+AND A_PRO_R > 0
+
+ORDER BY T.LIFNR,T.PSPID,T.POSID
+
+FOR FETCH ONLY WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="DATEF" size="255" type="VARCHAR" description="" /> 
+		<col name="DATET" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

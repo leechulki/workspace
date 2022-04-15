@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[PS1601002A_S1]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	
+SELECT 
+     E.PSPID AS PSPID
+    ,(SELECT E.JQPRNUM || K.SERNO FROM SAPHEE.ZQMT009 K WHERE K.MANDT = E.MANDT AND K.JQPRNUM = E.JQPRNUM AND K.MCAUCHK='X') AS JQPRNUM  
+    ,SUBSTR(E.CREDT,1,6)  AS PAPRYYYYMM
+    ,E.CREDT AS PAPRDT  --검사일자
+    ,(SELECT N.DTEXT4 FROM SAPHEE.ZLCODE N WHERE N.MANDT = E.MANDT AND N.CODE1 = 'PS003' AND N.LANG = 'ko' AND N.CODE2 = W.ZZACTSS) TEMNM  --설치팀명
+    ,(SELECT MM028.CTEXT2 FROM SAPHEE.ZLCODE MM028 WHERE MM028.MANDT = E.MANDT AND MM028.CODE1 = 'PS003' AND MM028.LANG = 'ko' AND MM028.CODE2 = W.ZZACTSS) ZZACTSS 
+    ,E.LIFNR AS LIFNR
+    ,E.NAME1 AS LIFNRNM -- 업체명 
+    ,E.NAMET2 AS NAMET2 -- 팀장명 
+    ,E.JQPRNO AS JQPRNO -- JQPRNO
+    ,E.HOGI AS HOGI -- 호기 
+    ,(SELECT M.ZSITE_NM FROM SAPHEE.ZMASTER01 M WHERE M.MANDT = E.MANDT AND M.POSID = E.PSPID) AS ZSITE_NM -- 프로젝트명 
+    ,E.ATYPE AS ATYPE -- 기종 
+    ,E.SPEC AS SPEC -- 사양 
+    ,COUNT(*) OVER (PARTITION BY PAPRYYYYMM, PSPID, HOGI, JQPRNUM) AS CNT --건수
+    ,E.REJTXT AS REJTXT --문제점요약
+    ,'' AS CAUSETXT --고장원인(발생원인)
+    ,E.OCCAMT AS OCCAMT     --발생금액
+    ,E.phenotxt AS phenotxt --조치 
+FROM
+    (
+        SELECT
+             A.MANDT
+            ,A.JQPRNUM
+            ,A.PSPID
+            ,CREDT  --발생일자
+            ,substr(A.CREDT,1,6)  AS PAPRYYYYMM
+            ,A.LIFNR
+            ,(SELECT DISTINCT NAME1 FROM SAPHEE.ZPST0034 NN WHERE MANDT = A.MANDT   AND LIFNR = A.LIFNR  AND GBN = 'A') AS NAME1
+            ,A.TEMNO AS NAMET1   --팀장번호  M02.NAMET2 
+            ,B.NAMET AS NAMET2    -- 팀장명
+            ,A.JQPRNO   --JQPRNO
+            ,A.HOGI     --호기
+            ,A.ATYPE  -- 기종
+            ,A.SPEC   -- 사양
+            ,'' AS CNT --건수
+            ,A.REJTXT  --문제점요약
+            ,A.CAUSETXT  --발생원인
+            ,((A.IWBTR + A.OWBTR)*100) AS OCCAMT     -- 발생금액  
+            ,A.phenotxt --조치
+         FROM SAPHEE.ZQMT007 AS A                        
+         LEFT OUTER JOIN  SAPHEE.ZMASTER02 M02 ON M02.MANDT = A.MANDT AND M02.POSID = A.PSPID AND M02.POSID_1 =  A.HOGI
+         LEFT OUTER JOIN SAPHEE.ZPST0002 AS B ON A.MANDT = B.MANDT AND A.TEMNO = B.TEMNO 
+         LEFT OUTER JOIN SAPHEE.KNA1 AS K 
+                      ON A.MANDT  = K.MANDT 
+                     AND A.IMPLFN = K.KUNNR
+
+		WHERE A.MANDT = #G_MANDT#
+	      AND (A.LIFNR IS NOT NULL OR A.LIFNR != '' OR A.LIFNR != ' ')
+		  AND A.WERKS BETWEEN '1000' AND '3110'
+		  AND A.STATUS IN ('3','4','5','6')
+		  AND A.LIFNR <![CDATA[  <> ]]> '0000008001'
+		  AND A.GUBUN = 'J'
+          AND (substr(A.CREDT,1,6) BETWEEN #YYYYMMF#  AND #YYYYMMT#)
+          AND A.LIFNR = K.STCD2 -- 설치귀책만 조회되도록
+          <isNotNull col="ZTEMNO">
+             AND A.TEMNO = #ZTEMNO#
+          </isNotNull>
+          <isNotNull col="ZZLIFNR">
+              AND A.LIFNR = #ZZLIFNR#      
+          </isNotNull>
+          <isNotNull col="CHK_GBN">
+                AND M02.ZZGUBUN = #CHK_GBN#
+          </isNotNull>
+          ORDER BY A.PSPID, A.HOGI, B.NAMET
+ ) AS E
+ INNER JOIN SAPHEE.ZPST0034 AS C 
+         ON E.MANDT = C.MANDT AND E.LIFNR = C.LIFNR AND C.GBN = 'A' AND (C.SO = 'X' OR C.SO3 = 'X')
+ LEFT OUTER JOIN SAPHEE.ZWBT010 W
+              ON E.MANDT = W.MANDT
+             AND E.LIFNR = W.LIFNR
+     WHERE 1=1 
+      AND (W.ZZACTSS IS NOT NULL OR W.ZZACTSS != '' )
+      AND  W.ZZACTSS <![CDATA[  <> ]]> '16'
+      AND C.SO5 <![CDATA[<>]]> 'X'
+      <isNotNull col="CHK_GBN">
+       <isEqual col="CHK_GBN" value="10">
+       AND (C.EL_INDC = 'X' OR (C.EL_INDC = 'X' AND C.ES_INDC = 'X')) AND E.LIFNR  <![CDATA[  <> ]]> '0000008001'
+       </isEqual>
+       </isNotNull>
+       <isNotNull col="CHK_GBN">
+       <isEqual col="CHK_GBN" value="11">
+       AND (C.ES_INDC = 'X' OR (C.ES_INDC = 'X' AND C.ES_INDC = 'X')) AND E.LIFNR  <![CDATA[  <> ]]> '0000008001'
+       </isEqual>
+       </isNotNull>
+          <isNotNull col="TEMNO">
+             AND W.ZZACTSS IN ( SELECT CODE2 FROM SAPHEE.ZLCODE  WHERE MANDT = E.MANDT AND CODE1 = 'PS003' AND LANG = 'ko' AND DTEXT3 = #TEMNO# )
+          </isNotNull>
+          <isNotNull col="ZZACTSS">
+            AND W.ZZACTSS = #ZZACTSS#
+          </isNotNull>
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+
+	<output default-name="ds_list">
+	</output>
+
+</query>

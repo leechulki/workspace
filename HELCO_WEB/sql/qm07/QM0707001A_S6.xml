@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+			   A.MANDT  AS MANDT
+			  ,A.ITEM   AS ITEM
+			  ,A.WOKNUM AS WOKNUM
+			  ,A.MATKL  AS MATKL
+		      ,A.MATNR  AS MATNR
+		      ,A.MENGE  AS QNTY
+			  ,VALUE(A.SPEC12, '') AS SPEC12
+			  ,VALUE(A.SPEC3, 0)   AS SPEC3
+			  ,VALUE(A.SPEC5, 0)   AS SPEC5
+			  ,VALUE(A.ECSF, '')   AS ECSF
+			  ,VALUE(A.ETM, '')    AS ETM
+  FROM (
+				SELECT
+							   A.MANDT  AS MANDT				  ,A.WOKNUM AS WOKNUM
+							  ,A.MATKL  AS MATKL 			       ,A.MATNR  AS MATNR
+						      ,VALUE(A.MENGE, 0)  AS MENGE
+						      ,A.ITEM   AS ITEM						   ,B.SPEC12 AS SPEC12
+							  ,B.SPEC3  AS SPEC3				   ,B.SPEC5  AS SPEC5
+							  ,C.VALUE  AS ECSF					     ,D.VALUE  AS ETM
+		          FROM ( SELECT AA.MANDT, AA.WOKNUM, AA.MATKL, AA.MATNR AS MATNR, AA.MENGE AS MENGE, BB.ITEM
+		           	   	 		  FROM (
+								               -- 자재번호로 조회
+		                		  	   	       SELECT  A.MANDT, A.WOKNUM, A.MATKL, A.IDNRK AS MATNR
+		                     				   		  	    ,CASE A.BOM_LEVEL WHEN '01' THEN A.MENGE
+		                                        				  			  	   			  WHEN '02' THEN (SELECT MENGE FROM SAPHEE.ZPPT004
+		                                                         							  	   			 		 	   					     WHERE MANDT  = A.MANDT
+		                                                           																				      AND WOKNUM = A.WOKNUM
+		                                                           																					  AND IDNRK  = A.MATNR
+		                                                           																					  AND CRDAT &lt;= #REDATE#
+		                                                        																				 ORDER BY CRDAT DESC
+		                                                        																				  FETCH FIRST 1 ROWS ONLY ) * A.MENGE 
+															END AS MENGE
+		                  						 FROM SAPHEE.ZPPT004 AS A
+		                                       WHERE A.MANDT = #G_MANDT#
+		                   					        AND A.IDNRK IN (SELECT B1.MATNR
+				                             					   		   		  FROM SAPHEE.ZQMT071U AS A1
+				                                  								 INNER JOIN SAPHEE.ZQMT073U B1
+				        	                              						      ON B1.MANDT = A1.MANDT AND B1.DEPT  = A1.DEPT AND B1.GJAHR = A1.GJAHR 
+				        	                             							AND B1.ITEM  = A1.ITEM AND B1.GUBUN = '1'  -- 자재
+				                            								   WHERE A1.MANDT = #G_MANDT#
+				                              								        AND A1.DEPT  = #DEPT#
+				                              										AND A1.GJAHR = #GJAHR#
+				                              										AND ( REPLACE(A1.STYM, '000000', '') = ''  OR 
+																					          A1.STYM > SUBSTR(CAST(HEX(DATE(SUBSTR(#RSLTYM#, 1, 4)||'-'||SUBSTR(#RSLTYM#, 5, 2)||'-'||'01') - 12 MONTHS) AS VARCHAR(8)), 1, 6) )
+				                                                             )
+		                                          AND A.CRDAT BETWEEN #RSDATE# AND #REDATE#
+		                   						  AND (A.PRCTYP IN ('A','N') OR (A.PRCTYP = 'C' AND  A.CTYP IN ('Q','B')))	--신규, 추가, 변경(수량, 수량주석)
+
+		               						  UNION ALL
+
+		                					SELECT  A.MANDT, A.WOKNUM, A.MATKL, A.IDNRK AS MATNR
+		                     				             ,CASE A.BOM_LEVEL WHEN '01' THEN (CASE A.PRCTYP WHEN 'D'  THEN A.MENGE * -1 WHEN 'C' THEN A.OLD_QUAN * -1 END)
+		                                        		 	   			   			 	   WHEN '02' THEN (CASE A.PRCTYP WHEN 'D'  THEN (((SELECT MENGE FROM SAPHEE.ZPPT004
+		                                                                                         	 	  				 	  	   				  			 			   	     WHERE MANDT  = A.MANDT
+																							                                                                                          AND WOKNUM = A.WOKNUM
+																							                                                                                          AND IDNRK  = A.MATNR
+																							                                                                                          AND CRDAT &lt;= #REDATE#
+																							                                                                                     ORDER BY CRDAT DESC
+																							                                                                                      FETCH FIRST 1 ROWS ONLY ) * A.MENGE) * -1)
+		                                                                      																	  WHEN 'C'  THEN (((SELECT MENGE FROM SAPHEE.ZPPT004
+																						                                                                                         WHERE MANDT  = A.MANDT
+																						                                                                                              AND WOKNUM = A.WOKNUM
+																						                                                                                              AND IDNRK  = A.MATNR
+																						                                                                                              AND CRDAT &lt;= #REDATE#
+																						                                                                                         ORDER BY CRDAT DESC
+																						                                                                                          FETCH FIRST 1 ROWS ONLY ) * A.OLD_QUAN) * -1)  
+																													  END)  
+														END AS MENGE
+		                                     FROM SAPHEE.ZPPT004 AS A
+		                 				   WHERE A.MANDT = #G_MANDT#
+		                   				   		AND A.IDNRK IN (SELECT B1.MATNR
+				                             				   		   		  FROM SAPHEE.ZQMT071U AS A1
+				                                  							  INNER JOIN SAPHEE.ZQMT073U B1
+				        	                              					       ON B1.MANDT = A1.MANDT AND B1.DEPT  = A1.DEPT AND B1.GJAHR = A1.GJAHR
+				        	                             						 AND B1.ITEM  = A1.ITEM  AND B1.GUBUN = '1'  -- 자재
+				                            								WHERE A1.MANDT = #G_MANDT#
+				                              									 AND A1.DEPT  = #DEPT#
+				                              									 AND A1.GJAHR = #GJAHR#
+				                              									 AND ( REPLACE(A1.STYM, '000000', '') = ''  OR 
+																				           A1.STYM > SUBSTR(CAST(HEX(DATE(SUBSTR(#RSLTYM#, 1, 4)||'-'||SUBSTR(#RSLTYM#, 5, 2)||'-'||'01') - 12 MONTHS) AS VARCHAR(8)), 1, 6) )
+				                                                          )
+		                                     AND A.CRDAT BETWEEN #RSDATE# AND #REDATE#
+		                  					 AND (A.PRCTYP = 'D' OR (A.PRCTYP = 'C' AND  A.CTYP IN ('Q','B')))	--삭제, 변경(수량, 수량주석)
+
+		               					 -- 도면번호로 조회
+		                                 UNION ALL
+		
+		                			  SELECT   A.MANDT, A.WOKNUM, A.MATKL, A.DZEINR AS MATNR
+		                     		  		 		,CASE A.BOM_LEVEL WHEN '01' THEN A.MENGE
+		                                        		  			  	   			  WHEN '02' THEN (SELECT MENGE FROM SAPHEE.ZPPT004
+															                                                       WHERE MANDT  = A.MANDT
+															                                                            AND WOKNUM = A.WOKNUM
+															                                                            AND IDNRK  = A.MATNR
+															                                                            AND CRDAT &lt;= #REDATE#
+															                                                       ORDER BY CRDAT DESC
+															                                                        FETCH FIRST 1 ROWS ONLY ) * A.MENGE 
+													END AS MENGE
+		                                 FROM SAPHEE.ZPPT004 AS A
+		                 			   WHERE A.MANDT = #G_MANDT#
+		                   			        AND A.DZEINR IN (SELECT B1.MATNR
+				                              			 					FROM SAPHEE.ZQMT071U AS A1
+				                                   						    INNER JOIN SAPHEE.ZQMT073U B1
+				        	                               					     ON B1.MANDT = A1.MANDT AND B1.DEPT  = A1.DEPT AND B1.GJAHR = A1.GJAHR
+				        	                              					   AND B1.ITEM  = A1.ITEM  AND B1.GUBUN = '2'  -- 도면
+				                             							  WHERE A1.MANDT = #G_MANDT#
+				                               							       AND A1.DEPT  = #DEPT#
+				                               								   AND A1.GJAHR = #GJAHR#
+				                               								   AND ( REPLACE(A1.STYM, '000000', '') = ''  OR 
+																			             A1.STYM > SUBSTR(CAST(HEX(DATE(SUBSTR(#RSLTYM#, 1, 4)||'-'||SUBSTR(#RSLTYM#, 5, 2)||'-'||'01') - 12 MONTHS) AS VARCHAR(8)), 1, 6) )
+				                                                       )
+		                                   AND A.CRDAT BETWEEN #RSDATE# AND #REDATE#
+		                   				   AND (A.PRCTYP IN ('A','N') OR (A.PRCTYP = 'C' AND A.CTYP IN ('Q','B')))	--신규, 추가, 변경(수량, 수량주석)
+
+		                               UNION ALL
+
+		                			SELECT    A.MANDT, A.WOKNUM, A.MATKL, A.DZEINR AS MATNR
+		                                           ,CASE A.BOM_LEVEL WHEN '01' THEN (CASE A.PRCTYP WHEN 'D'  THEN A.MENGE * -1 WHEN 'C' THEN A.OLD_QUAN * -1 END)
+		                                           		 			 	  	   		 WHEN '02' THEN (CASE A.PRCTYP WHEN 'D'  THEN (((SELECT MENGE FROM SAPHEE.ZPPT004
+																					                                                                                       WHERE MANDT  = A.MANDT
+																					                                                                                            AND WOKNUM = A.WOKNUM
+																					                                                                                            AND IDNRK  = A.MATNR
+																					                                                                                            AND CRDAT &lt;= #REDATE#
+																					                                                                                       ORDER BY CRDAT DESC
+																					                                                                                        FETCH FIRST 1 ROWS ONLY ) * A.MENGE) * -1)
+																			                                                                WHEN 'C'  THEN (((SELECT MENGE FROM SAPHEE.ZPPT004
+																					                                                                                       WHERE MANDT  = A.MANDT
+																					                                                                                            AND WOKNUM = A.WOKNUM
+																					                                                                                            AND IDNRK  = A.MATNR
+																					                                                                                            AND CRDAT &lt;= #REDATE#
+																					                                                                                       ORDER BY CRDAT DESC
+																					                                                                                        FETCH FIRST 1 ROWS ONLY ) * A.OLD_QUAN) * -1)  
+																												  END) 
+													END AS MENGE
+		                   				 FROM SAPHEE.ZPPT004 AS A
+		                               WHERE A.MANDT = #G_MANDT#
+		                   			        AND A.DZEINR IN (SELECT B1.MATNR
+				                              			 					FROM SAPHEE.ZQMT071U AS A1
+				                                   						   INNER JOIN SAPHEE.ZQMT073U B1
+				        	                               				        ON B1.MANDT = A1.MANDT AND B1.DEPT  = A1.DEPT AND B1.GJAHR = A1.GJAHR
+				        	                              					   AND B1.ITEM  = A1.ITEM AND B1.GUBUN = '2'  -- 도면
+				                             							  WHERE A1.MANDT = #G_MANDT#
+				                               							       AND A1.DEPT  = #DEPT#
+				                               								   AND A1.GJAHR = #GJAHR#
+				                               								   AND ( REPLACE(A1.STYM, '000000', '') = '' OR  
+																			             A1.STYM > SUBSTR(CAST(HEX(DATE(SUBSTR(#RSLTYM#, 1, 4)||'-'||SUBSTR(#RSLTYM#, 5, 2)||'-'||'01') - 12 MONTHS) AS VARCHAR(8)), 1, 6) )
+				                                                        )
+		                                   AND A.CRDAT BETWEEN #RSDATE# AND #REDATE#
+		                  				   AND (A.PRCTYP = 'D' OR (A.PRCTYP = 'C' AND A.CTYP IN ('Q','B')))	--삭제, 변경(수량, 수량주석)
+										   
+										   
+		                               -- 보수자재로 조회  
+		                               UNION ALL						  
+											
+									SELECT  b.mandt, b.afnam as WOKNUM,  c.block_no as matkl,    b.matnr, b.menge
+                                       FROM      SAPHEE.ekko  AS a
+							          INNER JOIN SAPHEE.ekpo  AS b  ON b.ebeln = a.ebeln and b.mandt = a.mandt
+							          INNER JOIN SAPHEE.mara  AS c  ON c.matnr = b.matnr and c.mandt = b.mandt
+							      	WHERE a.mandt = #G_MANDT#
+								         and a.bedat BETWEEN #RSDATE# AND #REDATE#          --" 발주일												           
+								       	 AND b.werks  = '2000'                    -- " 보수플랜트
+							           	 AND b.knttp  in ('' , 'F')                            --  " STOCK발주만 조회												          
+							           	 AND b.loekz = ''
+									   	 AND b.matnr  IN ( SELECT B1.MATNR
+							                                            FROM SAPHEE.ZQMT071U AS A1
+							                                            INNER JOIN SAPHEE.ZQMT073U B1
+							        	                                     ON B1.MANDT = A1.MANDT    AND B1.DEPT  = A1.DEPT   AND B1.GJAHR = A1.GJAHR
+							        	                                   AND B1.ITEM  = A1.ITEM    	   AND B1.GUBUN = '1'  -- 도면   
+							                                          WHERE A1.MANDT = #G_MANDT#
+							                                               AND A1.DEPT  = #DEPT#
+							                                               AND A1.GJAHR = #GJAHR#
+							                                           	   AND ( REPLACE(A1.STYM, '000000', '') = '' OR 
+														                             A1.STYM > SUBSTR(CAST(HEX(DATE(SUBSTR(#RSLTYM#, 1, 4)||'-'||SUBSTR(#RSLTYM#, 5, 2)||'-'||'01') - 12 MONTHS) AS VARCHAR(8)), 1, 6) ) )
+						  
+						  										   
+										   
+										   
+										   
+										   
+		                      ) AS AA
+
+			        INNER JOIN TABLE( SELECT A.MANDT  AS MANDT  ,A.ITEM   AS ITEM   ,B.MATNR  AS MATNR
+				                                      FROM SAPHEE.ZQMT071U AS A
+				                                     INNER JOIN SAPHEE.ZQMT073U B
+				        	                              ON B.MANDT = A.MANDT AND B.DEPT  = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM  = A.ITEM
+				                                   WHERE A.MANDT = #G_MANDT#
+				                            	   		AND A.DEPT  = #DEPT#
+				                            			AND A.GJAHR = #GJAHR#
+				                            			AND (  REPLACE(A.STYM, '000000', '') = '' OR 
+														           A.STYM > SUBSTR(CAST(HEX(DATE(SUBSTR(#RSLTYM#, 1, 4)||'-'||SUBSTR(#RSLTYM#, 5, 2)||'-'||'01') - 12 MONTHS) AS VARCHAR(8)), 1, 6) )
+				                                 ) AS BB
+				        ON AA.MANDT= BB.MANDT AND AA.MATNR = BB.MATNR
+
+		        WHERE 1 = 1
+		          ) AS A
+		
+	      -- 상세조건 추가부분 (SPEC, 인승, 속도)
+	    LEFT OUTER JOIN TABLE( SELECT  MANDT, POSID_1,
+		                          	  		 		 	   	   CASE WHEN ZSPEC12 IN (' ', '') THEN '' ELSE ZSPEC12 END AS SPEC12,
+		                          							   CAST(CASE WHEN ZSPEC3 IN (' ', '') THEN '0' ELSE ZSPEC3 END AS INT) AS SPEC3,
+									                           CAST(CASE ZSPEC5    WHEN ' '   THEN '0'
+														                                           WHEN '17L' THEN '17'
+														                                           WHEN '13M' THEN '13'
+														                                           WHEN ''    THEN '0'   ELSE ZSPEC5 
+																		  END AS INT) AS SPEC5
+		                                          FROM SAPHEE.ZMASTER02 
+						                       WHERE MANDT = #G_MANDT#
+						                       ) AS B
+		  ON A.MANDT = B.MANDT AND A.WOKNUM = B.POSID_1 
+		
+		   -- 상세조건 추가부분 (CAR SAFETY)
+		LEFT OUTER JOIN TABLE (SELECT S.MANDT, S.HOGI, S.CHARACTERISTIC, MAX(S.SEQ) AS SEQ
+							                        FROM SAPHEE.ZSDT0005 AS S
+							                      WHERE S.MANDT = A.MANDT
+											           AND S.HOGI =  A.WOKNUM
+												   	   AND S.CHARACTERISTIC = 'EL_ECSF'
+												 GROUP BY S.MANDT, S.HOGI, S.CHARACTERISTIC) AS S1
+		    ON A.MANDT = S1.MANDT  AND A.WOKNUM = S1.HOGI
+
+		LEFT OUTER JOIN TABLE (SELECT S.MANDT, S.HOGI, S.VALUE, S.CHARACTERISTIC, S.SEQ
+									                FROM SAPHEE.ZSDT0005 AS S
+									              WHERE S.MANDT = A.MANDT
+										  	           AND S.CHARACTERISTIC = 'EL_ECSF'
+					  							       AND S.HOGI = A.WOKNUM ) AS C
+		  ON C.MANDT = S1.MANDT AND C.HOGI = S1.HOGI AND C.CHARACTERISTIC = S1.CHARACTERISTIC AND C.SEQ = S1.SEQ
+
+			-- 상세조건 추가부분 (TM)
+		LEFT OUTER JOIN TABLE (SELECT S.MANDT, S.HOGI, S.CHARACTERISTIC, MAX(S.SEQ) AS SEQ
+							                        FROM SAPHEE.ZSDT0005 AS S
+							                      WHERE S.MANDT = A.MANDT
+											           AND S.HOGI =  A.WOKNUM
+												       AND S.CHARACTERISTIC = 'EL_ETM'
+												 GROUP BY S.MANDT, S.HOGI, S.CHARACTERISTIC) AS S2
+		  ON A.MANDT = S1.MANDT  AND A.WOKNUM = S1.HOGI
+
+	    LEFT OUTER JOIN TABLE (SELECT S.MANDT, S.HOGI, S.VALUE, S.CHARACTERISTIC, S.SEQ
+								                    FROM SAPHEE.ZSDT0005 AS S
+								                  WHERE S.MANDT = A.MANDT
+											           AND S.CHARACTERISTIC = 'EL_ETM'
+				  							           AND S.HOGI = A.WOKNUM ) AS D
+		  ON D.MANDT = S2.MANDT AND D.HOGI = S2.HOGI AND D.CHARACTERISTIC = S2.CHARACTERISTIC AND D.SEQ = S2.SEQ
+
+	WHERE 1 = 1
+      ) AS A
+
+WHERE 1 = 1
+ORDER BY A.ITEM, A.MATNR
+
+
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

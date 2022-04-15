@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT
+         MS002.MANDT                                                     AS MANDT     -- 클라이언트
+        ,MS002.POSID_1                                                   AS POSID_1   -- 호기번호
+        ,VALUE(CS101.CS101_HNA,'')                                       AS HNA       -- 호기명
+        ,CASE WHEN CS111.MANDT IS NOT NULL THEN
+                   SAPHEE.CODE_CONV(CS111.MANDT,'CS138',CS111.HST)
+              ELSE '' END                                                AS HST       -- 호기상태
+        ,VALUE(CS101.CS101_WDT,'')                                       AS WDT       -- 완성검사일
+        ,CASE WHEN CS101.MANDT IS NOT NULL THEN
+                   SAPHEE.CODE_CONV(CS101.MANDT,'PS004',CS101.CS101_WNO)
+              ELSE '' END                                                AS WNO       -- 완성검사기관
+        ,VALUE(CS101.CS101_SCT,'')                                       AS SCT       -- 중간검사일
+        ,VALUE(CS101.CS101_RCD,'')                                       AS RCD       -- QE검사일
+        ,VALUE(CS101.CS101_IGD,'')                                       AS IGD       -- 보수인계일
+        ,VALUE(CS101.CS101_FDT,'')                                       AS FDT       -- 보수인수일
+        ,VALUE(CS101.CS101_IJY,'')                                       AS IJY       -- 입주예정일
+        ,CASE WHEN MS002.ZOIPSU='00000000' THEN '' ELSE MS002.ZOIPSU END AS ZOIPSU    -- 입주일
+        ,VALUE(CS101.CS101_ARA,'')                                       AS ARA       -- 대지역 코드
+        ,CASE WHEN CS101.MANDT IS NOT NULL THEN
+                   SAPHEE.CODE_CONV(CS101.MANDT,'CS115',CS101.CS101_ARA)
+              ELSE '' END                                                AS ARA_NM    -- 대지역명
+        ,VALUE(CS101.CS101_BPM,'')                                       AS BPM       -- 보수PM
+        ,CASE WHEN CS101.MANDT IS NOT NULL THEN
+                   SAPHEE.GET_BOSU_INWON(CS101.MANDT,CS101.CS101_BPM)
+              ELSE '' END                                                AS BPM_NM    -- 보수PM 성명
+        ,VALUE(CS101.CS101_BSU,'')                                       AS BSU       -- 협력사 코드
+        ,CASE WHEN CS101.MANDT IS NOT NULL THEN
+                   SAPHEE.GET_VENDER_NAME(CS101.MANDT,CS101.CS101_BSU)
+              ELSE '' END                                                AS NAME1    -- 협력사명
+		,(SELECT MAX(LIFNR) FROM SAPHEE.ZMMT005 WHERE MANDT=MS002.MANDT AND LGORT=CS101.CS101_BSU) LIFNR
+		,(SELECT TELF1 FROM SAPHEE.ZMMT012 AS M WHERE M.MANDT = MS002.MANDT AND M.LIFNR = (SELECT MAX(LIFNR) FROM SAPHEE.ZMMT005 WHERE MANDT=MS002.MANDT AND LGORT=CS101.CS101_BSU)) TELF1
+		,(SELECT TELFX FROM SAPHEE.ZMMT012 AS M WHERE M.MANDT = MS002.MANDT AND M.LIFNR = (SELECT MAX(LIFNR) FROM SAPHEE.ZMMT005 WHERE MANDT=MS002.MANDT AND LGORT=CS101.CS101_BSU)) TELFX
+        ,CASE WHEN CS111.MANDT IS NOT NULL THEN
+                   SAPHEE.GET_BOSU_INWON(CS111.MANDT,CS111.JUJ)
+              ELSE '' END                                                AS JUJ       -- 주점검자              
+        ,CASE WHEN CS111.MANDT IS NOT NULL THEN
+                   SAPHEE.GET_BOSU_INWON(CS111.MANDT,CS111.BUJ)
+              ELSE '' END                                                AS BUJ       -- 부점검자
+        ,(SELECT USERMBPN FROM SAPHEE.ZUSERF WHERE MANDT = #G_MANDT# AND USERNUMB = JUJ) JUJ_HP
+        ,(SELECT USERMBPN FROM SAPHEE.ZUSERF WHERE MANDT = #G_MANDT# AND USERNUMB = BUJ) BUJ_HP
+        ,(SELECT USERMBPN FROM SAPHEE.ZUSERF WHERE MANDT = #G_MANDT# AND USERNUMB = BPM) BPM_HP
+        ,VALUE(CS111.UPN || CS111.CST,'')                                AS UPN       -- 통합프로젝트
+        ,CASE WHEN CS111.MANDT IS NOT NULL THEN
+                   VALUE((
+        
+                           SELECT
+                           TRIM(CS121_NAM)
+                           FROM SAPHEE.ZCST121 AS CS121
+                           WHERE CS121.MANDT     = CS111.MANDT
+                             AND CS121.CS121_UPN = CS111.UPN
+                             AND CS121.CS121_CST = CS111.CST
+        
+                   ),'')
+               ELSE '' END                                     AS UPN_NM              -- 고객명
+        ,VALUE(CS111.ABG,'')                                   AS ABG                 -- 건물구분 코드
+        ,CASE WHEN CS111.MANDT IS NOT NULL THEN
+                   SAPHEE.CODE_CONV(CS111.MANDT,'CS112',CS111.ABG)
+              ELSE '' END                                      AS ABG_NM              -- 건물구분
+        ,VALUE(CS111.AGB,'')                                   AS AGB                 -- 시내/시외 코드
+        ,CASE WHEN CS111.MANDT IS NOT NULL THEN
+                   SAPHEE.CODE_CONV(CS111.MANDT,'CS116',CS111.AGB)
+              ELSE '' END                                      AS AGB_NM              -- 시내/시외
+        ,MS002.ZMUSAOCNT                                       AS ZMUSAOCNT           -- 무상공사 계약개월수
+        ,VALUE((SELECT MIN(CS116_BGT) 
+            FROM SAPHEE.ZCST116 
+           WHERE MANDT = #G_MANDT# AND CS116_PJT = CS111.PJT AND CS116_HNO = CS111.HNO
+             AND CS116_PST = 'A6' AND CS116_GND = 'A'),'')     AS MPS                 --          시작일
+        ,VALUE((SELECT MAX(CS116_BMT) 
+            FROM SAPHEE.ZCST116 
+           WHERE MANDT = #G_MANDT# AND CS116_PJT = CS111.PJT AND CS116_HNO = CS111.HNO
+             AND CS116_PST = 'A6' AND CS116_GND = 'A'),'')     AS MPT                 --          만료일
+        ,MS002.ZMUSAOCNT2                                       AS ZMUSAOCNT2         -- 무상일반 계약개월수
+        ,VALUE((SELECT MIN(CS116_BGT) 
+            FROM SAPHEE.ZCST116 
+           WHERE MANDT = #G_MANDT# AND CS116_PJT = CS111.PJT AND CS116_HNO = CS111.HNO
+             AND CS116_PST = 'A6' AND CS116_GND = 'B'),'')     AS MYS                 --          시작일
+        ,VALUE((SELECT MAX(CS116_BMT) 
+            FROM SAPHEE.ZCST116 
+           WHERE MANDT = #G_MANDT# AND CS116_PJT = CS111.PJT AND CS116_HNO = CS111.HNO
+             AND CS116_PST = 'A6' AND CS116_GND = 'B'),'')     AS MYT                 --          만료일
+        ,VALUE((SELECT MIN(CS126_USD) 
+            FROM SAPHEE.ZCST126 
+           WHERE MANDT = #G_MANDT# AND CS126_PJT = CS111.PJT AND CS126_HNO = CS111.HNO
+             AND CS126_PST = 'A6' AND CS126_DDT = '' AND CS126_GND = 'C'),'') AS SST  -- 유상공사 시작일
+        ,VALUE((SELECT MAX(CS126_UMR) 
+            FROM SAPHEE.ZCST126 
+           WHERE MANDT = #G_MANDT# AND CS126_PJT = CS111.PJT AND CS126_HNO = CS111.HNO
+             AND CS126_PST = 'A6' AND CS126_DDT = '' AND CS126_GND = 'C'),'') AS SMT  --          만료일
+        ,VALUE((SELECT MIN(CS126_USD) 
+            FROM SAPHEE.ZCST126 
+           WHERE MANDT = #G_MANDT# AND CS126_PJT = CS111.PJT AND CS126_HNO = CS111.HNO
+             AND CS126_PST = 'A6' AND CS126_DDT = '' AND CS126_GND = 'D'),'') AS USJ  -- 유상일반 시작일
+        ,VALUE((SELECT MAX(CS126_UMR) 
+            FROM SAPHEE.ZCST126 
+           WHERE MANDT = #G_MANDT# AND CS126_PJT = CS111.PJT AND CS126_HNO = CS111.HNO
+             AND CS126_PST = 'A6' AND CS126_DDT = '' AND CS126_GND = 'D'),'') AS UMD  --          만료일
+        ,CASE WHEN CS111.MANDT IS NOT NULL THEN
+                   SAPHEE.CODE_CONV(CS111.MANDT,'CS124',CS111.JGD)
+              ELSE '' END                                      AS JGD                 -- 일시중지(유상)-중지(보류)구분
+        ,VALUE(CS111.JJD,'')                                   AS JJD                 -- 일시중지(유상)-중지(보류)일자
+        ,VALUE(CS111.UDT,'')                                   AS UDT                 -- 일시중지(유상)-복구일자
+        ,VALUE(CS111.FSD,'')                                   AS FSD                 -- 실패(승인)일자
+        ,VALUE(CS111.MNO,'')                                   AS MNO                 -- 공사번호(구)
+FROM SAPHEE.ZMASTER02 AS MS002
+     LEFT OUTER JOIN SAPHEE.ZCST101 AS CS101 ON CS101.MANDT     = MS002.MANDT
+                                            AND CS101.CS101_PJT = MS002.POSID
+                                            AND CS101.CS101_HNO = SUBSTR(MS002.POSID_1,7,3)
+     LEFT OUTER JOIN SAPHEE.ZCST111 AS CS111 ON CS111.MANDT     = MS002.MANDT
+                                            AND CS111.PJT       = MS002.POSID
+                                            AND CS111.HNO       = SUBSTR(MS002.POSID_1,7,3)                                            
+WHERE MS002.MANDT = #G_MANDT#
+  AND MS002.POSID = #POSID#
+  AND MS002.ZZGUBUN < '90'
+
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list4">
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="POSID_1" size="72" type="VARCHAR" description="" /> 
+		<col name="HNA" size="90" type="VARCHAR" description="" /> 
+		<col name="HSB" size="20" type="VARCHAR" description="" /> 
+		<col name="WDT" size="24" type="VARCHAR" description="" /> 
+		<col name="WNO" size="80" type="VARCHAR" description="" /> 
+		<col name="SCT" size="24" type="VARCHAR" description="" /> 
+		<col name="IGD" size="24" type="VARCHAR" description="" /> 
+		<col name="FDT" size="24" type="VARCHAR" description="" /> 
+		<col name="IJY" size="24" type="VARCHAR" description="" /> 
+		<col name="ZOIPSU" size="24" type="VARCHAR" description="" /> 
+		<col name="ARA" size="6" type="VARCHAR" description="" /> 
+		<col name="ARA_NM" size="80" type="VARCHAR" description="" /> 
+		<col name="BPM" size="30" type="VARCHAR" description="" /> 
+		<col name="BPM_NM" size="20" type="VARCHAR" description="" /> 
+		<col name="BSU" size="15" type="VARCHAR" description="" /> 
+		<col name="BSU_NM" size="100" type="VARCHAR" description="" /> 
+		<col name="JUJ" size="20" type="VARCHAR" description="" /> 
+		<col name="BUJ" size="20" type="VARCHAR" description="" /> 
+		<col name="UPN" size="27" type="VARCHAR" description="" /> 
+		<col name="UPN_NM" size="150" type="VARCHAR" description="" /> 
+		<col name="ABG" size="3" type="VARCHAR" description="" /> 
+		<col name="ABG_NM" size="80" type="VARCHAR" description="" /> 
+		<col name="AGB" size="3" type="VARCHAR" description="" /> 
+		<col name="AGB_NM" size="80" type="VARCHAR" description="" /> 
+		<col name="ZMUSAOCNT" size="6" type="VARCHAR" description="" /> 
+		<col name="MPS" size="24" type="VARCHAR" description="" /> 
+		<col name="MPT" size="24" type="VARCHAR" description="" /> 
+		<col name="ZMUSAOCNT2" size="6" type="VARCHAR" description="" /> 
+		<col name="MYS" size="24" type="VARCHAR" description="" /> 
+		<col name="MYT" size="24" type="VARCHAR" description="" /> 
+		<col name="SST" size="24" type="VARCHAR" description="" /> 
+		<col name="SMT" size="24" type="VARCHAR" description="" /> 
+		<col name="USJ" size="24" type="VARCHAR" description="" /> 
+		<col name="UMD" size="24" type="VARCHAR" description="" /> 
+		<col name="JGD" size="80" type="VARCHAR" description="" /> 
+		<col name="JJD" size="24" type="VARCHAR" description="" /> 
+		<col name="UDT" size="24" type="VARCHAR" description="" /> 
+		<col name="FSD" size="24" type="VARCHAR" description="" /> 
+	</output>
+</query>

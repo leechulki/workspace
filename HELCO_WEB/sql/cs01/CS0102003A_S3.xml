@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[자재시리얼번호 관리 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT *
+FROM 
+(
+SELECT DISTINCT
+   M53.BUDAT AS BUDAT
+ , M31.REQDATE AS REQDATE
+ , M53.GUBN AS GUBN
+ , COALESCE(M53.SE_NO,'') AS SE_NO
+ , M53.PSPID AS PSPID
+ , M53.MATNR AS MATNR
+-- , M53.POSID AS POSID
+ , M31.POSID AS POSID
+ , M53.LGORT AS LGORT
+ , COALESCE(M53.SE_NO2,'') AS SE_NO2
+ , M53.REQNR AS REQNR
+ , M53.REQITEM AS REQITEM
+ , CS121.CS121_SPT AS SPT
+ , SAPHEE.RTRIM_2BYTE(SAPHEE.GET_VENDER_NAME(M53.MANDT, M53.LGORT)) AS LGORT1
+ , RTRIM(M11.MATNR_NM) AS MATNR_NM
+ , RTRIM(M11.MAKTX) AS MAKTX
+ --, CASE WHEN VALUE(M31.INSMSNO,'') = '' THEN Q8.INSMSNO ELSE M31.INSMSNO END AS INSMSNO
+ , COALESCE(M31.INSMSNO,'') AS INSMSNO
+FROM SAPHEE.ZMMT053 AS M53
+   LEFT OUTER JOIN SAPHEE.ZCST121 AS CS121 ON CS121.MANDT=M53.MANDT
+ 	         AND CS121.CS121_UPN=M53.PSPID 
+ 	         AND CS121.CS121_CST = ''
+   LEFT OUTER JOIN SAPHEE.ZMMT011 AS M11 ON M53.MANDT = M11.MANDT
+             AND M53.MATNR = M11.MATNR 
+             --AND M11.MTART='ROH'
+   LEFT OUTER JOIN SAPHEE.ZMMT031 AS M31 ON M31.MANDT = M53.MANDT
+                                                                     AND M31.REQNR = M53.REQNR
+                                                                     AND M31.REQITEM = M53.REQITEM
+--   LEFT OUTER JOIN SAPHEE.ZQMT008 AS Q8 ON Q8.MANDT = M53.MANDT
+--                                                                     AND Q8.REQNR = M53.REQNR
+--                                                                     AND Q8.REQITEM = M53.REQITEM
+WHERE M53.MANDT = #G_MANDT#
+    AND M53.REQNR &lt;&gt; ''
+    AND M53.REQITEM &lt;&gt; ''
+<isEqual col="GUBN" value="N">
+--   AND M53.BUDAT BETWEEN #BUDAT_FM# AND #BUDAT_TO#
+   AND M31.REQDATE BETWEEN #BUDAT_FM# AND #BUDAT_TO#
+</isEqual>
+<isNotNull col="MATNR">
+   AND M53.MATNR LIKE #MATNR# ||'%'
+</isNotNull>
+<isNotNull col="SE_NO">
+   AND UCASE(M53.SE_NO) LIKE #SE_NO# ||'%'
+</isNotNull>
+<isNotNull col="SE_NO2">
+   AND UCASE(M31.INSMSNO) LIKE #SE_NO2# ||'%'
+</isNotNull>
+<isNotNull col="POSID">
+   AND M53.POSID LIKE #POSID# ||'%'
+</isNotNull>
+
+<isEqual col="GBN" value="A">
+   AND M53.LGORT = #CB3#
+</isEqual>
+<isEqual col="GBN" value="B">
+      AND M53.LGORT IN (SELECT  M005.LGORT
+                       FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 M005
+                      WHERE B010.MANDT = M005.MANDT
+                         AND B010.LIFNR = M005.LIFNR
+                         AND B010.MANDT = #G_MANDT# 
+                         AND B010.BSU_PM = #G_USER_ID#)
+</isEqual>
+<isEqual col="GBN" value="C">
+   AND M53.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+                      WHERE B010.MANDT = MM005.MANDT
+                      AND B010.LIFNR = MM005.LIFNR
+                      AND B010.MANDT= #G_MANDT# 
+                      AND B010.VKGRP= #CB2#)
+</isEqual>
+
+<isEqual col="GBN" value="D">
+   AND M53.LGORT IN (SELECT LGORT FROM SAPHEE.ZMMT005 
+                      WHERE MANDT = #G_MANDT# 
+                      AND PERNR = #CB2#)
+</isEqual>
+<isEqual col="GBN" value="E">
+   AND M53.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+                      WHERE B010.MANDT = MM005.MANDT
+                      AND B010.LIFNR = MM005.LIFNR
+                      AND B010.MANDT= #G_MANDT# 
+                      AND B010.VKGRP= #CB2#)
+</isEqual>
+--===============================
+<isEqual col="GBN" value="F">
+   AND M53.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+                      WHERE B010.MANDT = MM005.MANDT
+                      AND B010.LIFNR = MM005.LIFNR
+                      AND B010.MANDT= #G_MANDT# 
+                      AND SUBSTR(B010.VKGRP,1,2) = SUBSTR(#CB2#,1,2) )
+</isEqual>
+<isEqual col="GBN" value="G">
+   AND M53.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+                      WHERE B010.MANDT = MM005.MANDT
+                      AND B010.LIFNR = MM005.LIFNR
+                      AND B010.MANDT= #G_MANDT# 
+                      AND B010.VKGRP= #CB3#)
+</isEqual>
+--===============================
+   
+--ORDER BY BUDAT,REQDATE,MATNR,LGORT,POSID
+
+UNION
+
+SELECT DISTINCT
+    M53.BUDAT AS BUDAT
+ ,  M31.REQDATE AS REQDATE
+ , M53.GUBN  AS GUBN
+ , COALESCE(M53.SE_NO,'') AS SE_NO
+ , CS121.CS121_UPN AS PSPID
+ , M31.MATNR AS MATNR
+ , M31.POSID AS POSID
+ , M31.LGORT AS LGORT
+ , COALESCE(M53.SE_NO2,'') AS SE_NO2
+ , M31.REQNR AS REQNR
+ , M31.REQITEM AS REQITEM
+ , CS121.CS121_SPT AS SPT
+ , SAPHEE.RTRIM_2BYTE(SAPHEE.GET_VENDER_NAME(M31.MANDT, M31.LGORT)) AS LGORT1
+ , RTRIM(M11.MATNR_NM) AS MATNR_NM
+ , RTRIM(M11.MAKTX) AS MAKTX
+ --, CASE WHEN VALUE(M31.INSMSNO,'') = '' THEN Q8.INSMSNO ELSE M31.INSMSNO END AS INSMSNO
+ , M31.INSMSNO AS INSMSNO
+ FROM SAPHEE.ZMMT031 AS M31 
+ LEFT OUTER JOIN SAPHEE.ZMMT053 AS M53 ON M31.MANDT = M53.MANDT
+                                      AND M31.REQNR = M53.REQNR
+                                      AND M31.REQITEM = M53.REQITEM 
+ LEFT OUTER JOIN SAPHEE.ZCST121 AS CS121 ON CS121.MANDT=M31.MANDT
+ 	       AND CS121.CS121_UPN=(CASE WHEN SUBSTR(M31.POSID,1) = 'Q' THEN SUBSTR(M31.POSID,3,6) ELSE SUBSTR(M31.POSID,1,6) END)
+ 	         AND CS121.CS121_CST = ''
+   LEFT OUTER JOIN SAPHEE.ZMMT011 AS M11 ON M31.MANDT = M11.MANDT
+             AND M31.MATNR = M11.MATNR 
+             --AND M11.MTART='ROH'
+--   LEFT OUTER JOIN SAPHEE.ZQMT008 AS Q8 ON Q8.MANDT = M53.MANDT
+--                                                                     AND Q8.REQNR = M53.REQNR
+--                                                                     AND Q8.REQITEM = M53.REQITEM
+WHERE M31.MANDT = #G_MANDT#
+    AND M31.REQNR &lt;&gt; ''
+    AND M31.REQITEM &lt;&gt; ''
+<isEqual col="GUBN" value="N">
+   AND M31.REQDATE BETWEEN #BUDAT_FM# AND #BUDAT_TO#
+</isEqual>
+<isNotNull col="MATNR">
+   AND M31.MATNR LIKE #MATNR# ||'%'
+</isNotNull>
+<isNotNull col="SE_NO2">
+   AND UCASE(M31.INSMSNO) LIKE #SE_NO2# ||'%'
+</isNotNull>
+<isNotNull col="POSID">
+   AND M31.POSID LIKE #POSID# ||'%'
+</isNotNull>
+<isEqual col="GBN" value="A">
+   AND M31.LGORT = #CB3#
+</isEqual>
+<isEqual col="GBN" value="B">
+      AND M31.LGORT IN (SELECT  M005.LGORT
+                       FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 M005
+                      WHERE B010.MANDT = M005.MANDT
+                         AND B010.LIFNR = M005.LIFNR
+                         AND B010.MANDT = #G_MANDT# 
+                         AND B010.BSU_PM = #G_USER_ID#)
+</isEqual>
+<isEqual col="GBN" value="C">
+   AND M31.LGORT IN (SELECT LGORT FROM SAPHEE.ZMMT005 
+                      WHERE MANDT = #G_MANDT# 
+                      AND REGKZ = #CB2#)
+</isEqual>
+
+<isEqual col="GBN" value="D">
+   AND M31.LGORT IN (SELECT LGORT FROM SAPHEE.ZMMT005 
+                      WHERE MANDT = #G_MANDT# 
+                      AND PERNR = #CB2#)
+</isEqual>
+<isEqual col="GBN" value="E">
+   AND M31.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+                      WHERE B010.MANDT = MM005.MANDT
+                      AND B010.LIFNR = MM005.LIFNR
+                      AND B010.MANDT= #G_MANDT# 
+                      AND B010.VKGRP= #CB2#)
+</isEqual>
+--===============================
+<isEqual col="GBN" value="F">
+   AND M53.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+                      WHERE B010.MANDT = MM005.MANDT
+                      AND B010.LIFNR = MM005.LIFNR
+                      AND B010.MANDT= #G_MANDT# 
+                      AND SUBSTR(B010.VKGRP,1,2) = SUBSTR(#CB2#,1,2) )
+</isEqual>
+<isEqual col="GBN" value="G">
+   AND M53.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+                      WHERE B010.MANDT = MM005.MANDT
+                      AND B010.LIFNR = MM005.LIFNR
+                      AND B010.MANDT= #G_MANDT# 
+                      AND B010.VKGRP= #CB3#)
+</isEqual>
+--===============================
+   
+--ORDER BY BUDAT,REQDATE,MATNR,LGORT,POSID
+) AS TMP
+WHERE 1=1
+    AND (TMP.SE_NO &lt;&gt; '' OR TMP.SE_NO2 &lt;&gt; '' OR TMP.INSMSNO &lt;&gt; '')
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="BUDAT_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="BUDAT_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="255" type="VARCHAR" description="" /> 
+		<col name="SE_NO" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="CB3" size="255" type="VARCHAR" description="" /> 
+		<col name="G_USER_ID" size="255" type="VARCHAR" description="" /> 
+		<col name="CB2" size="255" type="VARCHAR" description="" /> 
+		<col name="GBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="BUDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="GUBN" size="6" type="VARCHAR" description="" /> 
+		<col name="LGORT" size="12" type="VARCHAR" description="" /> 
+		<col name="LGORT1" size="100" type="VARCHAR" description="" /> 
+		<col name="MAKTX" size="120" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MATNR_NM" size="120" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="72" type="VARCHAR" description="" /> 
+		<col name="REQITEM" size="15" type="VARCHAR" description="" /> 
+		<col name="REQNR" size="30" type="VARCHAR" description="" /> 
+		<col name="SE_NO" size="120" type="VARCHAR" description="" /> 
+		<col name="SE_NO2" size="120" type="VARCHAR" description="" /> 
+		<col name="SPT" size="150" type="VARCHAR" description="" /> 
+	</output>
+</query>

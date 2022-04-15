@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+       X.CHK,
+       X.FLAG,
+       X.DEP,
+       X.RDT,
+       X.SEQ,
+       X.SIR,
+       X.DPT,
+       X.DPT_NM,
+       X.TEM,
+       X.TEM_NM,
+       X.PSN,
+       X.PSN_NM,
+       X.GBN,
+       X.CID,
+       X.AYM,
+       X.ASQ,
+       X.SNO,
+       X.MNO,
+       X.RNO,
+       X.DEV,
+       X.GNM,
+       X.SPT,
+       X.QTY,
+       X.PST,
+       X.PST_NM,
+       X.TDT,
+       X.GDT,
+       X.COA,
+       X.AMA,
+       X.AMW,
+       X.SI_RATE,
+       X.AMT,
+       X.TU_RATE,
+       X.RSN,
+       X.COB,
+       X.AMB,
+       X.TU2_RATE,
+       X.RMK,
+       X.TYP,
+       X.SPC,
+       X.EAM,
+       X.OAM,
+       X.RAT,
+       X.SUC
+  FROM
+       (
+        SELECT
+               '0' CHK,
+               '' FLAG,
+               A.BS401_DEP DEP,
+               A.BS401_RDT RDT,
+               A.BS401_SEQ SEQ,
+               A.BS401_SIR SIR,
+               A.BS401_DPT DPT,
+               (SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = A.MANDT AND CODE1 = 'VKBUR' AND LANG = #G_LANG# AND CODE2 = A.BS401_DPT) DPT_NM,
+               A.BS401_TEM TEM,
+               (SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = A.MANDT AND CODE1 = 'VKGRP' AND LANG = #G_LANG# AND CODE2 = A.BS401_TEM) TEM_NM,
+               A.BS401_PSN PSN,
+               (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = A.MANDT AND USERNUMB = A.BS401_PSN) PSN_NM,
+               (SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = A.MANDT AND CODE1 = 'BS402' AND LANG = #G_LANG# AND CODE2 = A.BS401_GBN) GBN,
+               (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = A.MANDT AND USERNUMB = A.BS401_CID) CID,
+               A.BS401_AYM AYM,
+               A.BS401_ASQ ASQ,
+               A.BS401_AYM||'-'||A.BS401_ASQ SNO,
+               A.BS401_RDT||'-'||A.BS401_SEQ MNO,
+               ROWNUMBER() OVER(PARTITION BY A.BS401_RDT, A.BS401_SEQ ORDER BY A.BS401_RDT, A.BS401_SEQ, A.BS401_SIR DESC) RNO,
+               A.BS401_DEV DEV,
+               A.BS401_GNM GNM,
+               A.BS401_SPT SPT,
+               (SELECT SUM(BS402_QTY) FROM SAPHEE.ZBST402 WHERE MANDT = #G_MANDT# AND BS402_DEP = A.BS401_DEP AND BS402_RDT = A.BS401_RDT AND BS402_SEQ = A.BS401_SEQ AND BS402_SIR = A.BS401_SIR) QTY,
+               A.BS401_PST PST,
+               (SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = A.MANDT AND CODE1 = 'BS407' AND LANG = #G_LANG# AND CODE2 = A.BS401_PST) PST_NM,
+               CASE WHEN A.BS401_PST > 'A6' THEN VALUE(B.BS406_TDT,'') ELSE A.BS401_IDT END TDT,
+               VALUE(B.BS406_GDT,'') GDT,
+               VALUE(B.BS406_COA,'') COA,
+               VALUE(B.BS406_AMA,0) AMA,
+               VALUE(B.BS406_AMW,0) AMW,
+               ROUND(CASE WHEN VALUE(B.BS406_AMA,0) = 0 THEN 0 ELSE VALUE(B.BS406_AMW,0)/VALUE(B.BS406_AMA,0)*100 END,2) SI_RATE,
+               VALUE(B.BS406_AMT,0) AMT,
+               ROUND(CASE WHEN VALUE(B.BS406_AMA,0) = 0 THEN 0 ELSE VALUE(B.BS406_AMT,0)/VALUE(B.BS406_AMA,0)*100 END,2) TU_RATE,
+               VALUE(B.BS406_RSN,'') RSN,
+               VALUE(B.BS406_COB,'') COB,
+               VALUE(B.BS406_AMB,0) AMB,
+               VALUE(B.BS406_RAT,0) TU2_RATE,
+               VALUE(B.BS406_RMK,'') RMK,
+               VALUE(C.BS402_TYP,'') TYP,
+               VALUE(C.BS402_SPC,'') SPC,
+               A.BS401_EAM EAM,
+               A.BS401_OAM OAM,
+               TRIM(CHAR(A.BS401_RAT)) || '%' RAT,
+               VALUE(B.BS406_SUC,'') SUC
+          FROM 
+               SAPHEE.ZBST401 A
+                      LEFT OUTER JOIN SAPHEE.ZBST406 B ON A.MANDT = B.MANDT
+                                                      AND A.BS401_AYM = B.BS406_AYM
+                                                      AND A.BS401_ASQ = B.BS406_ASQ
+                      LEFT OUTER JOIN SAPHEE.ZBST402 C ON A.MANDT = C.MANDT
+                                                      AND A.BS401_DEP = C.BS402_DEP
+                                                      AND A.BS401_RDT = C.BS402_RDT
+                                                      AND A.BS401_SEQ = C.BS402_SEQ
+                                                      AND A.BS401_SIR = C.BS402_SIR
+                                                      AND C.BS402_ISR = '00100'
+         WHERE 
+               A.MANDT = #G_MANDT#
+           AND A.BS401_AGB = 'A'
+           AND A.BS401_DEL = 'N'
+           AND A.BS401_CDT BETWEEN #FDT# AND #TDT#
+<isNotNull col="DPT">
+           AND A.BS401_DPT = #DPT#
+</isNotNull>
+<isNotNull col="TEM">
+           AND A.BS401_TEM = #TEM#
+</isNotNull>
+<isNotNull col="PSN">
+           AND A.BS401_PSN = #PSN#
+</isNotNull>
+<isNotNull col="GBN">
+           AND A.BS401_GBN = #GBN#
+</isNotNull>
+<isNull col="PST">
+           AND A.BS401_PST &gt;= '40'
+</isNull>
+<isNotNull col="PST">
+           AND A.BS401_PST = #PST#
+</isNotNull>
+<isNotNull col="SAM">
+           AND A.BS401_AYM = #SAM#
+</isNotNull>
+<isNotNull col="SAQ">
+           AND A.BS401_ASQ = #SAQ#
+</isNotNull>
+       ) X
+ WHERE
+       X.RNO = 1
+ORDER BY 
+       X.SNO
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

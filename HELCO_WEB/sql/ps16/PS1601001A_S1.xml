@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[PS1601001A_S1]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	
+SELECT E.PSPID AS PSPID
+     , SUBSTR(E.PAPRDT,1,6)  AS PAPRYYYYMM
+     , (SELECT N.DTEXT4 FROM SAPHEE.ZLCODE N WHERE N.MANDT = E.MANDT AND N.CODE1 = 'PS003' AND N.LANG = 'ko' AND N.CODE2 = W.ZZACTSS) AS TEMNM
+     , (SELECT MM028.CTEXT2 FROM SAPHEE.ZLCODE MM028 WHERE MM028.MANDT = E.MANDT AND MM028.CODE1 = 'PS003' AND MM028.LANG = 'ko' AND MM028.CODE2 = W.ZZACTSS) AS ZZACTSS
+     , E.LIFNR AS LIFNR
+     , E.NAME1 AS LIFNRNM -- 업체명 
+     , E.TEMNO  --팀장번호
+     , E.NAMET2 -- 팀장 
+     , E.HOGI AS HOGI -- 호기 
+     , (SELECT M.ZSITE_NM FROM SAPHEE.ZMASTER01 M WHERE M.MANDT = E.MANDT AND M.POSID = E.PSPID) AS ZSITE_NM -- 프로젝트명 
+     , E.ATYPE AS ATYPE -- 기종 
+     , E.SPEC AS SPEC -- 사양 
+     , E.SEQ AS SEQ -- 차수 
+     , E.PAPRIDTX AS PAPRIDTX -- 검사자
+     , E.DSKURZTEXT AS DSKURZTEXT -- DSCODE 판정 
+     , (CASE WHEN (E.DSCODE = 'A' OR E.DSCODE = 'B' OR E.DSCODE = 'C' OR E.DSCODE = 'D') THEN '합격' 
+         WHEN (E.DSCODE = 'J' OR E.DSCODE = 'M' OR E.DSCODE = 'N' OR E.DSCODE = 'O' OR E.DSCODE = 'R') THEN '불합격' 
+         WHEN (E.DSCODE = 'G' OR E.DSCODE = 'K' OR E.DSCODE = 'P' ) THEN '제외' 
+         END) AS DSCODE -- 합격/불합격 
+     , (CASE WHEN E.seq = '01' THEN COUNT(*) OVER (PARTITION BY PAPRYYYYMM, PSPID, HOGI, seq) ELSE 0 END)  AS FIRSTEXAM  -- 1차검사대수 
+     , (CASE WHEN (E.DSCODE = 'A' OR E.DSCODE = 'B' OR E.DSCODE = 'C' OR E.DSCODE = 'D') THEN COUNT(*) OVER (PARTITION BY PAPRYYYYMM,PSPID,HOGI,seq) ELSE 0 END)  AS APPROVED -- 합격대수 
+     , E.VDATUM AS VDATUM  
+FROM (
+      SELECT
+          A.PSPID
+         ,A.MANDT
+         ,A.PAPRDT
+         ,substr(A.PAPRDT,1,6)  AS PAPRYYYYMM
+         ,A.LIFNR
+         ,C.NAME1 AS NAME1
+         ,A.TEMNO   
+         ,B.NAMET AS NAMET2
+         ,A.HOGI
+         ,A.ATYPE
+         ,A.SPEC
+         ,A.SEQ
+         ,A.PAPRIDTX
+         ,A.DSCODE
+         ,A.DSKURZTEXT
+         ,A.VDATUM
+        FROM SAPHEE.ZQMT019 AS A       
+        INNER JOIN SAPHEE.ZPST0034 AS C ON A.MANDT = C.MANDT AND A.LIFNR = C.LIFNR AND C.GBN = 'A' AND (C.SO = 'X' OR C.SO3 = 'X')                 
+        LEFT OUTER JOIN SAPHEE.ZMASTER02 M02 ON M02.MANDT = A.MANDT AND M02.POSID = A.PSPID AND M02.POSID_1 =  A.HOGI
+        LEFT OUTER JOIN SAPHEE.ZPST0002 AS B ON A.MANDT = B.MANDT AND A.TEMNO = B.TEMNO 
+                         -- AND B.DELEF = ''
+        WHERE A.MANDT = #G_MANDT#
+          AND A.ART = '8960' 
+          AND A.SEQ = '01'
+          AND (substr(A.PAPRDT,1,6) BETWEEN #YYYYMMF#  AND #YYYYMMT#) 
+          <isNotNull col="ZTEMNO">
+          AND A.TEMNO = #ZTEMNO#
+          </isNotNull>
+          <isNotNull col="ZZLIFNR">
+          AND A.LIFNR = #ZZLIFNR#
+          </isNotNull>
+          <isNotNull col="ATYPE">
+          AND A.ATYPE = #ATYPE#
+          </isNotNull>          
+          <isNotNull col="SPEC">
+          <isEqual col="SPEC" value="300">
+          AND CAST(REPLACE(M02.ZSPEC3, ' ', '0') AS INT) >= 300
+          </isEqual> 
+         <isNotEqual col="SPEC" value="300">
+                <isNotNull col="SPEC2">
+                 AND CAST(REPLACE(M02.ZSPEC3, ' ', '0') AS INT) BETWEEN #SPEC# AND #SPEC2#
+                </isNotNull> 
+             </isNotEqual> 
+          </isNotNull>
+
+          <isNotNull col="CHK_GBN">
+              AND  A.ZZGUBUN = #CHK_GBN#
+          </isNotNull>
+          AND ( A.VDATUM <![CDATA[  <> ]]> '00000000' AND A.VDATUM <![CDATA[ > ]]> '')
+          AND A.LIFNR <![CDATA[  <> ]]> '0000008001'
+          AND C.SO5 <![CDATA[<>]]> 'X'
+          ORDER BY A.PSPID, A.HOGI, A.SEQ, B.NAMET, A.PAPRIDTX
+) AS E
+    INNER JOIN SAPHEE.ZPST0034 AS C 
+        ON E.MANDT = C.MANDT AND E.LIFNR = C.LIFNR AND C.GBN = 'A' AND (C.SO = 'X' OR C.SO3 = 'X')
+ LEFT OUTER JOIN SAPHEE.ZWBT010 W
+              ON E.MANDT = W.MANDT
+             AND E.LIFNR = W.LIFNR
+     WHERE 1=1 
+        AND (W.ZZACTSS IS NOT NULL OR W.ZZACTSS != '' OR W.ZZACTSS != ' ')
+        AND C.SO5 <![CDATA[<>]]> 'X'
+       <isNotNull col="CHK_GBN">
+       <isEqual col="CHK_GBN" value="10">
+       AND (C.EL_INDC = 'X' OR (C.EL_INDC = 'X' AND C.ES_INDC = 'X')) AND E.LIFNR  <![CDATA[  <> ]]> '0000008001'
+       </isEqual>
+       </isNotNull>
+       <isNotNull col="CHK_GBN">
+       <isEqual col="CHK_GBN" value="11">
+       AND (C.ES_INDC = 'X' OR (C.ES_INDC = 'X' AND C.ES_INDC = 'X')) AND E.LIFNR  <![CDATA[  <> ]]> '0000008001'
+       </isEqual>
+       </isNotNull>
+          <isNotNull col="TEMNO">
+             AND W.ZZACTSS IN ( SELECT CODE2 FROM SAPHEE.ZLCODE  WHERE MANDT = E.MANDT AND CODE1 = 'PS003' AND LANG = 'ko' AND DTEXT3 = #TEMNO# )
+          </isNotNull>
+          <isNotNull col="ZZACTSS">
+            AND W.ZZACTSS = #ZZACTSS#
+          </isNotNull>
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+
+	<output default-name="ds_list">
+	</output>
+
+</query>

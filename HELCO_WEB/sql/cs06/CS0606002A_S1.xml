@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+      	 ARA AS ARA
+      	,BSU AS BSU
+      	,INSUQTY
+      	,FINIQTY
+      	,PJTQTY + HOGIQTY AS TOTQTY
+      	,PJTQTY
+      	,HOGIQTY
+      	,CASE WHEN INSUQTY = 0 OR FINIQTY = 0 THEN 0 ELSE FINIQTY * 100 / INSUQTY END AS FINIPER
+  FROM (
+        	SELECT
+        		      D.CTEXT2 AS ARA
+        		     ,F.NAME1 AS BSU
+        		     ,COUNT(*) AS INSUQTY
+        		     ,SUM(CASE WHEN (A.CS101_HNA &lt;&gt; '' AND C.JUJ &lt;&gt; '' AND C.BUJ &lt;&gt; '' AND B.CS108_QIC &lt;&gt; '' AND A.CS101_LOC &lt;&gt; '' AND A.CS101_CIN &lt;&gt; '') THEN 1 ELSE 0 END) AS FINIQTY
+        		     ,SUM(CASE WHEN (A.CS101_CIN = '' OR A.CS101_LOC = '') THEN 1 ELSE 0 END) AS PJTQTY
+        		     ,SUM(CASE WHEN (CS101_HNA = '' OR JUJ = '' OR BUJ = '' OR VALUE(CS108_QIC,'') = '') THEN 1 ELSE 0 END) AS HOGIQTY
+        	FROM  SAPHEE.ZCST101 AS A 
+        			LEFT OUTER JOIN SAPHEE.ZCST108 AS B ON B.MANDT = #G_MANDT# AND A.CS101_PJT  = B.CS108_PJT AND A.CS101_HNO  = B.CS108_HNO	
+        		   ,SAPHEE.ZCST111 AS C
+        		   ,SAPHEE.ZLCODE AS D
+        		   ,SAPHEE.ZMMT005 AS E
+        		   ,SAPHEE.ZMMT012 AS F
+        	     ,SAPHEE.ZWBT010 WB010			          
+        	WHERE       
+        		    A.MANDT = #G_MANDT# 
+        		AND C.MANDT = A.MANDT 
+        		AND D.MANDT = C.MANDT
+        		AND E.MANDT = D.MANDT 
+        		AND F.MANDT = E.MANDT  
+        		AND A.CS101_PJT  = C.PJT
+        		AND A.CS101_HNO  = C.HNO 	 
+        		AND A.CS101_ARA = D.CODE2
+        		AND D.CODE1 = 'CS115' 
+        		AND D.LANG = #G_LANG#
+        		AND A.CS101_BSU = E.LGORT 
+        		AND E.LIFNR = F.LIFNR
+        		AND A.CS101_FDT BETWEEN #FDT# AND #TDT#
+            AND A.MANDT = WB010.MANDT
+            AND A.CS101_BSU = WB010.LGORT  
+        	<isNotNull col="BSU">
+        		AND A.CS101_BSU = #BSU#
+        	</isNotNull>
+        	<isNotNull col="ARA">
+        		AND A.CS101_ARA = #ARA#
+        	</isNotNull>
+        	<isNotNull col="BPM">
+        		AND A.CS101_BPM = #BPM#
+        	</isNotNull>
+        	<isNotNull col="TEM">
+            AND WB010.VKGRP = #TEM#
+          </isNotNull>
+
+            <isNotNull col="DPT">
+                AND SUBSTR(WB010.VKGRP,1,2) = #DPT#
+            </isNotNull>
+
+        	<isEqual col="PREDT" value="2">
+        		AND DATE(SUBSTR(A.CS101_FDT,1,4)||'-'||SUBSTR(A.CS101_FDT,6,2)||'-'||SUBSTR(A.CS101_FDT,9,2)) > CURRENT DATE - 7 days
+        	</isEqual>
+        	<isEqual col="PREDT" value="3">
+        		AND DATE(SUBSTR(A.CS101_FDT,1,4)||'-'||SUBSTR(A.CS101_FDT,6,2)||'-'||SUBSTR(A.CS101_FDT,9,2)) &lt;= CURRENT DATE - 7 days		
+        	</isEqual>
+        	GROUP BY D.CTEXT2, F.NAME1
+        ) AS G
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

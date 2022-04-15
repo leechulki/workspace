@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[PS1601006A_S2]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>1</result-count>
+    <statement>
+             
+SELECT MANDT, PAPRYYYYMM, TEMNM, ZZACTSS, LIFNR, LIFNRNM
+     , CNT   --점검건수
+     , IMPTCNT  --중대재해위반건수
+     , EVAL_GRADE  --점수
+     , DENSE_RANK() OVER(ORDER BY  CASE WHEN TOT_SUM IS NULL THEN 0 ELSE TOT_SUM  END  desc) AS RANKING  --순위
+     , POINTAVG  --평균점수
+     , TOT          --환산점수
+     , EVAL_GRADE_SUM  --점수누계
+     , CNT_SUM        --점검건수누계
+     , POINTAVG_SUM   --평균점수누계
+     , TOT_SUM        --환산점수누계
+  FROM (
+      SELECT MANDT, PAPRYYYYMM, TEMNM, ZZACTSS, LIFNR, LIFNRNM
+         , CNT
+         , IMPTCNT
+         , EVAL_GRADE 
+         , POINTAVG
+         , TOT
+         , EVAL_GRADE_SUM
+         , CNT_SUM
+         , dec(DEC(nullif(EVAL_GRADE_SUM,0),10,1)/nullif(CNT_SUM,0),10,1) AS POINTAVG_SUM
+         , dec(dec(nullif(EVAL_GRADE_SUM,0)/nullif(CNT_SUM,0),10,1)/ CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE) ,10,1) AS TOT_SUM
+       FROM (
+           SELECT E.MANDT, E.PAPRYYYYMM 
+                , (SELECT N.DTEXT4 FROM SAPHEE.ZLCODE N WHERE N.MANDT = E.MANDT AND N.CODE1 = 'PS003' AND N.LANG = 'ko' AND N.CODE2 = W.ZZACTSS) AS TEMNM
+                , (SELECT MM028.CTEXT2 FROM SAPHEE.ZLCODE MM028 WHERE MM028.MANDT = E.MANDT AND MM028.CODE1 = 'PS003' AND MM028.LANG = 'ko' AND MM028.CODE2 = W.ZZACTSS) ZZACTSS
+                , E.LIFNR AS LIFNR
+                , (SELECT DISTINCT NN.NAME1 FROM SAPHEE.ZPST0034 NN WHERE NN.MANDT = E.MANDT   AND NN.LIFNR = E.LIFNR  AND NN.GBN = 'A') AS LIFNRNM
+                , CASE WHEN E.CNT IS NULL THEN 0 ELSE E.CNT END AS CNT
+                , CASE WHEN E.IMPTCNT IS NULL THEN 0 ELSE E.IMPTCNT END AS IMPTCNT
+                , CASE WHEN E.EVAL_GRADE IS NULL THEN 0 ELSE E.EVAL_GRADE END AS EVAL_GRADE 
+                , E.POINTAVG AS POINTAVG
+                , E.TOT AS TOT
+                , SUM(E.EVAL_GRADE) OVER (PARTITION BY  E.LIFNR ORDER BY E.LIFNR )   AS EVAL_GRADE_SUM
+                , SUM(E.CNT) OVER (PARTITION BY  E.LIFNR ORDER BY E.LIFNR )   AS CNT_SUM
+             FROM (
+                 SELECT MANDT, PAPRYYYYMM, LIFNR
+                      , SUM(CHKCNT) AS CNT
+                      , SUM(EVAL_IMNO) AS IMPTCNT
+                      , SUM(EVAL_GRADE)  AS EVAL_GRADE
+                      , dec(nullif(SUM(EVAL_GRADE),0)/nullif(SUM(CHKCNT),0),10,1) AS POINTAVG
+                      , dec(dec(nullif(SUM(EVAL_GRADE),0)/nullif(SUM(CHKCNT),0),10,1)/ CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE) ,10,1) AS TOT
+                   FROM (
+                       SELECT A.MANDT
+                            , substr(A.CHKDAT,1,6)  AS PAPRYYYYMM
+                            , Left(A.POSID, 6)
+                            , A.POSID
+                            , M02.LIFNR
+                            , SUM(A.EVAL_IMNO) AS EVAL_IMNO
+                            , SUM(A.EVAL_GRADE) AS EVAL_GRADE 
+                            , COUNT(*) AS CHKCNT
+                        FROM SAPHEE.ZPSTW1902 AS A                        
+             LEFT OUTER JOIN  SAPHEE.ZMASTER02 M02 ON M02.MANDT = A.MANDT AND M02.POSID = Left(A.POSID, 6)   AND M02.POSID_1 =  A.POSID
+            --  LEFT OUTER JOIN SAPHEE.ZPST0002 AS B ON A.MANDT = B.MANDT AND M02.TEMNO2 = B.TEMNO AND B.DELEF = ''
+                       WHERE A.MANDT = #G_MANDT#
+                         AND (substr(A.CHKDAT,1,6) BETWEEN #YYYYMMF#  AND #YYYYMMT#) 
+                         <isNotNull col="ZTEMNO">
+                         AND M02.TEMNO2 = #ZTEMNO#
+                         </isNotNull>
+                         <isNotNull col="ZZLIFNR">
+                         AND M02.LIFNR = #ZZLIFNR#      
+                         </isNotNull>  
+                          <isEqual col="CHK_GBN" value="10">
+                          <isNotNull col="CHK_GBN3">
+                          AND  A.ZZGUBUN = #CHK_GBN3#
+                          </isNotNull>
+                          </isEqual>
+                          <isEqual col="CHK_GBN" value="11">
+                          <isNotNull col="CHK_GBN3">
+                          AND A.ZZGUBUN = #CHK_GBN3# AND SUBSTR(A.POSID,7,1) = 'S'
+                          </isNotNull>
+                          </isEqual>
+                   GROUP BY A.MANDT, substr(A.CHKDAT,1,6), M02.LIFNR, Left(A.POSID, 6), A.POSID
+        ) GROUP BY MANDT, PAPRYYYYMM, LIFNR
+) AS E
+INNER JOIN SAPHEE.ZPST0034 AS C 
+        ON E.MANDT = C.MANDT AND E.LIFNR = C.LIFNR AND C.GBN = 'A' AND (C.SO = 'X' OR C.SO3 = 'X')
+ LEFT OUTER JOIN SAPHEE.ZWBT010 W
+              ON E.MANDT = W.MANDT
+             AND E.LIFNR = W.LIFNR
+     WHERE 1=1 
+       AND (W.ZZACTSS IS NOT NULL OR W.ZZACTSS != '')
+       AND C.SO5 <![CDATA[<>]]> 'X'
+       <isNotNull col="CHK_GBN">
+           <isEqual col="CHK_GBN" value="10">
+           AND (C.EL_INDC = 'X' OR (C.EL_INDC = 'X' AND C.ES_INDC = 'X')) AND E.LIFNR  <![CDATA[  <> ]]> '0000008001'
+           </isEqual>
+       </isNotNull>
+       <isNotNull col="CHK_GBN">
+           <isEqual col="CHK_GBN" value="11">
+           AND (C.ES_INDC = 'X' OR (C.ES_INDC = 'X' AND C.ES_INDC = 'X')) AND E.LIFNR  <![CDATA[  <> ]]> '0000008001'
+           </isEqual>
+       </isNotNull>
+       <isNotNull col="TEMNO">
+           AND W.ZZACTSS IN ( SELECT CODE2 FROM SAPHEE.ZLCODE  WHERE MANDT = E.MANDT AND CODE1 = 'PS003' AND LANG = 'ko' AND DTEXT3 = #TEMNO# )
+       </isNotNull>
+       <isNotNull col="ZZACTSS">
+           AND W.ZZACTSS = #ZZACTSS#
+       </isNotNull>
+   )
+   )
+FOR FETCH ONLY
+WITH UR </statement>
+    <input default-name="ds_cond">
+    </input>
+
+    <output default-name="ds_list1">
+    </output>
+
+</query>
+
+

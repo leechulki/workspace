@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[SAP 수주 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT  X.MANDT    
+       ,X.OCNT_NUMB
+       ,Y.VBELN
+       ,Y.PSPID
+       ,Y.AUART
+       ,(SELECT CODE_NAME FROM SAPHEE.ZFST0100 WHERE MANDT = X.MANDT AND CODE_GROP = 'S01' AND CODE = X.AUART) AS AUART_NAME
+       ,Y.PS_PSP_PNR
+       ,X.ORDR_TYPE
+       ,Y.BSTNK
+       ,Y.KUNNR
+       ,B.NAME1 AS KUNNR_NAME -- 판매처명
+       ,B.ORT01||' '||B.STRAS AS KUNNR_ADDR
+       ,B.PSTLZ AS KUNNR_PSTLZ
+       ,B.ORT01 AS KUNNR_ORT01 
+       ,Y.KUNWE
+       ,C.NAME1 AS KUNWE_NAME -- 판매처명
+       ,C.ORT01||' '||C.STRAS AS KUNWE_ADDR
+       ,C.PSTLZ AS KUNWE_PSTLZ
+       ,C.ORT01 AS KUNWE_ORT01
+       ,Y.VKORG
+       ,'현대엘리베이터' AS VKORG_NAME
+       ,Y.VTWEG
+       ,(SELECT CODE_NAME FROM SAPHEE.ZFST0100 WHERE MANDT = X.MANDT AND CODE_GROP = 'S02' AND CODE = X.VTWEG) AS VTWEG_NAME
+       ,Y.SPART
+       ,(SELECT CODE_NAME FROM SAPHEE.ZFST0100 WHERE MANDT = X.MANDT AND CODE_GROP = 'S03' AND CODE = X.SPART) AS SPART_NAME
+       ,Y.VKGRP
+       ,(SELECT BEZEI FROM SAPHEE.TVGRT WHERE MANDT = X.MANDT AND SPRAS = '3' AND VKGRP = X.VKGRP ) AS VKGRP_NAME
+       ,Y.VKBUR
+       ,(SELECT BEZEI FROM SAPHEE.TVKBT WHERE MANDT = X.MANDT AND SPRAS = '3' AND VKBUR = X.VKBUR ) AS VKBUR_NAME
+       ,Y.VPRGR
+       ,Y.BSTDK
+       ,Y.VDATU
+       ,Y.AUGRU
+       ,Y.LIFSK
+       ,Y.WAERK
+       ,CASE WHEN Y.WAERK = 'KRW' THEN
+            Y.NETWR * 100
+        ELSE
+            Y.NETWR
+        END AS NETWR
+       ,Y.AUTLF
+       ,Y.RPLNR
+       ,X.FPART -- 대금청구/송장 계획 유형
+       ,X.BEDAT -- 대금청구계획/송장계획에 대한 시작일
+       ,X.BEDAR -- 대금청구/송장 계획 시작일의 기본 규칙
+       ,X.RFPLN -- 표준 대금청구/송장 계획 번호
+       ,X.SLCS_RATE -- 예산시행율
+       ,X.DLIV_DATE -- 납기일
+       ,X.OCNT_APDT -- 수주승인일
+       ,X.CONT_DATE -- 계약일
+       ,X.CMPL_DATE -- 최종완료일
+       ,X.OCNT_STAT -- 수주상태
+       ,(SELECT CODE_NAME FROM  SAPHEE.ZFST0100 WHERE MANDT = X.MANDT AND CODE_GROP = 'A02' AND CODE = X.OCNT_STAT) AS OCNT_STAT_NAME -- 수주상태
+       ,CASE   WHEN    AP.APPR_STAT NOT IN ('040', '390')
+               THEN    CASE WHEN AP.ADIT_STAT NOT IN ('040', '250', '290') THEN (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = X.MANDT AND USERNUMB = AP.DRAF ) ELSE (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = X.MANDT AND USERNUMB = AP.ADIT ) END
+               ELSE    (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = X.MANDT AND USERNUMB = AP.APPR ) END AS ADIT_NAME -- 결재자명
+       ,CASE   WHEN    AP.APPR_STAT NOT IN ('040', '390') 
+               THEN    CASE WHEN AP.ADIT_STAT NOT IN ('040', '250', '290') THEN AP.DRAF_STAT ELSE AP.ADIT_STAT END 
+               ELSE    AP.APPR_STAT END AS APPR_STAT -- 결재상태
+       ,AU.CODE_NAME AS APPR_STAT_NAME -- 결재상태명
+       ,AP.ADIT
+       ,AP.APPR
+       ,X.WRIT_DATE -- 생성일
+       ,X.WRIT_TIME -- 생성시간
+       ,X.WRIT_USER -- 생성자
+       ,X.MODI_DATE -- 변경일자
+       ,X.MODI_TIME -- 변경시간
+       ,X.MODI_USER -- 변경자
+       ,COALESCE((SELECT MAX(RFCT_SEQN) FROM SAPHEE.ZFST0305 WHERE MANDT = X.MANDT AND OCNT_NUMB = X.OCNT_NUMB), 0) AS RFCT_SEQN
+       ,(SELECT EBDG_MGST FROM SAPHEE.ZFST0301 WHERE MANDT = X.MANDT AND OCNT_NUMB = X.OCNT_NUMB AND EBDG_MGSQ = 1) AS EBDG_MGST -- 시행예산 상태
+       ,(SELECT COUNT(MANDT) FROM SAPHEE.ZFST0309 WHERE MANDT = X.MANDT AND OCNT_NUMB = X.OCNT_NUMB ) AS CNT309
+FROM   SAPHEE.ZFST0304 AS X
+       INNER JOIN TABLE (
+                    SELECT A.MANDT
+                           ,CAST('HEOI20160621133' AS VARCHAR(60)) AS OCNT_NUMB
+                           ,A.VBELN
+                           ,A.ZZPJT_ID AS PSPID
+                           ,A.AUART
+                           ,A.PS_PSP_PNR
+                           ,A.BSTNK
+                           ,A.KUNNR
+                           ,(SELECT KUNNR FROM SAPHEE.VBPA WHERE MANDT = A.MANDT AND VBELN = A.VBELN AND POSNR = '000000' AND PARVW = 'WE') AS KUNWE
+                           ,A.VKORG
+                           ,A.VTWEG
+                           ,A.SPART
+                           ,A.VKGRP
+                           ,A.VKBUR
+                           ,A.VPRGR
+                           ,A.BSTDK
+                           ,A.VDATU
+                           ,A.AUGRU
+                           ,A.LIFSK
+                           ,A.WAERK
+                           ,A.NETWR
+                           ,A.AUTLF
+                           ,A.RPLNR
+                    FROM   SAPHEE.VBAK A
+                           INNER JOIN SAPHEE.VBKD B ON A.MANDT = B.MANDT AND A.VBELN = B.VBELN AND B.POSNR = '000000' AND B.BSTDK LIKE '2016%'
+                           INNER JOIN SAPHEE.VBAP C ON A.MANDT = C.MANDT AND A.VBELN = C.VBELN
+                    WHERE A.MANDT = #G_MANDT#
+                      AND A.VBELN = #VBELN#    
+                    ) AS Y ON X.MANDT = Y.MANDT AND X.OCNT_NUMB = Y.OCNT_NUMB
+          INNER JOIN SAPHEE.KNA1 AS B
+	  ON   Y.MANDT = B.MANDT
+	  AND  Y.KUNNR = B.KUNNR
+	  AND  B.KTOKD IN ( 'Z001', 'Z002', 'Z004' )
+	  INNER JOIN SAPHEE.KNA1 AS C
+	  ON   Y.MANDT = C.MANDT
+	  AND  Y.KUNWE = C.KUNNR
+	  AND  C.KTOKD IN ( 'Z001', 'Z002', 'Z004' )
+      LEFT JOIN SAPHEE.ZFST0103 AP ON (X.MANDT = AP.MANDT AND AP.ADOC_CLAS = 'OI' AND X.OCNT_NUMB = AP.ADOC_NUMB AND AP.ADOC_NTIM = 1)
+      LEFT JOIN SAPHEE.ZFST0100 AU ON (AU.MANDT = AP.MANDT AND AU.CODE_GROP = 'A01'
+                                   AND  AU.CODE = CASE  WHEN    AP.APPR_STAT NOT IN ('040', '390')
+                                                        THEN    CASE WHEN AP.ADIT_STAT NOT IN ('040', '250', '290') THEN AP.DRAF_STAT ELSE AP.ADIT_STAT END
+                                                  ELSE    AP.APPR_STAT END )
+WHERE X.MANDT = #G_MANDT# 
+  AND X.OCNT_NUMB = #OCNT_NUMB#
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_zfst0304">
+    </output>
+</query>

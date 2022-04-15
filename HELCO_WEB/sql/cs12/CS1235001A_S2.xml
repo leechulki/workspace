@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+       ''                                                   CHK,
+       A.TEM_NM                                             TEM_NM, -- 팀명
+       A.ARA_NM                                             ARA_NM, -- 지역명
+       A.BSU_NM                                             BSU_NM, -- 협력사명
+       A.UPN                                                UPN,    -- 통합프로젝트
+       A.CST                                                CST,    -- 거래선
+       A.GNO                                                GNO,    -- 유상계약번호
+       MAX(A.GKD)                                           GKD,
+       MAX(ZCD01.CTEXT2)                                    GKD_NM,
+       MAX(A.SPT)                                           SPT,    -- 현장명
+       MAX(A.ADR)                                           ADR,    -- 현장주소
+       MAX(A.ANT)                                           ANT,    -- 전체대수(HRTS + DI-PBX)
+       SUM(A.HNT)                                           HNT,    -- HRTS대수
+       SUM(A.DNT)                                           DNT,    -- DI-PBX대수
+       SUM(A.HNT_F)                                         HNT_F,  -- HRTS 신규 대수
+       SUM(A.DNT_F)                                         DNT_F,  -- DI-PBX 신규 대수
+       SUM(A.AMT)                                           AMT,    -- 전체공급가액
+       SUM(A.HMT)                                           HMT,    -- HRTS공급가액
+       SUM(A.DMT)                                           DMT,    -- DI-PBX공급가액
+       CASE 
+            WHEN MAX(A.ANT) = 0 THEN 0 
+            ELSE ROUND(SUM(A.AMT) / MAX(A.ANT),0) 
+       END                                                  AAR,    -- 전체평균단가
+       CASE 
+            WHEN SUM(A.HNT) = 0 THEN 0 
+            ELSE ROUND(SUM(A.HMT) / SUM(A.HNT),0) 
+       END                                                  HAR,    -- HRTS평균단가
+       CASE 
+            WHEN SUM(A.DNT) = 0 THEN 0 
+            ELSE ROUND(SUM(A.DMT) / SUM(A.DNT),0) 
+       END                                                  DAR,    -- DI-PBX평균단가
+       MIN(A.GBN)                                           GBN,    -- 계약구분(FM/POG)
+       MAX(A.USD)                                           USD,    -- 계약시작일
+       MAX(A.ADT)                                           ADT,    -- 계약승인일
+       MAX(A.RMR)                                           RMR,    
+       SAPHEE.CODE_CONV(MAX(A.MDT),'ko','CS179',MAX(A.HEP)) HEP_NM, -- 점검주기명
+       MAX(A.CRT)                                           CRT,    -- 유선대수
+       MAX(A.WRL)                                           WRL,    -- 무선대수
+       MAX(A.SFT)                                           SFT,    -- 설치완료대수
+       MAX(A.HCD)                                           HCD,    -- HRTS통신신청일
+       MAX(A.DCD)                                           DCD,    -- DI-PBX통신신청일
+       MAX(A.MCC)                                           MCC,    -- CRT날짜
+       MAX(A.MCD)                                           MCD,    -- 단말기날짜
+       MAX(A.MDC)                                           MDC,    -- 단말기대수
+       MAX(A.MCM)                                           MCM,    -- 모뎀날짜
+       MAX(A.MMC)                                           MMC,    -- 모뎀대수
+       MAX(A.SFD)                                           SFD,    -- 설치완료일
+       MAX(A.RMK)                                           RMK,    -- 비고
+       MAX(A.EMAIL)                                         EMAIL,  -- 이메일
+       MAX(A.EMAIL2)                                        EMAIL2, -- 이메일2
+       MAX(A.SPEC12)                                        SPEC12, -- 전기기종
+       MAX(A.MMR)                                           MMR,    -- 자재신청
+       MAX(A.MMA)                                           MMA,    -- 자재신청승인
+       MAX(A.MMT)                                           MMT,    -- 내용
+       MAX(JUJ)                                             JUJ, 
+       ( SELECT CCSB1EPN FROM SAPHEE.ZTBCSB1 WHERE MANDT = #G_MANDT# AND CCSB1EMP = MAX(JUJ) ) JUJ_NM, 
+       ( SELECT CCSB1EML FROM SAPHEE.ZTBCSB1 WHERE MANDT = #G_MANDT# AND CCSB1EMP = MAX(JUJ) ) JUJ_EMAIL,
+       ( SELECT CS099_EML FROM SAPHEE.ZCST099 WHERE MANDT = #G_MANDT# AND CS099_GNO = MAX(LIFNR) ) EMAIL3,
+       SAPHEE.CODE_CONV(MAX(A.MDT),'ko','CS123',MIN(A.BLD)) BLD_NM,
+       MAX(A.TE3)                                           TE3
+       ,MAX(A.TYN)                                                  AS TYN -- 감시반여부
+       ,MAX(A.LASTGNO)                                              AS LASTGNO
+       ,SUM(CASE WHEN A.HST = 'F' OR A.HST = 'D' THEN 1 ELSE 0 END) AS LFAIL
+       ,COUNT(CS126.CS126_GNO)      AS LCNT
+       ,SUM(CASE WHEN CS126.CS126_HYN = 'Y' THEN 1 ELSE 0 END)      AS LHCNT
+       ,SUM(CASE WHEN CS126.CS126_DYN = 'Y' THEN 1 ELSE 0 END)      AS LDCNT
+       ,MAX(CS126.CS126_RGS)      AS LRGS
+       ,MAX(CS126.CS126_RMR)      AS LRMR
+  FROM
+       (
+        SELECT
+               A.MANDT                                                 MDT,
+               SAPHEE.CODE_CONV(A.MANDT,'ko','VKGRP',D.VKGRP)          TEM_NM,
+               SAPHEE.CODE_CONV(A.MANDT,'CS115',A.CS126_ARA)           ARA_NM,
+               D.ABR_NM                                                BSU_NM,
+               A.CS126_UPN                                             UPN,
+               A.CS126_CST                                             CST,
+               A.CS126_GNO                                             GNO,
+               A.CS126_PJT                                             PJT,
+               A.CS126_HNO                                             HNO,
+               A.CS126_GKD                                             GKD,
+			         CS111B.HST                                              HST,
+               (
+                SELECT
+                       VALUE(CS126_GNO,'')
+                  FROM
+                       SAPHEE.ZCST126
+                 WHERE
+                       MANDT = A.MANDT
+                   AND CS126_PJT = A.CS126_PJT
+                   AND CS126_HNO = A.CS126_HNO
+                   AND CS126_DDT = ''
+                   AND CS126_PST = 'A6'
+                   AND CS126_GND = 'D'
+                   AND CS126_UMR >= HEX(CURRENT DATE)
+				         ORDER BY CS126_UMR DESC
+				         FETCH FIRST 1 ROW ONLY
+                     )                                                 LASTGNO,
+               (
+                SELECT
+                       CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE '' END
+                  FROM
+                       SAPHEE.ZMASTER02
+                 WHERE
+                       MANDT = A.MANDT
+                   AND POSID = A.CS126_PJT
+                   AND SUBSTR(POSID_1,7,1) = 'T'
+                     )                                                 TYN,
+               E.CS121_SPT                                             SPT,
+               F.ADDR1 || ' ' || F.ADDR2                               ADR,
+               (
+                SELECT
+                       COUNT(*)
+                  FROM
+                       SAPHEE.ZCST126
+                 WHERE
+                       MANDT = A.MANDT
+                   AND CS126_UPN = A.CS126_UPN
+                   AND CS126_CST = A.CS126_CST
+                   AND CS126_GNO = A.CS126_GNO
+                   AND CS126_DDT = ''
+                   AND CS126_PST = 'A6'
+                   AND CS126_GND = 'D'
+                   AND (CS126_FHG = 'Y' OR CS126_FDG = 'Y')
+                   AND (CS126_HYN = 'Y' OR CS126_DYN = 'Y')
+               )                                                       ANT,
+               CASE WHEN A.CS126_HYN = 'Y' THEN 1 ELSE 0 END           HNT,
+               CASE WHEN A.CS126_DYN = 'Y' THEN 1 ELSE 0 END           DNT,
+               CASE WHEN (A.CS126_HYN = 'Y' AND A.CS126_FHG = 'Y') THEN 1 ELSE 0 END HNT_F,
+               CASE WHEN (A.CS126_DYN = 'Y' AND A.CS126_FDG = 'Y') THEN 1 ELSE 0 END DNT_F,
+               A.CS126_AMT                                             AMT,
+               CASE WHEN A.CS126_HYN = 'Y' THEN A.CS126_HMT ELSE 0 END HMT,
+               CASE WHEN A.CS126_DYN = 'Y' THEN A.CS126_DMT ELSE 0 END DMT,
+               CASE WHEN A.CS126_KND > '' THEN 'FM' ELSE 'POG' END     GBN,
+               A.CS126_USD                                             USD,
+               A.CS126_ADT                                             ADT,
+               A.CS126_RMR                                             RMR,
+               A.CS126_HEP                                             HEP,
+               VALUE(B.CS401_CRT,0)                                    CRT,
+               VALUE(B.CS401_WRL,0)                                    WRL,
+               VALUE(B.CS401_SFT,0)                                    SFT,
+               VALUE(B.CS401_HCD,'')                                   HCD,
+               VALUE(B.CS401_DCD,'')                                   DCD,
+               VALUE(B.CS401_MCC,'')                                   MCC,
+               VALUE(B.CS401_MCD,'')                                   MCD,
+               VALUE(B.CS401_MDC,0)                                    MDC,
+               VALUE(B.CS401_MCM,'')                                   MCM,
+               VALUE(B.CS401_MMC,0)                                    MMC,
+               VALUE(B.CS401_SFD,'')                                   SFD,
+               VALUE(B.CS401_RMK,'')                                   RMK,
+               E.CS121_EM1                                             EMAIL,
+               E.CS121_EM3                                             EMAIL2,
+               G.ZSPEC12                                               SPEC12,
+               CASE WHEN B.CS401_MMR = 'Y' THEN '1' ELSE '0' END       MMR,
+               CASE WHEN B.CS401_MMA = 'Y' THEN '1' ELSE '0' END       MMA,
+               VALUE(B.CS401_MMT,'')                                   MMT,
+               CS111B.JUJ                                             JUJ,
+               D.LIFNR                                                 LIFNR,
+               VALUE(CS111B.BLD,'')                                    BLD,
+               E.CS121_TE3                                             TE3
+          FROM
+               SAPHEE.ZCST126 A
+                      LEFT OUTER JOIN SAPHEE.ZCST401 B
+                                   ON B.MANDT = A.MANDT
+                                  AND B.CS401_UPN = A.CS126_UPN
+                                  AND B.CS401_CST = A.CS126_CST
+                                  AND B.CS401_GNO = A.CS126_GNO
+
+                      LEFT OUTER JOIN SAPHEE.ZCST111 CS111B
+                                   ON A.MANDT = CS111B.MANDT
+                                  AND A.CS126_PJT = CS111B.PJT
+                                  AND A.CS126_HNO = CS111B.HNO,
+
+               SAPHEE.ZLCODE C,
+               SAPHEE.ZWBT010 D,
+               SAPHEE.ZCST121 E,
+               SAPHEE.ZMASTER01 F,
+               SAPHEE.ZMASTER02 G
+         WHERE
+               A.MANDT = #G_MANDT#
+           AND A.CS126_DDT = ''
+           AND A.CS126_PST = 'A6'
+           AND A.CS126_GND = 'D'
+           AND A.CS126_FHG = 'Y'
+           AND A.CS126_HYN = 'Y'
+           AND A.MANDT = C.MANDT
+           AND A.CS126_ARA = C.CODE2
+           AND C.CODE1 = 'CS115'
+           AND C.LANG = 'ko'
+           AND A.MANDT = D.MANDT
+           AND A.CS126_BSU = D.LGORT
+           AND D.LGORT > ''
+           AND A.MANDT = E.MANDT
+           AND A.CS126_UPN = E.CS121_UPN
+           AND A.CS126_CST = E.CS121_CST
+           AND A.MANDT = F.MANDT
+           AND A.CS126_PJT = F.POSID
+           AND A.MANDT = G.MANDT
+           AND A.CS126_PJT||A.CS126_HNO = G.POSID_1
+           AND VALUE(CS111B.EXC,'') = ''
+<isEqual col="GBN2" value="A">
+           AND (CASE WHEN SUBSTR(A.CS126_ADT,1,6) = SUBSTR(A.CS126_USD,1,6) THEN A.CS126_ADT
+                     WHEN SUBSTR(A.CS126_ADT,1,6) > SUBSTR(A.CS126_USD,1,6) THEN A.CS126_ADT
+                     WHEN SUBSTR(A.CS126_ADT,1,6) &lt; SUBSTR(A.CS126_USD,1,6) THEN A.CS126_USD
+                END) BETWEEN #FYM#||'01' AND #TYM#||'31' --승인일 기준
+</isEqual>        
+<isEqual col="GBN2" value="B">
+           AND A.CS126_USD BETWEEN #FYM#||'01' AND #TYM#||'31'  
+</isEqual>
+<isEqual col="GBN2" value="C">
+           AND A.CS126_ADT BETWEEN #FYM#||'01' AND #TYM#||'31'  
+</isEqual>                                
+<isNotNull col="ARA">
+           AND A.CS126_ARA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+           AND D.LGORT = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+           AND A.CS126_BPM = #BPM#
+</isNotNull>
+<isNotNull col="TEM">
+           AND D.VKGRP = #TEM# 
+</isNotNull> 
+<isNotNull col="HEP">
+           AND A.CS126_HEP = #HEP#
+</isNotNull>                      
+<isEqual col="GBN1" value="01">
+           AND A.CS126_KND > ''  
+</isEqual>
+<isEqual col="GBN1" value="02">
+           AND A.CS126_KND = '' 
+</isEqual>
+<isNotNull col="UPN">
+           AND A.CS126_UPN = #UPN#
+</isNotNull>
+<isNotNull col="CST">
+           AND A.CS126_CST = #CST#
+</isNotNull>
+<isNotNull col="PJT">
+           AND A.CS126_PJT = #PJT#
+</isNotNull>
+       ) A         LEFT OUTER JOIN SAPHEE.ZCST126 AS CS126
+                           ON CS126.MANDT = #G_MANDT#
+                          AND CS126.CS126_GNO = A.LASTGNO
+                          AND CS126.CS126_PJT = A.PJT
+                          AND CS126.CS126_HNO = A.HNO
+                          AND CS126.CS126_DDT = ''                  
+                          AND CS126.CS126_PST = 'A6'
+                       
+                   LEFT OUTER JOIN SAPHEE.ZLCODE AS ZCD01
+                                ON ZCD01.MANDT = #G_MANDT#
+                               AND ZCD01.CODE1 = 'CS130'
+                               AND ZCD01.CODE2 =  A.GKD
+                               AND ZCD01.LANG = #G_LANG#
+GROUP BY
+       A.TEM_NM,
+       A.ARA_NM,
+       A.BSU_NM,
+       A.UPN,
+       A.CST,
+       A.GNO
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

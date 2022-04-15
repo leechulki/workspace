@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.sso.dao.Sso0212D"> 
+
+	<resultMap id="sso0212Map" type="hdel.sd.sso.domain.Sso0212" />
+	
+	<select id="searchAgentCommission" parameterType="hdel.sd.sso.domain.Sso0212" resultMap="sso0212Map">
+		with vbak as (
+			select vbak.mandt, vbak.zzpjt_id, vbak.vbeln, vbuk.abstk, vbak.bstnk, vbak.bstdk,
+				vbak.vdatu, vbak.contr_da, vbak.waerk, vbak.zqnty,
+				vbak.netwr, 
+				(select sum(kzwi4) from saphee.vbap as vbap where vbap.mandt=vbak.mandt and vbap.vbeln=vbak.vbeln) as kzwi4,
+				(select sum(mwsbp) from saphee.vbap as vbap where vbap.mandt=vbak.mandt and vbap.vbeln=vbak.vbeln) as mwsbp
+			from saphee.vbak as vbak
+				left join saphee.vbuk as vbuk on vbak.mandt=vbuk.mandt and vbak.vbeln=vbuk.vbeln
+			where vbak.mandt=#{mandt}
+		    <if test="!vbeln.isInitial()">
+				and vbak.vbeln=#{vbeln}
+			</if>
+			<if test="!frRecadda.isInitial() and !toRecadda.isInitial()">
+				and vbak.recad_da between #{frRecadda} and #{toRecadda}
+			</if>
+		)
+		,z29 as (
+			select vbak.vbeln, z29.waers, sum(z29.dmbtr) as dmbtr, sum(z29.hwbas) as hwbas
+			from vbak
+				inner join saphee.zsdt0029 as z29 on vbak.mandt=z29.mandt and z29.bukrs='1000' and vbak.zzpjt_id=z29.kidno and z29.zcandt='00000000'
+			group by vbak.vbeln, z29.waers
+		)
+		select vbak.vbeln, vbak.abstk, vbak.bstnk, vbak.bstdk, vbak.vdatu, vbak.contr_da, vbak.zqnty, 
+			vbpaag.kunnr as knrAg, kna1ag.name1 as knrAgNm, vbpaz2.kunnr as knrZ2, kna1z2.name1 as knrZ2Nm,
+			vbak.waerk, value(z128.netwrso,vbak.netwr) as netwrSO, vbak.mwsbp,
+			value(z128.kzwi4,vbak.kzwi4) as kzwi4, 
+			value(z128.tampa,z30.tampa) as tampa,
+			z29.waers, z29.dmbtr as dmbtr29, value(z128.hwbas29,z29.hwbas) as hwbas29, z128.stake, z128.kwert, z128.descr,
+			z128.aedat, z128.aenam, zuserf.username
+		from vbak
+			inner join saphee.vbpa as vbpaag on vbak.mandt=vbpaag.mandt and vbak.vbeln=vbpaag.vbeln and vbpaag.parvw='AG'
+			inner join saphee.vbpa as vbpaz2 on vbak.mandt=vbpaz2.mandt and vbak.vbeln=vbpaz2.vbeln and vbpaz2.parvw='Z2'
+			left join saphee.zsdt0128 as z128 on vbak.mandt=z128.mandt and vbak.vbeln=z128.vbeln
+			left join saphee.zuserf as zuserf on z128.mandt=zuserf.mandt and z128.aenam=zuserf.usernumb
+			left join saphee.zsdt0030 as z30 on vbak.mandt=z30.mandt and vbak.vbeln=z30.vbeln
+			left join saphee.kna1 as kna1ag on vbpaag.mandt=kna1ag.mandt and vbpaag.kunnr=kna1ag.kunnr
+			left join saphee.kna1 as kna1z2 on vbpaz2.mandt=kna1z2.mandt and vbpaz2.kunnr=kna1z2.kunnr
+			left join z29 on vbak.vbeln=z29.vbeln
+		where vbpaZ2.kunnr like 'A%'
+		with ur
+	</select>
+	<delete id="deleteAgentCommission" parameterType="hdel.sd.sso.domain.Sso0212">
+		delete
+		from saphee.zsdt0128
+		where mandt=#{mandt}
+			and vbeln=#{vbeln}
+	</delete>
+	<update id="merge" parameterType="java.util.List">
+		merge into saphee.zsdt0128 as z128
+		using (
+			select * from table(
+				values 
+				<foreach item="item" index="index" collection="list" open="(" separator="),(" close=")">
+				#{item.mandt}, #{item.vbeln}, #{item.netwrSO}, #{item.dmbtr29}, #{item.hwbas29}, #{item.kzwi4}, #{item.tampa}, #{item.stake}, #{item.kwert}, #{item.descr}
+				</foreach>
+			) as (mandt, vbeln, netwrso, dmbtr29, hwbas29, kzwi4, tampa, stake, kwert, descr)
+		) as z128set on z128.mandt=z128set.mandt and z128.vbeln=z128set.vbeln
+
+		when matched then
+			update
+			set
+				z128.netwrso = #{item.netwrSO},
+				z128.dmbtr29 = #{item.dmbtr29},
+				z128.hwbas29 = #{item.hwbas29},
+				z128.kzwi4 = #{item.kzwi4},
+				z128.tampa = #{item.tampa},
+				z128.stake = #{item.stake},
+				z128.kwert = #{item.kwert},
+				z128.descr = #{item.descr},
+				z128.aedat = #{item.tstmp.aedat},
+				z128.aezet = #{item.tstmp.aezet},
+				z128.aenam = #{item.tstmp.aenam}
+
+		when not matched then
+			insert (mandt, vbeln, netwrso, dmbtr29, hwbas29, kzwi4, tampa, stake, kwert, descr, erdat, erzet, ernam, aedat, aezet, aenam)
+			values (z128set.mandt, z128set.vbeln, z128set.netwrso, z128set.dmbtr29, z128set.hwbas29, z128set.kzwi4, z128set.tampa, z128set.stake, z128set.kwert, z128set.descr, #{item.tstmp.erdat}, #{item.tstmp.erzet}, #{item.tstmp.ernam}, #{item.tstmp.aedat}, #{item.tstmp.aezet}, #{item.tstmp.aenam})
+	</update>
+</mapper>

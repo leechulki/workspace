@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--2020.09.09 제약조건 현업과 협의상 사항으로 적용됨	
+SELECT 
+       X.ARA ARA
+      ,X.BSU BSU
+      ,VALUE(MAX(E.CTEXT2),'')  ARA_NM
+      ,VALUE(MAX(F.CTEXT2),'')  TEM_NM
+      ,VALUE(MAX(B010.ABR_NM),'')  BSU_NM
+      ,SUM(CASE SUBSTR(MDT,5,2) WHEN '01' THEN 1 ELSE 0 END) M01 
+      ,SUM(CASE SUBSTR(MDT,5,2) WHEN '02' THEN 1 ELSE 0 END) M02
+      ,SUM(CASE SUBSTR(MDT,5,2) WHEN '03' THEN 1 ELSE 0 END) M03
+      ,SUM(CASE SUBSTR(MDT,5,2) WHEN '04' THEN 1 ELSE 0 END) M04
+      ,SUM(CASE SUBSTR(MDT,5,2) WHEN '05' THEN 1 ELSE 0 END) M05
+      ,SUM(CASE SUBSTR(MDT,5,2) WHEN '06' THEN 1 ELSE 0 END) M06
+      ,SUM(CASE SUBSTR(MDT,5,2) WHEN '07' THEN 1 ELSE 0 END) M07
+      ,SUM(CASE SUBSTR(MDT,5,2) WHEN '08' THEN 1 ELSE 0 END) M08
+      ,SUM(CASE SUBSTR(MDT,5,2) WHEN '09' THEN 1 ELSE 0 END) M09
+      ,SUM(CASE SUBSTR(MDT,5,2) WHEN '10' THEN 1 ELSE 0 END) M10
+      ,SUM(CASE SUBSTR(MDT,5,2) WHEN '11' THEN 1 ELSE 0 END) M11
+      ,SUM(CASE SUBSTR(MDT,5,2) WHEN '12' THEN 1 ELSE 0 END) M12
+
+FROM (
+       SELECT 
+              A.MANDT
+             ,A.PJT
+             ,A.HNO
+             ,A.MDT   
+						 ,CASE WHEN VALUE(A.ARA,'') = '' THEN A.ARA_172 ELSE A.ARA END ARA
+						 ,CASE WHEN VALUE(A.BSU,'') = '' THEN A.BSU_172 ELSE A.BSU END BSU
+						 ,A.BPM
+       
+        FROM (        
+               SELECT 
+                       A.MANDT
+                      ,A.CS172_PJN PJT
+                      ,A.CS172_HNN HNO
+                      ,A.CS172_YYM YYM
+                      ,MAX(A.CS172_MDT) MDT
+                      ,MAX(A.CS172_ARA) ARA_172
+                      ,MAX(A.CS172_BSU) BSU_172
+                      ,MAX(B.ARA) ARA
+                      ,MAX(B.BSU) BSU
+                      ,MAX(B.BPM) BPM
+                      ,MAX(C.CS126_UMR) UMR
+                      ,MAX(A.CS172_PJO) CS172_PJO
+                      ,MAX(A.CS172_HNO) CS172_HNO
+               
+                 FROM SAPHEE.ZCST172 A  INNER JOIN SAPHEE.ZCST111 B
+                                                ON A.MANDT = B.MANDT
+                                               AND A.CS172_PJO = B.PJT
+                                               AND A.CS172_HNO = B.HNO
+                                               AND B.EXC = ''
+
+                                       LEFT OUTER JOIN SAPHEE.ZCST126 C
+                                               ON C.MANDT = #G_MANDT#
+                                              AND A.CS172_PJO = C.CS126_PJT
+                                              AND A.CS172_HNO = C.CS126_HNO
+                                              AND C.CS126_DDT = ''
+                                              AND C.CS126_PST = 'A6'
+                                              AND A.CS172_MDT &gt;= C.CS126_UMR
+
+                WHERE A.MANDT = #G_MANDT#
+                  AND SUBSTR(A.CS172_HNO,1,1) NOT IN ('J','G')
+                  AND A.CS172_MDT BETWEEN #FYM#||'01' AND #TYM#||'31'
+<isNotNull col="PJT">
+                  AND A.CS172_PJN = #PJT#
+</isNotNull>
+                GROUP BY  A.MANDT, CS172_PJN , CS172_HNN, CS172_YYM
+             ) A              
+                    LEFT OUTER JOIN SAPHEE.ZCST126 B
+                            ON A.MANDT = B.MANDT
+                           AND A.CS172_PJO = B.CS126_PJT
+                           AND A.CS172_HNO = B.CS126_HNO
+                           AND A.UMR = B.CS126_UMR
+                           AND B.CS126_DDT = ''
+                           AND B.CS126_PST = 'A6'
+                          
+       WHERE 1=1
+       
+<isEqual col="CHK_SLA_EX" value="1">      
+         AND VALUE(B.CS126_SLA,'N') = 'N'
+</isEqual>             
+       
+       ) X   LEFT OUTER JOIN SAPHEE.ZWBT010 B010
+                          ON X.MANDT = B010.MANDT
+                         AND X.BSU = B010.LGORT
+                                    
+             LEFT OUTER JOIN SAPHEE.ZLCODE E
+                          ON X.MANDT = E.MANDT
+                         AND X.ARA = E.CODE2
+                         AND E.CODE1 = 'CS115'
+                         AND E.LANG = 'ko'  
+             LEFT OUTER JOIN SAPHEE.ZLCODE F
+                          ON X.MANDT = F.MANDT
+                         AND B010.VKGRP = F.CODE2
+                         AND F.CODE1 = 'VKGRP'
+                         AND F.LANG = 'ko'  
+ 
+ WHERE 1=1
+ 
+<isNotNull col="ARA">
+   AND X.ARA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+   AND X.BSU = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+   AND X.BPM = #BPM#
+</isNotNull>
+<isNotNull col="TEM">
+   AND B010.VKGRP = #TEM#
+</isNotNull>   
+<isNotNull col="DPT">
+   AND SUBSTR(B010.VKGRP,1,2)||'00' = #DPT#
+</isNotNull>    
+        
+ GROUP BY  X.ARA,X.BSU 
+ ORDER BY  X.ARA,X.BSU     
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

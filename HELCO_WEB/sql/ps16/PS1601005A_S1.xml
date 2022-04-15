@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[PS1601005A_S1]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>1</result-count>
+    <statement>
+    
+  
+SELECT   
+        E.TAXDATE
+       , E.LIFNR, C.NAME1 AS LIFNRNM, L.TEAM_NM AS TEMNM, L.ZZACTSS_NM
+       , (SELECT DISTINCT KK.NAMET FROM SAPHEE.ZPST0002 KK WHERE KK.MANDT = MANDT AND KK.TEMNO = TEMNO2 ) AS NAMET2
+       , (SELECT M.ZSITE_NM FROM SAPHEE.ZMASTER01 M WHERE M.MANDT = MANDT AND M.POSID = PSPID ) AS ZSITE_NM 
+       , POSID AS HOGI   
+       , E.SPECT AS ATYPE  
+       , E.KINDS AS SPEC   
+       , E.PRO_R
+       , E.LABMH
+       , E.TOT
+       , E.WSCALE
+       , E.TOT_MH   
+    FROM ( 
+        SELECT 
+              A.MANDT
+            , A.TAXDATE
+            , A.PSPID
+            , A.POSID 
+            , A.SEQNO 
+            , B.CHGNO
+            , A.LIFNR 
+            , C.TEMNO2
+            , B.SPECT
+            , B.KINDS
+            , B.TOT
+            , B.WSCALE 
+            , DEC( (A.PRO_R / 100),15,2) AS PRO_R
+            , CASE WHEN VALUE(B.WSCALE,0) = 0
+                   THEN 0
+                   ELSE (CASE WHEN B.WSCALE = 0
+                             THEN 0
+                             ELSE DEC((B.TOT/B.WSCALE), 15,2)
+                             END)
+                   END  AS LABMH
+            , DEC(DEC(A.PRO_R/100,15,3) * (CASE WHEN VALUE(B.WSCALE,0) = 0
+                                               THEN 0
+                                               ELSE DEC(B.TOT/B.WSCALE, 15,2)
+                                               END), 15,2) AS TOT_MH
+         FROM SAPHEE.ZPST0116 AS A 
+         INNER JOIN SAPHEE.ZPST0100 AS B
+           ON A.MANDT = B.MANDT
+          AND A.PSPID = B.PSPID
+          AND A.POSID = B.POSID
+          INNER JOIN (
+              SELECT S.MANDT, S.PSPID, S.POSID,  S.CHGNO
+                FROM (
+                    SELECT MANDT, PSPID, POSID, MAX(CHGNO)  AS CHGNO
+                      FROM saphee.ZPST0113 WHERE CNF_GBN='A' AND GUBUN='5' AND STATE='Y'
+                  GROUP BY MANDT, PSPID, POSID
+                     ) S
+          ) AS P
+             ON A.MANDT = P.MANDT
+            AND A.PSPID = P.PSPID
+            AND A.POSID = P.POSID
+            AND B.CHGNO = P.CHGNO
+          INNER JOIN SAPHEE.ZMASTER02 AS C
+            ON A.MANDT = C.MANDT
+           AND A.PSPID = C.POSID
+             AND A.POSID = C.POSID_1
+        WHERE A.MANDT = #G_MANDT# 
+         AND (substr(A.TAXDATE,1,6) BETWEEN #YYYYMMF#  AND #YYYYMMT#) 
+          <isNotNull col="ZTEMNO">
+          AND C.TEMNO2 = #ZTEMNO#
+          </isNotNull>
+          <isNotNull col="ZZLIFNR">
+          AND A.LIFNR = #ZZLIFNR#      
+          </isNotNull>
+          <isNotNull col="ATYPE">
+          AND B.SPECT = #ATYPE#
+          </isNotNull>
+          <isNotNull col="SPEC">
+          <isEqual col="SPEC" value="300">
+          AND CAST(REPLACE(B.KINDS, ' ', '0') AS INT) >= 300
+          </isEqual> 
+          <isNotEqual col="SPEC" value="300">
+          <isNotNull col="SPEC2">
+          AND CAST(REPLACE(B.KINDS, ' ', '0') AS INT) BETWEEN #SPEC# AND #SPEC2#
+          </isNotNull> 
+          </isNotEqual> 
+          </isNotNull> 
+          <isNotNull col="CHK_GBN">
+          AND A.GUBUN = #CHK_GBN#
+          </isNotNull>          
+          ORDER BY  A.MANDT, A.TAXDATE, A.POSID , A.POSID, A.LIFNR, C.TEMNO2, A.SEQNO
+    ) AS E
+    INNER JOIN SAPHEE.ZPST0034 AS C 
+        ON E.MANDT = C.MANDT AND E.LIFNR = C.LIFNR AND C.GBN = 'A' AND (C.SO = 'X' OR C.SO3 = 'X')
+     LEFT OUTER JOIN SAPHEE.ZWBT010 W
+                  ON E.MANDT = W.MANDT
+                 AND E.LIFNR = W.LIFNR
+     INNER JOIN  
+     (
+     SELECT        
+           MANDT
+         , DTEXT3 AS TEAM_CD     
+         , DTEXT4 AS TEAM_NM     
+         , CODE2 AS ZZACTSS_CD   
+         , CTEXT2 AS ZZACTSS_NM  
+      FROM SAPHEE.ZLCODE N 
+       WHERE N.CODE1 = 'PS003' AND N.DTEXT3  <![CDATA[ <> ]]>  '' 
+         AND N.LANG = 'ko' 
+     ) L ON W.MANDT = L.MANDT
+        AND W.ZZACTSS = L.ZZACTSS_CD
+    WHERE E.MANDT = #G_MANDT#
+       AND (W.ZZACTSS IS NOT NULL OR W.ZZACTSS != '' OR W.ZZACTSS != ' ')
+       AND C.SO5 <![CDATA[<>]]> 'X'
+       <isNotNull col="CHK_GBN">
+       <isEqual col="CHK_GBN" value="10">
+       AND (C.EL_INDC = 'X' OR (C.EL_INDC = 'X' AND C.ES_INDC = 'X')) AND E.LIFNR  <![CDATA[  <> ]]> '0000008001'
+       </isEqual>
+       </isNotNull>
+       <isNotNull col="CHK_GBN">
+       <isEqual col="CHK_GBN" value="11">
+       AND (C.ES_INDC = 'X' OR (C.ES_INDC = 'X' AND C.ES_INDC = 'X')) AND E.LIFNR  <![CDATA[  <> ]]> '0000008001'
+       </isEqual>
+       </isNotNull>
+       <isNotNull col="TEMNO">
+       AND W.ZZACTSS IN ( SELECT CODE2 FROM SAPHEE.ZLCODE  WHERE MANDT = E.MANDT AND CODE1 = 'PS003' AND LANG = 'ko' AND DTEXT3 = #TEMNO# )
+       </isNotNull>
+       <isNotNull col="ZZACTSS">
+       AND W.ZZACTSS = #ZZACTSS#
+       </isNotNull>
+FOR FETCH ONLY
+WITH UR </statement>
+    <input default-name="ds_cond">
+    </input>
+
+    <output default-name="ds_list">
+    </output>
+
+</query>

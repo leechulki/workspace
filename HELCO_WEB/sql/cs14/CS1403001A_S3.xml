@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+	 X.CHECK
+	,X.PJT
+	,X.HNO
+	,X.UPN
+	,X.CST
+	,L.CS121_SPT SPT
+	,X.HNA
+	,X.LGORTBEFORE
+	,X.LGORTBEFORETEXT
+	,X.AGB 
+	,X.AGBTEXT
+	,J.CTEXT2 AS BALJUTEXT
+	,X.SEQ
+	,X.BALJUCODE
+	,VALUE(K.HST,'') HST
+	,VALUE(K.HST_NM,'') HST_NM
+	,X.WORKDATE
+	,X.REGDATE 
+	,X.FLAG 
+	,X.GHB
+	,X.LGORTAFTER
+	,X.GBA
+	,X.GHA
+	,X.IHT
+	--,X.IGM
+	,X.LIFNR
+	,X.JUB
+	,X.BUB
+	,X.JUA
+	,X.BUA
+	,'' FYN
+	,X.BSU
+    ,L.CS121_NAM CLI
+    ,X.JUJ JUJ
+    , VALUE(SAPHEE.GET_BOSU_INWON(#G_MANDT#,X.JUJ),'') AS JUB_NM
+    ,X.BUJ BUJ
+    , VALUE(SAPHEE.GET_BOSU_INWON(#G_MANDT#,X.BUJ),'') AS BUB_NM
+    ,T.VKGRP TEM
+    , SAPHEE.CODE_CONV(#G_MANDT#, 'VKGRP', VKGRP) AS TEM_NM 
+    ,Q3.IGM
+    --,Q3.IKD AS REGDATE
+    --,Q3.IJU AS WORKDATE
+	,Q3.DOCNO
+    ,VALUE(Q3.APSTAT, '0') AS APSTAT
+    ,X.CS157_FYN 
+    ,CASE WHEN CS144.MANDT IS NOT NULL THEN 'X' ELSE '' END CHK_FAIL_ING
+    
+    ,X.RSN2
+    
+    --,0 AS ZMUSAOCNT
+    --,0 AS ZMUSAUCNT        
+    --=================== 
+	,VALUE((SELECT INTEGER(VALUE(M02.ZMUSAOCNT,0)) + INTEGER(VALUE(M02.ZMUSAOCNT2,0))  FROM SAPHEE.ZMASTER02 AS M02  WHERE M02.MANDT = #G_MANDT#  AND M02.POSID = X.PJT  AND M02.POSID_1 =  X.PJT || X.HNO),0)  AS ZMUSAOCNT  -- 예정
+	,VALUE((SELECT INTEGER(VALUE(M02.ZMUSAUCNT,0)) + INTEGER(VALUE(M02.ZMUSAUCNT2,0))  FROM SAPHEE.ZMASTER02 AS M02  WHERE M02.MANDT = #G_MANDT#  AND M02.POSID = X.PJT  AND M02.POSID_1 =  X.PJT || X.HNO),0)  AS ZMUSAUCNT   --사용
+    --==================     
+    
+FROM
+(
+SELECT 
+	 G.CHECK
+	,G.PJT
+	,G.HNO
+	,G.JUJ
+	,G.BUJ
+	,G.BSU
+	,MAX(VALUE(H.CS116_BMT,'00000000')) BMT
+	,MAX(VALUE(I.CS126_UMR,'00000000')) UMR
+	,CASE WHEN MAX(VALUE(H.CS116_GND,'')) = 'A' AND MAX(VALUE(I.CS126_UMR,'')) &lt; MAX(VALUE(H.CS116_BMT,'')) THEN ''
+	      WHEN MAX(VALUE(H.CS116_GND,'')) = 'B' AND MAX(VALUE(I.CS126_UMR,'')) &lt; MAX(VALUE(H.CS116_BMT,'')) THEN ''
+	      WHEN MAX(VALUE(I.CS126_GND,'')) = 'C' AND MAX(VALUE(I.CS126_UMR,'')) > MAX(VALUE(H.CS116_BMT,'')) THEN MAX(I.CS126_UPN) 
+	      WHEN MAX(VALUE(I.CS126_GND,'')) = 'D' AND MAX(VALUE(I.CS126_UMR,'')) > MAX(VALUE(H.CS116_BMT,'')) THEN MAX(I.CS126_UPN) 
+	 END AS UPN
+	,CASE WHEN MAX(VALUE(H.CS116_GND,'')) = 'A' AND MAX(VALUE(I.CS126_UMR,'')) &lt; MAX(VALUE(H.CS116_BMT,'')) THEN ''
+	      WHEN MAX(VALUE(H.CS116_GND,'')) = 'B' AND MAX(VALUE(I.CS126_UMR,'')) &lt; MAX(VALUE(H.CS116_BMT,'')) THEN ''
+	      WHEN MAX(VALUE(I.CS126_GND,'')) = 'C' AND MAX(VALUE(I.CS126_UMR,'')) > MAX(VALUE(H.CS116_BMT,'')) THEN MAX(I.CS126_CST) 
+	      WHEN MAX(VALUE(I.CS126_GND,'')) = 'D' AND MAX(VALUE(I.CS126_UMR,'')) > MAX(VALUE(H.CS116_BMT,'')) THEN MAX(I.CS126_CST) 
+	 END AS CST
+	,G.HNA
+	,G.LGORTBEFORE
+	,G.LGORTBEFORETEXT
+	,G.AGB
+	,G.AGBTEXT
+	,CASE WHEN MAX(VALUE(I.CS126_GND,'')) = 'D' AND MAX(VALUE(I.CS126_UMR,'')) > MAX(VALUE(H.CS116_BMT,'')) THEN MAX(I.CS126_SEQ)
+	      WHEN MAX(VALUE(I.CS126_GND,'')) = 'C' AND MAX(VALUE(I.CS126_UMR,'')) > MAX(VALUE(H.CS116_BMT,'')) THEN MAX(I.CS126_SEQ)
+	      WHEN MAX(VALUE(H.CS116_GND,'')) = 'B' AND MAX(VALUE(I.CS126_UMR,'')) &lt; MAX(VALUE(H.CS116_BMT,'')) THEN MAX(H.CS116_SEQ) 
+	      WHEN MAX(VALUE(H.CS116_GND,'')) = 'A' AND MAX(VALUE(I.CS126_UMR,'')) &lt; MAX(VALUE(H.CS116_BMT,'')) THEN MAX(H.CS116_SEQ) 
+	 END AS SEQ
+	,CASE WHEN MAX(VALUE(I.CS126_GND,'')) = 'D' AND MAX(VALUE(I.CS126_UMR,'')) > MAX(VALUE(H.CS116_BMT,'')) THEN 'D' 
+	      WHEN MAX(VALUE(I.CS126_GND,'')) = 'C' AND MAX(VALUE(I.CS126_UMR,'')) > MAX(VALUE(H.CS116_BMT,'')) THEN 'C'
+	      WHEN MAX(VALUE(H.CS116_GND,'')) = 'B' AND MAX(VALUE(I.CS126_UMR,'')) &lt; MAX(VALUE(H.CS116_BMT,'')) THEN 'B'  
+	      WHEN MAX(VALUE(H.CS116_GND,'')) = 'A' AND MAX(VALUE(I.CS126_UMR,'')) &lt; MAX(VALUE(H.CS116_BMT,'')) THEN 'A'
+	 END AS BALJUCODE
+	,'' AS WORKDATE
+	,'' AS REGDATE 
+	,'' AS FLAG 
+	,'' AS GHB
+	,'' AS LGORTAFTER
+	,'' AS GBA
+	,'' AS GHA
+	,'' AS IHT  
+	,'' AS IGM
+	,'' AS LIFNR
+	,'' AS JUB
+	,'' AS BUB
+	,'' AS JUA
+	,'' AS BUA
+	,MAX(CS157_FYN) CS157_FYN  
+	,MAX(G.RSN2)     RSN2
+FROM 
+(
+	SELECT  
+		'' AS CHECK
+		,A.MANDT AS MANDT
+		,A.CS122_UPN AS UPN
+		,A.CS122_CST AS CST
+		,A.CS122_PJT AS PJT
+		,A.CS122_HNO AS HNO
+		,B.CS101_HNA AS HNA
+		,D.LGORT AS LGORTBEFORE 
+		,E.NAME1 AS LGORTBEFORETEXT
+		,D.LIFNR AS LIFNR
+		,C.AGB AS AGB
+		,F.CTEXT2 AS AGBTEXT
+		,C.BSU
+		,C.JUJ
+		,C.BUJ
+		,CASE WHEN SUBSTR(SAPHEE.TO_DATETIME(),1,8)&lt;UMD THEN 'D' 
+		      WHEN SUBSTR(SAPHEE.TO_DATETIME(),1,8)&lt;SMT THEN 'C'
+		      WHEN MYS &lt;=SUBSTR(SAPHEE.TO_DATETIME(),1,8) AND SUBSTR(SAPHEE.TO_DATETIME(),1,8)&lt;MYT THEN 'B'  
+		      WHEN MPS &lt;=SUBSTR(SAPHEE.TO_DATETIME(),1,8) AND SUBSTR(SAPHEE.TO_DATETIME(),1,8)&lt;MPT THEN 'A'
+		 END AS BALJUCODE
+		,CASE WHEN C.HST = 'F' THEN 'Y' ELSE '' END CS157_FYN 
+		
+        ,CASE WHEN C.EXC = 'X' AND C.MAC = 'N' THEN 'A'                                             -- 추가(2020.02.25)                                                                            
+              WHEN C.EXC = ''  AND C.MAC = 'Y' THEN 'B'                                             -- 추가(2020.02.25)                                                                              
+              WHEN C.EXC = ''  AND C.MAC = 'N' THEN 'C'                                             -- 추가(2020.02.25)                                                                          
+              WHEN C.EXC = 'X' AND C.MAC = 'Y' THEN ''                                              -- 추가(2020.02.25)                                                                                         
+         END  RSN2                                                                                   -- 추가(2020.02.25)
+		
+	FROM 
+		 SAPHEE.ZCST122 AS A		
+		,SAPHEE.ZCST101 AS B
+		,SAPHEE.ZCST111 AS C --보수대상 호기Master
+		,SAPHEE.ZMMT005 AS D   
+		,SAPHEE.ZMMT012 AS E 
+		,SAPHEE.ZLCODE AS F 
+	WHERE 
+		A.MANDT = #G_MANDT# 
+		AND B.MANDT = A.MANDT  
+		AND C.MANDT = B.MANDT  
+		AND D.MANDT = C.MANDT  
+		AND E.MANDT = D.MANDT 
+		AND F.MANDT = E.MANDT 
+		AND A.CS122_PJT = B.CS101_PJT 
+		AND A.CS122_HNO = B.CS101_HNO  
+		AND A.CS122_PJT = C.PJT
+		AND A.CS122_HNO = C.HNO
+		AND A.CS122_UPN = #UPN#
+		AND A.CS122_CST = #CST#  
+		AND C.BSU = D.LGORT 
+		AND D.LIFNR = E.LIFNR  
+		AND F.CODE1 = 'CS116' 
+		AND F.LANG = #G_LANG#
+		AND C.AGB = F.CODE2
+<isEqual col="FYN" value="N">
+		AND C.HST NOT IN ('D','F')
+</isEqual>
+<isEqual col="FYN" value="Y">
+		AND C.HST = 'F'
+</isEqual>
+) AS G 
+LEFT OUTER JOIN SAPHEE.ZCST116 AS H ON H.MANDT = #G_MANDT# AND H.CS116_PJT = G.PJT AND H.CS116_HNO = G.HNO
+LEFT OUTER JOIN SAPHEE.ZCST126 AS I ON I.MANDT = #G_MANDT# AND I.CS126_UPN = G.UPN AND I.CS126_CST = G.CST AND I.CS126_PJT = G.PJT AND I.CS126_HNO = G.HNO
+WHERE G.UPN = #UPN# AND G.CST = #CST# AND VALUE(I.CS126_DDT,'') = '' AND VALUE(I.CS126_PST,'') = 'A6'
+GROUP BY
+	 G.CHECK
+	,G.PJT
+	,G.HNO
+	,G.HNA
+	,G.LGORTBEFORE
+	,G.LGORTBEFORETEXT
+	,G.LIFNR
+	,G.AGB
+	,G.AGBTEXT
+	,G.BSU
+	,G.JUJ
+	,G.BUJ
+HAVING
+       MAX(VALUE(H.CS116_BMT,'00000000')) &lt; HEX(CURRENT DATE)
+   --AND MAX(VALUE(I.CS126_UMR,'00000000')) >= (SELECT MAX(CS126_UMR) FROM SAPHEE.ZCST126 WHERE MANDT = #G_MANDT# AND CS126_PJT = G.PJT AND CS126_HNO = G.HNO AND VALUE(CS126_DDT,'') = '' AND VALUE(CS126_PST,'') = 'A6') -- 20200520 유상일때 만료일로 온핸드 여부를 체크하여 점검이관 목록에 표출되도록 수정. Han JH
+   AND MAX(VALUE(I.CS126_UMR,'00000000')) &lt; HEX(CURRENT DATE)
+) X 
+
+LEFT OUTER JOIN (SELECT Q1.MANDT,
+                          Q1.CS157_DOC DOC, 
+                          Q1.CS157_PJT PJT, 
+                          Q1.CS157_HNO HNO,
+                          Q1.CS157_UPN UPN,
+                          Q1.CS157_CST CST,
+                          Q1.CS157_IGM IGM,
+                          Q1.CS157_IKD IKD,
+                          Q1.CS157_IJU IJU,                          
+                          Q2.DOCNO,
+                          Q2.APSTAT
+                     FROM SAPHEE.ZCST157 Q1	--점검이관요청 정보
+                          LEFT OUTER JOIN SAPHEE.ZWBAP01 Q2 ON Q2.MANDT = #G_MANDT# 
+                                                           AND Q2.DOCNO = Q1.CS157_DOC 
+                    WHERE Q1.CS157_IGM = #YYYYMM# 
+                 ) AS Q3 ON Q3.MANDT = #G_MANDT# 
+                         AND Q3.PJT = X.PJT 
+                         AND Q3.HNO = X.HNO
+                         AND Q3.UPN = X.UPN
+                         AND Q3.CST = X.CST
+                         
+LEFT OUTER JOIN SAPHEE.ZWBT010 T ON T.MANDT = #G_MANDT# AND T.LGORT = X.BSU
+LEFT OUTER JOIN SAPHEE.ZLCODE AS J ON J.MANDT = #G_MANDT# AND J.CODE1 = 'CS119' AND J.CODE2 = X.BALJUCODE AND J.LANG = #G_LANG#
+LEFT OUTER JOIN (
+                 SELECT
+                        X.PJT,
+                        X.HNO,
+                        X.HST,
+                        X.HST_NM
+                   FROM
+                        (
+                         SELECT
+                                A.PJT,
+                                A.HNO,
+                                CASE
+                                     WHEN VALUE(C.CS126_UHJ_B,'00000000') &gt;= HEX(CURRENT DATE) THEN 'UI0'
+                                     WHEN VALUE(C.CS126_UHJ_B,'00000000') > '11111111'
+                                      AND VALUE(C.CS126_UHJ_B,'00000000') &lt;  HEX(CURRENT DATE) THEN 'UI1'
+                                     WHEN VALUE(B.CS116_BHD_B,'00000000') &gt;= HEX(CURRENT DATE) THEN 'MI0'
+                                     WHEN VALUE(B.CS116_BHD_B,'00000000') &lt;  HEX(CURRENT DATE)
+                                      AND VALUE(B.CS116_BHD_B,'00000000') > '11111111'
+                                      AND VALUE(B.CS116_BHD_B,'00000000') >  VALUE(C.CS126_UHJ_B,'00000000') THEN 'MI1'
+                                     WHEN VALUE(C.CS126_UHJ_A,'00000000') &gt;= HEX(CURRENT DATE) THEN 'UK0'
+                                     WHEN VALUE(C.CS126_UHJ_A,'00000000') &lt;  HEX(CURRENT DATE)
+                                      AND VALUE(C.CS126_UHJ_A,'00000000') > '11111111'
+                                      AND VALUE(C.CS126_UHJ_A,'00000000') &gt;= VALUE(B.CS116_BHD_A,'00000000') THEN 'UK1'
+                                     WHEN VALUE(B.CS116_BHD_A,'00000000') &gt;= HEX(CURRENT DATE) THEN 'MK0'
+                                     WHEN VALUE(B.CS116_BHD_A,'00000000') &lt;  HEX(CURRENT DATE)
+                                      AND VALUE(B.CS116_BHD_A,'00000000') > '11111111'
+                                      AND VALUE(B.CS116_BHD_A,'00000000') >  VALUE(C.CS126_UHJ_A,'00000000') THEN 'MK1'
+                                     ELSE 'BI1'
+                                END HST,
+                                CASE
+                                     WHEN VALUE(C.CS126_UHJ_B,'00000000') &gt;= HEX(CURRENT DATE) THEN '유상일반'
+                                     WHEN VALUE(C.CS126_UHJ_B,'00000000') > '11111111'
+                                      AND VALUE(C.CS126_UHJ_B,'00000000') &lt;  HEX(CURRENT DATE) THEN '유상일반만료'
+                                     WHEN VALUE(B.CS116_BHD_B,'00000000') &gt;= HEX(CURRENT DATE) THEN '무상일반'
+                                     WHEN VALUE(B.CS116_BHD_B,'00000000') &lt;  HEX(CURRENT DATE)
+                                      AND VALUE(B.CS116_BHD_B,'00000000') > '11111111'
+                                      AND VALUE(B.CS116_BHD_B,'00000000') >  VALUE(C.CS126_UHJ_B,'00000000') THEN '무상일반만료'
+                                     WHEN VALUE(C.CS126_UHJ_A,'00000000') &gt;= HEX(CURRENT DATE) THEN '유상공사'
+                                     WHEN VALUE(C.CS126_UHJ_A,'00000000') &lt;  HEX(CURRENT DATE)
+                                      AND VALUE(C.CS126_UHJ_A,'00000000') > '11111111'
+                                      AND VALUE(C.CS126_UHJ_A,'00000000') &gt;= VALUE(B.CS116_BHD_A,'00000000') THEN '유상공사만료'
+                                     WHEN VALUE(B.CS116_BHD_A,'00000000') &gt;= HEX(CURRENT DATE) THEN '무상공사'
+                                     WHEN VALUE(B.CS116_BHD_A,'00000000') &lt;  HEX(CURRENT DATE)
+                                      AND VALUE(B.CS116_BHD_A,'00000000') > '11111111'
+                                      AND VALUE(B.CS116_BHD_A,'00000000') >  VALUE(C.CS126_UHJ_A,'00000000') THEN '무상공사만료'
+                                     ELSE '미입주'
+                                END HST_NM
+                           FROM
+                                SAPHEE.ZCST111 A
+                                       LEFT OUTER JOIN (
+                                                        SELECT
+                                                               CS116_PJT PJT,
+                                                               CS116_HNO HNO,
+                                                               MIN(CASE WHEN CS116_GND = 'A' THEN CS116_BGT ELSE '00000000' END) AS CS116_BGT_A,
+                                                               MAX(CASE WHEN CS116_GND = 'A' THEN CS116_BHD ELSE '00000000' END) AS CS116_BHD_A,
+                                                               MIN(CASE WHEN CS116_GND = 'B' THEN CS116_BGT ELSE '00000000' END) AS CS116_BGT_B,
+                                                               MAX(CASE WHEN CS116_GND = 'B' THEN CS116_BHD ELSE '00000000' END) AS CS116_BHD_B
+                                                          FROM
+                                                               SAPHEE.ZCST116
+                                                         WHERE
+                                                               MANDT = #G_MANDT#
+                                                           AND CS116_PST = 'A6'
+                                                        GROUP BY
+                                                               CS116_PJT,
+                                                               CS116_HNO
+                                                       ) B ON B.PJT = A.PJT
+                                                          AND B.HNO = A.HNO
+                                       LEFT OUTER JOIN (
+                                                        SELECT
+                                                               CS126_PJT PJT,
+                                                               CS126_HNO HNO,
+                                                               MIN(CASE WHEN CS126_GND = 'C' THEN CS126_USD ELSE '00000000' END) AS CS126_USD_A,
+                                                               MAX(CASE WHEN CS126_GND = 'C' THEN CS126_UHJ ELSE '00000000' END) AS CS126_UHJ_A,
+                                                               MIN(CASE WHEN CS126_GND = 'D' THEN CS126_USD ELSE '00000000' END) AS CS126_USD_B,
+                                                               MAX(CASE WHEN CS126_GND = 'D' THEN CS126_UHJ ELSE '00000000' END) AS CS126_UHJ_B
+                                                          FROM
+                                                               SAPHEE.ZCST126
+                                                         WHERE
+                                                               MANDT = #G_MANDT#
+                                                           AND CS126_DDT = ''
+                                                           AND CS126_PST = 'A6'
+                                                        GROUP BY
+                                                               CS126_PJT,
+                                                               CS126_HNO
+                                                       ) C ON C.PJT = A.PJT
+                                                          AND C.HNO = A.HNO
+                          WHERE
+                                A.MANDT = #G_MANDT#
+                     --       AND A.HST NOT IN ('D','F')
+<isEqual col="FYN" value="N">
+		AND A.HST NOT IN ('D','F')
+</isEqual>
+<isEqual col="FYN" value="Y">
+		AND A.HST = 'F'
+</isEqual>
+
+                            AND A.ARA > ''
+                            AND A.BSU > ''
+
+                       
+                        ) X
+                ) K ON K.PJT = X.PJT
+                   AND K.HNO = X.HNO
+                         
+                         LEFT OUTER JOIN SAPHEE.ZCST121 L
+                                 ON L.MANDT = #G_MANDT#
+                                AND L.CS121_UPN = X.UPN
+                                AND L.CS121_CST = X.CST
+
+                         LEFT OUTER JOIN SAPHEE.ZCST144 AS CS144 
+                                 ON CS144.MANDT = #G_MANDT#
+                                AND CS144.CS144_PJT = X.PJT
+                                AND CS144.CS144_HNO = X.HNO
+                                AND CS144.CS144_PST != 'A6'
+
+ORDER BY PJT, HNO
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="G_LANG" size="255" type="VARCHAR" description="" /> 
+		<col name="UPN" size="18" type="VARCHAR" description="" /> 
+		<col name="CST" size="9" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="CHECK" size="0" type="VARCHAR" description="" /> 
+		<col name="PJT" size="18" type="VARCHAR" description="" /> 
+		<col name="HNO" size="9" type="VARCHAR" description="" /> 
+		<col name="UPN" size="18" type="VARCHAR" description="" /> 
+		<col name="CST" size="9" type="VARCHAR" description="" /> 
+		<col name="HNA" size="90" type="VARCHAR" description="" /> 
+		<col name="LGORTBEFORE" size="12" type="VARCHAR" description="" /> 
+		<col name="LGORTBEFORETEXT" size="105" type="VARCHAR" description="" /> 
+		<col name="AGB" size="3" type="VARCHAR" description="" /> 
+		<col name="AGBTEXT" size="60" type="VARCHAR" description="" /> 
+		<col name="BALJUTEXT" size="60" type="VARCHAR" description="" /> 
+		<col name="SEQ" size="6" type="VARCHAR" description="" /> 
+		<col name="BALJUCODE" size="1" type="VARCHAR" description="" /> 
+		<col name="HST" size="3" type="VARCHAR" description="" /> 
+		<col name="HST_NM" size="18" type="VARCHAR" description="" /> 
+		<col name="WORKDATE" size="0" type="VARCHAR" description="" /> 
+		<col name="REGDATE" size="0" type="VARCHAR" description="" /> 
+		<col name="FLAG" size="0" type="VARCHAR" description="" /> 
+		<col name="GHB" size="0" type="VARCHAR" description="" /> 
+		<col name="LGORTAFTER" size="0" type="VARCHAR" description="" /> 
+		<col name="GBA" size="0" type="VARCHAR" description="" /> 
+		<col name="GHA" size="0" type="VARCHAR" description="" /> 
+		<col name="IHT" size="0" type="VARCHAR" description="" /> 
+		<col name="IGM" size="0" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="0" type="VARCHAR" description="" /> 
+		<col name="JUB" size="0" type="VARCHAR" description="" /> 
+		<col name="BUB" size="0" type="VARCHAR" description="" /> 
+		<col name="JUA" size="0" type="VARCHAR" description="" /> 
+		<col name="BUA" size="0" type="VARCHAR" description="" />
+		<col name="BSU" size="0" type="VARCHAR" description="" /> 
+		<col name="CLI" size="0" type="VARCHAR" description="" /> 
+		<col name="JUJ" size="0" type="VARCHAR" description="" /> 
+		<col name="JUB_NM" size="0" type="VARCHAR" description="" />
+		<col name="BUJ" size="0" type="VARCHAR" description="" /> 
+		<col name="BUB_NM" size="0" type="VARCHAR" description="" /> 		
+		<col name="TEM" size="0" type="VARCHAR" description="" /> 	
+		<col name="TEM_NM" size="0" type="VARCHAR" description="" /> 	 
+	</output>
+</query>

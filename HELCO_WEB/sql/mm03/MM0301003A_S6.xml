@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[바코드 tag출력 조회 - 자재별]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT 
+     M17.MANDT AS MANDT
+   , M17.INVNR AS INVNR
+   , M17.POSID AS POSID
+   , CASE WHEN MAX(PR.ZZGUBUN) = '13' THEN VALUE((SELECT VALUE FROM SAPHEE.ZSDT0005 WHERE MANDT= M17.MANDT AND HOGI = SUBSTR(M17.POSID,1,9) AND CHARACTERISTIC = 'EL_ECN' ORDER BY SEQ DESC FETCH FIRST 1 ROWS ONLY),M17.POST1) ELSE M17.POST1 END AS POST1
+   ,SUM(M17.MENGE) AS MENGE
+   , MAX(M17.MEINS) AS MEINS
+   , MAX(M17.EXTWG) AS EXTWG
+   , M17.INVTAG AS INVTAG
+   , M17.MATNR AS MATNR
+ --  , CASE WHEN LENGTH(MAX(M17.MAKTX)) > 40 THEN SUBSTR(MAX(M17.MAKTX),1,40) || '...' ELSE MAX(M17.MAKTX) END  AS MAKTX
+   , MAX(M17.MAKTX) AS MAKTX
+  , CASE WHEN MAX(M17.EXTWG) IS NULL OR MAX(M17.EXTWG) = '' OR (MAX(M17.BOX_CK) = '' AND MAX(M17.EXTWG) = 'BOX33') OR (MAX(M17.BOX_CK) = '24' AND MAX(M17.EXTWG)='BOX24') THEN 
+	  (CASE WHEN MAX(MM025.SHIPDAT1) IS NULL    THEN '00000000'
+                 WHEN MAX(MM011.BLOCK_NO) = ''       THEN MAX(MM025.SHIPDAT2)
+                 WHEN MAX(MM011.BLOCK_NO) LIKE 'A%'  THEN MAX(MM025.SHIPDAT1)
+                 WHEN MAX(MM011.BLOCK_NO) LIKE 'B%'  THEN MAX(MM025.SHIPDAT2) 
+                 WHEN MAX(MM011.BLOCK_NO) LIKE 'C%'  THEN MAX(MM025.SHIPDAT3)  
+                 WHEN MAX(MM011.BLOCK_NO) LIKE 'D%'  THEN MAX(MM025.SHIPDAT4)  
+                 WHEN MAX(MM011.BLOCK_NO) LIKE 'E%'  THEN MAX(MM025.SHIPDAT5) ELSE '00000000' END) 
+	   ELSE		   
+	   (CASE ( CASE WHEN MAX(M17.BOX_CK) = '24' THEN  (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026_1 WHERE MANDT= M17.MANDT AND BOXNO = MAX(M17.EXTWG))
+                            ELSE  (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026 WHERE MANDT= M17.MANDT AND BOXNO = MAX(M17.EXTWG)) END )
+		    WHEN '1' THEN MAX(MM025.SHIPDAT1)
+		    WHEN '2' THEN MAX(MM025.SHIPDAT2)
+		    WHEN '3' THEN MAX(MM025.SHIPDAT3)
+		    WHEN '4' THEN MAX(MM025.SHIPDAT4)
+		    WHEN '5' THEN MAX(MM025.SHIPDAT5)  ELSE '00000000' END)  END   AS SHIPDAT 
+  FROM SAPHEE.ZMMT017 AS M17
+  --          LEFT OUTER JOIN SAPHEE.ZMMT008 AS M8 ON M17.MANDT = M8.MANDT
+--		                    AND M8.EXTWG = (CASE WHEN COALESCE(M17.EXTWG,'') = '' THEN (CASE WHEN M17.BOX_CK = '24' THEN  'BOX24' ELSE 'BOX33' END) ELSE M17.EXTWG END)
+            LEFT OUTER JOIN SAPHEE.ZMMT011 AS MM011 ON M17.MANDT = MM011.MANDT 
+                           AND M17.MATNR = MM011.MATNR 
+            LEFT OUTER JOIN SAPHEE.ZMMT025 AS MM025 ON  M17.MANDT = MM025.MANDT
+                          AND SUBSTR(M17.POSID,1,9) = MM025.POSID  AND MM025.PSTYPE = '02'
+  --          LEFT OUTER JOIN SAPHEE.ZMMT008_1 AS M8_1 ON M17.MANDT = M8_1.MANDT
+--		                    AND M8_1.EXTWG = (CASE WHEN COALESCE(M17.EXTWG,'') = '' THEN (CASE WHEN M17.BOX_CK = '24' THEN  'BOX24' ELSE 'BOX33' END) ELSE M17.EXTWG END)
+            LEFT OUTER JOIN SAPHEE.PRPS AS PR ON M17.MANDT= PR.MANDT AND M17.POSID = PR.POSID
+  WHERE M17.MANDT= #G_MANDT#
+      #INVNR+#
+      AND M17.PRO_F > '0'
+  GROUP BY M17.MANDT, M17.INVNR, M17.POSID, M17.POST1, M17.INVTAG, M17.MATNR
+  ORDER BY INVNR, POSID, EXTWG, INVTAG
+  FOR FETCH ONLY
+  WITH UR	</statement>
+	<input default-name="_none">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="INVNR" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_tag_detail">
+		<col name="EXTWG" size="54" type="VARCHAR" description="" /> 
+		<col name="INVNR" size="30" type="VARCHAR" description="" /> 
+		<col name="INVTAG" size="42" type="VARCHAR" description="" /> 
+		<col name="MAKTX" size="120" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MEINS" size="9" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="33" type="NUMERIC" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POST1" size="120" type="VARCHAR" description="" /> 
+		<col name="SHIPDAT" size="24" type="VARCHAR" description="" /> 
+	</output>
+</query>

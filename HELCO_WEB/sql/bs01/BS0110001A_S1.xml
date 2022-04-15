@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+SELECT
+         T.MANDT
+		,T.LIFNR_NM
+		,T.KUNNR_NM
+        ,T.POSID
+		,T.BUYR_NM
+        ,T.ZSITE_NM
+		,T.ZQNTY
+		,INT(T.NETWR * 100) AS NETWR
+		,T.ATDT
+		,T.BTDT
+		,T.CTDT
+		,T.ASDT
+		,T.BSDT
+		,T.CSDT
+       
+FROM  (        
+        SELECT
+                 AK.MANDT
+                ,AK.ZZPJT_ID AS POSID
+				,AK.BSTNK     AS ZSITE_NM
+                ,VALUE((SELECT A1.NAME1 FROM SAPHEE.KNA1 AS A1 WHERE A1.MANDT=RG.MANDT AND A1.KUNNR=RG.KUNNR),'') AS BUYR_NM
+                ,VALUE((SELECT A1.NAME1 FROM SAPHEE.KNA1 AS A1 WHERE A1.MANDT=Z2.MANDT AND A1.KUNNR=Z2.KUNNR),'') AS KUNNR_NM				
+                ,VALUE((SELECT A1.NAME1 FROM SAPHEE.LFA1 AS A1 WHERE A1.MANDT=Z1.MANDT AND A1.LIFNR=Z1.LIFNR),'') AS LIFNR_NM
+				,AK.ZQNTY
+				,AK.NETWR
+				,BS.BS104_ATDT AS ATDT
+				,BS.BS104_BTDT AS BTDT
+				,BS.BS104_CTDT AS CTDT
+				,BS.BS104_ASDT AS ASDT
+				,BS.BS104_BSDT AS BSDT
+				,BS.BS104_CSDT AS CSDT
+				,BS.BS104_CAN
+				,BS.BS104_TXT
+        FROM SAPHEE.VBAK AS AK
+             INNER JOIN SAPHEE.VBPA AS RG ON  RG.MANDT=AK.MANDT AND RG.VBELN=AK.VBELN AND RG.PARVW='RG'
+             LEFT OUTER JOIN SAPHEE.VBPA AS Z1 ON  Z1.MANDT =AK.MANDT AND Z1.VBELN =AK.VBELN AND Z1.PARVW='Z1'
+             INNER JOIN SAPHEE.VBPA AS Z2 ON  Z2.MANDT=AK.MANDT AND Z2.VBELN=AK.VBELN AND Z2.PARVW='Z2'
+             LEFT OUTER JOIN SAPHEE.ZWBT010 AS WB ON  WB.MANDT=Z1.MANDT AND WB.LIFNR=Z1.LIFNR AND WB.BIZ_ARA > ''
+			 INNER JOIN SAPHEE.ZBST104 AS BS ON AK.MANDT = BS.MANDT AND AK.ZZPJT_ID = BS.PROJ
+        WHERE AK.MANDT    = #G_MANDT#
+        <isNotNull col="PSPID">
+          AND AK.ZZPJT_ID LIKE #PSPID#||'%'  --프로젝트
+        </isNotNull>
+-- 영업지역
+        <isNotNull col="ARA">
+          AND WB.BIZ_ARA = #ARA#
+          AND Z1.PARVW IS NOT NULL
+        </isNotNull>
+        <isNotNull col="GNO">
+          AND Z1.LIFNR = #GNO#
+          AND Z1.PARVW IS NOT NULL
+        </isNotNull>
+        <isNotNull col="USER">
+          AND Z2.KUNNR = 'A'||#USER#
+          AND Z1.PARVW IS NOT NULL
+        </isNotNull>
+        
+      ) AS T
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

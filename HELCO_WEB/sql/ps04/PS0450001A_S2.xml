@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 0 AS CHECK,'' AS FLAG ,A.PSPID,A.POSID, A.CHGNO , B.ZZACTSS, B.TEXT30 ,
+--TEAM 제외
+--           (CASE WHEN B.ZZACTSS = '02' AND  B.ZTEAM = '' THEN '강남팀'   
+--                     WHEN B.ZZACTSS = '02' AND  B.ZTEAM = 'X' THEN '강북팀'  
+--                        ELSE ''
+--	          END) AS TEAM,
+              D.NAME1,
+              B.NAMET,  B.NAMET2,
+              B.ZZSHIP1, B.ZZCOMP2,
+              B.TYPE,
+              A.TOT,
+	B.TXT30,
+	F.ZSITE_NM,
+	B.ZSPEC1,
+              B.ZSPEC2,
+	(SUBSTR(D.LIFNR,1,3)||'-'||SUBSTR(D.LIFNR,4,2)||'-'||SUBSTR(D.LIFNR,6,5)) AS LIFNR,
+              TRIM(D.MCOD3)||TRIM(D.STRAS) AS ADDR,
+              D.J_1KFREPRE AS REP,
+              --C.CRDAT, 
+              A.ZFDAT ,A.ERDAT , 
+              E.FILNR
+
+FROM SAPHEE.ZMASTER01 AS F
+          INNER JOIN SAPHEE.ZPST0102 AS A
+              ON F.MANDT = A.MANDT
+             AND F.POSID = A.PSPID
+         
+          LEFT OUTER  JOIN SAPHEE.ZPST0118 AS E
+            ON A.MANDT = E.MANDT
+           AND A.PSPID = E.PSPID
+           AND A.POSID = E.POSID
+           AND A.CHGNO = E.CHGNO 
+		 
+	  			  
+          INNER JOIN SAPHEE.ZMASTER02 AS B
+              ON A.MANDT = B.MANDT
+             AND A.PSPID = B.POSID
+             AND A.POSID = B.POSID_1
+	  			  
+--조회조건 변경 (착공확정일을 기준) 계원찬 SW 요청 
+--           INNER  JOIN SAPHEE.ZPST0112 AS C
+--                ON A.MANDT = C.MANDT
+--               AND A.PSPID = C.PSPID
+--               AND A.POSID = C.POSID
+-- --	AND C.PRONR = '06'
+-- -- 타입별 양중공정
+-- 	AND C.PRONR =  (CASE  WHEN B.TYPE = 'EL01' OR  B.TYPE = 'EL04' THEN '04'
+--               		         WHEN B.TYPE = 'EL02' OR  B.TYPE = 'EL05' THEN '05'
+-- 		                       WHEN B.TYPE = 'EL03' OR  B.TYPE = 'EL06' THEN '07' ELSE '06'  END )
+-- 	 
+          LEFT OUTER JOIN SAPHEE.LFA1 AS D
+             ON A.MANDT = D.MANDT 
+            AND A.LIFNR = D.LIFNR
+			
+
+WHERE A.MANDT = #G_MANDT#
+  --AND A.LIFNR = #LIFNR#          
+     <isNotNull col="ZZACTSS">
+      AND   B.ZZACTSS = #ZZACTSS#
+      </isNotNull>	       
+      <isNotNull col="LIFNR">
+      AND   D.LIFNR = #LIFNR#
+      </isNotNull>     
+--   AND C.CRDAT BETWEEN #SUP_DTF# AND #SUP_DTT#
+      <isEqual col="PERIOD" value="A">
+--   AND (C.CRDAT BETWEEN #SUP_DTF# AND #SUP_DTT#)
+      AND A.GJAHR||LFMON  BETWEEN SUBSTR(#SUP_DTF#,1,6) AND SUBSTR(#SUP_DTT#,1,6)    --계원찬 SW요청(SAP와 조회조건 맞춤/발주년월)
+     </isEqual>
+      <isEqual col="PERIOD" value="B">
+      AND (A.ZFDAT BETWEEN #SUP_DTF# AND #SUP_DTT#)
+      </isEqual>
+
+ 
+      <isNotNull col="PSPID"> 
+      AND A.PSPID = #PSPID# 
+      </isNotNull>
+      AND B.ZZGUBUN = '10'
+	  
+      <isEqual col="ZFDAT" value="2">
+       AND A.ZFDAT  &gt;=  19990101
+       AND E.FILNR IS NULL --  미입력 전표만 조회   
+      </isEqual>
+
+      <isEqual col="ZFDAT" value="3">
+      AND A.ZFDAT &lt;  19990101
+      AND E.FILNR IS NULL -- 미입력 전표만 조회
+      </isEqual>
+--조회조건 변경 (착공확정을 기준) 계원찬 SW 요청 
+      AND B.ZZCHAKG = 'X'
+
+ORDER BY A.PSPID,A.POSID
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

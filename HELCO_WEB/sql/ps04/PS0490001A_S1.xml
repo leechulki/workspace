@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT   '' AS CHECK 
+              ,'' AS SMSCK
+              ,A.USER_ID
+              ,A.DEVICE_NO
+ 			  ,E.NAME1 AS LIFNR
+              ,A.MDLNM
+              ,A.MANUF
+              ,A.MCOMM         
+              ,A.MBTEL
+           --,A.MBTEL
+              ,A.GBN
+              ,A.CTRCD
+              ,A.OPSVR
+              ,A.SDKVR
+              ,A.MACDR
+              ,B.STATE
+              ,B.VERFR
+	,B.RGSDT
+--	,CASE WHEN E.LOEVM = 'O' THEN '폐업' ELSE '' END LOEVM
+              ,CASE WHEN E.LOEVM = 'X' THEN '폐업' ELSE '' END LOEVM
+              ,CASE WHEN F.LEAV > 19990101  or  LENGTH(Z.USERLEAV) > 1 THEN '퇴사'  ELSE '' END  LEAV	
+              ,Z.USERNAME AS USERNUMB		 
+          --    ,(SELECT   X.SEQNO FROM SAPHEE.ZPSM0004 AS X  WHERE A.MANDT = X.MANDT   AND A.USER_ID = X.USER_ID    AND A.DEVICE_NO = X.DEVICE_NO) AS SEQNO
+              ,F.DEPT_N
+              ,T.GGRUP
+			  
+FROM SAPHEE.ZPSM0003 AS A
+
+INNER JOIN SAPHEE.ZPSM0002 AS B
+            ON A.MANDT = B.MANDT 
+          AND A.USER_ID = B.USER_ID
+	      AND A.DEVICE_NO = B.DEVICE_NO
+
+LEFT OUTER JOIN SAPHEE.ZUSERF AS Z
+                       ON A.MANDT = Z.MANDT 
+	        AND A.USER_ID = Z.USERNUMB
+
+LEFT OUTER JOIN SAPHEE.ZWBGRUP AS T 
+   ON  T.MANDT = Z.MANDT
+ AND T.GNUMB = Z.USERNUMB 
+ AND T.GGRUP LIKE  'ZMSRM%'    
+
+LEFT OUTER JOIN SAPHEE.ZWBT010 AS D
+                       ON   Z.MANDT = D.MANDT 
+                      AND  Z.USERCODE = D.LIFNR
+
+LEFT OUTER JOIN SAPHEE.ZMMT012 AS E
+                       ON  E.MANDT = D.MANDT 
+                     AND E.LIFNR = D.LIFNR
+
+LEFT OUTER JOIN SAPHEE.ZHRT001 AS F
+                      ON F.MANDT = Z.MANDT 
+                     AND F.PSNO = 'H' || Z.USERNUMB
+
+
+--WHERE A.MANDT = '183'
+WHERE A.MANDT = #G_MANDT#
+   -- AND SUBSTR(D.LIFNR,1,1) &lt;&gt; 0
+    <isNotNull col="USER_ID">
+       AND  A.USER_ID = #USER_ID# 
+    </isNotNull>
+
+    <isNotNull col="USERNAME">
+       AND Z.USERNAME = #USERNAME# 
+    </isNotNull>
+
+  <isEqual col="SO_GBN" value="2">
+     AND SUBSTR(D.LIFNR,1,1) = '0'
+  </isEqual>
+  <isEqual col="SO_GBN" value="3">
+    AND SUBSTR(D.LIFNR,1,1) &lt;&gt; '0'
+  </isEqual>
+
+  <isEqual col="CNT" value="Y">
+     --AND T.GGRUP = #GRUP#
+     #SQRY+#
+  </isEqual>
+
+    <isNotNull col="STATE">
+       AND B.STATE = #STATE# 
+    </isNotNull>	
+FOR FETCH ONLY 
+WITH UR
+</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

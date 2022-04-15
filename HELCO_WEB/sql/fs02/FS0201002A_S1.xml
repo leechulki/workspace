@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[견적원가 마스터 정보 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT
+      A.MANDT -- 클라이언트
+     ,A.ESCS_NUMB -- 견적원가번호
+     ,A.ESCS_NTIM -- 견적원가차수
+     ,A.ORDR_TYPE -- 오더유형
+     ,A.POST1 -- 프로젝트명
+     ,A.KUNNR -- 고객사
+     ,A.KUNNR_NAME -- 고객명
+     ,A.KUNNR_CTAT -- 고객연락처
+     ,A.ESMT_CNTR -- 견적국가
+     ,(SELECT LANDX FROM SAPHEE.T005T WHERE MANDT = A.MANDT AND SPRAS = '3' AND LAND1 = A.ESMT_CNTR) AS ESMT_CNTR_NAME
+     ,A.REP_NAME -- 담당자 이름 
+     ,A.FAX -- 고객FAX
+     ,A.HTEL -- 핸드폰
+     ,A.EMAIL -- 이메일
+     ,A.SALE_PRSN -- 영업담당자
+     ,(SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = A.MANDT AND USERNUMB = A.SALE_PRSN ) AS SALE_PRSN_NAME -- 영업담당자명
+     ,A.MRGN_RATE -- 예산실행율
+     ,A.WAERK -- 통화 키
+     ,A.ESCS_TAMT -- 견적원가총금액
+     ,A.ESMT_TAMT -- 견적총금액
+     ,A.NGTT_TAMT -- 네고총금액
+     ,A.NGTT_APYN -- 네고적용여부
+     ,A.REMK -- 특기사항
+     ,A.OCNT_PDYN -- 수주예상여부
+     ,A.OCNT_PDDT -- 수주예상일
+     ,A.ESMT_PUBN -- 견적서발행건수
+     ,A.AFIL_NUMB -- 첨부파일번호
+     ,A.ESCS_STAT -- 견적원가상태
+     ,(SELECT CODE_NAME FROM  SAPHEE.ZFST0100 WHERE MANDT = A.MANDT AND CODE_GROP = 'A02' AND CODE = A.ESCS_STAT) AS ESCS_STAT_NAME -- 견적원가상태명
+     ,A.ESCS_APDT -- 견적원가승인일
+     ,CASE   WHEN    AP.APPR_STAT NOT IN ('040', '390') 
+             THEN    CASE WHEN AP.ADIT_STAT NOT IN ('040', '250', '290') THEN AP.DRAF_STAT ELSE AP.ADIT_STAT END 
+             ELSE    AP.APPR_STAT END AS APPR_STAT -- 결재상태
+     ,AU.CODE_NAME AS APPR_STAT_NAME -- 결재상태명
+     ,AP.ADIT
+     ,AP.APPR
+     ,(SELECT COALESCE(MAX(TO_NUMBER(SUBSTR(EXTN_ESCS,11))),0) FROM   SAPHEE.ZFST0201 WHERE  MANDT = A.MANDT AND ESCS_NUMB = A.ESCS_NUMB AND ESCS_NTIM = A.ESCS_NTIM AND ITEM_DIYN = 'M') AS ESCS_ITEM_CNT
+     ,A.WRIT_USER -- 작성자
+     ,A.MODI_USER -- 변경자
+ FROM SAPHEE.ZFST0200 A
+      LEFT JOIN SAPHEE.ZFST0103 AP ON (A.MANDT = AP.MANDT AND AP.ADOC_CLAS = 'EC' AND A.ESCS_NUMB = AP.ADOC_NUMB AND A.ESCS_NTIM = AP.ADOC_NTIM )
+      LEFT JOIN SAPHEE.ZFST0100 AU ON (AU.MANDT = AP.MANDT AND AU.CODE_GROP = 'A01' 
+                                   AND  AU.CODE = CASE  WHEN    AP.APPR_STAT NOT IN ('040', '390') 
+                                                        THEN    CASE WHEN AP.ADIT_STAT NOT IN ('040', '250', '290') THEN AP.DRAF_STAT ELSE AP.ADIT_STAT END 
+                                                  ELSE    AP.APPR_STAT END )
+WHERE A.MANDT = #G_MANDT#
+  AND A.ESCS_NUMB = #ESCS_NUMB#
+  AND A.ESCS_NTIM = #ESCS_NTIM#
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_zfst0200">
+    </output>
+</query>

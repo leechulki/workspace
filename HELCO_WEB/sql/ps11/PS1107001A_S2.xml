@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  T.PJT,          T.HNO,
+              '' AS A_1_1, '' AS A_1_2, '' AS A_1_3,   '' AS A_1_4,              
+              '' AS A_2_1, '' AS A_2_2, '' AS A_2_3,   '' AS A_2_4,
+              
+
+              '' AS A_5_1, '' AS A_5_2, '' AS A_5_3,   '' AS A_5_4,    			  
+              MAX(VALUE(CASE WHEN T.CODE = 'EL_EHH'  AND T.EL_EHM = 'CEMEN' THEN T.VALUE ELSE '' END, '')) AS A_6_1,
+              MAX(VALUE(CASE WHEN T.CODE = 'EL_EHH'  AND T.EL_EHM = 'STWL'    THEN T.VALUE ELSE '' END, '')) AS A_6_2,
+              MAX(VALUE(CASE WHEN T.CODE = 'EL_EHH'  AND T.EL_EHM = 'STGL'    THEN T.VALUE ELSE '' END, '')) AS A_6_3,
+              MAX(VALUE(CASE WHEN T.CODE = 'EL_EHH'  AND T.EL_EHM = 'STSP'    THEN T.VALUE ELSE '' END, '')) AS A_6_4,	
+
+
+              MAX(VALUE(CASE WHEN T.CODE = 'EL_EHV'  AND T.EL_EHM = 'CEMEN' THEN T.VALUE ELSE '' END, '')) AS A_3_1,
+              MAX(VALUE(CASE WHEN T.CODE = 'EL_EHV'  AND T.EL_EHM = 'STWL'    THEN T.VALUE ELSE '' END, '')) AS A_3_2,
+              MAX(VALUE(CASE WHEN T.CODE = 'EL_EHV'  AND T.EL_EHM = 'STGL'    THEN T.VALUE ELSE '' END, '')) AS A_3_3,
+              MAX(VALUE(CASE WHEN T.CODE = 'EL_EHV'  AND T.EL_EHM = 'STSP'    THEN T.VALUE ELSE '' END, '')) AS A_3_4,
+
+              '' AS A_4_1, '' AS A_4_2, '' AS A_4_3,	'' AS A_4_4,	
+	  			               
+              MAX(VALUE(CASE WHEN T.CODE = 'EL_EHP' THEN T.VALUE ELSE '' END, '')) AS B_1_1,
+              MAX(VALUE(CASE WHEN T.CODE = 'EL_EHO' THEN T.VALUE ELSE '' END, '')) AS B_1_2,
+	MAX(VALUE(CASE WHEN T.CODE = 'EL_EHTRH' THEN T.VALUE ELSE '' END, '')) AS B_1_3,
+	MAX(VALUE(CASE WHEN T.CODE = 'EL_EHTH' THEN T.VALUE ELSE '' END, '')) AS B_1_4,
+              '' AS B_2_1, '' AS B_2_2, '' AS B_2_3, '' AS B_2_4, '' AS B_3,
+              '' AS A1,     '' AS A2,      '' AS A3,     '' AS A4,      '' AS A5,     '' AS A6,
+              '' AS B_4
+
+  FROM
+            (
+              SELECT   SD05.MANDT,  SUBSTR( SD05.HOGI,1,6) AS PJT,  SUBSTR( SD05.HOGI,7,3) AS HNO,
+                             SD05.HOGI  AS POSID,   SD05.CHARACTERISTIC  AS CODE,   SD05.VALUE AS VALUE
+                            ,(SELECT VALUE(X.VALUE, '') 
+		     FROM SAPHEE.ZSDT0005 AS X         
+		   WHERE X.MANDT = SD05.MANDT
+		       AND X.HOGI = SD05.HOGI
+		       AND X.CHARACTERISTIC = 'EL_EHM'   
+		   ORDER BY X.SEQ DESC     
+		      fetch first 1 rows only 
+		) AS EL_EHM
+
+                 FROM (
+
+		  SELECT  MANDT      ,HOGI      ,CHARACTERISTIC
+                                           ,ROW_NUMBER() OVER(PARTITION BY MANDT,HOGI,CHARACTERISTIC ORDER BY MANDT,HOGI,CHARACTERISTIC,SEQ DESC) AS ROWN
+                                           ,VALUE  ,CR_DATE    ,CR_TIME  ,TP_DATE  ,TP_TIME
+                                 FROM SAPHEE.ZSDT0005
+                               WHERE MANDT= #G_MANDT#
+                                   AND HOGI = #POSID#
+                                   AND CHARACTERISTIC IN ('EL_EHO','EL_EHTRH','EL_EHP','EL_EHTH',    'EL_EHV', 'EL_EHH')
+      
+                            ) AS SD05
+
+                 LEFT OUTER JOIN SAPHEE.ZSDV_CABN AS CABN 
+	                         ON CABN.MANDT=SD05.MANDT 
+                                      AND CABN.ATNAM=SD05.CHARACTERISTIC 
+                                      AND CABN.SPRAS='3'
+
+                 LEFT OUTER JOIN ( SELECT  A.MANDT,   B.ATWTB,   A.ATWRT
+                                                  FROM  SAPHEE.CAWN AS A 
+                                                  INNER JOIN SAPHEE.CAWNT AS B 
+				      ON  A.MANDT = B.MANDT
+				    AND  A.ATINN = B.ATINN
+                                                            AND A.ATZHL = B.ATZHL
+                                             ) CA 
+		           ON  CA.MANDT = SD05.MANDT
+		         AND  CA.ATWRT = SD05.CHARACTERISTIC
+
+                LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MS02 ON MS02.MANDT=SD05.MANDT 
+                                              AND MS02.POSID=SUBSTR(SD05.HOGI,1,6) 
+                                              AND MS02.POSID_1=SD05.HOGI
+ 
+              WHERE ROWN=1
+                  AND (CASE    WHEN SUBSTR(SD05.HOGI,7,1) = 'L'  THEN   CASE  WHEN CABN.ATBEZ IS NULL  THEN SAPHEE.SUBSTR(CA.ATWTB,6)
+                                                                                                                   ELSE SAPHEE.SUBSTR(CABN.ATBEZ,6) 
+                                                                                                                   --ELSE 'Y' 
+                                                                                                        END
+                                       ELSE  CASE   WHEN CABN.ATBEZ IS NULL  THEN CA.ATWTB
+                                                            ELSE CABN.ATBEZ
+                                                 END
+                           END) IS NOT NULL        
+               ) AS T
+
+  GROUP   BY T.PJT,    T.HNO
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_detail">
+	</output>
+</query>

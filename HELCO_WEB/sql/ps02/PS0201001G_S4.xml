@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+WITH DATE_RANGE(DT, WEEK) AS 
+(
+SELECT CHAR(DATE(TIMESTAMP_FORMAT(#FROM_DT#,'YYYY-MM-DD')), ISO) AS DT 
+		  ,'W'||WEEK_ISO(CHAR(DATE(TIMESTAMP_FORMAT(#FROM_DT#,'YYYY-MM-DD')), ISO)) AS WEEK 
+	  FROM SYSIBM.SYSDUMMY1
+	  
+	UNION ALL 
+	
+	SELECT CHAR(DATE(DT) + 1 DAY, ISO) AS DT 
+		 , 'W'||WEEK_ISO(CHAR(DATE(DT) + 1 DAY, ISO)) AS WEEK 
+	  FROM DATE_RANGE 
+	 WHERE DT < CHAR(DATE(TIMESTAMP_FORMAT(#TO_DT#,'YYYY-MM-DD')), ISO) 
+)
+
+SELECT MIN(ZDATE) AS DT
+  FROM (
+			SELECT TBL.ZDATE
+			     , CASE WHEN SAPHEE.GET_WORKINGDAY(SUBSTR(REPLACE(CHAR(DATE(SUBSTR(TBL.ZDATE,1,4) ||'-'|| SUBSTR(TBL.ZDATE,5,2) ||'-'|| SUBSTR(TBL.ZDATE,7,2)) - 1 DAYS ),'-',''),1,8),1) = TBL.ZDATE
+			     		THEN 'Y'
+			     		ELSE 'N'
+			     		END AS WORK_INDC
+			  FROM
+			  (
+			  		SELECT REPLACE(DT,'-','') AS ZDATE
+					  FROM DATE_RANGE
+					
+					MINUS
+					
+					SELECT ZDATE  
+					  FROM SAPHEE.ZPST0149
+					 WHERE MANDT = #G_MANDT#
+					   AND GUBUN = '3'
+					   AND ZDATE BETWEEN #FROM_DT# AND #TO_DT#
+			  ) AS TBL
+			 WHERE 1=1
+		) AS TB
+ WHERE TB.WORK_INDC = 'Y'
+
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_nextDay">
+	</output>
+</query>

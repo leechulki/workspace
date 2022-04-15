@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[견적 디테일 정보 RETRIEVE(수정/조회시)]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	
+	SELECT '0' AS CHK, 
+	       'U' AS FLAG, 
+	       SAPHEE.GET_CURRDATA(A.WAERS, A.AMOUNT ) AS AMOUNT, 
+	       (A.AMT ) AS AMT,
+	       CASE
+	           WHEN
+	               (SELECT MM004A.MATNR
+	                 FROM SAPHEE.ZMMT004 AS MM004A --T:반납대상자재
+	                WHERE MM004A.MANDT = B.MANDT
+	                      AND MM004A.MATNR = B.MATNR
+	                      AND MM004A.WERKS != ''
+	               ) IS NULL
+	           THEN '0'
+	           ELSE '1'
+	       END AS BANNAB , 	        
+	       A.CGBN, --변동구분 
+	       CASE 
+	           WHEN A.CGBN = '1' THEN '재청구신규' 
+	           WHEN A.CGBN = '2' THEN '재청구완료' 
+	           ELSE '원견적자재' 
+	       END AS CGBNNM, 
+	       A.CGUBN AS RGBN, --청구유형 
+	       CASE 
+	           WHEN A.CGUBN='1' THEN '보수자재' 
+	           WHEN A.CGUBN='2' THEN '내작자재' 
+	       END AS RGBNNM, 
+	       A.CHAR1, 
+	       A.CHDAT, 
+	       A.CHTIM, 
+	       A.CRDAT, 
+	       A.CRTIM, 
+	       A.ERNAM, 
+	       CASE 
+	           WHEN A.HNA &lt;&gt; '' THEN A.HNA 
+	           ELSE A.HOGI_ID 
+	       END AS HNA, 
+	       A.HOGI_ID AS HNO, 
+	       A.JOBHOUR, 
+	       A.MAKTX, 
+	       A.MAN, 
+	       A.MANDT, 
+	       A.MAT_DESC, 
+	       A.MATNR, 
+	       CASE 
+	           WHEN A.CGUBN = '1' THEN B.MATNR_NM 
+	           ELSE C.MATNR_NM 
+	       END AS MATNRNM, 
+	       A.MTART, 
+	       A.MEINS, 
+	       A.MENGE, 
+	       SAPHEE.GET_CURRDATA(A.WAERS, A.NETPR ) AS NETPR, 
+	       CASE 
+	           WHEN A.CGUBN = '1' THEN (B.SAMTG1)
+	           ELSE (C.SAMT1 )
+	       END AS NETPR_ORG,
+	       SAPHEE.GET_CURRDATA(A.WAERS, A.NETWR) AS NETWR, 
+	       A.OFRHOUR, 
+	       A.POSNR, 
+	       A.PRDAT, 
+	       A.PRTIM, 
+	       A.PS_PSPID, 
+	       A.QTNUM, 
+	       A.REQITEM, 
+	       CASE 
+	           WHEN A.REQKIND = '' THEN CAST(#ds_out_master.REQKIND# AS VARCHAR(1)) 
+	           ELSE A.REQKIND 
+	       END AS REQKIND, 
+	       CASE 
+	           WHEN REQKIND = '6' THEN '1' 
+	           ELSE '0' 
+	       END AS REQKIND_CHK,
+	       CASE 
+	           WHEN A.REQKIND = '' THEN DECODE(CAST(#ds_out_master.REQKIND# AS VARCHAR(1)), '1', '유상청구', '6', '재고소진', '7', '수리공사', '8', '재청구', 'G', '실패현장' ,'S', '시스템공사') 
+	           ELSE DECODE(A.REQKIND, '1', '유상청구', '6', '재고소진', '7', '수리공사', '8', '재청구', 'G', '실패현장', 'S', '시스템공사') 
+	       END AS REQKINDNM, 
+	       A.REQNR, 
+	       A.RSTAT, 
+	       A.RTEXT, 
+	       A.SEQ, 
+	       A.SEQNO, 
+	       CASE 
+	           WHEN A.CGUBN = '1' THEN B.SPEC 
+	           ELSE C.SPEC 
+	       END AS SPEC, 
+	       A.TYPE AS BWTAR, 
+	       SAPHEE.GET_CURRDATA(A.WAERS, A.UCOST ) AS UCOST, 
+	       A.UCOSTA AS UCOSTA,  -- 원
+	       SAPHEE.GET_CURRDATA(A.WAERS, A.UCOSTR ) AS UCOSTR, 
+	       A.UPR, 
+	       A.VBELN, 
+	       A.VBTYP, 
+	       A.WAERS, 
+	       A.WERKS, 
+	       A.ZGUBN, 
+	       CASE 
+	           WHEN A.ZGUBN = 'Y' THEN '1' --직영재고구분 체크박스 
+	           ELSE '0' 
+	       END AS ZGUBN_CHK,
+	       MC.WEBAZ,
+	       A.MRRAT AS MRRAT,
+	       A.MAT_CODE AS MAT_CODE,
+	       A.MRGUBUN  AS MRGUBUN,
+	       A.KRWUSD  AS KRWUSD,
+	       A.KRWEUR  AS KRWEUR
+	  FROM SAPHEE.ZCST002G A 
+	                            LEFT OUTER JOIN SAPHEE.ZMMT011 B 
+	                                 ON A.MANDT = B.MANDT 
+	                                 AND A.MATNR = B.MATNR 
+	                            LEFT OUTER JOIN 
+	                                 (SELECT M110.MANDT, 
+	                                        M110.CARTNUM, 
+	                                        M110.MATNRL1, 
+	                                        M110.MATNR_NM, 
+	                                        M011.SPEC, 
+	                                        M110.SAMT1 
+	                                   FROM SAPHEE.ZMMT110 AS M110 
+	                                    LEFT OUTER JOIN SAPHEE.ZMMT011 AS M011 
+	                                        ON M011.MANDT = M110.MANDT 
+	                                       AND (M110.MATNRL1 = M011.MATNR OR SUBSTR(M110.MATNRL1, 2) = M011.MATNR) 
+	                                  WHERE MATNRL2 = '0' 
+	                                 ) C 
+	                                 ON C.MANDT = A.MANDT 
+	                                 AND A.MATNR = C.CARTNUM 
+	                            LEFT OUTER JOIN SAPHEE.MARC AS MC 
+	                                 ON B.MANDT = MC.MANDT
+	                                 AND B.MATNR = MC.MATNR
+	                                 AND MC.WERKS = '2000'     
+	 WHERE A.MANDT = #G_MANDT#
+	       AND A.QTNUM = #QTNUM# 
+	       AND A.SEQ = #SEQ# 
+	 ORDER BY SEQNO
+	   FOR FETCH ONLY 
+	  WITH UR 	
+
+
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

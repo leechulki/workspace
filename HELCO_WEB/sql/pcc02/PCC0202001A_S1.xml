@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+       (B.PRJ_NO || B.HO_NO) WBS,
+       B.PRJ_NO,
+       MAX(A.PRJ_NM) PRJ_NM,
+       MAX(A.BUD_CO_NM) BUD_CO_NM,
+       B.HO_NO,
+       MAX(B.HO_NM) HO_NM,
+       MAX(B.REPR_DIV_CD) REPR_DIV_CD,
+       CASE
+            MAX(B.REPR_DIV_CD) 
+            WHEN '' THEN '미입주'
+            WHEN 'K' THEN '미입주'
+            WHEN 'M' THEN '무상'
+            WHEN 'U' THEN '유상'
+            WHEN 'H' THEN '중도해지'
+            WHEN 'S' THEN '중지'
+            WHEN 'B' THEN '보류'
+            WHEN 'F' THEN '실패'
+       END REPR_DIV_NM,
+       MAX(B.INTG_PRJ_NO) INTG_PRJ_NO,
+       MAX(B.DEAL_LINE_DIV) DEAL_LINE_DIV,
+       CASE WHEN VALUE(MAX(E.SEQ),0) > 0 THEN 'Y' ELSE 'N' END REG_YN,
+       VALUE(MAX(E.SEQ),0) SEQ,
+       VALUE(MAX(E.PDT),'') PDT,
+       VALUE(MAX(E.UPN),'') UPN,
+       VALUE(MAX(E.CST),'') CST,
+       VALUE(MAX(H.LAST_CHK_DATE),'') LCD
+  FROM
+       HCSADM.SAP_PRJ_INFO A,
+       HCSADM.SAP_HO_INFO B
+              LEFT OUTER JOIN (
+                               SELECT
+                                      G.PDT,
+                                      G.UPN,
+                                      G.CST,
+                                      G.PJT,
+                                      G.HNO,
+                                      MIN(F.CHK_PLAN_SEQ) SEQ
+                                 FROM
+                                      HCSADM.UC_PTNR_PLAN F,
+                                      (
+                                       SELECT
+                                              MIN(C.PLAN_DATE) PDT,
+                                              C.INTG_PRJ_NO UPN,
+                                              C.DEAL_LINE_DIV CST,
+                                              C.PRJ_NO PJT,
+                                              C.HO_NO HNO
+                                         FROM
+                                              HCSADM.UC_PTNR_PLAN C
+                                                     LEFT OUTER JOIN HCSADM.UC_PTNR_ACTL_REG D ON D.CHK_PLAN_SEQ = C.CHK_PLAN_SEQ
+                                        WHERE
+                                              C.USER_ID = #GV_USER_ID#
+                                          AND C.PLAN_DATE LIKE SUBSTR(HEX(CURRENT DATE),1,6) || '%'
+                                          AND D.CHK_PLAN_SEQ IS NULL
+                                       GROUP BY
+                                              C.INTG_PRJ_NO,
+                                              C.DEAL_LINE_DIV,
+                                              C.PRJ_NO,
+                                              C.HO_NO
+                                      ) G
+                                WHERE
+                                      F.PLAN_DATE = G.PDT
+                                  AND F.INTG_PRJ_NO = G.UPN
+                                  AND F.DEAL_LINE_DIV = G.CST
+                                  AND F.PRJ_NO = G.PJT
+                                  AND F.HO_NO = G.HNO
+                               GROUP BY
+                                      G.PDT,
+                                      G.UPN,
+                                      G.CST,
+                                      G.PJT,
+                                      G.HNO
+                              ) E ON E.PJT = B.PRJ_NO
+                                 AND E.HNO = B.HO_NO
+              LEFT OUTER JOIN HCSADM.UC_HO_ETC_INFO H ON H.INTG_PRJ_NO = B.INTG_PRJ_NO
+                                                     AND H.DEAL_LINE_DIV = B.DEAL_LINE_DIV
+                                                     AND H.PRJ_NO = B.PRJ_NO
+                                                     AND H.HO_NO = B.HO_NO
+ WHERE
+       B.MN_CHK_EMP_NO > ''
+   AND B.MN_CHK_EMP_NO IS NOT NULL
+   AND (B.MN_CHK_EMP_NO = #GV_USER_ID# OR B.SUB_CHK_EMP_NO = #GV_USER_ID#)
+   AND A.PRJ_NO = B.PRJ_NO
+   AND A.DEAL_LINE_DIV = B.DEAL_LINE_DIV
+   AND B.REPR_DIV_CD IN ('','K','M','U','H','S','B')
+GROUP BY
+       B.PRJ_NO,
+       B.HO_NO
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="_none">
+		<col name="GV_USER_ID" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

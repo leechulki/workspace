@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[발주 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement> 
+SELECT
+      A.MANDT -- 클라이언트
+     ,A.ORDR_NUMB -- 발주번호
+     ,A.ORDR_CLSS -- 발주구분
+     ,A.POST1 -- 공사명
+     ,A.ORIT_NAME -- 발주품목명
+     ,A.ORIT_NOTE -- 발주품목비고
+     ,A.CLMY_CNDT -- 수금조건
+     ,A.DLIV -- 납기
+     ,A.MITC_PRCS -- 보수기간구분
+     ,A.FRPI_PRID -- 무상보수기간
+     ,A.RMNR_PRID -- 유상보수기간
+     ,A.CONT_CMPY -- 계약추진업체
+     ,B.CMPY_NAME -- 계약추진업체명
+     ,A.WAERK -- 통화 키
+     ,A.ORDR_TBDG -- 발주시행예산총금액
+     ,A.CONT_PRIC -- 계약가격
+     ,A.MNGR -- 담당자
+     ,E.USERNAME AS MNGR_NAME -- 담당자명
+     ,A.ETC -- 기타사항
+     ,A.ORDR_APDT -- 발주승인일
+     ,A.ORDR_STAT -- 발주상태
+     ,F.CODE_NAME AS ORDR_STAT_NAME -- 발주상태명
+     ,A.OCNT_NUMB -- 수주번호
+     ,A.EBDG_MGSQ -- 시행예산관리순번
+     ,A.EBDG_ITSQ -- 시행예산품목순번
+     ,C.EBDG_NAME -- 시행예산명
+     ,D.PSPID -- 프로젝트 번호
+     ,D.BSTNK -- 프로젝트명
+     ,A.AFIL_NUMB -- 첨부파일번호
+     ,A.WRIT_DATE -- 작성일자
+     ,A.WRIT_TIME -- 작성시간
+     ,A.WRIT_USER -- 작성자
+     ,CASE   WHEN    AP.APPR_STAT NOT IN ('040', '390') 
+             THEN    CASE WHEN AP.ADIT_STAT NOT IN ('040', '250', '290') 
+                         THEN COALESCE( NULLIF(TRIM(AP.DRAF_STAT||''), '') , '110') 
+                         ELSE COALESCE( NULLIF(TRIM(AP.ADIT_STAT||''), '') , '210') END 
+            ELSE    COALESCE( NULLIF(TRIM(AP.APPR_STAT||''), '') , '310') END AS APPR_STAT -- 결재상태
+    ,AU.CODE_NAME AS APPR_STAT_NAME -- 결재상태명
+    ,COALESCE( AP.DRAF , #G_USER_ID# ) AS DRAF
+    ,AP.ADIT
+    ,AP.APPR
+FROM  SAPHEE.ZFST0400 A
+        LEFT JOIN SAPHEE.ZFST0401 B ON ( A.MANDT = B.MANDT AND A.ORDR_NUMB = B.ORDR_NUMB AND A.CONT_CMPY = B.CMPY_CODE ) 
+        LEFT JOIN SAPHEE.ZFST0302 C ON ( A.MANDT = C.MANDT AND A.OCNT_NUMB = C.OCNT_NUMB AND A.EBDG_MGSQ = C.EBDG_MGSQ AND A.EBDG_ITSQ = C.EBDG_ITSQ )
+        LEFT JOIN SAPHEE.ZFST0304 D ON ( A.MANDT = D.MANDT AND A.OCNT_NUMB = D.OCNT_NUMB )
+        LEFT JOIN SAPHEE.ZUSERF E ON ( A.MANDT = E.MANDT AND A.MNGR = E.USERNUMB )
+        LEFT JOIN SAPHEE.ZFST0100 F ON ( A.MANDT = F.MANDT AND F.CODE_GROP='A02' AND A.ORDR_STAT = F.CODE )
+        LEFT JOIN SAPHEE.ZFST0103 AP ON (A.MANDT = AP.MANDT AND AP.ADOC_CLAS = 'PS' AND A.ORDR_NUMB = AP.ADOC_NUMB AND AP.ADOC_NTIM = 1 )
+        LEFT JOIN SAPHEE.ZFST0100 AU ON (AU.MANDT = AP.MANDT AND AU.CODE_GROP = 'A01' 
+            AND AU.CODE = CASE  WHEN    AP.APPR_STAT NOT IN ('040', '390') 
+                                THEN    CASE WHEN AP.ADIT_STAT NOT IN ('040', '250', '290') 
+                                             THEN COALESCE( NULLIF(TRIM(AP.DRAF_STAT||''), '') , '110') 
+                                             ELSE COALESCE( NULLIF(TRIM(AP.ADIT_STAT||''), '') , '210') END 
+                                ELSE    COALESCE( NULLIF(TRIM(AP.APPR_STAT||''), '') , '310') END )
+WHERE A.MANDT = #G_MANDT#
+AND   A.ORDR_NUMB = #ORDR_NUMB#
+    </statement>
+    <input default-name="ds_cond">
+        <col name="MANDT" size="9" type="VARCHAR" description="클라이언트" />
+        <col name="ORDR_NUMB" size="60" type="VARCHAR" description="발주번호" />
+        <col name="ORDR_CLSS" size="30" type="VARCHAR" description="발주구분" />
+    </input>
+    <output default-name="ds_zfst0400">
+        <col name="MANDT" size="9" type="VARCHAR" description="클라이언트" />
+        <col name="ORDR_NUMB" size="60" type="VARCHAR" description="발주번호" />
+        <col name="ORDR_CLSS" size="30" type="VARCHAR" description="발주구분" />
+        <col name="POST1" size="120" type="VARCHAR" description="공사명" />
+        <col name="ORIT_NAME" size="300" type="VARCHAR" description="발주품목명" />
+        <col name="ORIT_NOTE" size="1073741824" type="DBCLOB" description="발주품목비고" />
+        <col name="CLMY_CNDT" size="600" type="VARCHAR" description="수금조건" />
+        <col name="DLIV" size="600" type="VARCHAR" description="납기" />
+        <col name="MITC_PRCS" size="30" type="VARCHAR" description="보수기간구분" />
+        <col name="FRPI_PRID" size="2" type="SMALLINT" description="무상보수기간" />
+        <col name="RMNR_PRID" size="2" type="SMALLINT" description="유상보수기간" />
+        <col name="CONT_CMPY" size="30" type="VARCHAR" description="계약추진업체" />
+        <col name="WAERK" size="15" type="VARCHAR" description="통화 키" />
+        <col name="ORDR_TBDG" size="17" type="DECIMAL" description="발주시행예산총금액" />
+        <col name="CONT_PRIC" size="17" type="DECIMAL" description="계약가격" />
+        <col name="MNGR" size="60" type="VARCHAR" description="담당자" />
+        <col name="ETC" size="1073741824" type="DBCLOB" description="기타사항" />
+        <col name="ORDR_APDT" size="24" type="VARCHAR" description="발주승인일" />
+        <col name="ORDR_STAT" size="30" type="VARCHAR" description="발주상태" />
+        <col name="OCNT_NUMB" size="60" type="VARCHAR" description="수주번호" />
+        <col name="EBDG_MGSQ" size="2" type="SMALLINT" description="시행예산관리순번" />
+        <col name="EBDG_ITSQ" size="4" type="INTEGER" description="시행예산품목순번" />
+        <col name="AFIL_NUMB" size="60" type="VARCHAR" description="첨부파일번호" />
+        <col name="WRIT_DATE" size="24" type="VARCHAR" description="작성일자" />
+        <col name="WRIT_TIME" size="18" type="VARCHAR" description="작성시간" />
+        <col name="WRIT_USER" size="36" type="VARCHAR" description="작성자" />
+    </output>
+</query>

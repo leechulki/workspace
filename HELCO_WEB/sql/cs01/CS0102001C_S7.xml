@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[FM 현장 전체 기성 내역 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT 
+     CS136.CS136_JYM AS JYM   -- 지급예정 년월
+   , SUM(CS136.CS136_BAM) AS BAM   -- 기성비
+   , SUM(CS136.CS136_IY1) AS IY1        -- 인센티브1
+   , SUM(CS136.CS136_IY2) AS IY2        -- 인센티브2
+   , SUM(CS136.CS136_IY3) AS IY3        -- 인센티브3
+   , SUM(CS136.CS136_IY4) AS IY4        -- 인센티브4
+   , MAX(CS136.CS136_GYM) AS GYM   -- 지급년월
+   , SUM(CS136.CS136_BYA+CS136.CS136_IY1+CS136.CS136_IY2+CS136.CS136_IY3+CS136.CS136_IY4) AS SUM  -- 합계
+   , CASE WHEN MAX(CS136.CS136_GYM)||'20' BETWEEN #A_SDATE# AND #A_EDATE# THEN CAST(#A_CHASU# AS VARCHAR(20))ELSE (
+     CASE WHEN MAX(CS136.CS136_GYM)||'20' BETWEEN #B_SDATE# AND #B_EDATE# THEN CAST(#B_CHASU# AS VARCHAR(20))ELSE (
+     CASE WHEN MAX(CS136.CS136_GYM)||'20' BETWEEN #C_SDATE# AND #C_EDATE# THEN CAST(#C_CHASU# AS VARCHAR(20))ELSE (
+     CASE WHEN MAX(CS136.CS136_GYM)||'20' BETWEEN #D_SDATE# AND #D_EDATE# THEN CAST(#D_CHASU# AS VARCHAR(20))ELSE (
+     CASE WHEN MAX(CS136.CS136_GYM)||'20' BETWEEN #E_SDATE# AND #E_EDATE# THEN CAST(#E_CHASU# AS VARCHAR(20))ELSE ('X')END		          
+	 )END )END )END )END AS YEAR
+FROM SAPHEE.ZCST136 AS CS136
+WHERE CS136.MANDT= #G_MANDT#
+  AND (CS136.CS136_PJT,CS136.CS136_HNO) IN (
+  	  SELECT CS126.CS126_PJT , CS126.CS126_HNO
+  	    FROM SAPHEE.ZCST126 AS CS126
+  	   WHERE CS126.MANDT= #G_MANDT#
+  		   AND CS126.CS126_UPN = #UPN#
+				 AND CS126.CS126_CST = #CST#
+  			 AND ((CS126_USD BETWEEN #SDATE# AND #EDATE#) OR (CS126_UHJ BETWEEN #SDATE# AND #EDATE#))
+  			 AND CS126.CS126_KND > ''
+  			 AND CS126.CS126_DDT = '' )
+ AND CS136.CS136_SEQ LIKE '_%'
+ AND CS136.CS136_GBU ='3'
+ AND CS136.CS136_GYM BETWEEN SUBSTR(#SDATE#,1,6) AND SUBSTR(#EDATE#,1,6)
+ AND CS136.CS136_MGB = ''
+-- AND CS136.CS136_PST = 'A6'
+
+GROUP BY CS136.CS136_JYM
+ORDER BY CS136.CS136_JYM
+
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_date_1">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="UPN" size="255" type="VARCHAR" description="" /> 
+		<col name="CST" size="255" type="VARCHAR" description="" /> 
+		<col name="CUDAT" size="255" type="VARCHAR" description="" /> 
+		<col name="USD" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_glist_1">
+		<col name="JYM" size="18" type="VARCHAR" description="" /> 
+		<col name="BAM" size="11" type="INTEGER" description="" /> 
+		<col name="IY1" size="11" type="INTEGER" description="" /> 
+		<col name="IY2" size="11" type="INTEGER" description="" /> 
+		<col name="IY3" size="11" type="INTEGER" description="" /> 
+		<col name="IY4" size="11" type="INTEGER" description="" /> 
+		<col name="GYM" size="18" type="VARCHAR" description="" /> 
+		<col name="SUM" size="11" type="INTEGER" description="" /> 
+	</output>
+</query>

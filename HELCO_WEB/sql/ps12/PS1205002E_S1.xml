@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+    <![CDATA[
+    SELECT '' AS CHECK,  A.POSID AS PSPID, A.POSID_1 AS POSID, A.ZZACTSS, A.TEXT30,
+             A.LIFNR, C.NAME1 AS LIFNR_NM,
+             A.TEMNO2,  A.NAMET2,  A.ZSPEC1,  A.ZSPEC2,  A.ZZSHIP1, A.ZZCOMP2,
+             B.STEP1,
+             CASE WHEN B.STEP1_DT > '10000101' THEN B.STEP1_DT ELSE '' END AS STEP1_DT,
+             B.STEP2,
+             CASE WHEN B.STEP2_DT > '10000101' THEN B.STEP2_DT ELSE '' END AS STEP2_DT,
+             B.STEP3,
+             CASE WHEN B.STEP3_DT > '10000101' THEN B.STEP3_DT ELSE '' END AS STEP3_DT,
+             B.MDATE, B.ERNAM,  B.EDATE,  B.AENAM,
+
+             (CASE WHEN #ZZGUBUN# = '1' AND B.STEP2_DT > '10000101'  THEN  'X'
+                        WHEN #ZZGUBUN# = '2' AND B.STEP1_DT > '10000101'  THEN  'X'
+	          WHEN #ZZGUBUN# = '3' AND B.STEP1_DT > '10000101'  THEN  'X'
+	          WHEN #ZZGUBUN# = '4' AND B.STEP2_DT > '10000101'  THEN  'X'
+              END) AS SAFE1_CHK,
+
+             (CASE WHEN #ZZGUBUN# = '1' AND B.STEP3_DT > '10000101'  THEN  'X'
+                        WHEN #ZZGUBUN# = '2' AND B.STEP2_DT > '10000101'  THEN  'X'
+                        WHEN #ZZGUBUN# = '3' AND B.STEP2_DT > '10000101'  THEN  'X'
+                        WHEN #ZZGUBUN# = '4' AND B.STEP3_DT > '10000101'  THEN  'X'
+
+              END) AS SAFE2_CHK,
+             A.TEMNO, A.NAMET, D.ZSITE_NM
+             , A.TYPE
+             , CASE WHEN A.BFTYPE = 'X' THEN '이전공정표'
+                          ELSE ( CASE WHEN A.TYPE = '' THEN '없음'
+	            ELSE (SELECT X.TYPENM    FROM SAPHEE.ZPST1105 AS X
+	                        WHERE X.MANDT = A.MANDT
+		               AND X.GUBUN = A.ZZGUBUN AND X.TYPE = A.TYPE)
+	                      END )
+	       END AS TYPENM
+
+        -- // 사진 업로드 아이디 (1단계, 2단계, 3단계)
+        , (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = #G_MANDT# AND USERNUMB = B.STEP1_ID) AS STEP1_ID
+        , (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = #G_MANDT# AND USERNUMB = B.STEP2_ID) AS STEP2_ID
+        , (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = #G_MANDT# AND USERNUMB = B.STEP3_ID) AS STEP3_ID
+
+        -- // 사진 업로드 출처
+        , B.DEVICE_GBN1 AS DEVICE_GBN1
+        , B.DEVICE_GBN2 AS DEVICE_GBN2
+        , B.DEVICE_GBN3 AS DEVICE_GBN3
+
+        -- // 승인 아이디, 승인일
+        , (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = #G_MANDT# AND USERNUMB = B.APPR1_ID) AS APPR1_ID
+        , CASE WHEN B.APPR1_DT > '10000101' THEN B.APPR1_DT ELSE '' END AS APPR1_DT
+        , (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = #G_MANDT# AND USERNUMB = B.APPR2_ID) AS APPR2_ID
+        , CASE WHEN B.APPR2_DT > '10000101' THEN B.APPR2_DT ELSE '' END AS APPR2_DT
+        , (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = #G_MANDT# AND USERNUMB = B.APPR3_ID) AS APPR3_ID
+        , CASE WHEN B.APPR3_DT > '10000101' THEN B.APPR3_DT ELSE '' END AS APPR3_DT
+
+        , CASE
+            WHEN (B.APPR1_DT > '10000101') AND (B.RJCT1_DESC IS NULL OR B.RJCT1_DESC = '') THEN '완료'
+            WHEN (B.APPR1_DT > '10000101') AND (B.RJCT1_DESC > '') THEN '반려'
+            WHEN (B.APPR1_DT < '10000101') AND (B.STEP1_DT > '10000101') THEN '0'
+            ELSE '' END APPR1_CHK
+        , CASE
+            WHEN (B.APPR2_DT > '10000101') AND (B.RJCT2_DESC IS NULL OR B.RJCT2_DESC = '') THEN '완료'
+            WHEN (B.APPR2_DT > '10000101') AND (B.RJCT2_DESC > '') THEN '반려'
+            WHEN (B.APPR2_DT < '10000101') AND (B.STEP2_DT > '10000101') THEN '0'
+            ELSE '' END APPR2_CHK
+        , CASE
+            WHEN (B.APPR3_DT > '10000101') AND (B.RJCT3_DESC IS NULL OR B.RJCT3_DESC = '') THEN '완료'
+            WHEN (B.APPR3_DT > '10000101') AND (B.RJCT3_DESC > '') THEN '반려'
+            WHEN (B.APPR3_DT < '10000101') AND (B.STEP3_DT > '10000101') THEN '0'
+            ELSE '' END APPR3_CHK
+
+        , CASE
+            WHEN (B.APPR1_DT > '10000101') AND (B.RJCT1_DESC IS NULL OR B.RJCT1_DESC = '') THEN '승'
+            WHEN (B.APPR1_DT > '10000101') AND (B.RJCT1_DESC > '') THEN '반'
+            ELSE '' END APPR_RJCT1
+        , CASE
+            WHEN (B.APPR2_DT > '10000101') AND (B.RJCT2_DESC IS NULL OR B.RJCT2_DESC = '') THEN '승'
+            WHEN (B.APPR2_DT > '10000101') AND (B.RJCT2_DESC > '') THEN '반'
+            ELSE '' END APPR_RJCT2
+        , CASE
+            WHEN (B.APPR3_DT > '10000101') AND (B.RJCT3_DESC IS NULL OR B.RJCT3_DESC = '') THEN '승'
+            WHEN (B.APPR3_DT > '10000101') AND (B.RJCT3_DESC > '') THEN '반'
+            ELSE '' END APPR_RJCT3
+        , P.STEP3_GBN
+   FROM SAPHEE.ZMASTER02 AS A
+    LEFT OUTER JOIN SAPHEE.ZPSTW1502 AS B
+       ON A.MANDT  = B.MANDT
+     AND A.POSID    = B.PSPID
+     AND A.POSID_1 = B.POSID
+    LEFT OUTER JOIN SAPHEE.LFA1 AS C
+       ON A.MANDT = C.MANDT
+     AND A.LIFNR   = C.LIFNR
+  INNER JOIN SAPHEE.ZMASTER01 AS D
+       ON D.MANDT = A.MANDT
+     AND D.POSID   = A.POSID
+
+    LEFT OUTER JOIN SAPHEE.ZPST0111M AS P
+         ON P.MANDT = A.MANDT
+             AND P.GUBUN = A.ZZGUBUN
+             AND P.TYPE  = A.TYPE
+             AND P.VER   = A.VER
+
+
+ WHERE A.MANDT = #G_MANDT#
+     AND A.ZZSHIP1 BETWEEN #SHIP1_F# AND #SHIP1_T#
+    ]]>
+   <isNotNull col="PSPID">
+     AND A.POSID = #PSPID#
+   </isNotNull>
+
+
+   <isNotNull col="ZZACTSS">
+     AND A.ZZACTSS = #ZZACTSS#
+   </isNotNull>
+
+
+
+   <isNotNull col="ZZPMNUM">
+     AND A.TEMNO = #ZZPMNUM#
+   </isNotNull>
+
+   <isNotNull col="ZZLIFNR">
+     AND A.LIFNR = #ZZLIFNR#
+   </isNotNull>
+
+   <isEqual col="ZZGUBUN" value="1">
+     AND A.ZZGUBUN IN ('10', '13')
+   </isEqual>
+
+   <isEqual col="ZZGUBUN" value="2">
+     AND A.ZZGUBUN IN ('11', '14')
+   </isEqual>
+
+    <isEqual col="ZZGUBUN" value="3">
+     AND A.ZZGUBUN IN  ('12')
+   </isEqual>
+
+    <isEqual col="ZZGUBUN" value="4">
+     AND A.ZZGUBUN IN  ('20')
+   </isEqual>
+
+        <isEqual col="APPR" value="1">
+            <![CDATA[
+            AND (
+                ((B.APPR1_DT IS NULL OR B.APPR1_DT = '00000000') AND (B.RJCT1_DESC IS NULL OR B.RJCT1_DESC = ''))
+                OR
+                ((B.APPR2_DT IS NULL OR B.APPR2_DT = '00000000') AND (B.RJCT2_DESC IS NULL OR B.RJCT2_DESC = ''))
+                OR
+                ((B.APPR3_DT IS NULL OR B.APPR3_DT = '00000000') AND (B.RJCT3_DESC IS NULL OR B.RJCT3_DESC = ''))
+            )
+            ]]>
+        </isEqual>
+
+        <isEqual col="APPR" value="2">
+            <![CDATA[
+            AND (
+                ((B.APPR1_DT > '10000101') AND (B.RJCT1_DESC IS NULL OR B.RJCT1_DESC = ''))
+                OR
+                ((B.APPR2_DT > '10000101') AND (B.RJCT2_DESC IS NULL OR B.RJCT2_DESC = ''))
+                OR
+                ((B.APPR3_DT > '10000101') AND (B.RJCT3_DESC IS NULL OR B.RJCT3_DESC = ''))
+            )
+            ]]>
+        </isEqual>
+
+        <isEqual col="APPR" value="3">
+            <![CDATA[
+            AND (
+                ((B.APPR1_DT > '10000101') AND (B.RJCT1_DESC > ''))
+                OR
+                ((B.APPR2_DT > '10000101') AND (B.RJCT2_DESC > ''))
+                OR
+                ((B.APPR3_DT > '10000101') AND (B.RJCT3_DESC > ''))
+            )
+            ]]>
+        </isEqual>
+
+     AND A.TXT04 &lt;&gt; 'C'
+
+FOR FETCH
+ONLY WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

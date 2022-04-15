@@ -1,0 +1,561 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+		SELECT A.ARA
+		       , VALUE(SAPHEE.CODE_CONV(CAST(#G_MANDT# AS VARCHAR(3)),'CS115',A.ARA),'') ARA_NM
+		       , A.BSU
+		       , VALUE(SAPHEE.GET_VENDER_N_NAME(CAST(#G_MANDT# AS VARCHAR(3)),A.BSU),'') BSU_NM
+		       , VALUE(B.CNT,0) HSQ 	--회수
+		       , VALUE(B.AMT,0) HSA
+		       , VALUE(C.CNT,0) NEQ		--신규
+		       , VALUE(C.AMT,0) NEA
+		       , VALUE(D.CNT,0) REQ		--재계약
+		       , VALUE(D.AMT,0) REA
+		       , VALUE(E.CNT,0) ROHQ	--재계약(O/H)
+		       , VALUE(E.AMT,0) ROHA
+		       , VALUE(F.CNT,0) FMQ		--FM
+		       , VALUE(F.AMT,0) FMA
+		       , VALUE(G.CNT,0) HGQ		--HRTS
+		       , VALUE(G.AMT,0) HGA
+		  FROM (
+		        SELECT DISTINCT BSU_ARA ARA, LGORT BSU
+		          FROM SAPHEE.ZWBT010
+		         WHERE MANDT = #G_MANDT#
+		           AND LGORT > ''
+		           AND VKGRP > ''
+		           AND VKGRP LIKE 'E%'
+		<isNotNull col="ARA">
+		           AND BSU_ARA = #ARA#
+		</isNotNull>
+		<isNotNull col="BSU">
+		           AND LGORT = #BSU#
+		</isNotNull>
+		<isNotNull col="BPM">
+		           AND BSU_PM = #BPM#
+		</isNotNull>     
+		<isNotNull col="TEM">
+		           AND VKGRP = #TEM#
+		</isNotNull>  
+		<isNull col="TEM">
+		 	<isNotNull col="DPT">
+			   AND VKGRP IN (SELECT CODE2 AS CODE
+							   FROM SAPHEE.ZLCODE
+							  WHERE MANDT = #G_MANDT#
+						     	AND LANG  = #G_LANG# 
+						     	AND CODE1 = 'VKGRP'
+						     	AND DTEXT1 = #DPT#
+			</isNotNull>
+		 </isNull>                
+		       ) A 
+		       LEFT OUTER JOIN (
+		                            SELECT A.ARA,
+		                                   A.BSU,
+		                                   SUM(CNT) CNT,
+		                                   SUM(AMT) AMT
+		                              FROM (   
+		                                    SELECT A.ARA,
+		                                           A.BSU,
+		                                           COUNT(*) CNT,
+		                                           SUM(B.CS115_YMT + B.CS115_HMT) AMT
+		                                      FROM SAPHEE.ZCST111 A INNER JOIN SAPHEE.ZCST115 B
+		                                                                    ON A.MANDT = B.MANDT
+		                                                                   AND A.PJT = B.CS115_PJT
+		                                                                   AND A.HNO = B.CS115_HNO
+		                                                            INNER JOIN (
+		                                                                        SELECT A.CS115_PJT PJT,
+		                                                                               A.CS115_HNO HNO
+		                                                                          FROM SAPHEE.ZCST115 AS A INNER JOIN SAPHEE.ZCST111 AS B
+		                                                                                                           ON A.MANDT = B.MANDT
+		                                                                                                          AND A.CS115_PJT = B.PJT
+		                                                                                                          AND A.CS115_HNO = B.HNO
+		                                                                         WHERE A.CS115_YDT BETWEEN #FYM# AND #TYM#
+		                                                                           AND SUBSTR(A.CS115_HNO,1,1) NOT IN ('J','G')
+		                                                                         
+		                                                                        EXCEPT ALL
+		                                                                        SELECT A.CS126_PJT PJT,
+		                                                                               A.CS126_HNO HNO
+		                                                                          FROM SAPHEE.ZCST126 AS A INNER JOIN SAPHEE.ZCST111 AS C
+		                                                                                                           ON A.MANDT = C.MANDT
+		                                                                                                          AND A.CS126_PJT = C.PJT
+		                                                                                                          AND A.CS126_HNO = C.HNO
+		                                                                                                   INNER JOIN SAPHEE.ZWBT010 AS F
+		                                                                                                           ON A.MANDT = F.MANDT
+		                                                                                                          AND A.CS126_BSU = F.LGORT       
+		                                                                         WHERE A.MANDT = #G_MANDT#
+		                                                                           AND A.CS126_PST = 'A6'
+		                                                                           AND A.CS126_DDT = ''
+		                                                                           AND A.CS126_USD &gt;= #FYM#
+		                                                                           AND SUBSTR(A.CS126_HNO,1,1) NOT IN ('J','G')
+		                                                                       ) D
+		                                                                    ON B.CS115_PJT = D.PJT
+		                                                                   AND B.CS115_HNO = D.HNO                     
+		                                     WHERE A.MANDT = #G_MANDT#
+		                                       AND B.CS115_YDT BETWEEN #FYM# AND #TYM#
+		                                       AND SUBSTR(B.CS115_HNO,1,1) NOT IN ('J','G')
+		                                       AND A.HST = 'F'
+		                                       AND B.CS115_YMT > 0
+		                                     GROUP BY A.ARA,
+		                                              A.BSU
+		                                    UNION ALL
+		                                    SELECT B.CS126_ARA ARA,
+		                                           B.CS126_BSU BSU,
+		                                           COUNT(*) CNT,
+		                                           SUM(B.CS126_AMT+B.CS126_HMT) AMT
+		                                      FROM SAPHEE.ZCST111 A INNER JOIN SAPHEE.ZCST126 B
+		                                                                    ON A.MANDT = B.MANDT
+		                                                                   AND A.PJT = B.CS126_PJT
+		                                                                   AND A.HNO = B.CS126_HNO
+		                                     WHERE A.MANDT = #G_MANDT#
+		                                       AND B.CS126_PST = 'A6'
+		                                       AND B.CS126_DDT = ''
+		                                       AND B.CS126_USD BETWEEN #FYM# AND #TYM#
+		                                       AND B.CS126_GKD = '4'
+		                                       AND SUBSTR(B.CS126_HNO,1,1) NOT IN ('J','G')
+		                                     GROUP BY B.CS126_ARA,
+		                                              B.CS126_BSU   
+		                                   ) A
+		                             GROUP BY A.ARA,
+		                                      A.BSU          
+		                           ) B
+		                        ON A.ARA = B.ARA
+		                       AND A.BSU = B.BSU
+                   LEFT OUTER JOIN (   
+		                            SELECT A.ARA,
+		                                   A.BSU,
+		                                   SUM(CNT) CNT,
+		                                   SUM(AMT) AMT
+		                              FROM (
+		                                    SELECT A.ARA,
+		                                           A.BSU,
+		                                           COUNT(*) CNT,
+		                                           SUM(B.CS113_YMT+B.CS113_HMT) AMT
+		                                      FROM SAPHEE.ZCST111 A INNER JOIN SAPHEE.ZCST113 B
+		                                                                    ON A.MANDT = B.MANDT
+		                                                                   AND A.PJT = B.CS113_PJT
+		                                                                   AND A.HNO = B.CS113_HNO
+		                                                            INNER JOIN SAPHEE.ZCST620 CS620
+                                                                  		  ON B.MANDT = CS620.MANDT
+                                                                	     AND B.CS113_PJT = CS620.CS620_PJT
+                                                                	     AND B.CS113_HNO = CS620.CS620_HNO
+                                                                       AND CS620.CS620_DAT = #CS620_DAT#   
+-- 		                                                            INNER JOIN (
+-- 		                                                                        SELECT A.CS113_PJT PJT,
+-- 		                                                                               A.CS113_HNO HNO
+-- 		                                                                          FROM SAPHEE.ZCST113 AS A INNER JOIN SAPHEE.ZCST111 AS B
+-- 		                                                                                                           ON A.MANDT = B.MANDT
+-- 		                                                                                                          AND A.CS113_PJT = B.PJT
+-- 		                                                                                                          AND A.CS113_HNO = B.HNO
+-- 		                                                                                                          AND B.HST NOT IN ('D','F')
+-- 		                                                                         WHERE A.CS113_YDT BETWEEN #FYM# AND #TYM#
+-- 		                                                                           AND A.CS113_USE = 'Y'
+-- 		                                                                           AND SUBSTR(A.CS113_HNO,1,1) NOT IN ('J','G')
+-- 		                                                                        EXCEPT ALL
+-- 		                                                                        SELECT A.CS126_PJT PJT,
+-- 		                                                                               A.CS126_HNO HNO
+-- 		                                                                          FROM SAPHEE.ZCST126 AS A INNER JOIN SAPHEE.ZCST111 AS C
+-- 		                                                                                                           ON A.MANDT = C.MANDT
+-- 		                                                                                                          AND A.CS126_PJT = C.PJT
+-- 		                                                                                                          AND A.CS126_HNO = C.HNO
+-- 		                                                                                                   INNER JOIN SAPHEE.ZWBT010 AS F
+-- 		                                                                                                           ON A.MANDT = F.MANDT
+-- 		                                                                                                          AND A.CS126_BSU = F.LGORT       
+-- 		                                                                         WHERE A.MANDT = #G_MANDT#
+-- 		                                                                           AND A.CS126_PST = 'A6'
+-- 		                                                                           AND A.CS126_DDT = ''
+-- 		                                                                           AND A.CS126_USD &gt;= #FYM#
+-- 		                                                                           AND SUBSTR(A.CS126_HNO,1,1) NOT IN ('J','G')
+-- 		                                                                       ) D
+-- 		                                                                    ON B.CS113_PJT = D.PJT
+-- 		                                                                   AND B.CS113_HNO = D.HNO          
+		                                                                       
+		                                  WHERE A.MANDT = #G_MANDT#
+		                                    AND B.CS113_YDT BETWEEN #FYM# AND #TYM#
+		                                    AND (SUBSTR(B.CS113_GBN,1,1) IN ('B','M') OR B.CS113_STS NOT LIKE '%유상일반%')
+		                                    AND B.CS113_GBN NOT IN ('B08','M09')
+		                                    AND B.CS113_USE = 'Y'
+		                                    AND SUBSTR(B.CS113_HNO,1,1) NOT IN ('J','G')
+		                                  GROUP BY A.ARA,
+		                                           A.BSU
+		                                 UNION ALL
+		                                    SELECT B.CS126_ARA ARA,
+		                                           B.CS126_BSU BSU,
+		                                           COUNT(*) CNT,
+		                                           SUM(B.CS126_AMT+B.CS126_HMT) AMT
+		                                      FROM SAPHEE.ZCST111 A INNER JOIN SAPHEE.ZCST126 B
+		                                                                    ON A.MANDT = B.MANDT
+		                                                                   AND A.PJT = B.CS126_PJT
+		                                                                   AND A.HNO = B.CS126_HNO
+		                                     WHERE A.MANDT = #G_MANDT#
+		                                       AND B.CS126_PST = 'A6'
+		                                       AND B.CS126_DDT = ''
+		                                       AND B.CS126_USD BETWEEN #FYM# AND #TYM#
+		                                       AND B.CS126_GKD = '1'
+		                                       AND SUBSTR(B.CS126_HNO,1,1) NOT IN ('J','G')
+		                                     GROUP BY B.CS126_ARA,
+		                                              B.CS126_BSU   
+		                                   ) A
+		                             GROUP BY A.ARA,
+		                                      A.BSU               
+		                           ) C
+		                        ON A.ARA = C.ARA
+		                       AND A.BSU = C.BSU
+		           LEFT OUTER JOIN (
+		                            SELECT A.ARA,
+		                                   A.BSU,
+		                                   SUM(CNT) CNT,
+		                                   SUM(AMT) AMT
+		                              FROM (   
+		                                    SELECT A.ARA,
+		                                           A.BSU,
+		                                           COUNT(*) CNT,
+		                                           SUM(B.CS113_YMT + B.CS113_HMT) AMT
+		                                      FROM SAPHEE.ZCST111 A INNER JOIN SAPHEE.ZCST113 B
+		                                                                    ON A.MANDT = B.MANDT
+		                                                                   AND A.PJT = B.CS113_PJT
+		                                                                   AND A.HNO = B.CS113_HNO
+		                                                            INNER JOIN SAPHEE.ZCST620 CS620
+                                                       		              ON B.MANDT = CS620.MANDT
+                                                       	               AND B.CS113_PJT = CS620.CS620_PJT
+                                                       	               AND B.CS113_HNO = CS620.CS620_HNO
+                                                                       AND CS620.CS620_DAT = #CS620_DAT#      
+--		                                                            INNER JOIN (
+--		                                                                        SELECT A.CS113_PJT PJT,
+--		                                                                               A.CS113_HNO HNO
+--		                                                                          FROM SAPHEE.ZCST113 AS A INNER JOIN SAPHEE.ZCST111 AS B
+--		                                                                                                           ON A.MANDT = B.MANDT
+--		                                                                                                          AND A.CS113_PJT = B.PJT
+--		                                                                                                          AND A.CS113_HNO = B.HNO
+--		                                                                                                          AND B.HST NOT IN ('D','F')
+--		                                                                         WHERE A.CS113_YDT BETWEEN #FYM# AND #TYM#
+--		                                                                           AND A.CS113_USE = 'Y'
+--		                                                                           AND SUBSTR(A.CS113_HNO,1,1) NOT IN ('J','G')
+--		                                                                        EXCEPT ALL
+--		                                                                        SELECT A.CS126_PJT PJT,
+--		                                                                               A.CS126_HNO HNO
+--		                                                                          FROM SAPHEE.ZCST126 AS A INNER JOIN SAPHEE.ZCST111 AS C
+--		                                                                                                           ON A.MANDT = C.MANDT
+--		                                                                                                          AND A.CS126_PJT = C.PJT
+--		                                                                                                          AND A.CS126_HNO = C.HNO
+--		                                                                                                   INNER JOIN SAPHEE.ZWBT010 AS F
+--		                                                                                                           ON A.MANDT = F.MANDT
+--		                                                                                                          AND A.CS126_BSU = F.LGORT       
+--		                                                                         WHERE A.MANDT = #G_MANDT#
+--		                                                                           AND A.CS126_PST = 'A6'
+--		                                                                           AND A.CS126_DDT = ''
+--		                                                                           AND A.CS126_USD &gt;= #FYM#
+--		                                                                           AND SUBSTR(A.CS126_HNO,1,1) NOT IN ('J','G')
+--		                                                                       ) D
+--		                                                                    ON B.CS113_PJT = D.PJT
+--		                                                                   AND B.CS113_HNO = D.HNO       
+		                                     WHERE A.MANDT = #G_MANDT#
+		                                       AND B.CS113_YDT BETWEEN #FYM# AND #TYM#
+		                                       AND (SUBSTR(B.CS113_GBN,1,1) = 'U' OR B.CS113_STS LIKE '%유상일반%')
+		                                       AND B.CS113_GBN NOT IN ('U01','U08')
+		                                       AND B.CS113_USE = 'Y'
+		                                       AND SUBSTR(B.CS113_HNO,1,1) NOT IN ('J','G')
+		                                     GROUP BY A.ARA,
+		                                              A.BSU
+		                                   ) A
+		                             GROUP BY A.ARA,
+		                                      A.BSU                  
+		                           ) D
+		                        ON A.ARA = D.ARA
+		                       AND A.BSU = D.BSU
+		           LEFT OUTER JOIN (
+		                            SELECT A.ARA,
+		                                   A.BSU,
+		                                   SUM(CNT) CNT,
+		                                   SUM(AMT) AMT
+		                              FROM (   
+		                                    SELECT B.CS126_ARA ARA,
+		                                           B.CS126_BSU BSU,
+		                                           COUNT(*) CNT,
+		                                           SUM(B.CS126_AMT+B.CS126_HMT) AMT
+		                                      FROM SAPHEE.ZCST111 A INNER JOIN SAPHEE.ZCST126 B
+		                                                                    ON A.MANDT = B.MANDT
+		                                                                   AND A.PJT = B.CS126_PJT
+		                                                                   AND A.HNO = B.CS126_HNO
+		                                     WHERE A.MANDT = #G_MANDT#
+		                                       AND B.CS126_PST = 'A6'
+		                                       AND B.CS126_DDT = ''
+		                                       AND B.CS126_USD BETWEEN #FYM# AND #TYM#
+		                                       AND B.CS126_GKD = '2'
+		                                       AND SUBSTR(B.CS126_HNO,1,1) NOT IN ('J','G')
+		                                       AND B.CS126_AMT > 0
+		                                     GROUP BY B.CS126_ARA,
+		                                              B.CS126_BSU   
+		                                   ) A
+		                             GROUP BY A.ARA,
+		                                      A.BSU                  
+		                           ) E
+		                        ON A.ARA = E.ARA
+		                       AND A.BSU = E.BSU     
+		           LEFT OUTER JOIN (
+		                            SELECT A.ARA,
+		                                   A.BSU,
+		                                   SUM(CNT) CNT,
+		                                   SUM(AMT) AMT
+		                              FROM (   
+		                                    SELECT A.ARA,
+		                                           A.BSU,
+		                                           COUNT(*) CNT,
+		                                           SUM(B.CS115_YMT) AMT
+		                                      FROM SAPHEE.ZCST111 A INNER JOIN SAPHEE.ZCST115 B
+		                                                                    ON A.MANDT = B.MANDT
+		                                                                   AND A.PJT = B.CS115_PJT
+		                                                                   AND A.HNO = B.CS115_HNO
+		                                                            INNER JOIN (
+		                                                                        SELECT A.CS115_PJT PJT,
+		                                                                               A.CS115_HNO HNO
+		                                                                          FROM SAPHEE.ZCST115 AS A INNER JOIN SAPHEE.ZCST111 AS B
+		                                                                                                           ON A.MANDT = B.MANDT
+		                                                                                                          AND A.CS115_PJT = B.PJT
+		                                                                                                          AND A.CS115_HNO = B.HNO
+		                                                                         WHERE A.CS115_YDT BETWEEN #FYM# AND #TYM#
+		                                                                           AND A.CS115_FFG = 'Y'
+		                                                                           AND SUBSTR(A.CS115_HNO,1,1) NOT IN ('J','G')
+		                                                                         
+		                                                                        EXCEPT ALL
+		                                                                        SELECT A.CS126_PJT PJT,
+		                                                                               A.CS126_HNO HNO
+		                                                                          FROM SAPHEE.ZCST126 AS A INNER JOIN SAPHEE.ZCST111 AS C
+		                                                                                                           ON A.MANDT = C.MANDT
+		                                                                                                          AND A.CS126_PJT = C.PJT
+		                                                                                                          AND A.CS126_HNO = C.HNO
+		                                                                                                   INNER JOIN SAPHEE.ZWBT010 AS F
+		                                                                                                           ON A.MANDT = F.MANDT
+		                                                                                                          AND A.CS126_BSU = F.LGORT       
+		                                                                         WHERE A.MANDT = #G_MANDT#
+		                                                                           AND A.CS126_PST = 'A6'
+		                                                                           AND A.CS126_DDT = ''
+		                                                                           AND A.CS126_USD &gt;= #FYM#
+		                                                                           AND SUBSTR(A.CS126_HNO,1,1) NOT IN ('J','G')
+		                                                                       ) D
+		                                                                    ON B.CS115_PJT = D.PJT
+		                                                                   AND B.CS115_HNO = D.HNO                     
+		                                     WHERE A.MANDT = #G_MANDT#
+		                                       AND B.CS115_YDT BETWEEN #FYM# AND #TYM#
+		                                       AND SUBSTR(B.CS115_HNO,1,1) NOT IN ('J','G')
+		                                       AND A.HST = 'F'
+		                                     GROUP BY A.ARA,
+		                                              A.BSU
+		                                    UNION ALL
+		                                    
+                                            SELECT A.ARA,
+                                                   A.BSU,
+                                                   COUNT(*) CNT,
+                                                   SUM(B.CS113_YMT) AMT
+                                              FROM SAPHEE.ZCST111 A INNER JOIN SAPHEE.ZCST113 B
+                                                                            ON A.MANDT = B.MANDT
+                                                                           AND A.PJT = B.CS113_PJT
+                                                                           AND A.HNO = B.CS113_HNO
+		                                                            INNER JOIN SAPHEE.ZCST620 CS620
+                                                       		              ON B.MANDT = CS620.MANDT
+                                                       	               AND B.CS113_PJT = CS620.CS620_PJT
+                                                       	               AND B.CS113_HNO = CS620.CS620_HNO
+                                                                       AND CS620.CS620_DAT = #CS620_DAT#   
+--                                                                    INNER JOIN (
+--                                                                                SELECT A.CS113_PJT PJT,
+--                                                                                       A.CS113_HNO HNO
+--                                                                                  FROM SAPHEE.ZCST113 AS A INNER JOIN SAPHEE.ZCST111 AS B
+--                                                                                                                   ON A.MANDT = B.MANDT
+--                                                                                                                  AND A.CS113_PJT = B.PJT
+--                                                                                                                  AND A.CS113_HNO = B.HNO
+--                                                                                                                  AND B.HST NOT IN ('D','F')
+--                                                                                 WHERE A.CS113_YDT BETWEEN #FYM# AND #TYM#
+--                                                                                   AND A.CS113_USE = 'Y'
+--                                                                                   AND A.CS113_FFG = 'Y'
+--                                                                                   AND SUBSTR(A.CS113_HNO,1,1) NOT IN ('J','G')
+--                                                                                EXCEPT ALL
+--                                                                                SELECT A.CS126_PJT PJT,
+--                                                                                       A.CS126_HNO HNO
+--                                                                                  FROM SAPHEE.ZCST126 AS A INNER JOIN SAPHEE.ZCST111 AS C
+--                                                                                                                   ON A.MANDT = C.MANDT
+--                                                                                                                  AND A.CS126_PJT = C.PJT
+--                                                                                                                  AND A.CS126_HNO = C.HNO
+--                                                                                                           INNER JOIN SAPHEE.ZWBT010 AS F
+--                                                                                                                   ON A.MANDT = F.MANDT
+--                                                                                                                  AND A.CS126_BSU = F.LGORT       
+--                                                                                 WHERE A.MANDT = #G_MANDT#
+--                                                                                   AND A.CS126_PST = 'A6'
+--                                                                                   AND A.CS126_DDT = ''
+--                                                                                   AND A.CS126_USD &gt;= #FYM#
+--                                                                                   AND SUBSTR(A.CS126_HNO,1,1) NOT IN ('J','G')
+--                                                                               ) D
+--                                                                            ON B.CS113_PJT = D.PJT
+--                                                                           AND B.CS113_HNO = D.HNO              
+	                                          WHERE A.MANDT = #G_MANDT#
+	                                            AND B.CS113_YDT BETWEEN #FYM# AND #TYM#
+	                                            AND SUBSTR(B.CS113_GBN,1,1) IN ('U','B','M')
+	                                            AND B.CS113_GBN NOT IN ('U01','U08','B08','M09')
+	                                            AND B.CS113_USE = 'Y'
+	                                            AND SUBSTR(B.CS113_HNO,1,1) NOT IN ('J','G')
+	                                          GROUP BY A.ARA,
+	                                                   A.BSU
+                                                   
+		                                    UNION ALL
+		                                    
+		                                    SELECT B.CS126_ARA ARA,
+		                                           B.CS126_BSU BSU,
+		                                           COUNT(*) CNT,
+		                                           SUM(B.CS126_AMT) AMT
+		                                      FROM SAPHEE.ZCST111 A INNER JOIN SAPHEE.ZCST126 B
+		                                                                    ON A.MANDT = B.MANDT
+		                                                                   AND A.PJT = B.CS126_PJT
+		                                                                   AND A.HNO = B.CS126_HNO
+		                                     WHERE A.MANDT = #G_MANDT#
+		                                       AND B.CS126_PST = 'A6'
+		                                       AND B.CS126_DDT = ''
+		                                       AND B.CS126_USD BETWEEN #FYM# AND #TYM#
+		                                       AND B.CS126_GKD IN ('1','2','4')
+		                                       AND SUBSTR(B.CS126_HNO,1,1) NOT IN ('J','G')
+		                                       AND B.CS126_FFG = 'Y'
+		                                     GROUP BY B.CS126_ARA,
+		                                              B.CS126_BSU   
+		                                   ) A
+		                             GROUP BY A.ARA,
+		                                      A.BSU          
+		                           ) F
+		                        ON A.ARA = F.ARA
+		                       AND A.BSU = F.BSU 
+					LEFT OUTER JOIN (
+		                            SELECT A.ARA,
+		                                   A.BSU,
+		                                   SUM(CNT) CNT,
+		                                   SUM(AMT) AMT
+		                              FROM (   
+		                                    SELECT A.ARA,
+		                                           A.BSU,
+		                                           COUNT(*) CNT,
+		                                           SUM(B.CS115_HMT) AMT
+		                                      FROM SAPHEE.ZCST111 A INNER JOIN SAPHEE.ZCST115 B
+		                                                                    ON A.MANDT = B.MANDT
+		                                                                   AND A.PJT = B.CS115_PJT
+		                                                                   AND A.HNO = B.CS115_HNO
+		                                                            INNER JOIN (
+		                                                                        SELECT A.CS115_PJT PJT,
+		                                                                               A.CS115_HNO HNO
+		                                                                          FROM SAPHEE.ZCST115 AS A INNER JOIN SAPHEE.ZCST111 AS B
+		                                                                                                           ON A.MANDT = B.MANDT
+		                                                                                                          AND A.CS115_PJT = B.PJT
+		                                                                                                          AND A.CS115_HNO = B.HNO
+		                                                                         WHERE A.CS115_YDT BETWEEN #FYM# AND #TYM#
+		                                                                           AND A.CS115_FHG = 'Y'
+		                                                                           AND SUBSTR(A.CS115_HNO,1,1) NOT IN ('J','G')
+		                                                                         
+		                                                                        EXCEPT ALL
+		                                                                        SELECT A.CS126_PJT PJT,
+		                                                                               A.CS126_HNO HNO
+		                                                                          FROM SAPHEE.ZCST126 AS A INNER JOIN SAPHEE.ZCST111 AS C
+		                                                                                                           ON A.MANDT = C.MANDT
+		                                                                                                          AND A.CS126_PJT = C.PJT
+		                                                                                                          AND A.CS126_HNO = C.HNO
+		                                                                                                   INNER JOIN SAPHEE.ZWBT010 AS F
+		                                                                                                           ON A.MANDT = F.MANDT
+		                                                                                                          AND A.CS126_BSU = F.LGORT       
+		                                                                         WHERE A.MANDT = #G_MANDT#
+		                                                                           AND A.CS126_PST = 'A6'
+		                                                                           AND A.CS126_DDT = ''
+		                                                                           AND A.CS126_USD &gt;= #FYM#
+		                                                                           AND SUBSTR(A.CS126_HNO,1,1) NOT IN ('J','G')
+		                                                                       ) D
+		                                                                    ON B.CS115_PJT = D.PJT
+		                                                                   AND B.CS115_HNO = D.HNO                     
+		                                     WHERE A.MANDT = #G_MANDT#
+		                                       AND B.CS115_YDT BETWEEN #FYM# AND #TYM#
+		                                       AND SUBSTR(B.CS115_HNO,1,1) NOT IN ('J','G')
+		                                       AND A.HST = 'F'
+		                                     GROUP BY A.ARA,
+		                                              A.BSU
+		                                    UNION ALL
+		                                    
+                                            SELECT A.ARA,
+                                                   A.BSU,
+                                                   COUNT(*) CNT,
+                                                   SUM(B.CS113_HMT) AMT
+                                              FROM SAPHEE.ZCST111 A INNER JOIN SAPHEE.ZCST113 B
+                                                                            ON A.MANDT = B.MANDT
+                                                                           AND A.PJT = B.CS113_PJT
+                                                                           AND A.HNO = B.CS113_HNO
+		                                                                INNER JOIN SAPHEE.ZCST620 CS620
+                                                       		                  ON B.MANDT = CS620.MANDT
+                                                       	                   AND B.CS113_PJT = CS620.CS620_PJT
+                                                       	                   AND B.CS113_HNO = CS620.CS620_HNO
+                                                                           AND CS620.CS620_DAT = #CS620_DAT#  
+--                                                                    INNER JOIN (
+--                                                                                SELECT A.CS113_PJT PJT,
+--                                                                                       A.CS113_HNO HNO
+--                                                                                  FROM SAPHEE.ZCST113 AS A INNER JOIN SAPHEE.ZCST111 AS B
+--                                                                                                                   ON A.MANDT = B.MANDT
+--                                                                                                                  AND A.CS113_PJT = B.PJT
+--                                                                                                                  AND A.CS113_HNO = B.HNO
+--                                                                                                                  AND B.HST NOT IN ('D','F')
+--                                                                                 WHERE A.CS113_YDT BETWEEN #FYM# AND #TYM#
+--                                                                                   AND A.CS113_USE = 'Y'
+--                                                                                   AND A.CS113_FHG = 'Y'
+--                                                                                   AND SUBSTR(A.CS113_HNO,1,1) NOT IN ('J','G')
+--                                                                                EXCEPT ALL
+--                                                                                SELECT A.CS126_PJT PJT,
+--                                                                                       A.CS126_HNO HNO
+--                                                                                  FROM SAPHEE.ZCST126 AS A INNER JOIN SAPHEE.ZCST111 AS C
+--                                                                                                                   ON A.MANDT = C.MANDT
+--                                                                                                                  AND A.CS126_PJT = C.PJT
+--                                                                                                                  AND A.CS126_HNO = C.HNO
+--                                                                                                           INNER JOIN SAPHEE.ZWBT010 AS F
+--                                                                                                                   ON A.MANDT = F.MANDT
+--                                                                                                                  AND A.CS126_BSU = F.LGORT       
+--                                                                                 WHERE A.MANDT = #G_MANDT#
+--                                                                                   AND A.CS126_PST = 'A6'
+--                                                                                   AND A.CS126_DDT = ''
+--                                                                                   AND A.CS126_USD &gt;= #FYM#
+--                                                                                   AND SUBSTR(A.CS126_HNO,1,1) NOT IN ('J','G')
+--                                                                               ) D
+--                                                                            ON B.CS113_PJT = D.PJT
+--                                                                           AND B.CS113_HNO = D.HNO              
+	                                          WHERE A.MANDT = #G_MANDT#
+	                                            AND B.CS113_YDT BETWEEN #FYM# AND #TYM#
+	                                            AND SUBSTR(B.CS113_GBN,1,1) IN ('U','B','M')
+	                                            AND B.CS113_GBN NOT IN ('U01','U08','B08','M09')
+	                                            AND B.CS113_USE = 'Y'
+	                                            AND SUBSTR(B.CS113_HNO,1,1) NOT IN ('J','G')
+	                                          GROUP BY A.ARA,
+	                                                   A.BSU
+                                                   
+		                                    UNION ALL
+		                                    
+		                                    SELECT B.CS126_ARA ARA,
+		                                           B.CS126_BSU BSU,
+		                                           COUNT(*) CNT,
+		                                           SUM(B.CS126_HMT) AMT
+		                                      FROM SAPHEE.ZCST111 A INNER JOIN SAPHEE.ZCST126 B
+		                                                                    ON A.MANDT = B.MANDT
+		                                                                   AND A.PJT = B.CS126_PJT
+		                                                                   AND A.HNO = B.CS126_HNO
+		                                     WHERE A.MANDT = #G_MANDT#
+		                                       AND B.CS126_PST = 'A6'
+		                                       AND B.CS126_DDT = ''
+		                                       AND B.CS126_USD BETWEEN #FYM# AND #TYM#
+		                                       AND B.CS126_GKD IN ('1','2','4')
+		                                       AND SUBSTR(B.CS126_HNO,1,1) NOT IN ('J','G')
+		                                       AND B.CS126_FHG = 'Y'
+		                                     GROUP BY B.CS126_ARA,
+		                                              B.CS126_BSU   
+		                                   ) A
+		                             GROUP BY A.ARA,
+		                                      A.BSU          
+		                           ) G
+		                        ON A.ARA = G.ARA
+		                       AND A.BSU = G.BSU 				 
+		ORDER BY A.ARA, A.BSU   
+		WITH UR	
+  	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

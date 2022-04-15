@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[현장별 PO 상세]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT 
+	 MM013.CHAR1 AS CHAR1
+	, SAPHEE.GET_ZERODATE(MM013.CHDAT) AS CHDAT
+	, SAPHEE.GET_ZERODATE(MM013.CHTIM) AS CHTIM
+	, SAPHEE.GET_ZERODATE(MM013.DDATE) AS DDATE
+	, MM013.DNAME AS DNAME
+	, SAPHEE.GET_ZERODATE(MM013.DTIME) AS DTIME
+	, MM013.EBELN AS EBELN
+	, MM013.EBELP AS EBELP
+	, SAPHEE.GET_ZERODATE(MM013.EDATE) AS EDATE
+	, SAPHEE.GET_ZERODATE(MM013.EINDT) AS EINDT
+	, MM013.EKGRP AS EKGRP
+	, SAPHEE.GET_ZERODATE(MM013.ETIME) AS ETIME
+	, MM013.EXTWG AS EXTWG
+	, MM013.GROES AS GROES
+	, MM013.INFNR AS INFNR
+	, MM013.KNTTP AS KNTTP
+	, MM013.LGOBE AS LGOBE
+	, MM013.LGORT AS LGORT
+	, MM013.LIFNR AS LIFNR
+	, MM013.LNAME AS LNAME
+	, MM013.MANDT AS MANDT
+	, MM013.MATNR AS MATNR
+	, VALUE(MM011.BISMT,'') AS BISMT
+	, MM013.MEINS AS MEINS
+	, MM013.MENGE AS MENGE
+	, (MM013.MENGE - VALUE(MM017A.MENGE, 0)) AS MENGE1
+	, VALUE(MM017A.B_MENGE, 0) AS B_MENGE
+	, MM013.NAME1 AS NAME1
+	, SAPHEE.GET_CURRDATA(MM013.WAERS,MM013.NETPR) AS NETPR
+	, MM013.POSID AS POSID
+	, CASE WHEN SUBSTR(MM013.POSID,1,2) = 'QM' THEN SUBSTR(MM013.POSID,1,8)
+				WHEN SUBSTR(MM013.POSID,1,1) = 'Q' THEN SUBSTR(MM013.POSID,1,7)
+                          ELSE SUBSTR(MM013.POSID,1,6) END  AS PROJ
+	, MM013.POST1 AS POST1
+	, MM013.POTYPE AS POTYPE
+	, MM013.PSTYP AS PSTYP
+	, SAPHEE.GET_ZERODATE(MM013.SDATE) AS SDATE
+	, MM013.SNAME AS SNAME
+	, MM013.STATE AS STATE
+	, SAPHEE.GET_ZERODATE(MM013.STIME) AS STIME
+	, MM013.SUBMI AS SUBMI
+	, (MM011.MATNR_NM ||','|| MM011.ZSIZE ||','|| MM011.SPEC) AS TXZ01
+	, SAPHEE.GET_ZERODATE(MM013.UDATE) AS UDATE
+	, MM013.VALUE AS VALUE
+	, MM013.WAERS AS WAERS
+	, MM013.WERKS AS WERKS
+	, MM013.ZEINR AS ZEINR
+              , '0' AS CHECK
+              , SAPHEE.GET_VENDER_NAME(MM013.MANDT, MM013.LIFNR) AS RV_NAME
+              , (SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = #G_MANDT#  AND LANG = #G_LANG# AND CODE1 = '10' 
+                        AND CODE2 = MM013.EKGRP) AS R_EKGRP               
+              ,SAPHEE.GET_REMARK(MM013.MANDT, SUBSTR(MM013.POSID,1,9),MM013.MATNR,' | ',270) AS TEX01
+              , CASE WHEN MM013.WERKS &lt;&gt; '2000' AND SAPHEE.GET_JAJEA_BALJU(MM013.MANDT, MM013.POSID,MM013.MATNR) &lt; 0 THEN '1' ELSE '0' END AS BIGO
+       --  ,'0' AS BIGO
+	, CASE WHEN SUBSTR(MM013.MATNR,1,3) = '361' THEN SAPHEE.GET_SILCHEUK(MM013.MANDT,MM013.POSID) ELSE  '' END AS SILCHEUK
+              , VALUE(SAPHEE.GET_PROJ_END(MM013.MANDT,MM013.POSID ),'') AS P_END
+              , VALUE(SAPHEE.GET_SEOLCHI_VEND_NAME(MM013.MANDT,MM013.POSID ),'') AS S_VEND
+              , CASE WHEN MM013.BOX_CK = '24' THEN '신박스' ELSE '구박스' END AS BOXCK
+ FROM SAPHEE.ZMMT013 AS MM013
+ LEFT OUTER JOIN SAPHEE.ZMMT011 AS MM011 ON MM013.MANDT = MM011.MANDT AND MM013.MATNR = MM011.MATNR 
+ LEFT OUTER JOIN ( 
+                  SELECT 
+                       MANDT
+                     , EBELN
+                     , EBELP 
+                     ,COALESCE(SUM(MM017.MENGE - MM017.B_MENGE),0) AS MENGE
+                     ,COALESCE(SUM(MM017.B_MENGE),0) AS B_MENGE
+                  FROM SAPHEE.ZMMT017 AS MM017
+                  WHERE MM017.MANDT = #G_MANDT#
+                      AND MM017.LIFNR = #LIFNR#          
+          <isEqual col="GUBN" value="1">
+                      AND MM017.UDATE BETWEEN #UDATE1# AND #UDATE2#
+          </isEqual>
+          <isEqual col="GUBN" value="2">
+                     AND MM017.SDATE BETWEEN #UDATE1# AND #UDATE2#
+          </isEqual>
+
+          <isNotNull col="WERKS">
+                     AND MM017.WERKS = #WERKS#
+          </isNotNull>
+          <isNotNull col="LGORT">
+                      AND MM017.LGORT = #LGORT#
+          </isNotNull>
+          <isNotNull col="EKGRP">
+                      AND MM017.EKGRP = #EKGRP#
+           </isNotNull>
+	<isNotNull col="POSID1">
+	       AND MM017.POSID BETWEEN  #POSID1# AND #POSID2#
+	 </isNotNull>
+	 <isNotNull col="MATNR">
+	    AND MM017.MATNR LIKE #MATNR# || '%'
+	 </isNotNull>
+	 <isNotNull col="EBELN">
+	    AND MM017.EBELN = #EBELN#
+	 </isNotNull>
+	<isNotNull col="EXTWG">
+	    AND MM017.EXTWG LIKE '%'||#EXTWG#||'%'
+	</isNotNull>
+                    AND MM017.PRO_F &gt;= '1' 
+                      GROUP BY MM017.MANDT,MM017.EBELN,MM017.EBELP) AS MM017A
+                  ON MM013.MANDT = MM017A.MANDT 
+                  AND MM013.EBELN = MM017A.EBELN
+                  AND MM013.EBELP = MM017A.EBELP
+ WHERE  MM013.MANDT = #G_MANDT# 
+    AND MM013.LIFNR = #LIFNR#
+<isEqual col="GUBN" value="1">
+    AND MM013.UDATE BETWEEN #UDATE1# AND #UDATE2#
+</isEqual>
+<isEqual col="GUBN" value="2">
+    AND MM013.SDATE BETWEEN #UDATE1# AND #UDATE2#
+</isEqual>
+
+    AND MM013.STATE = '2'
+    AND MM013.POTYPE = ''
+
+<isNotNull col="WERKS">
+    AND MM013.WERKS = #WERKS#
+</isNotNull>
+<isNotNull col="LGORT">
+    AND MM013.LGORT = #LGORT#
+</isNotNull>
+<isNotNull col="EKGRP">
+    AND MM013.EKGRP = #EKGRP#
+</isNotNull>
+ <isNotNull col="POSID1">
+    AND MM013.POSID BETWEEN  #POSID1# AND #POSID2#
+ </isNotNull>
+ <isNotNull col="MATNR">
+    AND MM013.MATNR LIKE #MATNR# || '%'
+ </isNotNull>
+ <isNotNull col="EBELN">
+    AND MM013.EBELN = #EBELN#
+ </isNotNull>
+<isNotNull col="EXTWG">
+    AND MM013.EXTWG LIKE '%'||#EXTWG#||'%'
+</isNotNull>
+<isEqual col="KNTTP" value="F">
+    AND MM013.KNTTP = 'F' 
+</isEqual>
+<isEqual col="KNTTP" value="Q">
+    AND MM013.KNTTP = 'Q' AND  MM011.MTART &lt; 'Z002'
+</isEqual>
+<isEqual col="KNTTP" value="K">
+    AND (MM013.KNTTP = 'K' OR (MM013.KNTTP = 'Q' AND  MM011.MTART = 'Z002'))
+</isEqual>
+
+  ORDER BY EBELN,EBELP,EINDT,POSID
+  FOR FETCH ONLY
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="WERKS" size="255" type="VARCHAR" description="" /> 
+		<col name="LGORT" size="255" type="VARCHAR" description="" /> 
+		<col name="EKGRP" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID1" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID2" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="255" type="VARCHAR" description="" /> 
+		<col name="EBELN" size="255" type="VARCHAR" description="" /> 
+		<col name="EXTWG" size="255" type="VARCHAR" description="" /> 
+		<col name="UDATE1" size="255" type="VARCHAR" description="" /> 
+		<col name="UDATE2" size="255" type="VARCHAR" description="" /> 
+		<col name="GUBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="B_MENGE" size="33" type="NUMERIC" description="" /> 
+		<col name="BIGO" size="1" type="VARCHAR" description="" /> 
+		<col name="BISMT" size="54" type="VARCHAR" description="" /> 
+		<col name="CHAR1" size="300" type="VARCHAR" description="" /> 
+		<col name="CHDAT" size="8" type="VARCHAR" description="" /> 
+		<col name="CHECK" size="1" type="VARCHAR" description="" /> 
+		<col name="CHTIM" size="8" type="VARCHAR" description="" /> 
+		<col name="DDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="DNAME" size="36" type="VARCHAR" description="" /> 
+		<col name="DTIME" size="8" type="VARCHAR" description="" /> 
+		<col name="EBELN" size="30" type="VARCHAR" description="" /> 
+		<col name="EBELP" size="15" type="VARCHAR" description="" /> 
+		<col name="EDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="EINDT" size="8" type="VARCHAR" description="" /> 
+		<col name="EKGRP" size="9" type="VARCHAR" description="" /> 
+		<col name="ETIME" size="8" type="VARCHAR" description="" /> 
+		<col name="EXTWG" size="54" type="VARCHAR" description="" /> 
+		<col name="GROES" size="96" type="VARCHAR" description="" /> 
+		<col name="INFNR" size="30" type="VARCHAR" description="" /> 
+		<col name="KNTTP" size="3" type="VARCHAR" description="" /> 
+		<col name="LGOBE" size="48" type="VARCHAR" description="" /> 
+		<col name="LGORT" size="12" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="30" type="VARCHAR" description="" /> 
+		<col name="LNAME" size="105" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MEINS" size="9" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="15" type="NUMERIC" description="" /> 
+		<col name="MENGE1" size="33" type="NUMERIC" description="" /> 
+		<col name="NAME1" size="90" type="VARCHAR" description="" /> 
+		<col name="NETPR" size="22" type="NUMERIC" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POST1" size="120" type="VARCHAR" description="" /> 
+		<col name="POTYPE" size="3" type="VARCHAR" description="" /> 
+		<col name="PROJ" size="7" type="VARCHAR" description="" /> 
+		<col name="PSTYP" size="3" type="VARCHAR" description="" /> 
+		<col name="R_EKGRP" size="60" type="VARCHAR" description="" /> 
+		<col name="RV_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="SDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="SNAME" size="36" type="VARCHAR" description="" /> 
+		<col name="STATE" size="3" type="VARCHAR" description="" /> 
+		<col name="STIME" size="8" type="VARCHAR" description="" /> 
+		<col name="SUBMI" size="30" type="VARCHAR" description="" /> 
+		<col name="TEX01" size="4000" type="VARCHAR" description="" /> 
+		<col name="TXZ01" size="482" type="VARCHAR" description="" /> 
+		<col name="UDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="VALUE" size="90" type="VARCHAR" description="" /> 
+		<col name="WAERS" size="15" type="VARCHAR" description="" /> 
+		<col name="WERKS" size="12" type="VARCHAR" description="" /> 
+		<col name="ZEINR" size="120" type="VARCHAR" description="" /> 
+		<col name="SILCHEUK" size="8" type="VARCHAR" description="" /> 
+	</output>
+</query>

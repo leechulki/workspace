@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[생산실적 대비 미불출 현황]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+ PJ.PSPID
+,PJ.POST1						-- 현장명
+,PS.POSID						-- 호기번호
+,MS.MATNR    AS PMATNR        -- 모자재
+,M1.MATNR_NM AS PMATNR_NM     -- 모자재명
+--,CASE WHEN M1.EXTWG='' THEN 'BOX33' ELSE M1.EXTWG END AS EXTWG   -- BOX NO
+--,M1.BLOCK_NO            -- BLOCK_NO
+,RE.MATNR AS MATNR    -- 자재번호
+,M2.MATNR_NM AS MATNR_NM         -- 자재명
+,M2.SPEC AS SPEC    -- SPEC
+,M2.ZSIZE AS ZSIZE    -- SIZE
+,RE.BDMNG AS BDMNG    -- 소요량
+--,RE.MEINS     -- 단위
+,RE.ENMNG AS ENMNG    -- 기불출량
+,RE.BDMNG - RE.ENMNG AS SU01  -- 미불출량
+,CASE WHEN MC.SBDKZ='2'     THEN
+         VALUE((
+                SELECT
+                LABST
+                FROM SAPHEE.MARD AS MD
+                WHERE MD.MANDT=MC.MANDT
+                  AND MD.MATNR=MC.MATNR
+                  AND MD.WERKS=MC.WERKS
+                  AND MD.LGORT=RE.LGORT
+               ),0.000)
+      ELSE
+         VALUE((
+                SELECT
+                SUM(PRLAB)
+                FROM SAPHEE.MSPR AS MD
+                WHERE MD.MANDT=MC.MANDT
+                  AND MD.MATNR=MC.MATNR
+                  AND MD.WERKS=MC.WERKS
+                  AND MD.CHARG=''
+                  AND MD.SOBKZ='Q'
+                  AND MD.PSPNR=PS.PSPNR
+                ),0.000)
+      END  AS JEAGO               -- 재고
+,CASE WHEN MC.SBDKZ='2' THEN 'STOCK' ELSE '' END AS SBDKZ  -- 재고유형
+,MK.BUDAT  AS BUDAT                   -- 생산전기일
+,CASE CASE WHEN M6.BOXNO IS NULL THEN '1' ELSE SUBSTR(M6.BLOCK,1,1) END
+           WHEN '1' THEN PS.ZZPRO01
+           WHEN '2' THEN CASE WHEN PS.ZZPRO02='00000000' THEN PS.ZZPRO01 ELSE PS.ZZPRO02 END
+           WHEN '3' THEN CASE WHEN PS.ZZPRO03='00000000' THEN PS.ZZPRO01 ELSE PS.ZZPRO03 END
+           WHEN '4' THEN CASE WHEN PS.ZZPRO04='00000000' THEN PS.ZZPRO01 ELSE PS.ZZPRO04 END
+           WHEN '5' THEN CASE WHEN PS.ZZPRO05='00000000' THEN PS.ZZPRO01 ELSE PS.ZZPRO05 END
+           WHEN '6' THEN CASE WHEN PS.ZZPRO06='00000000' THEN PS.ZZPRO01 ELSE PS.ZZPRO06 END
+           ELSE PS.ZZPRO01    END AS SHIPDAT                                            -- 출하요구일
+--,MC.EKGRP AS EKGRP            -- 발주담당자
+,VALUE((
+        SELECT
+        T2.EKTEL
+        FROM SAPHEE.T024 AS T2
+        WHERE T2.MANDT=MC.MANDT
+          AND T2.EKGRP=MC.EKGRP
+      ),'') AS EKGRP_NM     -- 발주담당자명
+,RE.MATKL AS MATKL          -- 자재그룹
+,CASE WHEN P2.MANDT IS NULL THEN '미청구' ELSE '' END AS ZSTAT -- 청구상태
+,RE.RSNUM
+,RE.RSPOS
+--,CASE WHEN VALUE(QB.VERPR,0) > 0 THEN VALUE(QB.VERPR,0)*100 
+--          WHEN VALUE(MB.VERPR,0) > 0 THEN VALUE(MB.VERPR,0)*100 
+--         ELSE  VALUE((
+--             SELECT
+--                NETPR*100
+--             FROM SAPHEE.EINE AS EE
+--             INNER JOIN SAPHEE.EINA AS EA ON  EA.MANDT=EE.MANDT
+--                                         AND EA.INFNR=EE.INFNR
+--             WHERE EA.MANDT = RE.MANDT
+--                 AND EA.MATNR = RE.MATNR
+--              FETCH FIRST 1 ROWS ONLY),0) END AS NETPR     -- 자재단가
+,M1.C_GROUP AS C_GROUP
+FROM SAPHEE.MSEG AS MS
+     INNER JOIN SAPHEE.MARA     AS M1 ON  MS.MANDT = M1.MANDT
+                                      AND MS.MATNR = M1.MATNR
+     INNER JOIN SAPHEE.MKPF     AS MK ON  MK.MANDT = MS.MANDT
+                                      AND MK.MBLNR = MS.MBLNR
+                                      AND MK.MJAHR = MS.MJAHR
+     INNER JOIN SAPHEE.RESB     AS RE ON  RE.MANDT = MS.MANDT
+                                      AND RE.AUFNR = MS.AUFNR
+                                      AND RE.BAUGR = MS.MATNR
+                                      AND RE.BWART = '261'
+                                      AND RE.XLOEK = ''
+                                      AND RE.KZEAR = ''
+                                      AND RE.MATKL &lt; 'A'
+     INNER JOIN SAPHEE.AFPO     AS AF ON  AF.MANDT = RE.MANDT
+                                      AND AF.AUFNR = RE.AUFNR
+     INNER JOIN SAPHEE.PRHI     AS HI ON  HI.MANDT = AF.MANDT
+                                      AND HI.POSNR = AF.PROJN
+     INNER JOIN SAPHEE.PRPS     AS PS ON  PS.MANDT = HI.MANDT
+                                      AND PS.PSPNR = HI.UP
+                                      AND PS.PSPHI = HI.PSPHI
+     INNER JOIN SAPHEE.ZMMT011  AS M2 ON  RE.MANDT = M2.MANDT
+                                      AND RE.MATNR = M2.MATNR
+     INNER JOIN SAPHEE.MARC     AS MC ON  MC.MANDT = RE.MANDT
+                                      AND MC.MATNR = RE.MATNR
+                                      AND MC.WERKS = '1000'
+ --                                     AND MC.LGFSB &lt;&gt; '1001'
+     INNER JOIN SAPHEE.PROJ     AS PJ ON  PJ.MANDT=PS.MANDT
+                                      AND PJ.PSPID=SUBSTR(PS.POSID,1,6)
+                                      
+     LEFT OUTER JOIN SAPHEE.ZPPT020  AS P2 ON  P2.MANDT = RE.MANDT
+                                           AND P2.RSNUM = RE.RSNUM
+                                           AND P2.RSPOS = RE.RSPOS
+                                           AND P2.RSART = RE.RSART
+     LEFT OUTER JOIN SAPHEE.ZMMT026  AS M6 ON  M6.MANDT = M1.MANDT
+                                           AND M6.BOXNO = M1.EXTWG
+--     LEFT OUTER JOIN SAPHEE.QBEW AS QB ON M1.MANDT = QB.MANDT
+--                                          AND QB.MATNR = MS.MATNR
+--                                          AND QB.PSPNR = PJ.PSPNR
+--                                          AND QB.BWKEY= MS.WERKS
+--                                          AND QB.BWTAR = AF.BWTAR
+--                                          AND QB.SOBKZ = AF.SOBKZ
+--      LEFT OUTER JOIN SAPHEE.MBEW AS MB ON MB.MANDT = M1.MANDT
+--                                          AND MB.MATNR = M1.MATNR
+--                                          AND MB.BWKEY= MS.WERKS
+--                                          AND MB.BWTAR = AF.BWTAR
+      LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MA2 ON MS.MANDT = MA2.MANDT
+ 	 	                 AND PJ.PSPID = MA2.POSID AND PS.POSID = MA2.POSID_1 
+      LEFT OUTER JOIN SAPHEE.MSEG AS MSG ON MS.MANDT = MSG.MANDT
+                                             AND MS.MBLNR = MSG.SMBLN
+                                             AND MS.MJAHR = MSG.SJAHR
+                                             AND MS.ZEILE = MSG.SMBLP
+			   AND MSG.BWART='102' 
+
+<isNotNull col="SQLSTR">
+      #SQLSTR+#
+</isNotNull>
+
+ORDER BY PS.POSID, MS.MATNR, RE.MATNR
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="255" type="VARCHAR" description="" /> 
+		<col name="BUDAT_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="BUDAT_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="EKGRP" size="255" type="VARCHAR" description="" /> 
+		<col name="MATKL" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="BDMNG" size="15" type="NUMERIC" description="" /> 
+		<col name="BUDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="EKGRP" size="9" type="VARCHAR" description="" /> 
+		<col name="EKGRP_NM" size="36" type="VARCHAR" description="" /> 
+		<col name="ENMNG" size="15" type="NUMERIC" description="" /> 
+		<col name="JEAGO" size="33" type="NUMERIC" description="" /> 
+		<col name="MATKL" size="27" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MATNR_NM" size="120" type="VARCHAR" description="" /> 
+		<col name="PMATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="PMATNR_NM" size="120" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POST1" size="120" type="VARCHAR" description="" /> 
+		<col name="SBDKZ" size="3" type="VARCHAR" description="" /> 
+		<col name="SHIPDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="SPEC" size="180" type="VARCHAR" description="" /> 
+		<col name="SU01" size="16" type="NUMERIC" description="" /> 
+		<col name="ZSIZE" size="180" type="VARCHAR" description="" /> 
+	</output>
+</query>

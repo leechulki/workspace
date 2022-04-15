@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+       '' AS CHK
+       ,A.LIFNR
+       ,C.ABR_NM       LIFNR2
+       ,A.CS406_EDT    EDT
+       ,A.CS406_CPT    CPT
+       ,A.CS406_FCD    FCD
+       ,A.CS406_LC1    LC1
+       ,A.CS406_LC2    LC2
+       ,A.CS406_LC3    LC3
+       ,A.CS406_LC4    LC4
+       ,A.CS406_LCR    LCR
+       ,A.CS406_TP1    TP1
+       ,A.CS406_TP2    TP2
+       ,A.CS406_TP3    TP3
+       ,A.CS406_TP4    TP4
+       ,A.CS406_RGD    RGD
+       ,A.CS406_RGN    RGN
+       ,A.CS406_SCP    SCP
+       ,A.CS406_IS1    IS1
+       ,A.CS406_IS2    IS2
+       ,A.CS406_IS3    IS3
+       ,A.CS406_IS4    IS4
+       ,A.CS406_IS5    IS5
+       ,A.CS406_ISR    ISR
+       ,A.CS406_RNAME  RNAME
+       ,A.CS406_EMAIL  EMAIL
+       ,A.CS406_HP     HP
+       ,A.CS406_TEL    TEL
+       ,A.CS406_FAX    FAX
+       ,B.NAME1        BSU_NM
+       ,B.J_1KFREPRE 
+       ,B.TELF1      
+       ,B.PSTLZ        ZIPCODE
+       --,B.STRAS        ADDR
+	   ,B.MCOD3 || ' ' || B.STRAS AS ADDR -- 2018.11.22 J.H Han. 시도를 포함한 전체주소 표출되도록 수정. 임유진 SW 요청
+       ,C.LGORT        BSU
+       ,D.MIQ             CNT_M
+       ,D.TCQ             CNT_U
+       ,D.MIQ + D.TCQ     CNT_ALL
+       ,(D.TCQ-D.TCQ_FM)  CNT_U_FM
+       ,D.TCQ_FM          CNT_U_POG
+       ,D.TCQ_HRTS        CNT_U_HRTS
+       ,SAPHEE.CODE_CONV(A.MANDT,'CS115',C.BSU_ARA) ARA_NM
+       ,SAPHEE.CODE_CONV(A.MANDT,'VKGRP',C.VKGRP)   TEM_NM
+       ,'' FLAG
+       ,C.SAFECODE
+       ,A.CS406_WEL	  AS WELYN
+       ,CASE WHEN A.CS406_TEMP = 'Y' THEN '1' ELSE '0' END AS TEMPLIFNR
+       ,'http://srm.hdel.co.kr/upload/CS/'||A.PHOTO AS LIFPHOTO       
+  FROM SAPHEE.ZCST406 A LEFT OUTER JOIN SAPHEE.ZMMT012 B
+                                ON A.MANDT = B.MANDT
+                               AND A.LIFNR = B.LIFNR 
+                        
+                        LEFT OUTER JOIN SAPHEE.ZWBT010 C
+                                ON A.MANDT = C.MANDT
+                               AND A.LIFNR = C.LIFNR
+                        
+                        LEFT OUTER JOIN (SELECT YYYYMM, BSU,
+                                                MIQ, TCQ, MANDT, TCQ_FM, TCQ_HRTS,
+                                                ROW_NUMBER() OVER(PARTITION BY BSU ORDER BY YYYYMM DESC) AS ROWN 
+                                           FROM SAPHEE.ZCST186N
+                                          WHERE MANDT =  #G_MANDT#
+                                        ) D
+
+                                ON A.MANDT = D.MANDT
+                               AND C.LGORT = D.BSU
+                               AND D.ROWN = 1
+  
+ WHERE A.MANDT = #G_MANDT# 
+   AND C.BSU_ARA > ''
+   AND C.BSU_GB = '3'
+   AND C.LGORT != ''
+ <isEqual col="TEMPLIFNR" value="1">
+   AND A.CS406_TEMP = ''
+</isEqual>
+ <isNotNull col="ARA">
+   AND C.BSU_ARA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+   AND C.LGORT = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+   AND C.BSU_PM = #BPM#
+</isNotNull>
+<isNotNull col="TEM">
+   AND C.VKGRP = #TEM#
+</isNotNull>
+<isNotNull col="VKBUR">
+   AND SUBSTR(C.VKGRP,1,2)||'00' = #VKBUR#
+</isNotNull>
+ORDER BY LIFNR
+ WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

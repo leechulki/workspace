@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  0 AS CHK,  T.PSPID,  T.POSID, T.INSLFN , T.INSLFN2,
+        T.ZSITE_NM, T.ZZLIFNR , T.GBN, T.FLAG
+FROM
+(   SELECT A.MANDT , A.PSPID, A.POSID, B.LIFNR,  B.NAMET,B.NAMET2,
+              A.INSLFN AS INSLFN,
+              A.INSLFN AS INSLFN2,
+             (SELECT G.ZSITE_NM FROM SAPHEE.ZMASTER01 AS G WHERE A.MANDT = G.MANDT AND A.PSPID= G.POSID) AS  ZSITE_NM,	 
+              E.NAME1 AS ZZLIFNR,
+              A.GBN,
+              CASE WHEN A.INSLFN = B.LIFNR THEN 'Y' ELSE 'N' END FLAG,
+              VALUE( (SELECT X.VALUE FROM SAPHEE.ZSDT0005 AS X  WHERE A.MANDT = X.MANDT  AND A.POSID =  X.HOGI  AND X.CHARACTERISTIC = 'EL_AFQ'  ORDER BY  X.SEQ  DESC FETCH FIRST 1 ROWS ONLY  ) , 0) AS AFQ,  --층수
+  	          VALUE( (SELECT X.VALUE FROM SAPHEE.ZSDT0005 AS X  WHERE A.MANDT = X.MANDT  AND A.POSID =  X.HOGI  AND X.CHARACTERISTIC = 'EL_EHTH'  ORDER BY  X.SEQ  DESC FETCH FIRST 1 ROWS ONLY  ) , 0 ) AS EHTH,   -- 전숭 
+	          VALUE( (SELECT X.VALUE FROM SAPHEE.ZSDT0005 AS X  WHERE A.MANDT = X.MANDT  AND A.POSID =  X.HOGI  AND X.CHARACTERISTIC = 'EL_DCARIL'  ORDER BY  X.SEQ  DESC FETCH FIRST 1 ROWS ONLY  ) , '' ) AS DCARIL,
+	          VALUE( (SELECT X.VALUE FROM SAPHEE.ZSDT0005 AS X  WHERE A.MANDT = X.MANDT  AND A.POSID =  X.HOGI  AND X.CHARACTERISTIC = 'EL_DCWRIL'  ORDER BY  X.SEQ  DESC FETCH FIRST 1 ROWS ONLY  ) , '' ) AS DCWRIL
+
+     FROM SAPHEE.ZPSTW1401 AS A
+    INNER JOIN SAPHEE.ZMASTER02 AS B
+       ON A.MANDT = B.MANDT
+      AND A.PSPID = B.POSID
+      AND A.POSID = B.POSID_1
+
+    LEFT OUTER JOIN SAPHEE.LFA1 AS E
+      ON B.MANDT = E.MANDT
+     AND B.LIFNR = E.LIFNR
+						  
+WHERE A.MANDT = #G_MANDT#
+  AND B.ZZSHIP1 BETWEEN #ZZSHIPF# AND #ZZSHIPT#
+  AND A.GBN = #GBN# 
+  AND A.CONF  = ''
+  AND A.ECKEY = ''
+ <isNotNull col="PSPID">
+  AND A.PSPID = #PSPID#
+</isNotNull>
+<isNotNull col="LIFNR">
+AND A.INSLFN = #LIFNR#
+</isNotNull>
+<isNotNull col="ZZACTSS">
+AND B.ZZACTSS = #ZZACTSS#
+</isNotNull>
+) AS T 
+ WHERE T.MANDT = #G_MANDT#
+     AND ( T.AFQ &gt;= 10  OR (T.AFQ &lt;10 AND T.EHTH &gt;= 35000 ) )
+     AND NOT  (T.DCARIL = 'Y' AND T.DCWRIL = 'Y') 	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

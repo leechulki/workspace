@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[실패보고 상세조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT 
+       '0' AS CHECK, '' SEQ, A.CS122_PJT, A.CS122_HNO, A.GBN_CODE, A.BSU AS CS141_BSU, A.FSD
+       ,D.CS141_SEQ CS141_SEQ,D.CS142_CST,D.CS142_FBD,D.CS142_FBJ,D.CS142_FJD,D.CS142_FJJ,D.CS142_FSA
+       ,D.CS142_FSD,D.CS142_FSJ,D.CS142_GBN,D.CS142_GND,D.CS142_GSQ,D.CS142_HNO
+       ,D.CS142_JHD,D.CS142_MNY,D.CS142_PJT,D.CS142_PST,D.CS142_REQ,D.CS142_RLT
+       ,D.CS142_RMK,D.CS142_SCP,D.CS142_SEQ,D.CS142_UMR,D.CS142_UNT,D.CS142_UPN
+       ,D.CS142_USD,D.CS142_YMD,D.CS142_AMT
+       ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE CODE1 = 'CS117' AND LANG = #G_LANG# AND MANDT = #G_MANDT# AND CODE2 = D.CS142_PST) CTEXT2 	
+       ,(CASE WHEN A.GBN_CODE='D' THEN '유상일반' WHEN A.GBN_CODE='B' THEN '무상일반'
+              WHEN A.GBN_CODE='C' THEN '유상공사' WHEN A.GBN_CODE='A' THEN '무상공사'
+         END) GBN_NAME 
+       ,(SELECT CS101_HNA FROM SAPHEE.ZCST101 WHERE MANDT = #G_MANDT# AND CS101_PJT = A.CS122_PJT AND CS101_HNO = A.CS122_HNO) CS101_HNA
+       ,(SELECT ZSPEC2 FROM SAPHEE.ZMASTER02 WHERE MANDT = #G_MANDT# AND POSID_1 = A.CS122_PJT||A.CS122_HNO) ZSPEC2
+       ,(SELECT ZSPEC1 FROM SAPHEE.ZMASTER02 WHERE MANDT = #G_MANDT# AND POSID_1 = A.CS122_PJT||A.CS122_HNO) ZSPEC1
+       ,(CASE WHEN A.GBN_CODE='D' THEN A.IT2 WHEN A.GBN_CODE='B' THEN MYS 
+              WHEN A.GBN_CODE='C' THEN A.ST2 WHEN A.GBN_CODE='A' THEN MPS ELSE '' END) START_DT
+       ,(CASE WHEN A.GBN_CODE='D' THEN A.UMD WHEN A.GBN_CODE='B' THEN MYT 
+              WHEN A.GBN_CODE='C' THEN A.SMT WHEN A.GBN_CODE='A' THEN MPT ELSE '' END) END_DT
+       ,(CASE WHEN (A.GBN_CODE='D' OR A.GBN_CODE='C') THEN B.CS126_TOT	    
+              WHEN (A.GBN_CODE='B' OR A.GBN_CODE='A') THEN C.CS116_MBG		   
+         END) MON_INFO_ACT 
+       ,(CASE WHEN (A.GBN_CODE='D' OR A.GBN_CODE='C') THEN B.CS126_AMT	    
+              WHEN (A.GBN_CODE='B' OR A.GBN_CODE='A') THEN C.CS116_MBG		   
+         END) MON_INFO
+       ,(CASE WHEN (A.GBN_CODE='D' OR A.GBN_CODE='C') THEN B.CS126_SEQ    
+              WHEN (A.GBN_CODE='B' OR A.GBN_CODE='A') THEN C.CS116_SEQ
+         END) CURR_SEQ
+       ,A.CS122_UPN, A.CS122_CST
+       ,E.ABR_NM BSU_NM, F.CTEXT2 ARA_NM, G.CS121_SPT SPT, 0 CNT, HEX(CURRENT_DATE) CDATE, H.CCSB1EPN EPN, I.J_1KFREPRE NAM, 0 MAMT
+  FROM 
+       (
+        SELECT 
+               (CASE WHEN IT2!='' THEN 'D' 
+                     WHEN IT2='' THEN (CASE WHEN MYS!='' THEN 'B' WHEN MYS='' THEN 
+                     (CASE WHEN ((MPS='' AND ST2!='') OR (ST2>MPT)) THEN 'C' 
+                           WHEN ((ST2='' AND MPS='') OR (MPS>SMT)) THEN 'A' END) 
+                      END)   
+                     ELSE '' 
+                END) GBN_CODE, 
+               X.CS122_PJT, X.CS122_HNO, X.MANDT, Z.FSD, X.CS122_UPN, X.CS122_CST, 
+               Z.IT2, Z.MYS, Z.ST2, Z.MPS, Z.UMD, Z.MYT, Z.SMT, Z.MPT,Z.BSU
+          FROM 
+               SAPHEE.ZCST111 Z, 
+               SAPHEE.ZCST122 X
+         WHERE 
+               Z.PJT = X.CS122_PJT
+           AND Z.HNO = X.CS122_HNO
+           AND Z.HST NOT IN ('D') 
+           AND X.MANDT = Z.MANDT
+           AND X.MANDT = #G_MANDT#
+           AND X.CS122_UPN = #F_UPN#
+           AND X.CS122_CST = #F_CST#
+           AND Z.BSU = #G_LGORT#
+           AND X.CS122_UPN = Z.UPN
+           AND X.CS122_CST = Z.CST
+       ) A	
+       LEFT OUTER JOIN (
+                        SELECT 
+                               CS126_UPN,CS126_CST,CS126_TOT,CS126_AMT,CS126_SEQ,CS126_PJT,CS126_HNO,MANDT 
+                          FROM 
+                               SAPHEE.ZCST126 
+                         WHERE  
+                               CS126_SEQ = (
+                                            SELECT 
+                                                   MAX(CS126_SEQ) 
+                                              FROM 
+                                                   SAPHEE.ZCST126
+                                             WHERE 
+                                                   CS126_UPN = #F_UPN# 
+                                               AND CS126_CST = #F_CST#
+                                               AND CS126_DDT = '' 
+                                               AND ((HEX(CURRENT DATE) >= CS126_UMR) OR (HEX(CURRENT DATE) BETWEEN CS126_USD AND CS126_UMR)))
+                       ) B ON B.CS126_PJT = A.CS122_PJT AND B.CS126_HNO = A.CS122_HNO AND B.CS126_UPN = #F_UPN# 
+                          AND B.CS126_CST = #F_CST# AND B.MANDT = A.MANDT
+       LEFT OUTER JOIN (
+                        SELECT 
+                               CS116_MBG,CS116_SEQ,CS116_PJT,CS116_HNO,MANDT 
+                          FROM 
+                               SAPHEE.ZCST116 
+                         WHERE 
+                               CS116_SEQ = (
+                                            SELECT 
+                                                   MAX(CS116_SEQ)
+                                              FROM 
+                                                   SAPHEE.ZCST116
+                                           )
+                       ) C ON C.CS116_PJT = A.CS122_PJT AND C.CS116_HNO = A.CS122_HNO AND C.MANDT = A.MANDT		
+       LEFT OUTER JOIN (
+                        SELECT 
+                               T141.CS141_SEQ, T141.CS141_UPN, T141.CS141_CST, T142.CS142_CST,T142.CS142_FBD,T142.CS142_FBJ,T142.CS142_FJD
+                               ,T142.CS142_FJJ,T142.CS142_FSA,T142.CS142_FSD,T142.CS142_FSJ,T142.CS142_GBN
+                               ,T142.CS142_GND,T142.CS142_GSQ,T142.CS142_HNO,T142.CS142_JHD,T142.CS142_MNY
+                               ,T142.CS142_PJT,T142.CS142_PST,T142.CS142_REQ,T142.CS142_RLT,T142.CS142_RMK
+                               ,T142.CS142_SCP,T142.CS142_UMR,T142.CS142_UNT,T142.CS142_AMT,T142.CS142_UPN,T142.CS142_USD
+                               ,T142.CS142_YMD, MAX(T142.CS142_SEQ) CS142_SEQ
+                          FROM 
+                               SAPHEE.ZCST141 T141, SAPHEE.ZCST142 T142 
+                         WHERE 
+                               T141.CS141_UPN = T142.CS142_UPN
+                           AND T141.CS141_CST = T142.CS142_CST
+                           AND T141.CS141_SEQ = T142.CS142_SEQ
+                           AND T141.MANDT = T142.MANDT	
+                           AND T141.CS141_UPN = #F_UPN# AND T141.CS141_CST = #F_CST# AND T141.MANDT = #G_MANDT#						
+                        GROUP BY 
+                               T141.CS141_SEQ, T141.CS141_UPN, T141.CS141_CST, T142.CS142_CST,T142.CS142_FBD,T142.CS142_FBJ,T142.CS142_FJD
+                               ,T142.CS142_FJJ,T142.CS142_FSA,T142.CS142_FSD,T142.CS142_FSJ,T142.CS142_GBN
+                               ,T142.CS142_GND,T142.CS142_GSQ,T142.CS142_HNO,T142.CS142_JHD,T142.CS142_MNY
+                               ,T142.CS142_PJT,T142.CS142_PST,T142.CS142_REQ,T142.CS142_RLT,T142.CS142_RMK
+                               ,T142.CS142_SCP,T142.CS142_UMR,T142.CS142_UNT,T142.CS142_AMT,T142.CS142_UPN,T142.CS142_USD
+                               ,T142.CS142_YMD
+                       ) D ON D.CS141_UPN = A.CS122_UPN AND D.CS141_CST = A.CS122_CST 
+                          AND CS142_PJT = A.CS122_PJT AND CS142_HNO = A.CS122_HNO,
+       SAPHEE.ZWBT010 E,
+       SAPHEE.ZLCODE F,
+       SAPHEE.ZCST121 G,
+       SAPHEE.ZTBCSB1 H,
+       SAPHEE.ZMMT012 I
+ WHERE 1=1
+   AND E.MANDT = A.MANDT
+   AND E.LGORT = A.BSU
+   AND E.BSU_ARA > ''
+   AND F.MANDT = E.MANDT
+   AND F.CODE1 = 'CS115'
+   AND F.LANG = #G_LANG#
+   AND F.CODE2 = E.BSU_ARA
+   AND G.MANDT = A.MANDT
+   AND G.CS121_UPN = A.CS122_UPN
+   AND G.CS121_CST = A.CS122_CST
+   AND H.MANDT = E.MANDT
+   AND H.CCSB1EMP = E.BSU_PM
+   AND I.MANDT = E.MANDT
+   AND I.LIFNR = E.LIFNR
+ORDER BY CS122_HNO
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="F_UPN" size="255" type="VARCHAR" description="" /> 
+		<col name="F_CST" size="255" type="VARCHAR" description="" /> 
+		<col name="G_LGORT" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="CHECK" size="1" type="VARCHAR" description="" /> 
+		<col name="SEQ" size="0" type="VARCHAR" description="" /> 
+		<col name="CS122_PJT" size="18" type="VARCHAR" description="" /> 
+		<col name="CS122_HNO" size="9" type="VARCHAR" description="" /> 
+		<col name="GBN_CODE" size="1" type="VARCHAR" description="" /> 
+		<col name="CS141_BSU" size="12" type="VARCHAR" description="" /> 
+		<col name="FSD" size="24" type="VARCHAR" description="" /> 
+		<col name="CS141_SEQ" size="6" type="VARCHAR" description="" /> 
+		<col name="CS142_CST" size="9" type="VARCHAR" description="" /> 
+		<col name="CS142_FBD" size="24" type="VARCHAR" description="" /> 
+		<col name="CS142_FBJ" size="30" type="VARCHAR" description="" /> 
+		<col name="CS142_FJD" size="24" type="VARCHAR" description="" /> 
+		<col name="CS142_FJJ" size="30" type="VARCHAR" description="" /> 
+		<col name="CS142_FSA" size="765" type="VARCHAR" description="" /> 
+		<col name="CS142_FSD" size="24" type="VARCHAR" description="" /> 
+		<col name="CS142_FSJ" size="30" type="VARCHAR" description="" /> 
+		<col name="CS142_GBN" size="3" type="VARCHAR" description="" /> 
+		<col name="CS142_GND" size="3" type="VARCHAR" description="" /> 
+		<col name="CS142_GSQ" size="6" type="VARCHAR" description="" /> 
+		<col name="CS142_HNO" size="9" type="VARCHAR" description="" /> 
+		<col name="CS142_JHD" size="24" type="VARCHAR" description="" /> 
+		<col name="CS142_MNY" size="11" type="INTEGER" description="" /> 
+		<col name="CS142_PJT" size="18" type="VARCHAR" description="" /> 
+		<col name="CS142_PST" size="6" type="VARCHAR" description="" /> 
+		<col name="CS142_REQ" size="765" type="VARCHAR" description="" /> 
+		<col name="CS142_RLT" size="765" type="VARCHAR" description="" /> 
+		<col name="CS142_RMK" size="765" type="VARCHAR" description="" /> 
+		<col name="CS142_SCP" size="150" type="VARCHAR" description="" /> 
+		<col name="CS142_SEQ" size="6" type="VARCHAR" description="" /> 
+		<col name="CS142_UMR" size="24" type="VARCHAR" description="" /> 
+		<col name="CS142_UNT" size="11" type="INTEGER" description="" /> 
+		<col name="CS142_UPN" size="18" type="VARCHAR" description="" /> 
+		<col name="CS142_USD" size="24" type="VARCHAR" description="" /> 
+		<col name="CS142_YMD" size="24" type="VARCHAR" description="" /> 
+		<col name="CS142_AMT" size="11" type="INTEGER" description="" /> 
+		<col name="CTEXT2" size="60" type="VARCHAR" description="" /> 
+		<col name="GBN_NAME" size="12" type="VARCHAR" description="" /> 
+		<col name="CS101_HNA" size="90" type="VARCHAR" description="" /> 
+		<col name="ZSPEC2" size="75" type="VARCHAR" description="" /> 
+		<col name="ZSPEC1" size="15" type="VARCHAR" description="" /> 
+		<col name="START_DT" size="24" type="VARCHAR" description="" /> 
+		<col name="END_DT" size="24" type="VARCHAR" description="" /> 
+		<col name="MON_INFO_ACT" size="22" type="DOUBLE" description="" /> 
+		<col name="CURR_SEQ" size="6" type="VARCHAR" description="" /> 
+		<col name="CS122_PJT" size="18" type="VARCHAR" description="" /> 
+		<col name="CS122_HNO" size="9" type="VARCHAR" description="" /> 
+		<col name="CS122_UPN" size="18" type="VARCHAR" description="" /> 
+		<col name="CS122_CST" size="9" type="VARCHAR" description="" /> 
+		<col name="BSU_NM" size="60" type="VARCHAR" description="" /> 
+		<col name="ARA_NM" size="60" type="VARCHAR" description="" /> 
+		<col name="SPT" size="150" type="VARCHAR" description="" /> 
+		<col name="CNT" size="11" type="INTEGER" description="" /> 
+		<col name="CDATE" size="8" type="CHAR" description="" /> 
+		<col name="EPN" size="30" type="VARCHAR" description="" /> 
+		<col name="NAM" size="30" type="VARCHAR" description="" /> 
+		<col name="MAMT" size="11" type="INTEGER" description="" /> 
+	</output>
+</query>

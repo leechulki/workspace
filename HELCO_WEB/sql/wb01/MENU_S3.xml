@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+ PGCD.PCODE PGM_ID
+,PGCD.PAUTH PGM_LEVEL
+,PGCD.PPATH PGM_URL
+,PGCD.POPEN POPUP_YN
+,AUTH.BTTN BTN_LIST
+,AUTH.AUTH MY_LEVEL
+,AUTH.MULT MULT
+,CASE WHEN MENU.REMARK IS NULL THEN '' ELSE SUBSTR(MENU.REMARK,1,2) END AS BIG_CD
+,CASE WHEN MENU.REMARK IS NULL THEN '' ELSE SUBSTR(MENU.REMARK,1,4) END AS MID_CD
+,CASE WHEN MENU.REMARK IS NULL THEN '' ELSE SUBSTR(MENU.REMARK,1,6) END AS SMALL_CD
+,LANG.PNAME PGM_NAME
+,MENU.REMARK AS REMARK
+FROM (
+
+         SELECT
+          MANDT
+         ,PGCD
+         ,AUTH
+         ,BTTN
+         ,MULT
+         FROM (
+
+               SELECT
+                MANDT
+               ,PGCD
+               ,AUTH
+               ,BTTN
+               ,MULT
+               ,ROW_NUMBER() OVER(PARTITION BY MANDT,PGCD ORDER BY MANDT,PGCD,AUTH,NUMB) AS ROWN
+               FROM SAPHEE.ZWBAUTH
+               WHERE MANDT = #MANDT#
+                 AND NUMB IN (
+                                 SELECT
+                                 GGRUP
+                                 FROM SAPHEE.ZWBGRUP
+                                 WHERE MANDT = #MANDT#
+                                 AND GNUMB IN (SELECT USERNUMB FROM SAPHEE.ZUSERF WHERE MANDT = #MANDT# AND USERMAIL = (SELECT USERMAIL FROM SAPHEE.ZUSERF WHERE MANDT = #MANDT# AND USERNUMB = #USER_ID#))
+                              )
+         ) AS AUTH
+         WHERE ROWN=1
+
+     ) AS AUTH
+     LEFT       JOIN SAPHEE.ZWBPGCD AS PGCD ON AUTH.MANDT = PGCD.MANDT AND AUTH.PGCD = PGCD.PCODE
+     LEFT       JOIN SAPHEE.ZWBLANG AS LANG ON LANG.MANDT = PGCD.MANDT AND PGCD.PCODE= LANG.PCODE
+     LEFT OUTER JOIN SAPHEE.ZWBMENU AS MENU ON MENU.MANDT = PGCD.MANDT AND MENU.PGCD = PGCD.PCODE
+WHERE LANG.PLANG = #LANG#
+  AND LANG.MANDT = #MANDT#
+  AND LEFT(PGCD.PPATH,3) = 'PCC'
+  AND (AUTH.AUTH <= PGCD.PAUTH OR AUTH.AUTH = '1')
+ORDER BY REMARK, PGM_ID
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="USER_ID" size="255" type="VARCHAR" description="" /> 
+		<col name="LANG" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_auth">
+	</output>
+</query>

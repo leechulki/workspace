@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>update</type>
+	<description><![CDATA[실측사양값 입력]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+MERGE INTO SAPHEE.ZPST1133 X -- 리모델링실측사양속성값
+USING (SELECT #G_MANDT# AS MANDT -- 클라이언트
+             ,#WSUVPRH#   AS SUVPRH -- 실측사양
+             ,#SUVATTR#   AS SUVATTR -- 실측사양속성
+             , (SELECT COALESCE(MAX(INORDER),0) + 1 
+             FROM SAPHEE.ZPST1133 
+            WHERE MANDT = #G_MANDT#
+              AND SUVPRH = #WSUVPRH#
+              AND SUVATTR = #SUVATTR#) AS INORDER
+             , COALESCE(CAST(CAST(#INORDER# AS VARCHAR(5)) AS SMALLINT) ,0) AS INORDER2
+         FROM SYSIBM.SYSDUMMY1) Y
+             
+   ON X.MANDT = Y.MANDT
+  AND X.SUVPRH = Y.SUVPRH
+  AND X.SUVATTR = Y.SUVATTR
+  AND X.INORDER = Y.INORDER
+ WHEN MATCHED THEN
+      UPDATE SET INORDER  = Y.INORDER2           -- 입력순번
+                ,SUVPRD =#SUVPRD#          -- 실측 사양값
+                ,SUVATTRID  =#SUVATTRID#           -- 실측사양속성ID
+                ,SUVATTRPRD =#SUVATTRPRD#     --- 실측사양속성값
+                ,SUVATTRNM =#SUVATTRNM#       -- 실측사양속성값 명
+                ,CALLFUNC =#CALLFUNC#
+                ,AEDAT  = HEX(CURRENT DATE) -- 변경일
+                ,AEZET  = HEX(CURRENT TIME) -- 최종변경시간
+                ,AENAM  = #G_USER_NAME#     -- 오브젝트 변경자 이름      
+ WHEN NOT MATCHED THEN
+  INSERT (MANDT  -- 클라이언트
+         ,SUVPRH  -- 실측사양
+         ,SUVATTR -- 실측사양속성값
+         ,INORDER  -- 입력순번
+         ,SUVPRD  -- 실측사양값
+         ,SUVATTRID  -- 실측사양속성ID
+         ,SUVATTRPRD -- 실측사양속성값
+         ,SUVATTRNM -- 실측사양속성명
+         ,CALLFUNC  -- 호출 함수명
+         ,ERDAT  -- 입력 시간         
+         ,ERZET  -- 입력 시간
+         ,ERNAM  -- 오브젝트 생성자 이름
+         ,AEDAT  -- 변경일
+         ,AEZET  -- 최종변경시간
+         ,AENAM -- 오브젝트 변경자 이름         
+         ) 
+  VALUES (#G_MANDT#
+         ,#WSUVPRH#  -- 실측사양
+         ,#SUVATTR# -- 실측사양속성값
+         ,Y.INORDER           -- 입력순번
+		 ,#SUVPRD#   -- 실측사양값
+         ,#SUVATTRID#    -- 실측사양속성ID
+         ,#SUVATTRPRD#  -- 실측사양속성값
+         ,#SUVATTRNM#  -- 실측사양속성명
+         ,#CALLFUNC#   -- 호출 함수명
+         ,HEX(CURRENT DATE)
+         ,HEX(CURRENT TIME)
+         ,#G_USER_NAME#
+         ,HEX(CURRENT DATE)
+         ,HEX(CURRENT TIME)
+         ,#G_USER_NAME#         
+         )
+    </statement>
+	<input default-name="ds_list">
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

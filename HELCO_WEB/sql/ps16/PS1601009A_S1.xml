@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[PS1601009A_S1]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	
+SELECT E.PAPR_DT
+     , L.TEAM_NM AS TEMNM
+     , L.ZZACTSS_NM 
+     , E.LIFNR  
+     , E.LIFNRNM
+     , E.CNT
+     , E.TUIP_CHKA
+     , E.SAYU_NM
+     , E.POSI  
+     , E.PERNM  
+     , E.HOGI 
+     , E.ZSITE_NM
+     , E.ATYPE 
+     , E.SPEC 
+     , E.M_MH  
+     , E.A_MH  
+     , E.N_MH  
+     , E.MH_SUM
+     , E.DAY_R  
+     , E.SUM_R
+     , E.ZZCOMP2
+  FROM (
+      SELECT A.MANDT
+           , A.INP_DT AS PAPR_DT
+           , A.LIFNR  
+           , L.NAME1 AS LIFNRNM
+           , CASE WHEN ( a.tuip_chka = 'X' OR (a.tuip_chkb = 'X' AND a.sayu = 'H' AND a.sayu = 'J' AND a.sayu = 'F') ) THEN  1 ELSE 0  END  AS CNT
+           , CASE WHEN ( a.tuip_chka = 'X' OR (a.tuip_chkb = 'X' AND a.sayu = 'H' AND a.sayu = 'J' AND a.sayu = 'F') )  THEN  '투입' ELSE CASE WHEN A.TUIP_CHKB = 'X' THEN  '미투입' ELSE '' END  END AS TUIP_CHKA
+           , CASE WHEN A.TUIP_CHKB = 'X'  
+                  THEN (SELECT DISTINCT CODE_NM  
+                      FROM SAPHEE.ZPSTW0303
+                     WHERE CGBN = '001'
+                       AND CODE = A.SAYU) 
+                  ELSE '' END AS SAYU_NM
+           , CASE WHEN  S.POSIC = 'X' THEN '대표' WHEN S.POSIT = 'X' THEN '팀장' WHEN S.POSIE = 'X' THEN '사원' ELSE CASE WHEN  P.POSIC = 'X' THEN '대표' WHEN P.POSIT = 'X' THEN '팀장' WHEN P.POSIE = 'X' THEN '사원' ELSE '' END END  AS  POSI  --직책
+           , CASE WHEN S.NAMEE IS NOT NULL THEN S.NAMEE ELSE P.NAMEE END  AS PERNM  
+           , C.POSID AS HOGI --호기
+           , (SELECT M.ZSITE_NM FROM SAPHEE.ZMASTER01 M WHERE M.MANDT = C.MANDT AND M.POSID = C.PSPID) ZSITE_NM
+           ,M02.ZSPEC1 AS ATYPE 
+           ,M02.ZSPEC2 AS SPEC 
+           , C.M_MH  -- 오전투입 M/H
+           , C.A_MH  -- 오후투입 M/H
+           , C.N_MH  -- 야간투입 M/H
+           , (C.M_MH+C.A_MH+C.N_MH) AS MH_SUM
+           , C.DAY_R  -- 당일 공정율 합계
+           , C.DAY_R + C.BEFORE_R  AS SUM_R-- 누적율 합계
+           , INTEGER(RIGHT(LAST_DAY( CAST(LEFT(A.INP_DT,4)||'-'||substr(A.INP_DT,5,2)||'-'||'01' AS DATE)),2)) AS  ZZCOMP2
+        FROM SAPHEE.ZPSTW0301 AS A
+        LEFT OUTER JOIN SAPHEE.ZPSTW0302 AS C
+                     ON A.INP_DT = C.INP_DT
+                    AND A.LIFNR = C.LIFNR
+                    AND A.PERNO = C.PERNO
+             INNER JOIN SAPHEE.ZMASTER02 M02 
+                     ON M02.MANDT = C.MANDT  
+                    AND M02.POSID = C.PSPID 
+                    AND M02.POSID_1 =  C.POSID
+             LEFT OUTER JOIN SAPHEE.LFA1 AS L
+                          ON A.LIFNR = L.LIFNR
+             LEFT OUTER JOIN SAPHEE.ZPST0001 S 
+                     ON S.MANDT=A.MANDT 
+                    AND S.LIFNR=A.LIFNR 
+                    AND S.PERNO=A.PERNO 
+                    AND S.GBN = 'A'
+                    AND S.TYPE = '1'
+            LEFT OUTER JOIN SAPHEE.ZPST0138 P
+                         ON P.MANDT=A.MANDT 
+                        AND P.LIFNR=A.LIFNR 
+                        AND P.PERNO=A.PERNO 
+        WHERE A.MANDT = #G_MANDT#  
+          AND substr(a.inp_dt,1,6)  BETWEEN #YYYYMMF#  AND #YYYYMMT#
+          <isNotNull col="ZTEMNO">
+          AND A.TMCD = #ZTEMNO#
+          </isNotNull>
+          <isNotNull col="ZZLIFNR">
+          AND A.LIFNR = #ZZLIFNR#      
+          </isNotNull>
+          <isNotNull col="CHK_GBN">
+          AND  M02.ZZGUBUN = #CHK_GBN#
+          </isNotNull>      
+       ORDER BY  M02.ZZACTSS, L.NAME1,A.PERNO, a.inp_dt
+    ) AS E
+    INNER JOIN SAPHEE.ZPST0034 AS C 
+            ON E.MANDT = C.MANDT 
+           AND E.LIFNR = C.LIFNR 
+           AND C.GBN = 'A' 
+           AND (C.SO = 'X' OR C.SO3 = 'X')
+    LEFT OUTER JOIN SAPHEE.ZWBT010 W
+                 ON E.MANDT = W.MANDT
+                AND E.LIFNR = W.LIFNR
+    INNER JOIN  
+    (
+        SELECT MANDT
+             , DTEXT3 AS TEAM_CD     
+             , DTEXT4 AS TEAM_NM     
+             , CODE2 AS ZZACTSS_CD   
+             , CTEXT2 AS ZZACTSS_NM  
+      FROM SAPHEE.ZLCODE N 
+       WHERE N.CODE1 = 'PS003' AND N.DTEXT3  <![CDATA[ <> ]]>  '' 
+         AND N.LANG = 'ko' 
+     ) L ON W.MANDT = L.MANDT
+        AND W.ZZACTSS = L.ZZACTSS_CD
+     WHERE W.MANDT = #G_MANDT# 
+       AND (W.ZZACTSS IS NOT NULL OR W.ZZACTSS != '' OR W.ZZACTSS != ' ')
+       AND C.SO5 <![CDATA[<>]]> 'X'
+        <isNotNull col="CHK_GBN">
+       <isEqual col="CHK_GBN" value="10">
+       AND (C.EL_INDC = 'X' OR (C.EL_INDC = 'X' AND C.ES_INDC = 'X')) AND E.LIFNR  <![CDATA[  <> ]]> '0000008001'
+       </isEqual>
+       </isNotNull>
+       <isNotNull col="CHK_GBN">
+       <isEqual col="CHK_GBN" value="11">
+       AND (C.ES_INDC = 'X' OR (C.ES_INDC = 'X' AND C.ES_INDC = 'X')) AND E.LIFNR  <![CDATA[  <> ]]> '0000008001'
+       </isEqual>
+       </isNotNull>
+       <isNotNull col="TEMNO">
+       AND W.ZZACTSS IN ( SELECT CODE2 FROM SAPHEE.ZLCODE  WHERE MANDT = E.MANDT AND CODE1 = 'PS003' AND LANG = 'ko' AND DTEXT3 = #TEMNO# )
+       </isNotNull>
+       <isNotNull col="ZZACTSS">
+       AND W.ZZACTSS = #ZZACTSS#
+       </isNotNull>
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+
+	<output default-name="ds_list">
+	</output>
+
+</query>

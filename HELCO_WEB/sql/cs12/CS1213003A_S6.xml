@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+<![CDATA[
+SELECT 
+         MAX(ARA_NM   ) AS ARA_NM   
+       , MAX(BSU_NM   ) AS BSU_NM   
+       , MAX(TEM_NM   ) AS TEM_NM   
+       , MAX(ARA      ) AS ARA      
+       , MAX(BSU      ) AS BSU      
+       , MAX(GBN1     ) AS GBN1     
+       , MAX(MON      ) AS MON      
+       , MAX(UPN      ) AS UPN     
+       , MAX(PJT      ) AS PJT       
+       , MAX(ZSITE_NM ) AS ZSITE_NM 
+       , SUM(CNT      ) AS CNT      
+       , MAX(ADT      ) AS ADT      
+       , MAX(YDT      ) AS YDT      
+       , MAX(UGS      ) AS UGS      
+       , MAX(UMR      ) AS UMR      
+       , MAX(YON      ) AS YON      
+       , MAX(KND      ) AS KND      
+       , SUM(TOT      ) AS TOT      
+       , SUM(YMT      ) AS YMT      
+       , SUM(HMT      ) AS HMT      
+       , SUM(DMT      ) AS DMT      
+       , MAX(AOT      ) AS AOT      
+       , MAX(MON||SUBSTR(YDT,7,2))   AS YDT_131  --청구계획일 = 기준년월 + 유상개시일자
+       , SUM(TOT      ) AS AMT_131     
+       , 0 AS INT   
+       ,MAX(SAV_D     ) AS SAV_D
+
+  FROM (
+	         SELECT 
+	                SAPHEE.CODE_CONV(#G_MANDT#,'CS115',MAX(A.ARA))         ARA_NM   --지역                       
+	               ,SAPHEE.GET_VENDER_N_NAME(#G_MANDT#,MAX(A.BSU))         BSU_NM   --협력사                       
+	               ,SAPHEE.CODE_CONV(#G_MANDT#,'VKGRP',MAX(A.TEM))         TEM_NM   --팀명
+	               ,MAX(A.ARA)                                           ARA
+	               ,MAX(A.BSU)                                           BSU                     
+	               ,MAX(A.GBN)                                           GBN1                                   
+	               ,SUBSTR(#FYM#,1,6)                                    MON                                   
+	               ,A.UPN                                                UPN                                     
+	               ,A.GNO                                                GNO                                   
+	               ,A.PJT                                                PJT                                   
+	               ,A.HNO                                                HNO                                 
+	               ,MAX(A.ZSITE_NM)                                      ZSITE_NM --현장명               
+	               ,1                                                    CNT      --대수                      
+	               ,MAX(A.ADT)                                           ADT      --계약승인일                       
+	               ,MAX(A.YDT)                                           YDT      --계약개시일                       
+	               ,MAX(A.UGS)                                           UGS      --유상개시일                        
+	               ,MAX(A.UMR)                                           UMR      --만료일            
+	               ,MAX(A.YON)                                           YON      --계약개월수                 
+	               ,MAX(A.KND)                                           KND      --계약상품                    
+	               ,VALUE(MAX(A.YMT+A.HMT+A.DMT),0)                      TOT      --계약금액                   
+	               ,VALUE(MAX(A.YMT),0)                                  YMT      --점검료                     
+	               ,VALUE(MAX(A.HMT),0)                                  HMT      --점검료                     
+	               ,VALUE(MAX(A.DMT),0)                                  DMT      --점검료                     
+	               ,''                                                   AOT      --평균점검료 = 계약금액/대수      
+	               ,MAX(SAV_D)                                           SAV_D
+	         FROM (
+	                 SELECT CS113A.MANDT
+	                       ,CS111.ARA          ARA 
+	                       ,CS111.BSU          BSU
+	                       ,ZW010H.VKGRP       TEM 
+	                       ,CS111.BPM          BPM 
+	                       ,CASE CS113A.CS113_STS WHEN '유상일반만료' THEN 'RENEWAL'
+	                                              WHEN '갱신펜딩실패' THEN 'RENEWAL'
+	                                              ELSE 'CONVERSION' 
+	                         END GBN
+	                       ,'' ADT 
+	                       ,CS113A.CS113_USD YDT 
+	                       ,CS113A.CS113_USD UGS 
+	                       ,CS113A.CS113_UMR UMR 
+	                       ,''               UPN 
+	                       ,''               CST 
+	                       ,''               GNO
+	                       ,CS113A.CS113_PJT PJT
+	                       ,CS113A.CS113_HNO HNO 
+	                       ,ZMA01F.ZSITE_NM  ZSITE_NM
+	                       ,CS113A.CS113_YON YON 
+	                       ,CASE CS113A.CS113_YBN WHEN '1' THEN 'FM'
+	                                              ELSE 'POG' 
+	                         END KND
+	                       ,CASE CS113A.CS113_HYN WHEN '1' THEN 'Y'
+	                                              ELSE '' 
+	                         END HYN
+	                       ,CS113A.CS113_YMT YMT
+	                       ,CS113A.CS113_HMT HMT
+	                       ,0                DMT
+	                       ,CS113A.CS113_MDT SAV_D --저장일자 
+	                     
+	                      
+	          FROM SAPHEE.ZCST113 CS113A 
+	                                     LEFT OUTER JOIN SAPHEE.ZCST111 CS111
+	                                             ON CS113A.MANDT = CS111.MANDT
+	                                            AND CS113A.CS113_PJT = CS111.PJT
+	                                            AND CS113A.CS113_HNO = CS111.HNO
+	                                            
+	                                     LEFT OUTER JOIN SAPHEE.ZWBT010 ZW010H
+	                                             ON CS111.MANDT = ZW010H.MANDT
+	                                            AND CS111.BSU = ZW010H.LGORT
+	                                     
+	                                     LEFT OUTER JOIN SAPHEE.ZMASTER01 ZMA01F
+	                                                  ON CS113A.MANDT = ZMA01F.MANDT
+	                                                 AND CS113A.CS113_PJT = ZMA01F.POSID
+	                                     
+	                                     LEFT OUTER JOIN SAPHEE.ZCST126 CS126
+	                                                  ON CS113A.MANDT = CS126.MANDT
+	                                                 AND CS113A.CS113_PJT = CS126.CS126_PJT
+	                                                 AND CS113A.CS113_HNO = CS126.CS126_HNO
+													                         AND CS126.CS126_PST = 'A6'
+													                         AND CS126.CS126_DDT = ''
+	                                                 AND CS113A.CS113_YDT <= CS126.CS126_USD
+	                                                 	
+	                                     INNER JOIN SAPHEE.ZCST620 CS620
+	                                                  ON CS113A.MANDT = CS620.MANDT
+	                                                 AND CS113A.CS113_PJT = CS620.CS620_PJT
+	                                                 AND CS113A.CS113_HNO = CS620.CS620_HNO
+	                                            
+	                                            
+	                                
+			
+			 WHERE 1=1
+				AND CS113A.MANDT = #G_MANDT#
+				AND SUBSTR(CS113A.CS113_HNO,1,1) NOT IN ('J','G')
+				AND CS113A.CS113_USE = 'Y'
+				AND CS113A.CS113_UMR >= #FYM#
+				AND CS113A.CS113_USD <= #TYM#
+				AND CS126.MANDT IS NULL
+				AND CS111.HST NOT IN ('D','F')
+		]]>			
+			<isNotNull col="PJT">
+	           AND CS113A.CS113_PJT  = #PJT#
+			</isNotNull>	
+			<isNotNull col="ARA">
+	           AND CS111.ARA  = #ARA#
+			</isNotNull>
+			<isNotNull col="BSU">
+	           AND CS111.BSU = #BSU#
+			</isNotNull>
+			<isNotNull col="BPM">
+	           AND CS111.BPM = #BPM#
+			</isNotNull>
+			<isNotNull col="TEM">
+	           AND ZW010H.VKGRP = #TEM#
+			</isNotNull>
+			<isNull col="TEM">
+			 	<isNotNull col="DPT">
+				   AND ZW010H.VKGRP IN (SELECT CODE2 AS CODE
+				                           FROM SAPHEE.ZLCODE
+				                         WHERE MANDT = #G_MANDT#
+				                             AND LANG  = #G_LANG# 
+				                             AND CODE1 = 'VKGRP'
+				                             AND DTEXT1 = #DPT#)
+				</isNotNull>
+			 </isNull>
+	              ) AS A                              	     
+	                  
+	              
+	            WHERE 1=1
+	            
+	            GROUP BY A.UPN ,A.GNO ,A.PJT ,A.HNO
+    ) AS A
+	
+GROUP BY A.PJT 
+    
+ 	WITH UR	
+ 	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list2">
+	</output>
+</query>

@@ -1,0 +1,361 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form BKColor="user0" Height="22" Id="Coms003" Left="8" OnLoadCompleted="fn_OnLoadCompleted" PidAttrib="7" Title="거래선코드/명검색" Top="8" Ver="1.0" Width="84" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_list_buyr">
+				<Contents>
+					<colinfo id="BUYR_CD" size="256" type="STRING"/>
+					<colinfo id="BUYR_CD_DB" size="256" type="STRING"/>
+					<colinfo id="BUYR_NM" size="256" type="STRING"/>
+					<colinfo id="BUYR_NM_SORT" size="256" type="STRING"/>
+					<colinfo id="BUYR_ADDR" size="256" type="STRING"/>
+					<colinfo id="LAND1" size="256" type="STRING"/>
+					<colinfo id="LAND1_NM" size="256" type="STRING"/>
+					<colinfo id="ZAREA" size="256" type="STRING"/>
+					<colinfo id="ZAREA_NM" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_cond_buyr">
+				<Contents>
+					<colinfo id="BUYR_CD" size="10" type="STRING"/>
+					<colinfo id="BUYR_NM" size="105" type="STRING"/>
+					<record>
+						<BUYR_CD></BUYR_CD>
+						<BUYR_NM></BUYR_NM>
+					</record>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_error_buyr">
+				<Contents>
+					<colinfo id="IDX" size="256" type="STRING"/>
+					<colinfo id="ERRMSG" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Edit Border="Flat" Height="20" Id="ed_buyr_cd" LeftMargin="4" OnChanged="ed_buyr_cd_OnChanged" OnKeyDown="ed_buyr_cd_OnKeyDown" RightMargin="4" Style="sty_ipt_search" TabOrder="1" Width="62"></Edit>
+		<Button Appearance="FLAT" Height="18" Id="btn_popBuyr" ImageID="btn_icon_search" Left="63" OnClick="fn_OnClick_popup" TabOrder="2" Text="Button0" Top="1" Transparent="TRUE" Width="18"></Button>
+		<Edit Border="Flat" CheckLength="Byte" Height="20" Id="ed_buyr_nm" ImeMode="none" Left="81" LeftMargin="4" MaxLength="105" OnKeyDown="ed_buyr_nm_OnKeyDown" RightMargin="4" Style="sty_ipt_search" TabOrder="3" TabStop="FALSE" Width="128"></Edit>
+		<Static Height="16" Id="Static1" Left="24" TabOrder="4" Text="거래선코드/거래선명" Top="32" Width="146"></Static>
+	</Form>
+	<Script><![CDATA[/*
+ ******************************************************************************************
+ * 기      능   : 거래선DIV
+ * 작  성  자   : 구란이
+ * 작성  일자   : 2012.05.15
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    : V1.0 : 2012.09.03 : 신규
+ ******************************************************************************************
+ */ 
+#include "LIB::commons.js";	// 공통 스크립트 
+#include "LIB::nsfRequest.js";	// 공통 스크립트  /* GNY 추가 */
+#include "LIB::common_hdel.js";	// 공통 스크립트  /* GNY 추가 */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+ 
+// 필요 시 부모 화면에 선언되어야 할 폼변수
+var F_FRM_WIDTH = "";  	// 거래선코드 서브화면 폼 WIDTH
+var F_CD_WIDTH	= "";  	// 거래선코드 서브화면 코드 WIDTH
+var F_NM_WIDTH	= "";  	// 거래선코드 서브화면 코드명 WIDTH 
+	
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) 
+{ 
+	//SetTimer(100, 500);  
+	
+	
+	if ( F_BUYR_WIDTH 	 > 0 ) F_FRM_WIDTH = F_BUYR_WIDTH;  
+	if ( F_BUYR_CD_WIDTH > 0 ) F_CD_WIDTH  = F_BUYR_CD_WIDTH; 
+	if ( F_BUYR_NM_WIDTH > 0 ) F_NM_WIDTH  = F_BUYR_NM_WIDTH;  
+ 	
+	// 폼사이즈 및 컨트롤 사이즈/위치 재조정
+	if (F_FRM_WIDTH >0 || F_CD_WIDTH > 0 || F_NM_WIDTH > 0)
+	{
+		fn_rsetSize(F_FRM_WIDTH,F_CD_WIDTH,F_NM_WIDTH);   
+	}
+
+}
+/********************************************************************************
+* 기      능   : 공통코드가 조회된 후의 Callback 함수 
+********************************************************************************/
+function fn_completeInit(sCode, sDsObj, sCodeType) 
+{
+//	tit_createActionInfo();
+	
+//	SetTimer(100, 500);	
+}
+/********************************************************************************
+* 기      능   : form UnloadCompleted 
+********************************************************************************/
+function fn_OnUnloadCompleted(obj) 
+{
+
+} 
+// 거래선명에서 엔터키 누르면
+function ed_buyr_nm_OnKeyDown(obj,nChar,bShift,bCtrl, bAlt,LLParam,HLParam)
+{
+	if (nChar == 13)
+	{
+		// 입력된 조건이 없으면
+		if (length(trim(ed_buyr_cd.text)) == 0 && length(trim(ed_buyr_nm.text)) == 0)
+		{
+			fn_OnClick_popup(btn_popBuyr);  // 팝업화면 호출
+		}
+		else
+		{
+			fn_query_buyr();  				// 거래선조회 서비스 호출
+		}
+	}
+	else  // 다른 키 누르면 거래처코드 clear
+	{
+		//ed_buyr_cd.text = "";
+	}
+}   
+
+// 거래선코드에서 엔터키 누르면
+function ed_buyr_cd_OnKeyDown(obj,nChar,bShift,bCtrl, bAlt,LLParam,HLParam)
+{
+	if (nChar == 13)
+	{
+		// 입력된 조건이 없으면
+		// if (length(trim(ed_buyr_cd.text)) == 0 && length(trim(ed_buyr_nm.text)) == 0)
+		// {
+			// fn_OnClick_popup(btn_popBuyr);  // 팝업화면 호출
+		// }
+		// else
+		// {
+			// fn_query_buyr();  				// 거래선조회 서비스 호출
+		// }
+	}
+	else  // 다른 키 누르면 거래처명 clear
+	{ 
+		// Ctrl + C or trl + V
+		if (bCtrl == 1 ) 
+		{
+			trace("ed_buyr_cd_OnKeyDown.bCtrl : " + bCtrl);
+			trace("ed_buyr_cd_OnKeyDown.nChar : " + nChar);
+		}
+		else
+		{
+			trace("ed_buyr_cd_OnKeyDown.지운다");
+			ed_buyr_nm.text = "";  
+			btn_popBuyr.UserData = "";
+		}
+	}
+
+}
+ 
+
+/********************************************************************************
+* 기      능   : 거래선조회
+********************************************************************************/
+function fn_query_buyr() { 
+	
+	trace("fn_query_buyr()호출 start");
+	
+	gfn_clearMsgBar();   
+	
+	// 조회조건 항목오류검증
+	if (fn_valid_chk("query_buyr") == false)  return;
+	
+	// 조회조건 설정
+	if (fn_param_set("query_buyr") == false)  return;
+	
+	/* GNY 추가 */ 
+	trace("com0040/find 호출 start");
+	trace(ds_cond_buyr.SaveXML()); 	
+	
+	// 출력데이타셋 초기화
+	ds_list_buyr.ClearData();
+	ds_cond_buyr.ClearData();
+	ds_cond_buyr.AddRow();
+	ds_cond_buyr.SetColumn(ds_cond_buyr.row, "BUYR_CD", trim(ed_buyr_cd.text));
+	ds_cond_buyr.SetColumn(ds_cond_buyr.row, "BUYR_NM", trim(ed_buyr_nm.text));
+	
+	// 서비스호출
+	nsfRequest("query"									// srvId
+				, "com0040/find"						// url
+				, "ds_cond_buyr=ds_cond_buyr ds_list_buyr=ds_list_buyr"		// inDsList
+				, "ds_list_buyr=ds_list_buyr ds_error_buyr=ds_error_buyr"	// outDsList
+				, ""									// strParam
+				, "fn_afterQuery_buyr"					// CallBackFunc
+				);
+ 
+}
+
+/********************************************************************************
+* 기      능   : 거래선조회 Callback  
+********************************************************************************/
+function fn_afterQuery_buyr(errCode, errMsg) { 
+	
+	trace("######### fn_afterQuery_buyr");
+	
+	trace(ds_list_buyr.SaveXML());
+	 
+	// 호출결과처리
+	if(ds_error_buyr.rowcount() > 0) {  
+		trace("fn_Query FAILED!!! "
+		       + "[idx : " 			+ ds_error.GetColumn(0,"IDX") + "] "
+		       + "[error message : "+ ds_error.GetColumn(0,"ERRMSG") + "]"
+		       );		       
+	} else { 	    
+	
+		trace("############fn_Query_Buyr SUCCESS!!! [건수 : " + ds_list_buyr.RowCount() + "]"); 
+		
+		// 한 건 조회된 경우
+		if (ds_list_buyr.RowCount() = 1)	
+		{ 
+			// 조회해 온 값으로 거래선 검색정보 SET
+			ed_buyr_cd.Text = ds_list_buyr.GetColumn(ds_list_buyr.row, "BUYR_CD");
+			ed_buyr_nm.Text = ds_list_buyr.GetColumn(ds_list_buyr.row, "BUYR_NM");  
+			 
+			// 호출화면으로 결과값 전송
+			var arr = [
+						 ds_list_buyr.GetColumn(ds_list_buyr.row, "BUYR_CD")        // 거래선코드(6자리) 
+						,ds_list_buyr.GetColumn(ds_list_buyr.row, "BUYR_NM")        // 거래선명          
+						,ds_list_buyr.GetColumn(ds_list_buyr.row, "BUYR_CD_DB")     // 거래선코드(10자리)
+						,ds_list_buyr.GetColumn(ds_list_buyr.row, "BUYR_ADDR")      // 거래선주소        
+						,ds_list_buyr.GetColumn(ds_list_buyr.row, "LAND1")          // 국가코드          
+						,ds_list_buyr.GetColumn(ds_list_buyr.row, "LAND1_NM")       // 국가명            
+						,ds_list_buyr.GetColumn(ds_list_buyr.row, "ZAREA")          // 권역코드          
+						,ds_list_buyr.GetColumn(ds_list_buyr.row, "ZAREA_NM")       // 권역명            
+					  ];
+			parent.fn_buyer_set(arr); 
+		
+		}
+		// 다 건 조회된 경우	
+		else if (ds_list_buyr.RowCount() > 1)	
+		{
+			// 거래선조회 팝업화면  호출
+			fn_OnClick_popup(btn_popBuyr);  	
+		}  
+	}
+	
+	trace("########fn_afterQuery 호출 end");
+	
+}  
+ 
+
+function fn_OnClick_popup(obj)
+{
+	// 거래선조회 팝업화면 OPEN
+	var arg = "fa_buyr_cd= " 	+ quote(ed_buyr_cd.text)   // 거래코드
+			 + " fa_buyr_nm = " + quote(ed_buyr_nm.text)   // 거래선명
+			 ;
+	var arr = gfn_openPopUpUrlHdel("Com::Com0040.xml", true, arg );	 
+	
+	trace("arr : " + arr); 
+	
+	if (arr != null && arr != 0)
+	{  
+				
+		ed_buyr_cd.text 		= arr[0];	// 거래선코드(6자리)
+		ed_buyr_nm.text 		= arr[1];	// 거래선명 
+		
+		ed_buyr_nm.SetFocus(); 
+		
+		// 호출화면으로 결과값 전송
+		parent.fn_buyer_set(arr);
+	}
+}
+
+
+
+// 항목 오류 검증
+// pProcGb : 처리구분 (query:조회,excel:엑셀)
+function fn_valid_chk(pProcGb)
+{   
+ 	switch(pProcGb)
+	{  
+		case "query_buyr" :   // 거래선조회
+			
+			if (length(trim(ed_buyr_cd.text)) == 0 && length(trim(ed_buyr_nm.text)) == 0)
+			{
+				alert("입력된 자료가 없습니다.");
+				ed_buyr_nm.SetFocus();
+				return false;
+			}
+			break;	 
+			
+		default: 
+			break; 
+	}   
+
+	return true;
+}
+
+
+// INPUT PARAM SET
+// pProcGb : 처리구분 (query:조회)
+function fn_param_set(pProcGb)
+{ 
+	
+	// 거래선코드를 10자리로 채운다(앞에 '0' 붙이기)
+	//ed_buyr_cd.text = gfn_SetStrPad(ed_buyr_cd.text, "0", 10, "L"); 
+	
+	switch(pProcGb)
+	{  
+		case "query_buyr" :  // 거래선조회 시
+			break; 
+			
+		default: 
+			break; 
+	}   
+
+	return true;
+	
+}   
+ 
+
+// 폼사이즈 및 컨트롤 사이즈 재조정
+function fn_rsetSize(pFormWidth, pCdWidth, pNmWidth)
+{   
+	// trace("fn_rsetSize.pFormWidth : " + pFormWidth);
+	// trace("fn_rsetSize.pCdWidth  : " + pCdWidth);
+	// trace("fn_rsetSize.pNmWidth  : " + pNmWidth);
+	
+	this.ed_buyr_cd.text = "";
+	this.ed_buyr_nm.text = "";
+	
+ 	if ( pFormWidth > 0) this.Width 			= pFormWidth;
+ 	if ( pCdWidth   > 0) this.ed_buyr_cd.Width 	= pCdWidth;
+ 	if ( pNmWidth   > 0) this.ed_buyr_nm.Width 	= pNmWidth; 
+ 	
+	this.btn_popBuyr.left = this.ed_buyr_cd.left + this.ed_buyr_cd.Width + 1;
+	this.ed_buyr_nm.left  = this.btn_popBuyr.left + this.btn_popBuyr.Width + 1;  
+}
+ 
+// 거래선명 항목을 보여줄지 여부
+function fn_setShowBuyrNM(pYN)
+{
+	trace("fn_setShowBuyrNM.pYN : " + pYN);
+	
+	if (pYN == "Y")
+	{	
+		this.ed_buyr_nm.Visible = true;
+	}
+	else
+	{
+		this.ed_buyr_nm.Visible = false;
+	}
+}
+
+function ed_buyr_cd_OnChanged(obj,strText)
+{
+	// 입력된 조건이 없으면
+	if (length(trim(ed_buyr_cd.text)) == 0 && length(trim(ed_buyr_nm.text)) == 0)
+	{
+		//fn_OnClick_popup(btn_popBuyr);  // 팝업화면 호출
+	}
+	else
+	{
+		fn_query_buyr();  				// 거래선조회 서비스 호출
+	}
+}
+]]></Script>
+</Window>

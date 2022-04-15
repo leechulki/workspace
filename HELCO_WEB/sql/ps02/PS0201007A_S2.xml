@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+WITH TEMP AS (
+		SELECT M01.POSID
+		     , M01.ZSITE_NM
+		     , M01.VDATU
+		     , M02.ZZACTSS
+		     , MAX(M02.ZSPEC1) AS ZSPEC1
+		     , MAX(M02.ZSPEC2) AS ZSPEC2
+		     , (CASE WHEN M02.ZZACTSS = '21' OR M02.ZZACTSS = '10' OR M02.ZZACTSS = '08' -- 강북, 인천, 강원
+		             THEN '1'
+		             WHEN M02.ZZACTSS = '02' OR M02.ZZACTSS = '19' OR M02.ZZACTSS = '20'  -- 강남, 강서, 중부
+		             THEN '2'
+		             WHEN M02.ZZACTSS = '06' OR M02.ZZACTSS = '05' OR M02.ZZACTSS = '07' OR M02.ZZACTSS = '12' -- 대전, 광주, 전주, 제주
+		             THEN '3'
+		             WHEN M02.ZZACTSS = '03' OR M02.ZZACTSS = '04' OR M02.ZZACTSS = '11' OR M02.ZZACTSS = '09' -- 부산, 대구, 경남, 울산
+		             THEN '4'
+		             WHEN M02.ZZACTSS = '13' OR M02.ZZACTSS = '01' -- E/S, 직영
+		             THEN '5'
+		             ELSE '6' -- 리모델링
+		             END) AS GRUP
+		      , CASE WHEN M02.ZZACTSS = '21'
+		      		 THEN '01'
+		      		 WHEN M02.ZZACTSS = '10'
+		      		 THEN '02'
+		      		 WHEN M02.ZZACTSS = '08'
+		      		 THEN '03'
+		      		 WHEN M02.ZZACTSS = '02'
+		      		 THEN '01'
+		      		 WHEN M02.ZZACTSS = '19'
+		      		 THEN '02'
+		      		 WHEN M02.ZZACTSS = '20'
+		      		 THEN '03'
+		      		 WHEN M02.ZZACTSS = '06'
+		      		 THEN '01'
+		      		 WHEN M02.ZZACTSS = '05'
+		      		 THEN '02'
+		      		 WHEN M02.ZZACTSS = '07'
+		      		 THEN '03'
+		      		 WHEN M02.ZZACTSS = '12'
+		      		 THEN '04'
+		      		 WHEN M02.ZZACTSS = '03'
+		      		 THEN '01'
+		      		 WHEN M02.ZZACTSS = '04'
+		      		 THEN '02'
+		      		 WHEN M02.ZZACTSS = '11'
+		      		 THEN '03'
+		      		 WHEN M02.ZZACTSS = '09'
+		      		 THEN '04'
+		      		 WHEN M02.ZZACTSS = '13'
+		      		 THEN '01'
+		      		 WHEN M02.ZZACTSS = '01'
+		      		 THEN '02'
+		      		 ELSE '01'
+		      		 END AS SORT
+		     , (SELECT X.NAME1
+		           FROM SAPHEE.ZPST0034 X
+		          WHERE X.MANDT = MIN(M02.MANDT)
+		            AND X.LIFNR = MIN(M02.LIFNR)
+		           FETCH FIRST 1 ROW ONLY
+		           WITH UR) AS LIFNR_NM
+		      , MAX(M02.NAMET) AS NAMET
+		      , MAX(M02.NAMET2) AS NAMET2
+		      , G.TEXT30
+
+		      , T08.CHAAD_DA AS RECAD_DA
+		       ,
+		       	  VALUE((
+		       		SELECT DECODE(MIN(T.CDATE),'','00000000',MIN(T.CDATE))
+						  FROM (
+								SELECT X1.PSPID
+								     , X1.EXPLO AS CDATE
+					  		 	  FROM SAPHEE.ZPST0019 AS X1
+					  			 WHERE X1.MANDT = #G_MANDT#
+					  			   AND X1.GBN IN ('A','B','C','D')
+								UNION
+								SELECT X2.PSPID
+								     , X2.CDATE
+								  FROM SAPHEE.ZPSTPM01 AS X2
+								 WHERE X2.MANDT = #G_MANDT#
+								   AND X2.INPT = 'B'
+							   ) AS T
+					    WHERE T.PSPID = M01.POSID
+					    WITH UR
+		          ), '00000000') AS MIN_EXPLO
+		         
+		       , 
+		       	  VALUE((
+		       		SELECT DECODE(MAX(T.CDATE),'','00000000',MAX(T.CDATE))
+						  FROM (
+								SELECT X1.PSPID
+								     , X1.EXPLO AS CDATE
+					  		 	  FROM SAPHEE.ZPST0019 AS X1
+					  			 WHERE X1.MANDT = #G_MANDT#
+					  			   AND X1.GBN IN ('A','B','C','D')
+								UNION
+								SELECT X2.PSPID
+								     , X2.CDATE
+								  FROM SAPHEE.ZPSTPM01 AS X2
+								 WHERE X2.MANDT = #G_MANDT#
+								   AND X2.INPT = 'B'
+							   ) AS T
+					    WHERE T.PSPID = M01.POSID
+					    WITH UR
+		          ), '00000000') AS MAX_EXPLO
+
+				 , VALUE((
+				 		SELECT REMOV
+				 		  FROM SAPHEE.ZPST0021 X
+				 		 WHERE X.MANDT = MIN(M02.MANDT)
+				 		   AND X.PSPID = MIN(M02.POSID)
+				 		   AND X.POSID = MIN(M02.POSID_1)
+				 		   AND X.CLOSI = '1'
+				 		   AND X.BLOCK = '1'
+				 		   AND X.CHASU = '00'
+				 	 FETCH FIRST 1 ROW ONLY
+		        	 WITH UR
+				   ), MIN(M02.ZZSHIP1)) AS ORG_ZZSHIP1
+				 , DECODE(VALUE(MIN(M02.ZZSHIP1),'0000-00-00'),'','0000-00-00',INSERT(INSERT(MIN(M02.ZZSHIP1),5,0,'-'),8,0,'-')) AS ZZSHIP1
+				 , VALUE(MIN(M02.ZZSHIP1),'00000000') AS ZZSHIP1_TMP
+				 , DECODE(VALUE(MIN(M02.ZZDAT01),'00000000'),'','00000000',MIN(M02.ZZDAT01)) AS ZZDAT01
+			     , DECODE(VALUE(MIN(M02.ZZCHAKD),'00000000'),'','00000000',MIN(M02.ZZCHAKD)) AS ZZCHAKD
+				 
+				 , (
+				 		SELECT TXT01
+				 		  FROM SAPHEE.ZPST0021 X
+				 		 WHERE X.MANDT = MIN(M02.MANDT)
+				 		   AND X.PSPID = MIN(M02.POSID)
+				 		   AND X.POSID = MIN(M02.POSID_1)
+				 		   AND X.CLOSI = '1'
+				 		   AND X.BLOCK = '1'
+				 		   AND X.CHASU = (
+				 		   					SELECT MAX(X2.CHASU)
+				 		   					  FROM SAPHEE.ZPST0021 X2
+				 		   					 WHERE X.MANDT = X2.MANDT
+				 		   					   AND X.PSPID = X2.PSPID
+				 		   					   AND X.POSID = X2.POSID
+				 		   					   AND X.CLOSI = X2.CLOSI
+				 		   					   AND X.BLOCK = X2.BLOCK
+				 		                 )
+				 	 FETCH FIRST 1 ROW ONLY
+		        	 WITH UR
+				   ) AS CHG_SAYU
+				 , VALUE((
+		       		SELECT COUNT(1)
+						  FROM (
+								SELECT X1.PSPID, X1.EXPLO
+					  		 	  FROM SAPHEE.ZPST0019 AS X1
+					  			 WHERE X1.MANDT = #G_MANDT#
+					  			   AND X1.GBN = 'A'
+								MINUS
+								(
+									SELECT X1.PSPID, X1.EXPLO
+						  		 	  FROM SAPHEE.ZPST0019 AS X1
+						  			 WHERE X1.MANDT = #G_MANDT#
+						  			   AND X1.GBN = 'B'
+									UNION
+									SELECT X2.PSPID, X2.CDATE AS EXPLO
+									  FROM SAPHEE.ZPSTPM01 AS X2
+									 WHERE X2.MANDT = #G_MANDT#
+									   AND X2.INPT = 'B'
+								)
+							   ) AS T
+					    WHERE T.PSPID = M01.POSID
+					    WITH UR
+		          	), 0) AS PHONE_CNT
+				 , VALUE((
+		       		SELECT COUNT(1)
+						  FROM (
+								SELECT X1.PSPID, X1.EXPLO
+					  		 	  FROM SAPHEE.ZPST0019 AS X1
+					  			 WHERE X1.MANDT = #G_MANDT#
+					  			   AND X1.GBN = 'B'
+								UNION
+								SELECT X2.PSPID, X2.CDATE AS EXPLO
+								  FROM SAPHEE.ZPSTPM01 AS X2
+								 WHERE X2.MANDT = #G_MANDT#
+								   AND X2.INPT = 'B'
+							   ) AS T
+					    WHERE T.PSPID = M01.POSID
+					    WITH UR
+		          	), 0) AS VISIT_CNT
+		         , VALUE((
+		       		SELECT COUNT(1)
+						  FROM (
+								SELECT X1.PSPID, X1.EXPLO
+					  		 	  FROM SAPHEE.ZPST0019 AS X1
+					  			 WHERE X1.MANDT = #G_MANDT#
+					  			   AND X1.GBN NOT IN ('A','B')
+					  			   AND X1.GBN != ''
+					  			   AND X1.GBN IS NOT NULL
+								MINUS
+								(
+									SELECT X1.PSPID, X1.EXPLO
+						  		 	  FROM SAPHEE.ZPST0019 AS X1
+						  			 WHERE X1.MANDT = #G_MANDT#
+						  			   AND X1.GBN = 'B'
+									UNION
+									SELECT X2.PSPID, X2.CDATE AS EXPLO
+									  FROM SAPHEE.ZPSTPM01 AS X2
+									 WHERE X2.MANDT = #G_MANDT#
+									   AND X2.INPT = 'B'
+								)
+							   ) AS T
+					    WHERE T.PSPID = M01.POSID
+					    WITH UR
+		          	), 0) AS GITA_CNT
+		         
+				 , VALUE(DECODE(T08.KWMENGT,'',0,T08.KWMENGT),0) AS DAESU
+				 , (
+				 		SELECT EDATE
+					     FROM SAPHEE.ZSDT0029 X
+					    WHERE X.MANDT = M01.MANDT
+					      AND X.KIDNO = M01.POSID
+					      AND (X.ZCANYM = '000000' OR X.ZCANYM = '')
+					    ORDER BY X.BUDAT ASC
+					   FETCH FIRST 1 ROW ONLY
+		         	   WITH UR
+
+				   ) AS EDATE
+				  , MIN(MB1.T_DATE) AS MB_INIT_DT -- 최초실측일 (전송)
+				  , MAX(MB2.T_DATE) AS MB_RCNT_DT -- 최근실측일 (전송)
+				  , (
+				  		SELECT COUNT(1)
+						  FROM (
+								SELECT X.PSPID AS PJT
+								     , X.CDATE
+		   						     , ROW_NUMBER() OVER (PARTITION BY X.PSPID, X.CDATE ORDER BY X.PSPID, X.CDATE) AS RNK_PM01
+		   						 FROM SAPHEE.ZPSTPM01 AS X
+							    WHERE X.MANDT = #G_MANDT#
+								  AND X.INPT = 'B'
+								  AND X.DEL != 'X'
+							   ) AS T
+					    WHERE T.RNK_PM01 = '1'
+					      AND T.PJT = M01.POSID
+					    WITH UR
+				    ) AS MB_CNT
+				    , M01.CDATE
+		  FROM SAPHEE.ZMASTER01 M01
+		   LEFT OUTER JOIN SAPHEE.ZMASTER02 M02
+		                ON M01.MANDT = M02.MANDT
+		               AND M01.POSID = M02.POSID
+		   LEFT OUTER JOIN SAPHEE.J_1AACTT AS G
+					  ON M02.MANDT = G.MANDT
+				     AND G.SPRAS = '3'     	  
+					 AND M02.ZZACTSS = G.J_1AACT
+		   LEFT OUTER JOIN SAPHEE.ZPST0008 T08
+		               ON M01.MANDT = T08.MANDT
+		              AND M01.POSID = T08.POSID
+		   LEFT OUTER JOIN SAPHEE.ZPST11071MB AS MB1
+		                ON M01.MANDT = MB1.MANDT
+		               AND M01.POSID = MB1.PJT
+		               AND MB1.SEQNO = '1'
+		   LEFT OUTER JOIN SAPHEE.ZPST11071MB AS MB2
+		                ON M01.MANDT = MB2.MANDT
+		               AND M01.POSID = MB2.PJT
+
+		               
+		 WHERE M01.MANDT = #G_MANDT#
+		   AND M01.POSID NOT LIKE 'G%'
+		   AND M01.POSID NOT LIKE 'E%'
+		   AND M01.POSID NOT LIKE 'C%'
+		   AND M01.POSID NOT LIKE 'T%'
+		   AND M01.POSID NOT LIKE 'J%'
+		   AND M01.ZZACTSS <![CDATA[<>]]> ''
+		   AND M02.ZZGUBUN IN ('10', '11', '12', '13', '14', '20')
+   		   AND M02.PRART   IN ('01', '02', '11')
+   		   AND M02.TXT04 <![CDATA[<>]]> 'C'
+		   <isEqual col="RD_CHK" value="A">
+		   AND M02.ZZSHIP1 BETWEEN #FROM_DT# AND #TO_DT# -- 착공예정일
+		   </isEqual>
+		   <isEqual col="RD_CHK" value="B">
+		   AND M02.ZZSHIP1 BETWEEN #FR_DATE# AND #TO_DATE# -- 착공예정일
+		   </isEqual>
+		   <isNotEqual col="ZZACTSS" value="">
+		   AND M02.ZZACTSS = #ZZACTSS#
+		   </isNotEqual>
+		   <isNotEqual col="ZZPMNUM" value="">
+		   AND M02.TEMNO = #ZZPMNUM#
+		   </isNotEqual>
+
+		   GROUP BY
+		     M01.MANDT
+		     , M01.POSID
+		     , M01.ZSITE_NM
+		     , M01.VDATU
+		     , M02.ZZACTSS
+		     , G.TEXT30
+			 , T08.KWMENGT
+			 , T08.CHAAD_DA
+			 , M01.CDATE
+)
+
+	  		SELECT T.POSID
+			     , T.EDATE
+			     , T.ZSITE_NM
+			     , T.ZSPEC1
+			     , T.ZSPEC2
+			     , T.LIFNR_NM
+			     , T.NAMET2
+			     , T.TEXT30
+			     , T.NAMET
+				 , T.RECAD_DA
+			     , T.MAX_EXPLO
+			     , T.MIN_EXPLO
+				 , T.ORG_ZZSHIP1
+			     , T.ZZSHIP1
+			     , T.ZZSHIP1_TMP
+			     , (CASE WHEN VALUE(T.MAX_EXPLO,'') = '' OR T.MAX_EXPLO = '00000000'
+			            THEN 0
+			            WHEN VALUE(T.ZZSHIP1_TMP,'') = '' OR T.ZZSHIP1_TMP = '00000000'
+			            THEN 0
+			            ELSE TIMESTAMPDIFF( '16', CHAR(TIMESTAMP(VALUE(T.ZZSHIP1_TMP,'00000000')||'000000') - TIMESTAMP(VALUE((T.MAX_EXPLO),'00000000')||'000000'))) 
+				        END) AS RMN_DAY
+
+			     , T.CHG_SAYU
+				 , T.PHONE_CNT
+				 , T.VISIT_CNT
+				 , T.GITA_CNT
+				 , VALUE(T.PHONE_CNT,0) + VALUE(T.VISIT_CNT,0) + VALUE(T.GITA_CNT,0) AS TOT_CNT -- 현장답사 횟수
+				 , T.DAESU
+				 , T.MB_INIT_DT
+				 , T.MB_RCNT_DT
+				 , T.MB_CNT
+			     , T.CDATE
+			     , T.VDATU
+			  FROM TEMP T
+			 WHERE 1=1
+			   
+			 ORDER BY T.GRUP, T.SORT
+			WITH UR
+
+	
+ 
+
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

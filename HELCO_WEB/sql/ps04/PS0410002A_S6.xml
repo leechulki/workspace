@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT  '' AS CHK,
+              CASE WHEN B.STATE = '1' OR B.STATE = '2' OR B.STATE = '3'  THEN 'N'  ELSE 'Y' END AS FLAG, 
+              'N' AS DEL,
+              'U' AS CHECK,
+              B.PSPID, 
+             (SELECT X.ZSITE_NM FROM SAPHEE.ZMASTER01 AS X WHERE X.MANDT = B.MANDT  AND X.POSID  = B.PSPID) AS ZSITE_NM,
+         	B.HKONT,
+	B.GUBUN,
+	B.BLDAT,
+           --   B.BCDATE,
+	B.KOSTL,
+	B.INSDT,
+	--CASE WHEN B.CNFDT = 00000000 or B.CNFDT = '' THEN '' ELSE B.CNFDT END AS CNFDT,
+	B.CNSDT,
+	B.CNFDT ,
+(SELECT M12.NAME1 
+                   FROM SAPHEE.ZMMT012 AS M12 
+                  WHERE B.MANDT = M12.MANDT AND B.INSLFN = M12.LIFNR) AS INSLFN,
+	B.INAME1,
+              B.WRKPNO,
+	B.W_INST,
+	B.WRKLFN,
+	LF.NAME1 AS WRKLFN_NM,
+	B.STATE,
+	C.ITEMNO,
+	C.ITEMCD AS ITEMTX,
+              SUBSTR(VALUE(C.ITEMCD,'00000'),1,3)||'00' AS T_ITEMTX,
+	C.UNIT,
+	C.CAPA,
+	C.QUAN,
+	C.WRBTR *100 AS WRBTR,
+	0.0  AS  S_WRBTR,
+	'N' AS INSERT_INDC,
+              B.TWBTR *100  AS S_WRBTR2,
+           
+         	'' AS TEXT,
+              '' AS ITEMTX2,
+--           CASE WHEN  INT(B.SEQNO)  AS SEQNO,
+              INT(B.SEQNO) AS SEQNO,
+              '' AS SEQNO2 ,
+              B.FGBN,
+              VALUE((SELECT SUM(X.TWBTR) *100  FROM SAPHEE.ZPST0117 AS X WHERE B.MANDT = X.MANDT AND B.PSPID = X.PSPID AND B.HKONT = X.HKONT AND B.GUBUN = X.GUBUN), 0 ) AS SUM_TWBTR,
+		      VALUE(  CASE WHEN B.HKONT = '0053037040'
+		               THEN (SELECT SUM(M.EQME53+M.EQME55+M.EQME56+M.EQME57+M.EQME58+M.EQME59+M.EQME60+M.EQME61+M.EQME62+M.EQME63+M.EQME64+M.EQME65+M.EQME66+M.EQME67+M.EQME69+M.EQME70+M.EQME71+M.EQME72+M.EQME73+M.EQME74+M.EQME91) * 100                                       
+		                       FROM SAPHEE.ZCOBT300 AS M
+		            			INNER JOIN SAPHEE.ZMASTER02 AS XX
+		                         ON XX.MANDT   = M.MANDT
+		                        AND XX.POSID   = M.PSPID
+		                        AND XX.POSID_1 = M.POSID
+		                 	  WHERE XX.MANDT =  B.MANDT
+		                        AND XX.POSID  = B.PSPID
+		                        AND XX.ZZGUBUN IN ('10', '11', '12', '13', '14', '91', '92')
+		                        AND XX.PRART IN ('01', '11')
+			         			AND M.DIV = '5'             )
+			         	WHEN B.HKONT = '0053037050'
+			         	THEN (SELECT SUM(M.EQME54+M.EQME90) * 100                                       
+		                        FROM SAPHEE.ZCOBT300 AS M
+		            			INNER JOIN SAPHEE.ZMASTER02 AS XX
+		                         ON XX.MANDT   = M.MANDT
+		                         AND XX.POSID   = M.PSPID
+		                         AND XX.POSID_1 = M.POSID
+		                 	   WHERE XX.MANDT =  B.MANDT
+		                         AND XX.POSID  = B.PSPID
+		                         AND XX.ZZGUBUN IN ('10', '11', '12', '13', '14', '91', '92')
+		                         AND XX.PRART IN ('01', '11')
+			         			 AND M.DIV = '5'             
+			         	)
+			         	ELSE 0
+			         	END, 0)  AS NETWR,
+	    M.ZZACTSS
+			 
+			 
+       FROM SAPHEE.ZPST0117 AS B          
+        INNER JOIN  SAPHEE.ZPST0117L AS C
+                     ON B.MANDT = C.MANDT 
+                   AND B.PSPID = C.PSPID
+	               AND B.HKONT = C.HKONT
+	               AND B.GUBUN = C.GUBUN
+   	               AND B.SEQNO = C.SEQNO
+			  
+          LEFT OUTER JOIN SAPHEE.ZMASTER02 AS M
+	          ON M.MANDT = B.MANDT 
+	         AND M.POSID = B.PSPID
+	         AND M.POSID_1 = B.POSID
+		  LEFT OUTER JOIN SAPHEE.LFA1 AS LF
+			  ON B.MANDT  = LF.MANDT
+			 AND B.WRKLFN = LF.LIFNR
+WHERE B.MANDT = #G_MANDT#
+     AND B.PSPID = #PSPID#
+     AND B.HKONT IN ('0053037050' , '0053037040')
+     AND B.GUBUN = '1'	
+     AND B.W_INST = 'X'
+<isNull col="PSPID">
+ <isNotNull col="LIFNR">
+  AND B.WRKLFN = #LIFNR#
+  </isNotNull>
+   </isNull>
+ <isNotNull col="ZZACTSS">
+  AND M.ZZACTSS = #ZZACTSS#
+  </isNotNull>	
+ORDER BY B.PSPID, B.HKONT, B.SEQNO DESC  
+</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

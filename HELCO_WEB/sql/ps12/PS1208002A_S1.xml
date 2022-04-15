@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT T3.LIFNR
+            ,T3.NAME1 -- 협력사
+            ,T3.ZZACTSS--사무소
+            ,T3.ZZACTSS_NM --사무소
+            ,T3.CURQTY --합계
+            ,T3.CURQTY2 -- 보관
+            ,(T3.CURQTY - T3.CURQTY2) AS CURQTY3 --사용
+            ,T3.IPQTY2 --  안전차폐판신청 수량
+            ,T3.IPQTY3 -- 이달의 신청 수량
+            ,(T3.IPQTY2 - T3.IPQTY3) AS IPQTY4 --손실
+            ,CASE WHEN T3.IPQTY2 >0 THEN ((double(T3.IPQTY2) - double(T3.IPQTY3)) /double(T3.IPQTY2))*100  ELSE 0 END AS IPQTY5 --손실율
+--              ,'' BALJU
+-- 			 ,'' BALJU2
+-- 			 
+   
+            ,CASE WHEN T3.VALUE2 >0 THEN round((double(T3.IPQTY3) /double(T3.VALUE2) )*100,1) ELSE 0 END AS BALJU
+            ,CASE WHEN T3.VALUE >0 THEN round((double(T3.IPQTY2) /double(T3.VALUE) )*100,1) ELSE 0 END  AS BALJU2
+            ,CASE WHEN T3.ZZACTSS ='02'   OR  T3.ZZACTSS  ='08' OR T3.ZZACTSS ='13'    OR  T3.ZZACTSS ='10'  THEN '설치1부'
+                       WHEN T3.ZZACTSS ='20'   OR T3.ZZACTSS ='06' OR T3.ZZACTSS ='07' OR T3.ZZACTSS ='05'  THEN '설치2부'
+	         WHEN T3.ZZACTSS  ='04'   OR  T3.ZZACTSS ='09' OR  T3.ZZACTSS ='03' OR  T3.ZZACTSS ='11' OR  T3.ZZACTSS ='12'  THEN '설치3부'
+                          ELSE '' END AS DEPT
+            ,T3.EMNFR
+            ,T3.VALUE
+            ,T3.VALUE2
+FROM
+(SELECT     T2.MANDT
+                 ,T2.LIFNR
+                 ,T2.VALUE
+                 ,T2.VALUE2
+                 ,T2.ZZACTSS--사무소
+	   ,(SELECT CTEXT2 
+                       FROM SAPHEE.ZLCODE AS M 
+                      WHERE M.MANDT = T2.MANDT 
+                           AND M.CODE1 = 'PS003' 
+                           AND M.LANG = 'ko' 
+                           AND M.CODE2 = T2.ZZACTSS) AS ZZACTSS_NM --사무소 이름
+                  ,T2.EMNFR -- 팀 	
+                  ,T2.CURQTY2 --보관
+	     ,( SELECT  SUM(IPQTY)+SUM(BANQTY)+SUM(INQTY)-SUM(OUTQTY)-SUM(LOSQTY) AS CURQTY
+                         FROM (
+                               SELECT  MANDT
+                                            ,LIFNR
+                                            ,CASE WHEN PSPID='00000Z' THEN IPQTY-BANQTY-INQTY+OUTQTY+LOSQTY ELSE IPQTY END AS IPQTY
+                                            ,INQTY
+                                            ,OUTQTY
+                                            ,LOSQTY
+                                            ,BANQTY
+                                            ,PRTDATE
+
+                                   FROM SAPHEE.ZPST0141 P
+                                 WHERE MANDT = #G_MANDT# 
+		      --AND P.LIFNR =T2.LIFNR 
+                              ) AS T
+	         WHERE T.MANDT = T2.MANDT AND T.LIFNR =T2.LIFNR 
+                       GROUP BY MANDT,LIFNR
+                      ORDER BY MANDT,LIFNR
+                            )AS CURQTY --합계
+	 ,(SELECT SUM(IPQTY)  FROM SAPHEE.ZPST0159 AS B WHERE T2.MANDT = B.MANDT AND T2.LIFNR = B.LIFNR AND SUBSTR(B.MAKE_MM,1,4) = SUBSTR(#SUP_DTT#,1,4)) AS IPQTY2 --누계층수
+	 ,(SELECT SUM(IPQTY)  FROM SAPHEE.ZPST0159 AS B WHERE T2.MANDT = B.MANDT AND T2.LIFNR = B.LIFNR AND B.MAKE_MM = SUBSTR(#SUP_DTT#,1,6)) AS IPQTY3 --현월층수
+	 ,(SELECT NAME1 FROM SAPHEE.ZMMT012 AS M WHERE M.MANDT = T2.MANDT AND  M.LIFNR = T2.LIFNR) AS NAME1				
+ FROM
+(SELECT 
+        T.MANDT
+       ,T.LIFNR
+       ,T.VALUE
+       ,T.VALUE2
+       ,E.ACTSS AS ZZACTSS--사무소
+       ,E.EMNFR	AS EMNFR
+	--  ,(SELECT SUM(INQTY) 	  FROM SAPHEE.ZPST0141 AS P   WHERE P.MANDT = T.MANDT     AND P.LIFNR = T.LIFNR   GROUP BY MANDT, LIFNR) AS INQTY
+   --   ,(SELECT SUM(OUTQTY) 	  FROM SAPHEE.ZPST0141 AS P   WHERE P.MANDT = T.MANDT     AND P.LIFNR = T.LIFNR   GROUP BY MANDT, LIFNR) AS  OUTQTY
+  --     ,(SELECT SUM(LOSQTY) 	  FROM SAPHEE.ZPST0141 AS P   WHERE P.MANDT = T.MANDT     AND P.LIFNR = T.LIFNR   GROUP BY MANDT, LIFNR) AS LOSQTY
+	---    ,(SELECT SUM(BANQTY) 	  FROM SAPHEE.ZPST0141 AS P   WHERE P.MANDT = T.MANDT     AND P.LIFNR = T.LIFNR   GROUP BY MANDT, LIFNR) AS  BANQTY
+ ---
+       ,(SELECT CASE WHEN PSPID = '00000Z' THEN  IPQTY ELSE IPQTY-OUTQTY-LOSQTY   END AS  CURQTY2   FROM SAPHEE.ZPST0141 P WHERE P.MANDT = T.MANDT AND P.LIFNR =T.LIFNR AND P.PSPID =  '00000Z')
+	
+	
+
+
+FROM (
+        SELECT  DISTINCT
+                MASTER01A.MANDT
+
+               ,MASTER02B.LIFNR
+               ,MASTER02B.VALUE
+               ,MASTER02B.VALUE2
+			   
+        FROM  SAPHEE.ZMASTER01 AS MASTER01A
+        	  LEFT OUTER JOIN
+        	  ( SELECT  SD.MANDT
+        	                 ,SD.LIFNR
+        	                 ,SUM(CASE WHEN SD.ZZSHIP2  =  SUBSTR(#SUP_DTT#,1,4) THEN SD.VALUE ELSE 0 END ) AS VALUE
+		   ,SUM(CASE WHEN  SD.ZZSHIP3 = SUBSTR(#SUP_DTT#,1,6) THEN SD.VALUE ELSE 0 END ) AS VALUE2
+		
+                       FROM  (
+                                      SELECT  MASTER02A.MANDT
+            	                                     ,ROWNUMBER() OVER(PARTITION BY SD0005.HOGI  ORDER BY SD0005.HOGI , SD0005.SEQ DESC ) AS RN
+                                                    ,(CASE WHEN VALUE(SD0005.VALUE,'0') = '' THEN 0 ELSE  INT(VALUE(SD0005.VALUE,'0')) END) AS VALUE
+		   	          ,MASTER02A.LIFNR
+			          ,SUBSTR(MASTER02A.ZZSHIP1,1,4) AS ZZSHIP2
+			          ,SUBSTR(MASTER02A.ZZSHIP1,1,6) AS ZZSHIP3
+                                         FROM  SAPHEE.ZSDT0005 AS SD0005
+            	   	                       ,SAPHEE.ZMASTER02  MASTER02A
+                                        
+                                        WHERE SD0005.MANDT = MASTER02A.MANDT
+        		                AND MASTER02A.MANDT = #G_MANDT# 
+--        		                AND MASTER02A.POSID = '116277'
+                                       --  AND MASTER02A.LIFNR = '4028116560'
+		           --  AND LIFNR &lt;&gt; ' 0000008001'
+			
+		           -- AND E.LIFNR ='4028116560'
+--                       AND SUBSTR(MASTER02A.ZZSHIP1,1,6) = '201409'      
+                          AND MASTER02A.ZZGUBUN IN ('10','13')        -- 제품구분(10:EL,13:EL선박)
+                       AND MASTER02A.PRART IN ('01','11')          -- 프로젝트유형(01:승강기(국내),11:교체공사)
+					     AND MASTER02A.ZZCHAKG = 'X'
+                       AND SD0005.HOGI = MASTER02A.POSID_1
+                       AND SD0005.CHARACTERISTIC = 'EL_ASTQ'    -- 정지층수
+                      ) AS SD
+                WHERE SD.RN = 1
+                GROUP BY SD.MANDT,SD.LIFNR
+             ) AS MASTER02B
+        	 ON MASTER01A.MANDT = MASTER02B.MANDT
+          --  AND MASTER01A.POSID = MASTER02B.POSID
+        	  ,SAPHEE.ZMASTER02 AS MASTER02C
+        WHERE MASTER01A.MANDT = #G_MANDT# 
+      --  AND MASTER01A.POSID = '123555'
+     --   AND MASTER02A.ZZCHAKG = 'X'
+           AND MASTER01A.MANDT = MASTER02C.MANDT
+        --AND MASTER01A.POSID = MASTER02C.POSID
+			 
+    ) AS T
+	     LEFT OUTER  JOIN  SAPHEE.ZPST0141 B
+                      ON T.MANDT = B.MANDT
+                     AND T.LIFNR = B.LIFNR
+		   
+	     INNER JOIN SAPHEE.LFA1 AS E
+	         ON  T.MANDT = E.MANDT  
+	       AND T.LIFNR = E.LIFNR
+	       AND E.ACTSS in ('02','08','13','10','20','06','07','05','04','09','03','11','12')
+	    -- AND E.LIFNR ='1288621802'
+                 <isNotNull col="ZZLIFNR">
+                     AND  T.LIFNR = #ZZLIFNR#      
+                 </isNotNull>
+                 <isEqual col="SO_GBN2" value="1TEM">
+                  AND E.ACTSS  IN ('02','08','13','10') 
+                 </isEqual>
+ 
+                  <isEqual col="SO_GBN2" value="2TEM">
+                   AND E.ACTSS  IN ('20','06','07','05') 
+                 </isEqual>		 
+             
+                 <isEqual col="SO_GBN2" value="3TEM">
+	   AND E.ACTSS IN ('04','09','03','11','12') 
+                 </isEqual>		 
+                    
+                 <isEqual col="SO_GBN2" value="12TEM">
+                 AND E.ACTSS  IN ('02','08','13','20','06','07','05','10') 
+                </isEqual>	
+
+                <isEqual col="SO_GBN2" value="13TEM">
+                AND E.ACTSS  IN ('02','08','13','04','09','03','11','12','10') 
+                </isEqual>	
+	
+               <isEqual col="SO_GBN2" value="23TEM">
+               AND E.ACTSS  IN ('20','06','07','05','04','09','03','11','12') 
+                </isEqual>	
+
+               <isNotNull col="ZZACTSS">
+                AND E.ACTSS = #ZZACTSS#
+--team 제거
+--<isEqual col="ZZACTSS" value="02">
+--                 <isEqual col="SO_GBN" value="1TEM">
+--	       AND E.EMNFR = '1팀'
+--	   </isEqual>
+	   
+--                 <isEqual col="SO_GBN" value="2TEM">
+--	       AND E.EMNFR = '2팀'
+--	   </isEqual>		 
+--              </isEqual>
+            </isNotNull>
+			
+  GROUP BY T.MANDT,T.LIFNR,VALUE,VALUE2,EMNFR,ACTSS
+  ORDER BY MANDT,ZZACTSS ,LIFNR
+  
+  
+)AS T2
+) AS T3	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT   
+        FLAG
+       ,ROWNUM
+       ,POSID AS PSPID
+       ,POSID_1 AS POSID
+       ,YYYYMM
+       ,ZSITE_NM
+       ,ZZACTSS
+       ,LIFNR
+       ,XVALUE
+       ,BIGO
+       ,CASE WHEN SEP = 0 THEN RTEXT
+                 WHEN SEP > 0 THEN SUBSTR(RTEXT,1,SEP-1)
+        END VALUE
+       ,NAME1
+       ,ADDR
+       ,REP
+       ,CTEXT2
+       ,ZSPEC2
+       ,VALUE((SELECT X.BIGO 
+                              FROM SAPHEE.ZPST0100 AS X
+                            WHERE X.MANDT = #G_MANDT#
+                                 AND X.PSPID = POSID
+                                 AND X.POSID = POSID_1
+                             ORDER BY X.CHGNO DESC
+                             FETCH FIRST 1 ROWS ONLY), '' ) AS BIGO2
+ 	  , CHK
+      ,CHK2
+
+
+FROM (   
+       SELECT  'I' AS FLAG
+              ,ROWNUMBER() OVER(PARTITION BY B.ZZACTSS) AS ROWNUM
+              ,A.POSID
+              ,B.POSID_1
+              ,CAST(#YYYYMM# AS CHAR(10)) AS YYYYMM
+              ,A.ZSITE_NM
+              ,B.ZZACTSS
+              ,B.LIFNR AS LIFNR
+              ,'' AS XVALUE
+              ,'' AS BIGO
+              ,SUBSTR(B.ZSPEC2,LOCATE('-',SUBSTR(B.ZSPEC2, LOCATE( '-', B.ZSPEC2 )+1)) + LOCATE( '-', B.ZSPEC2 ) +1) RTEXT
+              ,LOCATE('/',SUBSTR(B.ZSPEC2,LOCATE('-',SUBSTR(B.ZSPEC2, LOCATE( '-', B.ZSPEC2 )+1)) + LOCATE( '-', B.ZSPEC2 ) +1)) SEP
+              ,MM.NAME1
+              ,TRIM(MM.MCOD3)||TRIM(MM.STRAS) AS ADDR
+              ,MM.J_1KFREPRE AS REP
+              ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE AS M WHERE M.MANDT = MM.MANDT AND CODE1 = 'PS003' AND M.LANG = #G_LANG# AND M.CODE2 = (SELECT ZZACTSS FROM SAPHEE.ZWBT010 AS W WHERE W.MANDT = MM.MANDT AND LIFNR = MM.LIFNR)) AS CTEXT2
+              ,B.ZSPEC2
+              ,B.SY_STAT
+    		  , CASE WHEN X.CHARACTERISTIC = 'EL_EHM' AND X.VALUE = 'CEMEN' THEN 'Y' ELSE 'N' END CHK
+			  ,(SELECT  VALUE  FROM SAPHEE.ZSDT0005 AS Z WHERE B.MANDT = Z.MANDT  AND B.POSID_1 = Z.HOGI AND Z.CHARACTERISTIC =  'EL_FDHWP'     AND Z.SEQ = ( SELECT MAX(F.SEQ)
+                                 FROM SAPHEE.ZSDT0005 AS F
+                              WHERE Z.MANDT = F.MANDT  AND X.HOGI = F.HOGI
+                                   AND Z.CHARACTERISTIC = F.CHARACTERISTIC)) AS CHK2
+
+       FROM SAPHEE.ZMASTER01 AS A, SAPHEE.ZMASTER02 AS B
+            LEFT OUTER JOIN SAPHEE.ZMMT012 AS MM
+            ON B.MANDT = MM.MANDT AND B.LIFNR = MM.LIFNR
+			 LEFT OUTER JOIN SAPHEE.ZSDT0005 AS X
+               ON  X.MANDT = B.MANDT   AND  X.HOGI = B.POSID_1
+       WHERE A.MANDT = #G_MANDT#
+       AND B.POSID = #PSPID#
+       AND B.MANDT = A.MANDT
+       AND B.POSID = A.POSID
+      -- AND B.LIFNR = #LIFNR#
+	   AND X.CHARACTERISTIC = 'EL_EHM' 
+       AND X.SEQ = ( SELECT MAX(D.SEQ)
+                                 FROM SAPHEE.ZSDT0005 AS D
+                              WHERE X.MANDT = D.MANDT  AND X.HOGI = D.HOGI
+                                   AND X.CHARACTERISTIC = D.CHARACTERISTIC)
+       AND B.POSID_1 LIKE '______L%'
+       ORDER BY B.ZZACTSS, A.POSID,  B.POSID_1
+) T
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

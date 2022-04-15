@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[부품요청서 작성용 상세정보 가져오기]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+
+	SELECT UPN,
+	       CST,
+	       SPT,
+	       KUNNR,
+	       KUNNRNM,
+	       PERNR,
+	       ED_PERNR,
+	       VKGRP,
+	       VKGRPNM,
+	       VKBUR,
+	       ADR1,
+	       ADR2,
+	       TEL,
+	       FAX,
+	       MBPN,
+	       '' AS VAT
+	  FROM
+	       (SELECT CS121.CS121_UPN AS UPN,
+	              CS121.CS121_CST AS CST,
+	              CS121.CS121_SPT AS SPT,
+	              CS121.KUNNR AS KUNNR,  
+	              CS121.CS121_NAM AS KUNNRNM
+	         FROM SAPHEE.ZCST121 AS CS121
+	        WHERE CS121_UPN = #UPN#
+	              AND CS121_CST = #CST#
+	       FETCH FIRST 1 ROWS ONLY
+	       ) AS A
+	       FULL JOIN
+	       (SELECT WB010.BSU_PM AS PERNR,
+	              SAPHEE.GET_BOSU_INWON(#G_MANDT#, WB010.BSU_PM) AS ED_PERNR,
+	              WB010.VKGRP AS VKGRP,
+	              SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, 'VKGRP', WB010.VKGRP) AS VKGRPNM,
+	              LC.CODE2 AS VKBUR,
+	              LC2.DTEXT1 AS ADR1,
+	              LC2.DTEXT2 AS ADR2,
+	              LC2.DTEXT3 AS TEL,
+	              LC2.DTEXT4 AS FAX,
+	              ZF.USERMBPN AS MBPN
+	         FROM SAPHEE.ZMMT005 AS MM005
+	          LEFT OUTER JOIN SAPHEE.ZWBT010 AS WB010
+	                          INNER JOIN SAPHEE.ZLCODE LC2 ON WB010.MANDT = LC2.MANDT
+	                                                         AND LC2.CODE1 = 'CSPRT'
+	                                                         AND LC2.CODE2 = WB010.VKGRP
+	              ON MM005.MANDT=WB010.MANDT
+	              AND MM005.LIFNR= WB010.LIFNR
+	          LEFT OUTER JOIN SAPHEE.ZLCODE AS LC
+	              ON MM005.MANDT = LC.MANDT
+	              AND LC.LANG = #G_LANG#
+	              AND LC.CODE1 = 'VKBUR'
+	              AND LC.DTEXT1 = SUBSTR(WB010.VKGRP, 1, 2)
+	          LEFT OUTER JOIN SAPHEE.ZLCODE AS GA
+	              ON GA.MANDT = MM005.MANDT
+	              AND GA.LANG = #G_LANG#
+	              AND GA.CODE1 = 'CS115'
+	          LEFT OUTER JOIN SAPHEE.ZUSERF AS ZF
+	              ON ZF.MANDT = MM005.MANDT
+	        WHERE MM005.MANDT = #G_MANDT#
+	              AND MM005.LIFNR = SAPHEE.GET_LIFNR(#G_MANDT#, #LGORT#)
+	              AND GA.CODE2 = SAPHEE.GET_AREA_ZWBT(#G_MANDT#, SAPHEE.GET_LGORT(#G_MANDT#, #LGORT#))
+	              AND ZF.USERNUMB = WB010.BSU_PM
+	       FETCH FIRST 1 ROWS ONLY
+	       ) AS B
+	       ON 1=1
+
+	FOR FETCH ONLY
+	WITH UR	       
+
+]]></statement>
+	<input default-name="ds_report_cond">
+	</input>
+	<output default-name="ds_pjt_det">
+	</output>
+</query>

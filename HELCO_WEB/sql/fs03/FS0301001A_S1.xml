@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[수주생성현황 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT  A.MANDT
+       ,A.ESCS_NUMB -- 견적원가번호
+       ,A.ESCS_NTIM -- 견적원가차수
+       ,A.ESMT_TAMT -- 견적총금액
+       ,A.NGTT_TAMT -- 네고총금액
+       ,A.ESMT_TAMT - B.ESMT_TAMT AS ESMT_TAMT_DIF  -- 견적 총금액 차이
+       ,A.NGTT_TAMT - B.NGTT_TAMT AS NGTT_TAMT_DIF  -- 네고 총금액 차이
+       ,(SELECT CODE_NAME FROM  SAPHEE.ZFST0100 WHERE MANDT = B.MANDT AND CODE_GROP = 'A02' AND CODE = B.ESMT_STAT) AS ESMT_STAT_NAME -- 견적서 상태
+       ,A.KUNNR   -- 고객사
+       ,C.NAME1 AS KUNNR_NAME -- 고객명
+       ,A.POST1 -- 프로젝트명
+       ,A.ORDR_TYPE -- 오더유형
+       ,(SELECT CODE_NAME FROM SAPHEE.ZFST0100 WHERE MANDT = B.MANDT AND CODE_GROP = 'A03' AND CODE = A.ORDR_TYPE) AS ORDR_TYPE_NAME -- 오더유형명
+       ,A.ESMT_CNTR -- 견적국가
+       ,(SELECT LANDX FROM SAPHEE.T005T WHERE MANDT = B.MANDT AND SPRAS = '3' AND LAND1 = A.ESMT_CNTR) AS ESMT_CNTR_NAME -- 견적국가명
+       ,B.ESMT_DATE -- 발행일
+       ,B.ESMT_NUMB -- 견적서번호
+       ,B.ESMT_STAT -- 견적서상태
+       ,B.ESMT_DATE -- 견적서발행일자
+       ,B.WAERK     -- 견적서통화단위
+       ,'' AS CHK
+FROM   SAPHEE.ZFST0200 AS A
+       INNER JOIN SAPHEE.ZFST0202 AS B
+       ON  A.MANDT = B.MANDT
+       AND A.ESCS_NUMB = B.ESCS_NUMB
+       AND A.ESCS_NTIM = B.ESCS_NTIM
+       LEFT OUTER JOIN SAPHEE.KNA1 AS C
+       ON   A.MANDT = C.MANDT 
+       AND  A.KUNNR = C.KUNNR
+       AND  C.KTOKD IN ( 'Z001', 'Z002', 'Z004' ) 
+WHERE  A.MANDT = #G_MANDT#
+<isNull col="ESCS_NUMB">
+    <isNotNull col="ESMT_DATE_FROM">
+      AND  B.ESMT_DATE BETWEEN #ESMT_DATE_FROM# AND #ESMT_DATE_TO#
+    </isNotNull>
+</isNull>
+<isNotNull col="ESCS_NUMB">
+  AND  A.ESCS_NUMB LIKE '%'||#ESCS_NUMB#||'%'
+</isNotNull>
+<isNotNull col="KUNNR">
+  AND  A.KUNNR = #KUNNR#
+</isNotNull>
+<isNotNull col="ESMT_NUMB">
+  AND  B.ESMT_NUMB LIKE '%'|| #ESMT_NUMB# || '%'
+</isNotNull>
+<isNotNull col="POST1">
+  AND  A.POST1 '%'|| #POST1# || '%'
+</isNotNull>
+<isNotNull col="ORDR_TYPE">
+  AND  A.ORDR_TYPE = #ORDR_TYPE#
+</isNotNull>
+<isNotNull col="ESMT_CNTR">
+  AND  A.ESMT_CNTR = #ESMT_CNTR#
+</isNotNull>
+  AND  A.ESCS_STAT = '050' -- 견적원가승인
+  AND  B.ESMT_STAT = '150' -- 견적승인
+  AND  A.OCNT_PDYN = ''    -- 수주여부가 공백인 견적번호 조회
+ORDER BY A.ESCS_NUMB DESC, A.ESCS_NTIM DESC, B.ESMT_NUMB DESC
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_zfst0202_list">
+    </output>
+</query>

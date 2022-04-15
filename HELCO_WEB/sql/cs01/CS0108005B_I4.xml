@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>insert</type>
+	<description><![CDATA[소모재 관리 - 반송시 쪽지 발송]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+INSERT INTO SAPHEE.ZWBMESG 
+       ( 
+           MANDT, 
+           MESGSEND, 
+           MESGNUMB, 
+           MESGACCP, 
+           MESGTITL, 
+           MESGDESC, 
+           MESGDATE, 
+           MESGTIME, 
+           MESGCHEK, 
+           MESGACDE, 
+           MESGSEDE
+       ) 
+SELECT B.MANDT, 
+       B.APNUM AS MESGSEND, 
+       (SELECT 
+              CASE 
+                  WHEN MAX(MESGNUMB) IS NULL 
+                  THEN 1 
+                  ELSE MAX(MESGNUMB) + 1 
+              END AS MAX_SEQ 
+         FROM SAPHEE.ZWBMESG 
+        WHERE MANDT = #G_MANDT# 
+              AND MESGSEND = B.APNUM 
+       ) AS MESGNUMB, 
+       A.APNUM AS MESGACCP, 
+       C.CD_NM || ' 문서번호[' || DOCNO || ']가 반송되었습니다.' AS MESGTITL, 
+       CAST( DECODE(LENGTH(B.APDESC),0, C.CD_NM || ' 문서번호[' || DOCNO || ']가 반송되었습니다.' , B.APDESC) as varchar(500)) AS MESGDESC, 
+       SUBSTR(SAPHEE.TO_DATETIME(),1,8) MESGDATE, 
+       SUBSTR(SAPHEE.TO_DATETIME(),9,6) MESGTIME, 
+       'N' MESGCHEK, 
+       'N' MESGACDE, 
+       'N' MESGSEDE 
+  FROM 
+       (
+       /*	기안자, 수신자	*/ 
+       SELECT DECODE(SUBSTR(APNUM,1,1),'H',SUBSTR(APNUM,2,LENGTH(APNUM)-1),APNUM) APNUM 
+         FROM SAPHEE.ZWBAP02 
+        WHERE MANDT = #G_MANDT# 
+              AND DOCNO = #DOCNO# 
+              AND DOCKIND = #DOCKIND# 
+              AND SEQSTAT IN ('3','6') 
+              AND SEQNO = '1' 
+           UNION  
+              
+       /*	작성자	부분.. 각 화면별 수정 해야 할 부분 2015.02.09	*/ 
+       SELECT CS660_MID AS APNUM 
+         FROM SAPHEE.ZCST660 
+        WHERE CS660_DNO = #DOCNO# 
+              AND CS660_PST = 'A2' 
+       ) A, 
+       (
+       /*	반송자 및 의견 가져오기	*/ 
+       SELECT DECODE(SUBSTR(APNUM,1,1),'H',SUBSTR(APNUM,2,LENGTH(APNUM)-1),APNUM) APNUM, 
+              APDESC, 
+              DOCNO,
+              MANDT 
+         FROM SAPHEE.ZWBAP02 
+        WHERE MANDT = #G_MANDT#
+              AND DOCNO = #DOCNO# 
+              AND DOCKIND = #DOCKIND#
+              AND SEQSTAT IN ('2','5') 
+       ) B, 
+       (SELECT CTEXT2 AS CD_NM 
+         FROM SAPHEE.ZLCODE 
+        WHERE MANDT='183' 
+              AND LANG = 'ko' 
+              AND CODE1 = 'WBAP_DOCKIND' 
+              AND CODE2 = #DOCKIND# 
+       ) C	]]></statement>
+	<input default-name="ds_list_0">
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT
+      A.MANDT     AS MANDT
+    , ''          AS FLAG
+    , A.DOCNO     AS DOCNO
+    , A.DOCKIND   AS DOCKIND
+    , A.APPGUBN   AS APPGUBN
+    , A.SEQNO     AS SEQNO
+    , A.SEQSTAT   AS SEQSTAT
+    , A.APDPT1    AS APDPT1
+    , A.APDPT1_N  AS APDPT1_N
+    , A.APNUM     AS APNUM
+    , A.APRNK     AS APRNK
+    , A.APIRUM    AS APIRUM
+    , A.APDATE    AS APDATE
+    , A.APTIM     AS APTIM
+    --, A.APDESC    AS APDESC
+    ,VALUE(CAST(A.APDESC AS VARCHAR(768)), '') AS APDESC
+    , CASE WHEN VALUE(D.UPN,'') > '' THEN VALUE(E.CS121_SPT,'') ELSE VALUE(C.ZSITE_NM,'') END AS SPT
+    , CASE WHEN VALUE(D.UPN,'') > '' THEN VALUE(E.CS121_UPN,'') ELSE VALUE(C.POSID,'') END AS PJT
+FROM SAPHEE.ZWBAP02 A
+            LEFT OUTER JOIN (
+                             SELECT
+                                    A.CS143_DOC DOC,
+                                    MAX(B.CS144_PJT) PJT
+                               FROM
+                                    SAPHEE.ZCST143 A,
+                                    SAPHEE.ZCST144 B
+                              WHERE
+                                    A.MANDT = #G_MANDT#
+                                AND A.MANDT = B.MANDT
+                                AND A.CS143_SEQ = B.CS144_SEQ
+                                AND A.CS143_DOC = #DOCNO#
+                             GROUP BY
+                                    A.CS143_DOC
+                            ) B ON B.DOC = A.DOCNO
+                            LEFT OUTER JOIN SAPHEE.ZMASTER01 C ON C.MANDT = #G_MANDT#
+                                                         AND C.POSID = B.PJT
+            LEFT OUTER JOIN (
+                             SELECT
+                                    A.CS143_DOC DOC,
+                                    MAX(B.CS144_UPN) UPN,
+                                    MAX(B.CS144_CST) CST
+                               FROM
+                                    SAPHEE.ZCST143 A,
+                                    SAPHEE.ZCST144 B
+                              WHERE
+                                    A.MANDT = #G_MANDT#
+                                AND A.MANDT = B.MANDT
+                                AND A.CS143_SEQ = B.CS144_SEQ
+                                AND A.CS143_DOC = #DOCNO#                               
+                             GROUP BY
+                                    A.CS143_DOC
+                            ) D ON D.DOC = A.DOCNO
+                            LEFT OUTER JOIN SAPHEE.ZCST121 E ON E.MANDT = #G_MANDT#
+                                                       AND E.CS121_UPN = D.UPN
+                                                       AND E.CS121_CST = D.CST
+                                                       AND D.UPN > ''
+   WHERE A.MANDT = #G_MANDT#
+   AND A.DOCNO = #DOCNO#
+   AND A.DOCKIND = #DOCKIND#
+
+ORDER BY A.MANDT, A.DOCNO, A.DOCKIND, A.APPGUBN, A.SEQNO DESC
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

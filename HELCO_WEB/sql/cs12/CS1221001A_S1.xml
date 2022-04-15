@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+-- 2019.04.17 프로젝트 번호를 입력하지 않고 조회시 무한루프 발생하는 경우가 있어 입력받도록 보완. 
+-- 2020.11.02 프로젝트 번호가 필수인데 번호 없이 SQL이 실행되는 X-Framework 버그인것 같음
+SELECT
+       '' CHK,
+       VALUE(Y.BSU_NM ,X.BSU_NM)   AS BSU_NM,
+       VALUE(Y.VKGRP  ,X.VKGRP)     AS VKGRP,
+       VALUE(Y.ARA_NM ,W.ARA_NM)   AS ARA_NM,
+       ZCD3.CTEXT2 AS DEPT_NO,
+       X.ZZPJT_ID,
+       CS121.CS121_CST,
+       X.BSTNK,
+       X.KUNNR,
+       X.KUNNT,
+       X.AUARTT,
+       X.BANKVN1,
+       X.BANKVN2,
+       X.ZACSTT,
+       ZCD2.DTEXT1 || ' ' || ZCD2.DTEXT2 AS ADDR, 
+       W.TEL,  
+       W.FAX,  
+       W.SGUSR,  
+       ZCD1.DTEXT1 AS MOB,
+       ZCD2.DTEXT5 AS ZIP2
+  FROM
+       (
+        SELECT
+               B.ABR_NM BSU_NM,
+               A.ZZPJT_ID,
+               A.BSTNK,
+               A.KUNNR,
+               A.KUNNT,
+               A.AUARTT,
+               A.BANKVN1,
+               A.BANKVN2,
+               A.ZACSTT,
+               B.LGORT,
+               B.BSU_PM,
+               B.VKGRP,
+               
+               B.VKGRP_CO
+        	FROM
+               (
+                SELECT
+                       PA.LIFNR,
+                       AK.ZZPJT_ID,
+                       AK.BSTNK,
+                       B.KUNNR,
+                       A1.NAME1 AS KUNNT,
+                       CASE B.AUART
+                            WHEN 'ZR11' THEN '정기보수'
+                            WHEN 'ZR12' THEN '부품판매'
+                            WHEN 'ZR13' THEN '수리공사'
+                            WHEN 'ZR14' THEN '유상공사'
+                            ELSE ''
+                       END AS AUARTT,
+                       B.BANKVN1,
+                       B.BANKVN2,
+                       CASE B.ZACST
+                            WHEN 'R' THEN '등록'
+                            WHEN 'A' THEN '할당'
+                            WHEN 'U' THEN '사용'
+                            ELSE ''
+                       END AS ZACSTT
+                  FROM
+                       (
+                        SELECT
+                               A.KUNNR,
+                               A.PSPID,
+                               A.AUART,
+                               A.ZACST,
+                               A.POSID,
+                               MAX(CASE A.BANKL WHEN '011' THEN A.BANKVN ELSE '' END) AS BANKVN1,
+                               MAX(CASE A.BANKL WHEN '088' THEN A.BANKVN ELSE '' END) AS BANKVN2
+                          FROM
+                               (
+                                SELECT
+                                       KUNNR,
+                                       PSPID,
+                                       AUART,
+                                       BANKL,
+                                       BANKVN,
+                                       ZACST,
+                                       ERDAT,
+                                       SDATE,
+                                       POSID
+                                  FROM
+                                       SAPHEE.ZFIT1071
+                                 WHERE
+                                       MANDT = #G_MANDT#
+                                   AND ZACST &lt;&gt; 'R'
+                                   AND SSGBN = '2'
+                      
+                        	         AND PSPID = #UPN# 
+                      
+                                   AND BANKL IN ('011','088')
+                                ORDER BY
+                                       BANKVN
+                               ) AS A
+                         GROUP BY
+                                A.KUNNR,
+                                A.PSPID,
+                                A.AUART,
+                                A.ZACST,
+                                A.POSID
+                       ) AS B LEFT OUTER JOIN SAPHEE.VBAK AS AK ON AK.MANDT = #G_MANDT#
+                                                               AND AK.ZZPJT_ID = B.POSID
+                                                               AND AK.ZZPJT_ID &lt;&gt; ''
+                              INNER JOIN SAPHEE.VBPA PA ON AK.MANDT = PA.MANDT
+                                                       AND AK.VBELN = PA.VBELN
+                                                       AND PA.PARVW = 'Z1'
+                              LEFT OUTER JOIN SAPHEE.KNA1 AS A1 ON AK.MANDT = A1.MANDT
+                                                               AND B.KUNNR = A1.KUNNR
+               ) A,
+               SAPHEE.ZWBT010 B
+         WHERE
+         	     B.MANDT = #G_MANDT#
+         	 AND A.LIFNR = B.LIFNR
+
+ 	         AND A.ZZPJT_ID LIKE #UPN# || '%'
+
+<isNotNull col="ARA">
+ 	         AND B.BSU_ARA = #ARA#
+</isNotNull>
+       ) X
+       LEFT OUTER JOIN
+       (
+        SELECT
+               A.UPN,
+               B.KUNNR,
+               C.ABR_NM BSU_NM,
+               C.LGORT,
+               C.BSU_PM,
+               C.VKGRP,
+               
+               C.VKGRP_CO,
+               
+               D.CTEXT2 AS ARA_NM
+          FROM
+               (
+                SELECT
+                       CS157_UPN UPN,
+                       CS157_CST CST,
+                       CS157_IGM IGM,
+                       CS157_CHA CHA,
+                       ROW_NUMBER() OVER(PARTITION BY CS157_UPN, CS157_CST ORDER BY CS157_IGM DESC) RNO
+                  FROM
+                       SAPHEE.ZCST157
+                 WHERE
+                       MANDT = #G_MANDT#
+                   AND CS157_GND IN ('C','D')
+        
+         	         AND CS157_UPN = #UPN# 
+        
+                GROUP BY
+                       CS157_UPN,
+                       CS157_CST,
+                       CS157_IGM,
+                       CS157_CHA
+               ) A 
+                    INNER JOIN SAPHEE.ZCST121 B
+                            ON B.MANDT = #G_MANDT#
+                           AND A.UPN = B.CS121_UPN
+                           AND A.CST = B.CS121_CST
+                    
+                    INNER JOIN SAPHEE.ZWBT010 C
+                            ON C.MANDT = #G_MANDT#
+                           AND A.CHA = C.LGORT
+                    
+                    LEFT OUTER JOIN SAPHEE.ZLCODE D
+                            ON D.MANDT = #G_MANDT#
+                           AND D.CODE1 = 'VKGRP'
+                           AND D.CODE2 = C.VKGRP
+                           AND D.LANG = #G_LANG#  -- PK값 누락으로 추가
+         WHERE
+               A.RNO = 1
+               
+       ) Y ON SUBSTR(X.ZZPJT_ID,1,6) = Y.UPN
+          AND X.KUNNR = Y.KUNNR
+          
+       LEFT OUTER JOIN
+       (
+        SELECT CTEXT2 ARA_NM
+              ,CASE WHEN CODE2  &lt; 'E5A' THEN '02-3670-0960'
+                    ELSE DTEXT3 
+               END    TEL
+              ,DTEXT4 FAX
+              ,DTEXT5 SGUSR
+              ,CODE2  VKGRP
+          FROM SAPHEE.ZLCODE A
+         WHERE A.MANDT = #G_MANDT#
+           AND A.CODE1 = 'CS181'
+           AND A.LANG = #G_LANG#  -- PK값 누락으로 추가
+        ) W ON W.VKGRP = X.VKGRP
+          
+       LEFT OUTER JOIN SAPHEE.ZLCODE ZCD1
+                    ON ZCD1.MANDT = #G_MANDT#
+                   AND ZCD1.CODE1 = 'CSSMS'
+                   AND ZCD1.CODE2 = X.VKGRP
+                   AND ZCD1.LANG = #G_LANG#  
+                      
+       LEFT OUTER JOIN SAPHEE.ZLCODE ZCD2
+                    ON ZCD2.MANDT = #G_MANDT#
+                   AND ZCD2.CODE1 = 'CSPRT'
+                   AND ZCD2.CODE2 = X.VKGRP
+                   AND ZCD2.LANG = #G_LANG#      
+          
+       LEFT OUTER JOIN SAPHEE.ZCST121 CS121
+                    ON CS121.MANDT = #G_MANDT#
+                   AND CS121.CS121_UPN = SUBSTR(X.ZZPJT_ID,1,6) 
+                   AND CS121.KUNNR = X.KUNNR
+                   AND CS121.CS121_CST != ''
+                      
+       LEFT OUTER JOIN SAPHEE.ZLCODE ZCD3
+                    ON ZCD3.MANDT = #G_MANDT#
+                   AND ZCD3.CODE1 = 'VKBUR'
+                   AND ZCD3.CODE2 = SUBSTR(X.VKGRP,1,2)||'00'
+                   AND ZCD3.LANG = #G_LANG#      
+        
+ WHERE 1=1
+<isNotNull col="BSU">
+ 	   AND CASE WHEN VALUE(Y.KUNNR,'') > '' THEN Y.LGORT ELSE X.LGORT END = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+ 	   AND CASE WHEN VALUE(Y.KUNNR,'') > '' THEN Y.BSU_PM ELSE X.BSU_PM END = #BPM#
+</isNotNull>
+<isNotNull col="TEM">
+ 	   AND ( 
+ 	          (CASE WHEN VALUE(Y.KUNNR,'') > '' THEN Y.VKGRP ELSE X.VKGRP END = #TEM#) OR
+ 	          (CASE WHEN VALUE(Y.KUNNR,'') > '' THEN Y.VKGRP_CO ELSE X.VKGRP_CO END = #TEM#) 
+ 	        )
+</isNotNull>
+ORDER BY
+       X.ZZPJT_ID
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="UPN" size="18" type="VARCHAR" description="" />
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

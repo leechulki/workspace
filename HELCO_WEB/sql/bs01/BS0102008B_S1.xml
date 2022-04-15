@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+       A.BS201_AYM || ' - ' || A.BS201_ASQ || '號' SNO,
+       A.BS201_DEV DEV,
+       A.BS201_PID PID,
+       A.BS201_SPT SPT,
+       A.BS201_GNM GNM,
+       D.EAM,
+       '일금 ' || SAPHEE.GET_NUM2STR(INT(D.EAM), 'KO') || ' 원정 (VAT 별도)' GAM,
+       SUBSTR(A.BS201_CDT,1,4) || '年 ' || SUBSTR(A.BS201_CDT,5,2) || '月 ' || SUBSTR(A.BS201_CDT,7,2) || '日' CDT,
+       CASE VALUE(B.DTEXT5,'')
+            WHEN 'B1' THEN '서울사무소 : '
+            WHEN 'B2' THEN '서울사무소 : '
+            WHEN 'B3' THEN '서울사무소 : '
+            WHEN 'B4' THEN '서울사무소 : '
+            WHEN 'B5' THEN '서울사무소 : '
+            WHEN 'B6' THEN '서울사무소 : '
+            WHEN 'B7' THEN '서울사무소 : '
+            WHEN 'B8' THEN '서울사무소 : '
+            WHEN 'B9' THEN '서울사무소 : '
+            WHEN 'C6' THEN '서울사무소 : '
+            WHEN 'C7' THEN '서울사무소 : '
+            WHEN 'C8' THEN '서울사무소 : '
+            WHEN 'C9' THEN '서울사무소 : '
+            WHEN 'E6' THEN '서울사무소 : '
+            WHEN 'G1' THEN '부산지사 : '
+            WHEN 'G2' THEN '대구지사 : '
+            WHEN 'G3' THEN '광주지사 : '
+            WHEN 'G4' THEN '대전지사 : '
+            WHEN 'G5' THEN '전주지사 : '
+            WHEN 'G6' THEN '강원지사 : '
+            WHEN 'G7' THEN '울산지사 : '
+            WHEN 'G8' THEN '인천지사 : '
+            WHEN 'G9' THEN '중부지사 : '
+            WHEN 'H1' THEN '경남지사 : '
+            WHEN 'H2' THEN '제주지사 : '
+            ELSE ''
+       END COM,
+       VALUE(B.DTEXT2,'') AD1,
+       VALUE(C.USERTELE,'') TEL,
+       VALUE(B.DTEXT4,'') FAX,
+       VALUE(C.USERMBPN,'') CEL,
+       VALUE(C.USERNAME,'') NAM,
+       CASE WHEN A.BS201_T01 > '' THEN '1) ' || A.BS201_T01 ELSE '' END T01,
+       CASE WHEN A.BS201_T02 > '' THEN '2) ' || A.BS201_T02 ELSE '' END T02,
+       CASE WHEN A.BS201_T03 > '' THEN '3) ' || A.BS201_T03 ELSE '' END T03,
+       CASE WHEN A.BS201_T04 > '' THEN '4) ' || A.BS201_T04 ELSE '' END T04,
+       CASE WHEN A.BS201_T05 > '' THEN '5) ' || A.BS201_T05 ELSE '' END T05,
+       A.BS201_FRT P01,
+       A.BS201_MRT P02,
+       A.BS201_LRT P03,
+       (SELECT CTEXT2 FROM SAPHEE.ZLCODE D WHERE D.MANDT = A.MANDT AND D.CODE1 = 'BS102' AND D.LANG = #G_LANG# AND D.CODE2 = A.BS201_FCD) C01,
+       (SELECT CTEXT2 FROM SAPHEE.ZLCODE D WHERE D.MANDT = A.MANDT AND D.CODE1 = 'BS102' AND D.LANG = #G_LANG# AND D.CODE2 = A.BS201_MCD) C02,
+       (SELECT CTEXT2 FROM SAPHEE.ZLCODE D WHERE D.MANDT = A.MANDT AND D.CODE1 = 'BS102' AND D.LANG = #G_LANG# AND D.CODE2 = A.BS201_LCD) C03,
+       SAPHEE.MONTH_BETWEEN(A.BS201_CDT, A.BS201_LDT, '2') MON
+  FROM
+       SAPHEE.ZBST201 A
+              LEFT OUTER JOIN (
+                               SELECT
+                                      B.LIFNR,
+                                      A.DTEXT1,
+                                      A.DTEXT2,
+                                      A.DTEXT4,
+                                      A.DTEXT5
+                                 FROM
+                                      SAPHEE.ZLCODE A,
+                                      SAPHEE.ZWBT010 B
+                                WHERE
+                                      A.MANDT = #G_MANDT#
+                                  AND A.MANDT = B.MANDT
+                                  AND A.DTEXT5 = B.BIZ_ARA
+                                  AND A.CODE1 = 'VKGRP'
+                                  AND A.DTEXT1 = 'B400'
+                                  AND A.LANG = #G_LANG#
+                              ) B ON B.LIFNR = A.BS201_GNO
+              LEFT OUTER JOIN SAPHEE.ZUSERF C ON C.MANDT = A.MANDT
+                                             AND C.USERNUMB = A.BS201_CID,
+       (
+        SELECT
+               BS202_RDT RDT,
+               BS202_SEQ SEQ,
+               BS202_SIR SIR,
+               SUM(BS202_EAM) EAM
+          FROM
+               SAPHEE.ZBST202
+         WHERE
+               MANDT = #G_MANDT#
+           AND BS202_RDT = #BS201_RDT#
+           AND BS202_SEQ = #BS201_SEQ#
+           AND BS202_SIR = #BS201_SIR#
+        GROUP BY
+               BS202_RDT,
+               BS202_SEQ,
+               BS202_SIR
+       ) D
+ WHERE
+       A.MANDT = #G_MANDT#
+   AND A.BS201_RDT = D.RDT
+   AND A.BS201_SEQ = D.SEQ
+   AND A.BS201_SIR = D.SIR
+   AND A.BS201_RDT = #BS201_RDT#
+   AND A.BS201_SEQ = #BS201_SEQ#
+   AND A.BS201_SIR = #BS201_SIR#
+   AND A.BS201_DEL = ''
+WITH UR	]]></statement>
+	<input default-name="ds_cond1">
+	</input>
+	<output default-name="ds_list1">
+	</output>
+</query>

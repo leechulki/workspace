@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+    <type>update</type>
+    <description><![CDATA[시행예산 지출 변경 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+UPDATE SAPHEE.ZFST0302 A
+SET
+     A.SPEN_AMT = (SELECT  A.SPEN_AMT + B.SUPY_PRIC + B.SUTX
+                   FROM    SAPHEE.ZFST0403 B
+                   WHERE   B.MANDT = #G_MANDT#
+                   AND     B.PROV_SEQN = CAST( #PROV_SEQN# AS INTEGER)
+                   WITH    UR )
+WHERE ( A.MANDT, A.OCNT_NUMB, A.EBDG_MGSQ, A.EBDG_ITSQ ) IN 
+      (
+        SELECT D.MANDT, D.OCNT_NUMB, D.EBDG_MGSQ, D.EBDG_ITSQ 
+        FROM   SAPHEE.ZFST0302 D
+                 JOIN ( SELECT C.MANDT, C.OCNT_NUMB, MAX( C.EBDG_MGSQ ) AS EBDG_MGSQ, C.EBDG_ITSQ 
+                        FROM   SAPHEE.ZFST0302 C
+                                   JOIN SAPHEE.ZFST0400 D ON ( C.MANDT = D.MANDT AND C.OCNT_NUMB = D.OCNT_NUMB AND C.EBDG_ITSQ = D.EBDG_ITSQ )
+                                   JOIN SAPHEE.ZFST0403 E ON ( C.MANDT = E.MANDT AND C.OCNT_NUMB = E.ORDR_NUMB )
+                                   JOIN SAPHEE.ZFST0301 F ON ( C.MANDT = F.MANDT AND C.OCNT_NUMB = F.OCNT_NUMB AND C.EBDG_MGSQ = F.EBDG_MGSQ )
+                        WHERE  D.MANDT = #G_MANDT# 
+                        AND    E.PROV_SEQN = #PROV_SEQN# 
+                        AND    F.EBDG_MGST IN ( '350', '360')
+                        GROUP  BY C.MANDT, C.OCNT_NUMB, C.EBDG_ITSQ ) E
+                    ON ( D.MANDT = E.MANDT AND D.OCNT_NUMB = E.OCNT_NUMB AND D.EBDG_MGSQ >= E.EBDG_MGSQ AND D.EBDG_ITSQ = E.EBDG_ITSQ  )
+      )
+    </statement>
+    <input default-name="ds_zfst0405_trans">
+    </input>
+    <output default-name="_none">
+    </output>
+</query>

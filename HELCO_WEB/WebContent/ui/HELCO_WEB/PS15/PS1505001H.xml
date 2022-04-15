@@ -1,0 +1,323 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="760" Id="PS1505001H" Left="8" OnLoadCompleted="fn_OnLoadCompleted" OnUnloadCompleted="fn_OnUnloadCompleted" PidAttrib="7" Title="파일추가" Top="8" Ver="1.0" Width="366" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_file_select"></Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_file_up">
+				<Contents>
+					<colinfo id="PSPID" size="256" summ="default" type="STRING"/>
+					<colinfo id="POSID" size="256" summ="default" type="STRING"/>
+					<colinfo id="LIFNR" size="256" summ="default" type="STRING"/>
+					<colinfo id="JOB_CODE" size="256" summ="default" type="STRING"/>
+					<colinfo id="P_CODE" size="256" summ="default" type="STRING"/>
+					<colinfo id="FNAME" size="256" summ="default" type="STRING"/>
+					<colinfo id="FNAME_APP" size="256" summ="default" type="STRING"/>
+					<colinfo id="FSIZE" size="256" summ="default" type="STRING"/>
+					<colinfo id="FPATH" size="256" summ="default" type="STRING"/>
+					<colinfo id="META_CRDAT" size="256" summ="default" type="STRING"/>
+					<colinfo id="COMMENT" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_file_meta_cnt">
+				<Contents>
+					<colinfo id="FNAME" size="256" summ="default" type="STRING"/>
+					<colinfo id="META_CRDAT" size="256" summ="default" type="STRING"/>
+					<colinfo id="CNT" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Image Border="Flat" BorderColor="user13" FillType="STRETCH" Height="640" Id="selectImage" Left="3" TabOrder="2" Top="41" Width="360"></Image>
+		<Div Height="36" Id="div_btn" TabOrder="1" TabStop="FALSE" Text="Div0" Url="WB01::CommBtnForm.xml" Width="366">
+			<Contents></Contents>
+		</Div>
+		<Button ButtonStyle="TRUE" Cursor="HAND" DragImageID="tab_form_05" Font="굴림,9" Height="20" Id="btn_select" ImageID="btn_user_04" Left="298" OnClick="btn_select_OnClick" TabOrder="4" Text="사진선택" Top="683" Width="65"></Button>
+		<Static Align="Center" BKColor="user1" Height="24" Id="Static6" Left="3" Style="sty_lb_form_basic" TabOrder="3" Text="사진설명" Top="683" VAlign="Middle" Width="71"></Static>
+		<TextArea Border="Flat" CheckLength="Byte" Height="49" Id="ta_contents" ImeMode="native" Left="3" MaxLength="255" Style="sty_ipt_form_ind" TabOrder="5" Top="706" VScroll="TRUE" Width="360"></TextArea>
+		<FileDialog Bottom="48" Filter="All(*.*)|*.*|jpg&#32;File(*.jpg)|*.jpg|jpeg&#32;File(*.jpeg)|*.jpeg|bmp&#32;File(*.bmp)|*.jpeg|gif&#32;File(*.gif)|*.gif|png&#32;File(*.png)|*.png|pdf&#32;File(*.pdf)|*.pdf|" Height="24" Id="fileDialog" Left="656" MultiSelect="TRUE" Right="680" TabOrder="6" Top="24" Width="24"></FileDialog>
+		<File Bottom="48" Height="24" Id="f_tmp" Left="688" Right="712" TabOrder="7" Top="24" Width="24"></File>
+		<CyHttpFile Height="24" Id="httpFile" Left="720" Top="24" Width="24"></CyHttpFile>
+	</Form>
+	<Script><![CDATA[﻿﻿﻿﻿﻿﻿﻿﻿/*
+ ******************************************************************************************
+ * 기      능   : 파일추가 팝업
+ * 작  성  자   : 강민석K
+ * 작성  일자   : 2019.07.23
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+#include "LIB::commons.js";	// 공통 스크립트 
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+var F_MAX_SAVE_CNT = 3;//저장 가능 최대 파일수
+var F_META_CRDAT = "";//선택한 파일의 메타데이터 생성일
+var F_SAME_CNT = 1;//동일 메터데이터 파일 허용 건수
+var F_PROC_CODE = "4";//프로세스 코드 - 4 : 작업시작, 5 : 작업완료
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) {
+	//Form 로드 이벤트 맨 첫줄에 기술 
+	gfn_initForm();
+	
+	//프로세스 코드 세팅 : F_PROC_CODE 변수의 디폴트가 '작업시작'이기 때문에 '작업완료'인 경우에만 값 변경
+	if(parent.ID == "PS1505001I"){
+		F_PROC_CODE = "5";
+	}
+	
+	fn_query();
+}
+/********************************************************************************
+* 기      능   : 공통코드가 조회된 후의 Callback 함수 
+********************************************************************************/
+function fn_completeInit(sCode, sDsObj, sCodeType) {
+
+}
+/********************************************************************************
+* 기      능   : form UnloadCompleted 
+********************************************************************************/
+function fn_OnUnloadCompleted(obj) {
+	return gfn_isFormUnload(obj);
+}
+//=========================================================================================
+// [ PART 3 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,form닫기)
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 조회 1
+********************************************************************************/
+function fn_query() {
+	tit_clearActionInfo();
+	//tit_addSearchActionInfo("ps15:PS1505001P_S6");//동일 메타데이터 파일 건수 조회
+	tit_addSearchActionInfo("ps15:PS1505001P_S16");//동일 메타데이터 파일 건수 조회
+	tit_callService(
+          ""
+        , ""
+        , "ds_cond=ds_cond1"
+        , "ds_file_meta_cnt=ds_file_meta_cnt"
+        , ""
+        , "fn_afterQuery"
+        , true);
+}
+/********************************************************************************
+* 기      능   : 저장 
+********************************************************************************/
+function fn_save() {
+	/*
+	//참조한 기존 화면(PS0201001H) 로직 - 필요 시 주석해제. 2019.07.23 강민석K
+	//한글제목 입력금지(한글제목깨짐)
+	for( var i = 0; i < length( fileDialog.FileName); i++ ) {
+		if ( lengthb(charAt( fileDialog.FileName, i)) == 2 ) {
+			gfn_showMsg("CW00213");
+			return;
+		}
+	}
+	*/
+	
+	//파일명과 메타데이터가 같은 파일이 한 호기, 한 작업에 저장되어 있는지 체크
+	var findRow = ds_file_list.FindRow("FNAME", fileDialog.FileName);
+	if(findRow != -1){
+		gfn_openMsgWin("이미 등록한 사진입니다.\n다른 사진을 선택하세요.", "E", "", "");
+		return;
+	}
+
+	//메타데이터가 같은 파일 갯수 체크 : 허용 갯수는 미정
+	var findRow = ds_file_meta_cnt.FindRow("FNAME", fileDialog.FileName);
+	if(findRow != -1){
+		gfn_openMsgWin("이미 등록한 사진입니다.\n다른 사진을 선택하세요.", "E", "", "");
+		return;
+	}
+	/*
+	findRow = ds_file_meta_cnt.FindRow("META_CRDAT", F_META_CRDAT);
+	if(parseInt(ds_file_meta_cnt.GetColumn(findRow, "CNT")) >= F_SAME_CNT){
+		//중복사진 파일 허용이 불가로 바뀌어 메시지 수정 - 2019.07.31 강민석K (이현용K 요청사항)
+		//gfn_openMsgWin("동일한 사진이 " + F_SAME_CNT + "회 이상 사용되었습니다.\n다른 사진을 선택하세요.", "E", "", "");
+		gfn_openMsgWin("동일한 사진이 이미 사용되었습니다.\n다른 사진을 선택하세요.", "E", "", "");
+		return;
+	}*/
+	
+	// 파일정보
+	if(length(fileDialog.FileName) > 0)
+	{
+		var thumbext = fileDialog.FileName;						//파일을 추가한 input 값
+		thumbext = substr(thumbext, thumbext.indexOf(".") + 1);	//확정자값 가져오기 
+		thumbext = ToLower(thumbext);							//소문자로 변경
+		
+		if(length(fileDialog.FilePath) > 65)
+		{
+			gfn_openMsgWin("파일 경로의 길이가 너무 깁니다.");
+			return false;
+		}
+		
+	    if(thumbext != "jpg" && thumbext != "jpeg" && thumbext != "png" &&  thumbext != "gif" &&  thumbext != "bmp"  && thumbext != "pdf")
+	    {
+			//확장자 확인
+			global.FRM_BOTTOM.img_msgType.imageId = "bottom_icon_caution";
+		    global.FRM_BOTTOM.st_msg.color = "yellow";       
+			global.FRM_BOTTOM.st_msg.value = "이미지 파일(jpg, jpeg, png, gif, bmp, pdf)만 등록 가능합니다.";
+			return false;
+		}
+		
+		if(ds_file_list.rowcount < F_MAX_SAVE_CNT)
+		{
+			var fileSize = f_tmp.GetLength(fileDialog.FilePath + "\\" + fileDialog.FileName);
+			
+			ds_file_up.ClearData();
+			ds_file_up.AddRow();
+			
+			ds_file_up.SetColumn(0, "PSPID", ds_cond1.GetColumn(0, "POSID"));
+			ds_file_up.SetColumn(0, "POSID", ds_cond1.GetColumn(0, "POSID_1"));
+			ds_file_up.SetColumn(0, "LIFNR", ds_cond1.GetColumn(0, "LIFNR"));
+			ds_file_up.SetColumn(0, "JOB_CODE", ds_cond1.GetColumn(0, "JOB_CODE"));	//외주작업 코드
+			ds_file_up.SetColumn(0, "P_CODE", F_PROC_CODE);							//프로세스 코드
+			ds_file_up.SetColumn(0, "FNAME", fileDialog.FileName);					//원본파일명(확장자 포함)
+			ds_file_up.SetColumn(0, "FSIZE", fileSize);								//파일크기
+			ds_file_up.SetColumn(0, "FPATH", fileDialog.FilePath);					//원본파일 경로
+			ds_file_up.SetColumn(0, "META_CRDAT", F_META_CRDAT);					//메타데이터 생성일
+			ds_file_up.SetColumn(0, "COMMENT", ta_contents.Text);					//사진설명
+
+			if(length(ds_file_up.GetColumn(0, "FNAME")) != 0 && length(ds_file_up.GetColumn(0, "FPATH")) != 0)
+			{
+				//참조했던 화면의 기존 방법
+				//var fileName = left(GetDate(), 8) + "_" + right(GetDate(), 6) + "_" + ds_file_up.GetColumn(0, "PSPID") + "_" + ds_file_up.GetColumn(0, "FNAME");
+				
+				//첨부파일 네이밍 규칙(2019.07.03, 송광용D 안내)
+				//[파일업로드일시]_[업로드한 사용자ID]_[호기정보]_[프로그램ID].[확장자명]
+				var fileName = GetDate() + "_" + G_USER_ID + "_" + ds_file_up.GetColumn(0, "POSID") + "_" + F_PGM_ID + "." + thumbext;
+								
+				var arr = tit_fileWrite(httpFile
+					, "PS"
+					, ds_file_up.GetColumn(0, "FPATH")
+					, ds_file_up.GetColumn(0, "FNAME")
+					, fileName// 실제 db에 저장될 파일 이름
+					, "U"	  // time stamp를 붙이지 않을 경우 U 사용 
+					, "");    // ds_list_i.getColumn(i, "DEL_FNAME") );//삭제할 이전 파일명 
+				
+				if(arr[0] == "S"){
+					ds_file_up.SetColumn(0, "FNAME_APP", fileName);//서버에 저장된 실제 파일명(확장자 포함)
+				}else if (arr[0] != "S"){
+					gfn_showMsg("CW00035");
+					return;
+				}
+				
+				// 파일 추가 저장
+				tit_clearActionInfo();	
+				tit_addSingleActionInfo("ps15:PS1505001P_I4");
+				tit_callService(
+					""
+					, ""        
+					, "ds_file_up=ds_file_up"
+					, ""
+					, ""
+					, "fn_afterFileAdd"
+					, ""
+					, ""
+					,true
+				);
+			}
+		}else{
+			gfn_openMsgWin("추가할 수 있는 파일 개수를 초과했습니다.\n (최대 " + F_MAX_SAVE_CNT + "개 저장가능)", "", "A");
+			return;
+		}
+	}
+}
+/********************************************************************************
+* 기      능   : 닫기  
+********************************************************************************/
+function fn_close() {
+	close();
+}
+//=========================================================================================
+// [ PART 4]
+// Callback 함수 정의 : callback 함수명은 메인 함수의 fn_xxxx() 에서 xxxx 부분은 fn_afterXXXX()
+// 형태가 되도록 작성 
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 조회 Callback
+********************************************************************************/
+function fn_afterQuery(errCode, errMsg) {
+	// 메시지 처리
+	//gfn_showSearchMsg(grd_list);
+}
+/********************************************************************************
+* 기      능   : 저장 Callback  
+********************************************************************************/
+function fn_afterSave(errCode, errMsg) {
+	if(errCode != 0){
+		gfn_showMsg("CE00001");
+	}else{
+		gfn_showMsg("CI00003");
+		
+		parent.fn_afterQuery();
+		close();
+	}
+}
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+// 사용자 정의 함수는 ufn_xxxx() 형태로 작성 
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 사용자 정의 함수  
+********************************************************************************/
+function ufn_userfunction() {
+
+}
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 : 각 Component 별 이벤트 
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 파일선택 버튼 클릭 시 - fileDialog 표시
+********************************************************************************/
+function btn_select_OnClick(obj)
+{
+	var sRtn = fileDialog.open();
+	if(sRtn == 0){
+		return;
+	}
+	
+	if(length(fileDialog.FilePath) == 0 || length(fileDialog.FileName ) == 0){
+		return;
+	}
+	
+	var file = fileDialog.GetFileList(ds_file_select, fileDialog.FilePath);
+	//CRETAE_DATE 보다 UPDATE_DATE가 메타데이터(생성일)에 근접한 것 같음
+	F_META_CRDAT = ds_file_select.GetColumn(ds_file_select.FindRow('FILE_NAME', fileDialog.FileName), "UPDATE_DATE");
+	//trace("F_META_CRDAT : " + F_META_CRDAT);
+	
+	//f_tmp는 Design 화면에 있는 File 객체
+	var fileSize = f_tmp.GetLength(fileDialog.FilePath + "\\" + fileDialog.FileName);
+	if(fileSize <= 0){
+		gfn_showAlert("CW00048");
+		return;
+	}
+	
+	if(length(fileDialog.FilePath) > 65)
+	{
+		gfn_openMsgWin("파일 경로의 길이가 너무 깁니다.");
+		return false;
+	}
+
+	if(fileSize > toNumber(F_SIZE)){
+		gfn_showAlert("CW00047", "10 Mbytes");	
+		return;
+	}
+	
+	selectImage.ImageID = fileDialog.FilePath + "\\" + fileDialog.FileName;
+	ta_contents.SetFocus();
+}
+/********************************************************************************
+* 기      능   : 파일 저장 후 Callback
+********************************************************************************/
+function fn_afterFileAdd()
+{
+	parent.fn_afterFileAddDel();
+	close();
+}
+]]></Script>
+</Window>

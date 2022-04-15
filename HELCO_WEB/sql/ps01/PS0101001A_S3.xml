@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+	    SELECT '' NO,
+              T.HOGI,
+			  T.POLD,
+              T.SPEC1,
+              T.SPEC2,
+              T.CODE,
+              T.NAME,
+              T.VALUE,
+              T.CR_DATE,
+              T.CR_TIME,
+              T.TP_DATE,
+              T.TP_TIME,
+			  T.ATBEZ
+		  FROM
+			(SELECT SD05.HOGI                AS HOGI
+				  , VALUE(MS02.POSID_OLD,'') AS POLD
+				  , VALUE(MS02.ZSPEC1,'')    AS SPEC1
+				  , VALUE(MS02.ZSPEC2,'')    AS SPEC2
+				  , SD05.CHARACTERISTIC      AS CODE
+				  , CABN.ATBEZ
+				  --,CASE WHEN SUBSTR(SD05.HOGI,7,1) = 'L' THEN SAPHEE.SUBSTR(VALUE(CABN.ATBEZ,''),6) ELSE VALUE(CABN.ATBEZ,'') END    AS NAME
+				  , CASE WHEN SUBSTR(SD05.HOGI,7,1) = 'L' 
+			     	     THEN CASE WHEN CABN.ATBEZ IS NULL
+			                	   THEN SAPHEE.SUBSTR(CA.ATWTB,6)
+			                	   ELSE SAPHEE.SUBSTR(CABN.ATBEZ,6)
+			           			   END
+			      		 ELSE CASE WHEN CABN.ATBEZ IS NULL
+			                	   THEN CA.ATWTB
+			                       ELSE CABN.ATBEZ
+			           			   END
+						 END AS NAME
+				 , SD05.VALUE               AS VALUE
+				 , SD05.CR_DATE             AS CR_DATE
+				 , SD05.CR_TIME             AS CR_TIME
+				 , SD05.TP_DATE             AS TP_DATE
+				 , SD05.TP_TIME             AS TP_TIME
+			  FROM (
+			
+						SELECT MANDT
+						     , HOGI
+					         , CHARACTERISTIC
+					         , ROW_NUMBER() OVER(PARTITION BY MANDT,HOGI,CHARACTERISTIC ORDER BY MANDT,HOGI,CHARACTERISTIC,SEQ DESC) AS ROWN
+					         , VALUE
+					         , CR_DATE
+					         , CR_TIME
+					         , TP_DATE
+					         , TP_TIME
+					      FROM SAPHEE.ZSDT0005
+					     WHERE MANDT= #G_MANDT#
+					       AND HOGI LIKE #POSID#||'%'
+					       AND CHARACTERISTIC NOT IN ('MATNR')
+					      
+			      ) AS SD05
+			      LEFT OUTER JOIN SAPHEE.ZSDV_CABN AS CABN ON CABN.MANDT=SD05.MANDT 
+			                                              AND CABN.ATNAM=SD05.CHARACTERISTIC 
+			                                              AND CABN.SPRAS='3'
+			      LEFT OUTER JOIN (
+			                       SELECT B.ATWTB,
+			                              A.ATWRT
+			                         FROM
+			                              SAPHEE.CAWN AS A INNER JOIN SAPHEE.CAWNT AS B ON A.MANDT = B.MANDT
+			                                                                           AND A.ATINN = B.ATINN
+			                                                                           AND A.ATZHL = B.ATZHL
+			                      ) CA ON CA.ATWRT = SD05.CHARACTERISTIC
+			      LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MS02 ON MS02.MANDT=SD05.MANDT 
+			                                              AND MS02.POSID=SUBSTR(SD05.HOGI,1,6) 
+			                                              AND MS02.POSID_1=SD05.HOGI
+		 WHERE ROWN=1
+			--  AND CABN.ATBEZ IS NOT NULL
+			AND (CASE 
+			          WHEN SUBSTR(SD05.HOGI,7,1) = 'L' 
+			          THEN 
+			               CASE 
+			                    WHEN CABN.ATBEZ IS NULL
+			                    THEN SAPHEE.SUBSTR(CA.ATWTB,6)
+			                    ELSE SAPHEE.SUBSTR(CABN.ATBEZ,6)
+			               END
+			          ELSE 
+			               CASE 
+			                    WHEN CABN.ATBEZ IS NULL
+			                    THEN CA.ATWTB
+			                    ELSE CABN.ATBEZ
+			               END
+			     END) IS NOT NULL
+			
+			<isEqual col="GBN" value="10">
+			AND SD05.CHARACTERISTIC NOT LIKE 'EL_F%'
+			AND SUBSTR(SD05.HOGI,7,1) &lt;&gt; 'Y'  -- 협력사 S/P 조회 방지(정태성 DR협의)
+			</isEqual>
+			
+			
+			 
+			) AS T
+   GROUP BY T.HOGI, T.POLD, T.SPEC1,T.SPEC2, T.CODE,T.NAME, T.VALUE, T.CR_DATE,T.CR_TIME, T.TP_DATE,T.TP_TIME,T.ATBEZ
+  ORDER BY T.HOGI,T.ATBEZ
+
+
+FOR FETCH 
+ONLY WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list3">
+		<col name="NO" size="0" type="VARCHAR" description="" /> 
+		<col name="HOGI" size="72" type="VARCHAR" description="" /> 
+		<col name="POLD" size="72" type="VARCHAR" description="" /> 
+		<col name="SPEC1" size="15" type="VARCHAR" description="" /> 
+		<col name="SPEC2" size="75" type="VARCHAR" description="" /> 
+		<col name="CODE" size="90" type="VARCHAR" description="" /> 
+		<col name="NAME" size="90" type="VARCHAR" description="" /> 
+		<col name="VALUE" size="90" type="VARCHAR" description="" /> 
+		<col name="CR_DATE" size="24" type="VARCHAR" description="" /> 
+		<col name="CR_TIME" size="18" type="VARCHAR" description="" /> 
+		<col name="TP_DATE" size="24" type="VARCHAR" description="" /> 
+		<col name="TP_TIME" size="18" type="VARCHAR" description="" /> 
+	</output>
+</query>

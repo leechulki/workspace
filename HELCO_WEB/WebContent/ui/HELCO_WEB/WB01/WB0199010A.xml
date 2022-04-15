@@ -1,0 +1,490 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form BKColor="user0" Height="20" Id="WB0199010A" Left="8" OnLoadCompleted="fn_OnLoadCompleted" OnTimer="WB0199010A_OnTimer" PidAttrib="7" Title="준공예정현장&#32;인수계획&#32;등록" Top="8" Ver="1.0" Width="415" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="_ds_big_cd">
+				<Contents>
+					<colinfo id="CODE" size="256" type="STRING"/>
+					<colinfo id="CODE_NAME" size="256" type="STRING"/>
+					<record>
+						<CODE></CODE>
+						<CODE_NAME></CODE_NAME>
+					</record>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="_ds_mid_cd">
+				<Contents>
+					<colinfo id="CODE" size="256" type="STRING"/>
+					<colinfo id="CODE_NAME" size="256" type="STRING"/>
+					<record>
+						<CODE></CODE>
+						<CODE_NAME></CODE_NAME>
+					</record>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="_ds_small_cd">
+				<Contents>
+					<colinfo id="CODE" size="256" summ="default" type="STRING"/>
+					<colinfo id="CODE_NAME" size="256" summ="default" type="STRING"/>
+					<colinfo id="CODE_SEQ2" size="256" summ="default" type="STRING"/>
+					<record>
+						<CODE></CODE>
+						<CODE_NAME></CODE_NAME>
+						<CODE_SEQ2></CODE_SEQ2>
+					</record>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Combo Border="Flat" CodeColumn="CODE" DataColumn="CODE_NAME" Height="20" Id="cb_big" INDEX="0" InnerDataset="_ds_big_cd" Left="-1" OnChanged="cb_big_OnChanged" Style="sty_ipt_search_ind" TabOrder="1" Top="-1" Width="112"></Combo>
+		<Combo Border="Flat" CodeColumn="CODE" DataColumn="CODE_NAME" Height="20" Id="cb_mid" INDEX="0" InnerDataset="_ds_mid_cd" Left="111" OnChanged="cb_mid_OnChanged" Style="sty_ipt_search" TabOrder="2" Top="-1" Width="144"></Combo>
+		<Combo Border="Flat" CodeColumn="CODE" DataColumn="CODE_NAME" Height="20" Id="cb_small" INDEX="0" InnerDataset="_ds_small_cd" Left="255" OnChanged="cb_small_OnChanged" Style="sty_ipt_search" TabOrder="3" Top="-1" Width="160"></Combo>
+		<Static Height="13" Id="st_area" TabOrder="4" Text="지역" Top="24" Visible="FALSE" Width="40"></Static>
+		<Static Height="13" Id="st_pm" Left="48" TabOrder="5" Text="보수PM" Top="24" Visible="FALSE" Width="40"></Static>
+		<Static Height="13" Id="st_department" Left="104" TabOrder="6" Text="부서" Top="24" Visible="FALSE" Width="40"></Static>
+		<Static Height="13" Id="st_team" Left="104" TabOrder="6" Text="팀" Top="24" Visible="FALSE" Width="40"></Static>
+		<Edit Height="19" Id="BSU_LIST" Left="439" TabOrder="8" Top="1" Width="112"></Edit>
+		<Edit Height="19" Id="LIFNR" Left="440" TabOrder="9" Top="32" Width="112"></Edit>
+	</Form>
+	<Script><![CDATA[/*
+ ******************************************************************************************
+ * 기      능   : 공통 콤보 
+ * 작  성  자   : 
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+#include "LIB::commons.js";	// 공통 스크립트 
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) 
+{
+	tit_createActionInfo();
+	
+	SetTimer(100, 500);
+}
+/********************************************************************************
+* 기      능   : 공통코드가 조회된 후의 Callback 함수 
+********************************************************************************/
+function fn_completeInit(sCode, sDsObj, sCodeType) 
+{
+//	tit_createActionInfo();
+	
+//	SetTimer(100, 500);	
+}
+/********************************************************************************
+* 기      능   : form UnloadCompleted 
+********************************************************************************/
+function fn_OnUnloadCompleted(obj) 
+{
+
+}
+//=========================================================================================
+// [ PART 3 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,form닫기)
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 4]
+// Callback 함수 정의 : callback 함수명은 메인 함수의 fn_xxxx() 에서 xxxx 부분은 fn_afterXXXX()
+// 형태가 되도록 작성 
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 협력사 3 조회 Callback 
+********************************************************************************/
+function fn_afterqueryCombo2( errCode, errMsg ) 
+{
+	gfn_insertEmptyRow(_ds_mid_cd, G_CODE_ALL);
+	
+	cb_mid.index = 0;
+	cb_mid.Enable = true;
+}
+/********************************************************************************
+* 기      능   : 협력사 3 조회 Callback 
+********************************************************************************/
+function fn_afterqueryCombo3( errCode, errMsg ) 
+{
+	gfn_insertEmptyRow(_ds_small_cd, G_CODE_ALL);
+
+	cb_small.index = 0;
+	cb_small.Enable = true;
+	// 협력사의 경우 인덱스 변경 
+
+	if(G_USER_GROUP_R == "R10") {
+
+		cb_small.index = 1;
+		cb_small.Enable = false;
+		LIFNR.Text = _ds_small_cd.GetColumn(1, "CODE_SEQ2");
+	}
+
+	/*  LGORT  멀티 조회 처리 위한 변수 셋팅  20170628 이하림    Start..***********/
+	var _bsu_list ; 
+	for(var i=0; i<_ds_small_cd.rowcount; i++){
+		if(_ds_small_cd.GetColumn(i,"CODE") != "") {		
+			_bsu_list +=_ds_small_cd.GetColumn(i,"CODE");	
+			if(i<_ds_small_cd.rowcount-1){
+				_bsu_list += "','";
+			} 
+		}		
+	 }	
+	BSU_LIST.Text = _bsu_list;
+	
+	/*  LGORT  멀티 조회 처리 위한 변수 셋팅  20170628          End..**********/
+
+}
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+// 사용자 정의 함수는 ufn_xxxx() 형태로 작성 
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 보수 협력사일 경우 
+*		1, 2 - disable 3 - 자기 협력업체 명 
+********************************************************************************/
+function ufn_draw10() 
+{
+	cb_big.enable = false;
+	cb_mid.enable = false;
+
+//	ufn_addCode( _ds_small_cd, G_VEND_CODE, G_VEND_NAME);
+	ufn_queryCombo3("4", G_VEND_CODE);
+	//ufn_addCode( _ds_small_cd, G_VEND_CODE, G_VEND_NAME);
+	//cb_small.index = 1;
+	//cb_small.enable = false;
+
+}
+/********************************************************************************
+* 기      능   : 보수PM
+*		1- disable 2 - 자기 이름 , 3 - 자기 협력업체 명 
+********************************************************************************/
+function ufn_draw20() 
+{
+	cb_big.enable = false;
+		
+	ufn_addCode( _ds_mid_cd, G_USER_ID, G_USER_NAME);
+	cb_mid.index = 1;
+	cb_mid.enable = false;
+	
+	// 자기 아이디에 해당 협력 업체 조회 
+	ufn_queryCombo3("2", G_USER_ID);
+}
+/********************************************************************************
+* 기      능   : 지방사무소
+*		1- disable 2 - 자기 지역 , 3 - 지역에 해당하는 협력업체 명 
+********************************************************************************/
+function ufn_draw30() 
+{
+	cb_big.enable = false;
+
+	//2012.10.29 LJH 'R30' 권한(지방사무소) 은 팀별로 조회
+//	ufn_addCode( _ds_mid_cd, G_AREA_CODE, G_AREA_NAME);
+	ufn_addCode( _ds_mid_cd, G_SAP_USER_VGCD, G_SAP_USER_VGNM);
+	cb_mid.index = 1;
+	cb_mid.enable = false;
+	
+	// 자기 지역에 해당 협력 업체 조회 
+	//2012.10.29 LJH 'R30' 권한(지방사무소) 은 팀별로 조회
+//	ufn_queryCombo3("1", G_AREA_CODE);
+	ufn_queryCombo3("3", G_SAP_USER_VGCD);
+}
+/********************************************************************************
+* 기      능   : 고객지원부
+*		1- 지역 or PM, 2 - 선택한 것에 따라 
+********************************************************************************/
+function ufn_draw40() 
+{
+	_ds_big_cd.SetColumn(0, "CODE_NAME", gfn_getCodeName(G_CODE_SELECT));
+
+	ufn_addCode( _ds_big_cd, "1", st_area.value);
+	ufn_addCode( _ds_big_cd, "2", st_pm.value);
+	ufn_addCode( _ds_big_cd, "4", st_department.value);
+	ufn_addCode( _ds_big_cd, "3", st_team.value);
+
+	cb_big.index   = 0;
+	cb_mid.index   = 0; 
+	cb_mid.Enable  = false;
+	cb_small.index = 0; 
+	cb_small.Enable= false;
+}
+/********************************************************************************
+* 기      능   : dataset에 코드 추가 
+********************************************************************************/
+function ufn_addCode( dsObj, code, codeName) 
+{
+	var nRow = dsObj.addRow();
+
+	dsObj.setColumn(nRow, "CODE", code);
+	dsObj.setColumn(nRow, "CODE_NAME", codeName);
+	
+	return nRow;
+}
+/********************************************************************************
+* 기      능   : 협력사 2 조회 
+*  sGbn : 1 -> 지역 , 2 -> 보수 PM  , 3 -> 팀 , 4 -> 부서
+********************************************************************************/
+function ufn_queryCombo2(sGbn, sWord) 
+{
+	tit_clearActionInfo();
+	
+	if ( sGbn == "1" ) 								// 지역 
+	{
+		tit_addSearchActionInfo("wb01:COMM_CODE_S1");
+
+		tit_callService(
+			""
+			, ""
+			, ""
+			, "_ds_mid_cd=ds_codeList"
+			, "S_CODE=" + quote( sWord ) + " S_GUBN=" + quote("  AND (CODE2 = 'E5' OR CODE2 BETWEEN 'G0' AND 'H9')")
+			, "fn_afterqueryCombo2"
+			, false
+			, true);
+	} 
+	else if ( sGbn == "2" )							// 보수 PM 목록 
+	{
+		tit_addSearchActionInfo("wb01:VEND_EMP_S1");
+		tit_callService(
+			  ""
+			, ""
+			, ""
+			, "_ds_mid_cd=ds_empList"
+			, "S_CODE=" + quote( sWord )
+			, "fn_afterqueryCombo2"
+			, false
+			, true);
+	}
+	else if ( sGbn == "4" )							// 부서 
+	{
+		tit_addSearchActionInfo("wb01:COMM_CODE_S2");
+		tit_callService(
+			  ""
+			, ""
+			, ""
+			, "_ds_mid_cd=ds_codeList"
+			//, "S_CODE=" + quote( sWord ) + " S_GUBN=" + quote(" AND CODE2 IN ('E900','EB00','EC00','EE00','EF00','EH00','EI00')")
+			//, "S_CODE=" + quote( sWord ) + " S_GUBN=" + quote(" AND CODE2 IN ('E900','EB00','EC00','EE00','EF00','EH00','EI00','H100')")  //자사 관련 추가 
+			, "S_CODE=" + quote( sWord ) + " S_GUBN=" + quote(" AND CODE2 IN ('E900','EB00','EC00','EE00','EF00','EH00','EI00','H100','EK00')")  //서비스경영관리팀 추가
+			, "fn_afterqueryCombo2"
+			, false
+			, true);
+	}
+	else 											// 팀 
+	{
+		tit_addSearchActionInfo("wb01:COMM_CODE_S1");
+		
+		tit_callService(
+			  ""
+			, ""
+			, ""
+			, "_ds_mid_cd=ds_codeList"
+			//, "S_CODE=" + quote( sWord ) + " S_GUBN=" + quote("  AND DTEXT1 IN ('E900','EB00','EC00','EE00','EF00','EI00')") 
+			//, "S_CODE=" + quote( sWord ) + " S_GUBN=" + quote("  AND DTEXT1 IN ('E900','EB00','EC00','EE00','EF00','EI00', 'BJ00')")  //리모델일2팀
+			//, "S_CODE=" + quote( sWord ) + " S_GUBN=" + quote("  AND DTEXT1 IN ('E900','EB00','EC00','EE00','EF00','EI00', 'BJ00','H100')")  //자사관련 추가 
+			//, "S_CODE=" + quote( sWord ) + " S_GUBN=" + quote("  AND DTEXT1 IN ('E900','EB00','EC00','EE00','EF00','EI00', 'BJ00','H100','EK00')")  //서비스경영관리팀 추가 
+			, "S_CODE=" + quote( sWord ) + " S_GUBN=" + quote("  AND DTEXT1 IN ('E900','EB00','EC00','EE00','EF00','EI00', 'BJ00','H100','EK00', 'BK00', 'BL00', 'BM00')")  //리모델링 조직개편으로 추가. Han JH
+			, "fn_afterqueryCombo2"
+			, false
+			, true);
+	}
+
+	gfn_insertEmptyRow(_ds_small_cd, G_CODE_ALL);
+	
+	cb_small.index = 0;
+}
+/********************************************************************************
+* 기      능   : 협력사 3 조회 
+*  sGbn : 1 -> 지역 , 2 -> 보수 PM  , 3 -> 팀
+********************************************************************************/
+function ufn_queryCombo3(sGbn, sWord) 
+{
+	tit_clearActionInfo();
+	
+	tit_addSearchActionInfo("wb01:BOSU_VEND_S1");
+	
+	tit_callService(
+          ""
+        , ""
+        , ""
+        , "_ds_small_cd=ds_codeList"
+        , "S_GBN=" + quote(sGbn) + " S_WORD=" + quote( sWord )
+        , "fn_afterqueryCombo3"
+        , false
+        , true);	
+}
+
+function ufn_queryCombo4(sWord) 
+{
+	tit_clearActionInfo();
+	
+	tit_addSearchActionInfo("wb01:COMM_CODE_S1");
+		
+	tit_callService(
+		  ""
+		, ""
+		, ""
+		, "_ds_small_cd=ds_codeList"
+		, "S_CODE=" + quote( sWord ) + " S_GUBN=" + quote("  AND DTEXT1 = '" + cb_mid.Value + "'")
+		, "fn_afterqueryCombo3"
+		, false
+		, true);
+}
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 : 각 Component 별 이벤트 
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 대분류 선택 
+********************************************************************************/
+function cb_big_OnChanged(obj,strCode,strText,nOldIndex,nNewIndex)
+{
+	if ( strCode == "" ) 
+	{
+		_ds_mid_cd.ClearData();
+		gfn_insertEmptyRow(_ds_mid_cd, G_CODE_ALL);
+		cb_mid.index = 0; 
+		cb_mid.Enable = false;
+
+		_ds_small_cd.ClearData();
+		gfn_insertEmptyRow(_ds_small_cd, G_CODE_ALL);
+		cb_small.index = 0; 
+		cb_small.Enable = false;
+		return;
+	} 
+	
+	_ds_small_cd.ClearData();
+	gfn_insertEmptyRow(_ds_small_cd, G_CODE_ALL);
+	cb_small.index = 0;
+	cb_small.Enable = false;
+	
+	if ( strCode == "1" ) 
+	{
+		ufn_queryCombo2("1", "CS115");	// 대지역
+	} 
+	else if ( strCode == "2" )
+	{
+		ufn_queryCombo2("2", "37004");	// 보수 PM 목록 조회 
+	}
+	else if ( strCode == "4" )
+	{
+		ufn_queryCombo2("4", "VKBUR");	// 부서 목록 조회 
+	}
+	else 
+	{
+		ufn_queryCombo2("3", "VKGRP");	// 팀구분 조회
+	}
+}
+/********************************************************************************
+* 기      능   : 중분류 선택 
+********************************************************************************/
+function cb_mid_OnChanged(obj,strCode,strText,nOldIndex,nNewIndex)
+{
+	if ( strCode == "" ) 
+	{
+		_ds_small_cd.ClearData();
+		gfn_insertEmptyRow(_ds_small_cd, G_CODE_ALL);
+		cb_small.index = 0;
+		cb_small.Enable=false;
+		return;
+	}  
+	
+	if(cb_big.value == '4')
+		ufn_queryCombo4("VKGRP");	// 팀구분 조회
+	else
+		ufn_queryCombo3(cb_big.value, strCode);
+}
+/********************************************************************************
+* 기      능   : 타이머 처리 
+********************************************************************************/
+function WB0199010A_OnTimer(obj,nEventID)
+{
+	KillTimer(nEventID);
+
+	// 권한 확인하기 
+	// 보수협력사 : "R10"       - 보수PM     : "R20"      - 지방사무소 : "R30"(지방보수 PM과 동일한 권한 임) 
+    //  - 고객지원부 : "R40"     
+	var user_grp = "";
+
+	if ( !isExistVar("F_PGM_ID", true) ) 
+	{
+		user_grp = substr(G_USER_GROUP, 1);
+	}
+
+	// 기본     : "Z"      - 보수영업 : "R"      - 설치     : "E"
+    //  - 자재     : "M"      - 영업     : "B"
+    var pgmId = left(F_PGM_ID, 2);
+    switch( pgmId ) 
+    {
+		case "CS":	// 보수 영업 
+			user_grp = right(G_USER_GROUP_R, 2 );
+			break;
+		case "BS":	// 영업 
+			user_grp = right(G_USER_GROUP_B, 2 );
+			break;
+		case "PS":	// 설치 
+			user_grp = right(G_USER_GROUP_E, 2 );
+			break;
+		case "MM":	// 자재 
+			user_grp = right(G_USER_GROUP_M, 2 );
+			break;
+    }
+    
+    if ( length( user_grp ) == 0 ) 
+    {
+		user_grp = right(G_USER_GROUP, 2 );
+    }
+	
+
+//alert("F_PGM_ID : " + F_PGM_ID);
+	switch( user_grp ) 
+	{
+		case "10":	//보수협력사
+				ufn_draw10();
+				break;
+		case "20":	//보수PM
+				//ufn_draw20();
+				if(F_PGM_ID == 'CS0610002A') 
+				{
+					ufn_draw40();
+				}
+				else
+				{
+					ufn_draw20();
+				}
+				break;
+		case "30":	//지방사무소
+				//ufn_draw30();
+				if(F_PGM_ID == 'CS0610002A') 
+				{
+					ufn_draw40();
+				}
+				else
+				{
+					ufn_draw30();;
+				}				
+				break;
+		case "40":	// 고객지원부
+				ufn_draw40();
+				break;
+		default:	//  기본 
+				cb_big.Enable = false;
+				cb_mid.Enable = false;
+				cb_small.Enable = false;
+				break;
+	}
+}
+
+function cb_small_OnChanged(obj,strCode,strText,nOldIndex,nNewIndex)
+{
+	if(nOldIndex <> nNewIndex) {	
+		LIFNR.Text = _ds_small_cd.GetColumn(nNewIndex, "CODE_SEQ2");
+	}
+}
+]]></Script>
+</Window>

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[수주번호 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT
+      A.MANDT -- 클라이언트
+     ,A.OCNT_NUMB -- 수주현황 조회번호
+     ,A.VBELN -- 판매 문서
+     ,A.PSPID -- SAP프로젝트번호
+     ,A.AUART -- SAP오더유형
+     ,A.PS_PSP_PNR -- WBS템플릿번호
+     ,A.ORDR_TYPE -- 오더유형
+     ,(SELECT CODE_NAME FROM SAPHEE.ZFST0100 WHERE MANDT = A.MANDT AND CODE_GROP = 'A03' AND CODE = A.ORDR_TYPE) AS ORDR_TYPE_NAME -- 오더유형명
+     ,A.BSTNK -- 현장명
+     ,A.KUNNR -- 판매처
+     ,B.NAME1 AS KUNNR_NAME -- 판매처명
+     ,A.WAERK -- 통화 키
+     ,A.NETWR -- 문서통화의 판매오더정가
+     ,A.CONT_DATE -- 계약일
+     ,A.CMPL_DATE -- 최종완료일
+     ,A.OCNT_STAT -- 수주현황 조회상태
+     ,(SELECT CODE_NAME FROM  SAPHEE.ZFST0100 WHERE MANDT = A.MANDT AND CODE_GROP = 'A02' AND CODE = A.OCNT_STAT) AS OCNT_STAT_NAME -- 수주상태
+     ,A.WRIT_DATE -- 생성일
+     ,COALESCE((SELECT MAX(RFCT_SEQN) FROM SAPHEE.ZFST0305 WHERE MANDT = A.MANDT AND OCNT_NUMB = A.OCNT_NUMB), 0) AS RFCT_SEQN
+FROM  SAPHEE.ZFST0304 A
+      LEFT OUTER JOIN SAPHEE.KNA1 AS B
+       ON   A.MANDT = B.MANDT
+       AND  A.KUNNR = B.KUNNR
+       AND  B.KTOKD IN ( 'Z001', 'Z002', 'Z004' )
+WHERE A.MANDT = #G_MANDT#
+  AND A.ORDR_TYPE NOT IN ( 'INS', 'INB', 'INR', 'IU')
+<isNotNull col="WRIT_DATE_FROM">
+  AND  A.WRIT_DATE BETWEEN #WRIT_DATE_FROM# AND #WRIT_DATE_TO#
+</isNotNull>
+<isNotNull col="OCNT_NUMB">
+  AND  A.OCNT_NUMB LIKE '%'||#OCNT_NUMB#||'%'
+</isNotNull>
+<isNotNull col="KUNNR">
+  AND  A.KUNNR = #KUNNR#
+</isNotNull>
+<isNotNull col="OCNT_STAT">
+  AND  A.OCNT_STAT = #OCNT_STAT#
+</isNotNull>
+<isNotNull col="PSPID">
+  AND  A.PSPID LIKE '%'||#PSPID#||'%'
+</isNotNull>
+<isNotNull col="BSTNK">
+  AND  A.BSTNK LIKE '%'||#BSTNK#||'%'
+</isNotNull>
+<isNotNull col="ORDR_TYPE">
+  AND  A.ORDR_TYPE = #ORDR_TYPE#
+</isNotNull>
+ORDER BY A.OCNT_NUMB DESC
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_zfst0304_list">
+    </output>
+</query>

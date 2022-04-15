@@ -1,0 +1,1974 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT   
+       A1.AREA CS136_ARA,
+       CASE 
+            WHEN A1.LGORT = '0000' THEN '총합계'
+            WHEN A1.LGORT = 'YYYY' THEN '소계'
+            WHEN A1.LGORT = 'XXXX' THEN '소계'
+            ELSE A1.AREA_NM
+       END AREA_NM,
+       A1.LGORT CS136_BSU,
+       A1.LIFNR_NM,
+       CASE 
+            WHEN RTRIM(A1.LIFNR) > '' THEN SUBSTR(A1.LIFNR,1,3) || '-' || SUBSTR(A1.LIFNR,4,2) || '-' || SUBSTR(A1.LIFNR,6,5)
+            ELSE ''
+       END LIFNR,
+       A1.CNAME,
+       A1.CS136_HNO,
+       CASE WHEN A1.CS136_HNO = 'G' THEN '' ELSE A1.HNO_NM END HNO_NM,
+       CASE WHEN A1.CS136_GND = 'I' OR A1.CS136_GND = 'J' OR A1.CS136_GND = 'K' THEN '' ELSE A1.GND_NM END GND_NM,
+       A1.CS136_GND,
+       A1.AFLG,
+       A1.BFLG,
+       VALUE(B1.CS131_CNT,0) CS131_CNT,
+       VALUE(B1.CS131_AMT,0) CS131_AMT,
+       VALUE(B1.GISUNG_AMT,0) GISUNG_AMT,
+       VALUE(B1.GONG_AMT,0) GONG_AMT,
+       CASE 
+            WHEN A1.LGORT IN ('XXXX','YYYY') AND A1.CS136_GND = 'H' THEN VALUE(C1.BUGA_AMT,0) 
+            WHEN A1.LGORT = '0000' AND A1.CS136_GND = 'H' THEN VALUE(D1.BUGA_AMT,0) 
+            ELSE VALUE(B1.BUGA_AMT,0) 
+       END BUGA_AMT,
+       CASE 
+            WHEN A1.LGORT IN ('XXXX','YYYY') AND A1.CS136_GND = 'H' THEN VALUE(C1.SUM_AMT,0) 
+            WHEN A1.LGORT = '0000' AND A1.CS136_GND = 'H' THEN VALUE(D1.SUM_AMT,0) 
+            ELSE VALUE(B1.SUM_AMT,0) 
+       END SUM_AMT
+  FROM
+       (
+        -- 지역,협력사,제품구분,보수구분(틀)
+        SELECT 
+               DISTINCT '00' ARA_GBN,
+               '00' AREA,
+               '' AREA_NM,
+               '' LIFNR,
+               '' LIFNR_NM,
+               '' CNAME,
+               '0000' LGORT,
+               D.CS136_HNO,
+               D.HNO_NM,
+               D.CS136_GND,
+               D.GND_NM,
+               D.AFLG,
+               D.BFLG,
+               D.ORD
+          FROM 
+               (
+                SELECT 
+                       MM028A.CODE2 AREA,
+                       MM028A.CTEXT2 AREA_NM
+                  FROM 
+                       SAPHEE.ZLCODE MM028A
+                 WHERE 
+                       MM028A.MANDT = #G_MANDT#
+                   AND MM028A.LANG = #G_LANG#
+                   AND MM028A.CODE1 = 'CS115'
+               ) C,
+               (
+                SELECT 
+                       A.CODE2 CS136_HNO,
+                       A.CTEXT2 HNO_NM,
+                       B.CODE2 CS136_GND,
+                       B.CTEXT2 GND_NM,
+                       A.AFLG,
+                       B.BFLG,
+                       B.ORD
+                  FROM 
+                       (
+                        SELECT 
+                               'G' CODE2, 
+                               '합계' CTEXT2, 
+                               '5' AFLG 
+                          FROM 
+                               SYSIBM.SYSDUMMY1
+
+                        UNION
+
+                        SELECT 
+                               'G' CODE2, 
+                               '합계' CTEXT2,
+                               '6' AFLG
+                          FROM 
+                               SYSIBM.SYSDUMMY1
+                       ) A,
+                       (
+                        SELECT 
+                               MM028B.CODE2,
+                               CASE MM028B.CODE2 WHEN 'B' THEN '무상' WHEN 'C' THEN '공사용' WHEN 'D' THEN '유상' WHEN 'F' THEN '부판인' ELSE MM028B.CTEXT2 END CTEXT2,
+                               CASE MM028B.CODE2 WHEN 'B' THEN '2' WHEN 'C' THEN '3' WHEN 'D' THEN '1' WHEN 'F' THEN '4' END ORD,
+                               '5' BFLG
+                          FROM 
+                               SAPHEE.ZLCODE MM028B
+                         WHERE 
+                               MM028B.MANDT = #G_MANDT#
+                           AND MM028B.LANG = #G_LANG#
+                           AND MM028B.CODE1 = 'CS135'
+                           AND MM028B.CODE2 > 'A'
+                           AND MM028B.CODE2 &lt;&gt; 'E'
+
+                        UNION ALL
+
+                        SELECT 
+                               'H' CODE2,
+                               '합계' CTEXT2,
+                               '5' ORD,
+                               '6' BFLG
+                          FROM 
+                               SYSIBM.SYSDUMMY1
+                       ) B
+                 WHERE 
+                       A.AFLG = B.BFLG
+                ORDER BY 
+                       A.CODE2,
+                       B.ORD
+               ) D
+
+        UNION ALL
+
+        SELECT 
+               DISTINCT 'YY' ARA_GBN,
+               'YY' AREA,
+               '' AREA_NM,
+               '' LIFNR,
+               '' LIFNR_NM,
+               '' CNAME,
+               'YYYY' LGORT,
+               D.CS136_HNO,
+               D.HNO_NM,
+               D.CS136_GND,
+               D.GND_NM,
+               D.AFLG,
+               D.BFLG,
+               D.ORD
+          FROM 
+               (
+                SELECT 
+                       MM028A.CODE2 AREA,
+                       MM028A.CTEXT2 AREA_NM
+                  FROM 
+                       SAPHEE.ZLCODE MM028A
+                 WHERE 
+                       MM028A.MANDT = #G_MANDT#
+                   AND MM028A.LANG = #G_LANG#
+                   AND MM028A.CODE1 = 'CS115'
+               ) C,
+               (
+                SELECT 
+                       A.CODE2 CS136_HNO,
+                       A.CTEXT2 HNO_NM,
+                       B.CODE2 CS136_GND,
+                       B.CTEXT2 GND_NM,
+                       A.AFLG,
+                       B.BFLG,
+                       B.ORD
+                  FROM 
+                       (
+                        SELECT 
+                               'G' CODE2, 
+                               '지역계' CTEXT2, 
+                               '4' AFLG 
+                          FROM 
+                               SYSIBM.SYSDUMMY1
+
+                        UNION
+
+                        SELECT 
+                               'G' CODE2, 
+                               '지역계' CTEXT2,
+                               '5' AFLG
+                          FROM 
+                               SYSIBM.SYSDUMMY1
+                       ) A,
+                       (
+                        SELECT 
+                               MM028B.CODE2,
+                               CASE MM028B.CODE2 WHEN 'B' THEN '무상' WHEN 'C' THEN '공사용' WHEN 'D' THEN '유상' WHEN 'F' THEN '부판인' ELSE MM028B.CTEXT2 END CTEXT2,
+                               CASE MM028B.CODE2 WHEN 'B' THEN '2' WHEN 'C' THEN '3' WHEN 'D' THEN '1' WHEN 'F' THEN '4' END ORD,
+                               '4' BFLG
+                          FROM 
+                               SAPHEE.ZLCODE MM028B
+                         WHERE 
+                               MM028B.MANDT = #G_MANDT#
+                           AND MM028B.LANG = #G_LANG#
+                           AND MM028B.CODE1 = 'CS135'
+                           AND MM028B.CODE2 > 'A'
+                           AND MM028B.CODE2 &lt;&gt; 'E'
+
+                        UNION ALL
+
+                        SELECT 
+                               'H' CODE2,
+                               '합계' CTEXT2,
+                               '5' ORD,
+                               '5' BFLG
+                          FROM 
+                               SYSIBM.SYSDUMMY1
+                       ) B
+                 WHERE 
+                       A.AFLG = B.BFLG
+                ORDER BY 
+                       A.CODE2,
+                       B.ORD
+               ) D
+
+        UNION ALL
+
+        SELECT 
+               DISTINCT C.AREA||'1' ARA_GBN,
+               C.AREA,
+               C.AREA_NM,
+               '' LIFNR,
+               '' LIFNR_NM,
+               '' CNAME,
+               'XXXX' LGORT,
+               D.CS136_HNO,
+               D.HNO_NM,
+               D.CS136_GND,
+               D.GND_NM,
+               D.AFLG,
+               D.BFLG,
+               D.ORD
+          FROM 
+               (
+                SELECT 
+                       A.AREA,
+                       A.AREA_NM,
+                       B.LIFNR,
+                       B.LIFNR_NM,
+                       B.LGORT
+                  FROM
+                       (
+                        SELECT 
+                               MM028A.CODE2 AREA,
+                               MM028A.CTEXT2 AREA_NM
+                          FROM 
+                               SAPHEE.ZLCODE MM028A
+                         WHERE 
+                               MM028A.MANDT = #G_MANDT#
+                           AND MM028A.LANG = #G_LANG#
+                           AND MM028A.CODE1 = 'CS115'
+                       ) A,
+                       (
+                        SELECT 
+                               MM012A.LIFNR,
+                               MM012A.NAME1 LIFNR_NM,
+                               MM005A.LGORT,
+                               WB010A.BSU_ARA
+                          FROM 
+                               SAPHEE.ZWBT010 WB010A,
+                               SAPHEE.ZMMT012 MM012A,
+                               SAPHEE.ZMMT005 MM005A
+                         WHERE 
+                               WB010A.MANDT = #G_MANDT#
+                           AND WB010A.MANDT = MM012A.MANDT
+                           AND WB010A.LIFNR = MM012A.LIFNR
+                           AND MM012A.MANDT = MM005A.MANDT
+                           AND MM012A.LIFNR = MM005A.LIFNR
+                           AND WB010A.BSU_GB = '3'
+                       ) B
+                 WHERE 
+                       A.AREA = B.BSU_ARA
+               ) C,
+               (
+                SELECT 
+                       A.CODE2 CS136_HNO,
+                       A.CTEXT2 HNO_NM,
+                       B.CODE2 CS136_GND,
+                       B.CTEXT2 GND_NM,
+                       A.AFLG,
+                       B.BFLG,
+                       B.ORD
+                  FROM 
+                       (
+                        SELECT 
+                               'G' CODE2, 
+                               '지역계' CTEXT2, 
+                               '3' AFLG 
+                          FROM 
+                               SYSIBM.SYSDUMMY1
+
+                        UNION
+
+                        SELECT 
+                               'G' CODE2, 
+                               '지역계' CTEXT2,
+                               '4' AFLG
+                          FROM 
+                               SYSIBM.SYSDUMMY1
+                       ) A,
+                       (
+                        SELECT 
+                               MM028B.CODE2,
+                               CASE MM028B.CODE2 WHEN 'B' THEN '무상' WHEN 'C' THEN '공사용' WHEN 'D' THEN '유상' WHEN 'F' THEN '부판인' ELSE MM028B.CTEXT2 END CTEXT2,
+                               CASE MM028B.CODE2 WHEN 'B' THEN '2' WHEN 'C' THEN '3' WHEN 'D' THEN '1' WHEN 'F' THEN '4' END ORD,
+                               '3' BFLG
+                          FROM 
+                               SAPHEE.ZLCODE MM028B
+                         WHERE 
+                               MM028B.MANDT = #G_MANDT#
+                           AND MM028B.LANG = #G_LANG#
+                           AND MM028B.CODE1 = 'CS135'
+                           AND MM028B.CODE2 > 'A'
+                           AND MM028B.CODE2 &lt;&gt; 'E'
+
+                        UNION ALL
+
+                        SELECT 
+                               'H' CODE2,
+                               '합계' CTEXT2,
+                               '5' ORD,
+                               '4' BFLG
+                          FROM 
+                               SYSIBM.SYSDUMMY1
+                       ) B
+                 WHERE 
+                       A.AFLG = B.BFLG
+                ORDER BY 
+                       A.CODE2,
+                       B.ORD
+               ) D
+         WHERE
+               C.AREA = 'E5'
+
+        UNION ALL
+
+        SELECT 
+               C.AREA||'0' ARA_GBN,
+               C.AREA,
+               C.AREA_NM,
+               C.LIFNR,
+               C.LIFNR_NM,
+               C.CNAME,
+               C.LGORT,
+               D.CS136_HNO,
+               D.HNO_NM,
+               D.CS136_GND,
+               D.GND_NM,
+               D.AFLG,
+               D.BFLG,
+               D.ORD
+          FROM
+               (
+                SELECT 
+                       A.AREA,
+                       A.AREA_NM,
+                       B.LIFNR,
+                       B.LIFNR_NM,
+                       B.CNAME,
+                       B.LGORT
+                  FROM
+                       (
+                        SELECT 
+                               MM028A.CODE2 AREA,
+                               MM028A.CTEXT2 AREA_NM
+                          FROM 
+                               SAPHEE.ZLCODE MM028A
+                         WHERE 
+                               MM028A.MANDT = #G_MANDT#
+                           AND MM028A.LANG = #G_LANG#
+                           AND MM028A.CODE1 = 'CS115'
+                       ) A,
+                       (
+                        SELECT 
+                               MM012A.LIFNR,
+                               MM012A.NAME1 LIFNR_NM,
+                               MM012A.J_1KFREPRE CNAME,
+                               MM005A.LGORT,
+                               WB010A.BSU_ARA
+                          FROM 
+                               SAPHEE.ZWBT010 WB010A,
+                               SAPHEE.ZMMT012 MM012A,
+                               SAPHEE.ZMMT005 MM005A
+                         WHERE 
+                               WB010A.MANDT = #G_MANDT#
+                           AND WB010A.MANDT = MM012A.MANDT
+                           AND WB010A.LIFNR = MM012A.LIFNR
+                           AND MM012A.MANDT = MM005A.MANDT
+                           AND MM012A.LIFNR = MM005A.LIFNR
+                           AND WB010A.BSU_GB = '3'
+                       ) B
+                 WHERE 
+                       A.AREA = B.BSU_ARA
+               ) C,
+               (
+                SELECT 
+                       A.CODE2 CS136_HNO,
+                       A.CTEXT2 HNO_NM,
+                       B.CODE2 CS136_GND,
+                       B.CTEXT2 GND_NM,
+                       A.AFLG,
+                       B.BFLG,
+                       B.ORD
+                  FROM
+                       (
+                        SELECT 
+                               CODE2,
+                               CTEXT2,
+                               '1' AFLG
+                          FROM 
+                               SAPHEE.ZLCODE MM028A
+                         WHERE 
+                               MM028A.MANDT = #G_MANDT#
+                           AND MM028A.LANG = #G_LANG#
+                           AND MM028A.CODE1 = 'CS131'
+                           AND MM028A.CODE2 = 'A'
+
+                        UNION
+
+                        SELECT 
+                               'G' CODE2, 
+                               '협력사계' CTEXT2,
+                               '2' AFLG
+                          FROM 
+                               SYSIBM.SYSDUMMY1
+                       ) A,
+                       (
+                        SELECT 
+                               MM028B.CODE2,
+                               CASE MM028B.CODE2 WHEN 'B' THEN '무상' WHEN 'C' THEN '공사용' WHEN 'D' THEN '유상' WHEN 'F' THEN '부판인' ELSE MM028B.CTEXT2 END CTEXT2,
+                               CASE MM028B.CODE2 WHEN 'B' THEN '2' WHEN 'C' THEN '3' WHEN 'D' THEN '1' WHEN 'F' THEN '4' END ORD,
+                               '1' BFLG
+                          FROM 
+                               SAPHEE.ZLCODE MM028B
+                         WHERE 
+                               MM028B.MANDT = #G_MANDT#
+                           AND MM028B.LANG = #G_LANG#
+                           AND MM028B.CODE1 = 'CS135'
+                           AND MM028B.CODE2 > 'A'
+                           AND MM028B.CODE2 &lt;&gt; 'E'
+
+                        UNION ALL
+
+                        SELECT 
+                               'H' CODE2,
+                               '계' CTEXT2,
+                               '' ORD,
+                               '2' BFLG
+                          FROM 
+                               SYSIBM.SYSDUMMY1
+                       ) B
+                 WHERE 
+                       A.AFLG = B.BFLG
+                ORDER BY 
+                       A.CODE2,
+                       B.ORD
+               ) D
+       ) A1 
+       LEFT OUTER JOIN (
+                        SELECT 
+                               CS136_ARA,
+                               CS136_BSU,
+                               CS136_HNO,
+                               CS136_GND,
+                               SUM(CS131_CNT) CS131_CNT,
+                               SUM(CS131_AMT) CS131_AMT,
+                               CASE 
+                                    WHEN SUM(CS131_AMT) = 0 THEN 0
+                                    WHEN SUM(CS131_AMT) > 0 THEN ROUND(((DOUBLE(SUM(GONG_AMT))/DOUBLE(SUM(CS131_AMT)))*100),0)
+                                    ELSE 0
+                               END GISUNG_AMT,
+                               SUM(GONG_AMT) GONG_AMT,
+                               CASE WHEN CS136_GND IN ('B','C','D','F') THEN 0 ELSE TRUNC(SUM(GONG_AMT) / 10,0) END BUGA_AMT,
+                               CASE WHEN CS136_GND IN ('B','C','D','F') THEN 0 ELSE SUM(GONG_AMT) + TRUNC(SUM(GONG_AMT) / 10,0) END SUM_AMT
+                          FROM 
+                               (
+                                -- 지역,협력사,제품구분,보수구분별 합계
+                                SELECT 
+                                       CS136_ARA,
+                                       CS136_BSU,
+                                       CS136_HNO,
+                                       CASE CS136_GND WHEN 'A' THEN 'B' WHEN 'E' THEN 'D' ELSE CS136_GND END CS136_GND,
+                                       CS131_CNT,
+                                       CS131_AMT,
+                                       0 GISUNG_AMT,
+                                       GONG_AMT,
+                                       0 BUGA_AMT,
+                                       0 SUM_AMT
+                                  FROM 
+                                       (
+                                        SELECT 
+                                               CS136A.CS136_ARA,
+                                               CS136A.CS136_BSU,
+                                               'A' CS136_HNO,
+                                               CS136A.CS136_GND CS136_GND,
+                                               CASE 
+                                                    WHEN SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W') AND CS136A.CS136_GND IN ('A','B') THEN VALUE(COUNT(CS136A.MANDT),0)
+                                                    WHEN SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W') AND CS136A.CS136_GND IN ('C','D') THEN VALUE(COUNT(CS136A.MANDT),0)
+                                                    ELSE 0
+                                               END CS131_CNT,
+                                               CASE 
+                                                    WHEN CS136A.CS136_GND IN ('A','B') THEN 0
+                                                    WHEN CS136A.CS136_GND IN ('C','D','E') THEN VALUE(SUM(CS131A.CS131_AMT),0)
+                                                    ELSE 0
+                                               END CS131_AMT,
+                                               CASE 
+                                                    WHEN CS136A.CS136_GND BETWEEN 'A' AND 'E' 
+                                                         THEN VALUE(SUM(CS136A.CS136_BAM)+SUM(CS136A.CS136_IY1)+SUM(CS136A.CS136_IY2)+SUM(CS136A.CS136_IY3)+SUM(CS136A.CS136_IY4)+SUM(CS136A.CS136_RET),0)
+                                                    ELSE 0
+                                               END GONG_AMT
+                                          FROM 
+                                               SAPHEE.ZCST136 CS136A
+                                                      LEFT OUTER JOIN SAPHEE.ZCST131 CS131A ON CS136A.MANDT = CS131A.MANDT
+                                                                                           AND CS136A.CS136_BSU = CS131A.CS131_BSU
+                                                                                           AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                           AND CS136A.CS136_ARA = CS131A.CS131_ARA
+                                                                                           AND CS136A.CS136_GND = CS131A.CS131_GND
+                                                                                           AND CS136A.CS136_JYM = CS131A.CS131_MYM
+                                                                                           AND CS136A.CS136_UPN = CS131A.CS131_UPN
+                                                                                           AND CS136A.CS136_CST = CS131A.CS131_CST
+                                                                                           AND CS136A.CS136_PJT = CS131A.CS131_PJT
+                                                                                           AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                           AND CS136A.CS136_SEQ = CS131A.CS131_SEQ
+                                                                                           AND CS136A.CS136_ISR = CS131A.CS131_ISR
+                                                                                           AND CS131A.CS131_ARA LIKE '_%'
+                                                                                           AND CS131A.CS131_BSU LIKE '_%'
+                                                                                           AND CS131A.CS131_GBU = '3'
+                                         WHERE 
+                                               CS136A.MANDT = #G_MANDT#
+                                           AND CS136A.CS136_GYM = #YYYYMM#
+                                           AND CS136A.CS136_GBU = '3'
+                                           AND CS136A.CS136_PST = 'A6'
+                                           AND CS136A.CS136_MGB = ''
+                                           AND CS136A.CS136_GNO > ''
+                                           AND CS136A.CS136_ARA LIKE '_%'
+                                           AND CS136A.CS136_BSU LIKE '_%'
+                                           AND (CS131A.CS131_MYB IS NULL OR CS131A.CS131_MYB = '')
+                                           AND (CS131A.VBELN IS NULL OR CS131A.VBELN > '')
+                                           AND SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W','Z','J','G')
+                                           AND CS136A.CS136_BDGBN = ''     -- 분담이행방식이 아닌 것
+                                        GROUP BY 
+                                               CS136A.CS136_ARA,
+                                               CS136A.CS136_BSU,
+                                               CS136A.CS136_GND,
+                                               SUBSTR(CS136A.CS136_HNO,1,1)
+
+                                        UNION ALL
+
+                                        SELECT
+                                               WB010.BSU_ARA CS136_ARA,
+                                               WB010.LGORT CS136_BSU,
+                                               'A' CS136_HNO,
+                                               'F' CS136_GND,
+                                               0 CS131_CNT,
+                                               0 CS131_AMT,
+                                               SUM(MM034.DMBTR) GONG_AMT
+                                          FROM 
+                                               SAPHEE.ZMMT034 AS MM034,
+                                               SAPHEE.ZWBT010 AS WB010
+                                         WHERE
+                                               MM034.MANDT = #G_MANDT#
+                                           AND MM034.SPMON = #YYYYMM#
+                                           AND MM034.MANDT = WB010.MANDT
+                                           AND MM034.LIFNR = WB010.LIFNR
+                                           AND WB010.BSU_ARA > ''
+                                           AND MM034.VBTYP = 'NB'
+                                           AND MM034.VBTYP = 'NB'
+                                        GROUP BY 
+                                               WB010.BSU_ARA,
+                                               WB010.LGORT
+                                       ) H
+
+                                UNION ALL
+
+                                -- 협력사 합계
+                                SELECT 
+                                       CS136_ARA,
+                                       CS136_BSU,
+                                       CS136_HNO,
+                                       CS136_GND,
+                                       SUM(CS131_CNT) CS131_CNT,
+                                       SUM(CS131_AMT) CS131_AMT,
+                                       CASE 
+                                            WHEN SUM(CS131_AMT) = 0 THEN 0
+                                            WHEN SUM(CS131_AMT) > 0 THEN ROUND(((DOUBLE(SUM(GONG_AMT))/DOUBLE(SUM(CS131_AMT)))*100),0)
+                                            ELSE 0
+                                       END GISUNG_AMT,
+                                       SUM(GONG_AMT) GONG_AMT,
+                                       SUM(BUGA_AMT) BUGA_AMT,
+                                       SUM(SUM_AMT) SUM_AMT
+                                  FROM 
+                                       (
+                                        SELECT 
+                                               CS136_ARA,
+                                               CS136_BSU,
+                                               'G' CS136_HNO,
+                                               'H' CS136_GND,
+                                               SUM(CS131_CNT) CS131_CNT,
+                                               SUM(CS131_AMT) CS131_AMT,
+                                               SUM(GONG_AMT) GONG_AMT,
+                                               SUM(BUGA_AMT) BUGA_AMT,
+                                               SUM(SUM_AMT) SUM_AMT
+                                          FROM 
+                                               (
+                                                SELECT 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       'A' CS136_HNO,
+                                                       CS136A.CS136_GND CS136_GND,
+                                                       CASE 
+                                                            WHEN SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W') AND CS136A.CS136_GND IN ('A','B') THEN VALUE(COUNT(CS136A.MANDT),0)
+                                                            WHEN SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W') AND CS136A.CS136_GND IN ('C','D') THEN VALUE(COUNT(CS136A.MANDT),0)
+                                                            ELSE 0
+                                                       END CS131_CNT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND IN ('A','B') THEN 0
+                                                            WHEN CS136A.CS136_GND IN ('C','D','E') THEN VALUE(SUM(CS131A.CS131_AMT),0)
+                                                            ELSE 0
+                                                       END CS131_AMT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND BETWEEN 'A' AND 'E'
+                                                                 THEN VALUE(SUM(CS136A.CS136_BAM)+SUM(CS136A.CS136_IY1)+SUM(CS136A.CS136_IY2)+SUM(CS136A.CS136_IY3)+SUM(CS136A.CS136_IY4)+SUM(CS136A.CS136_RET),0)
+                                                            ELSE 0
+                                                       END GONG_AMT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND BETWEEN 'A' AND 'E'
+                                                                 THEN ROUND((VALUE(DOUBLE(SUM(CS136A.CS136_BAM)+SUM(CS136A.CS136_IY1)+SUM(CS136A.CS136_IY2)+SUM(CS136A.CS136_IY3)+SUM(CS136A.CS136_IY4)+SUM(CS136A.CS136_RET))*1.1,0)),0) - 
+                                                                      VALUE(SUM(CS136A.CS136_BAM)+SUM(CS136A.CS136_IY1)+SUM(CS136A.CS136_IY2)+SUM(CS136A.CS136_IY3)+SUM(CS136A.CS136_IY4)+SUM(CS136A.CS136_RET),0)
+                                                            ELSE 0
+                                                       END BUGA_AMT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND BETWEEN 'A' AND 'E'
+                                                                 THEN ROUND((VALUE(DOUBLE(SUM(CS136A.CS136_BAM)+SUM(CS136A.CS136_IY1)+SUM(CS136A.CS136_IY2)+SUM(CS136A.CS136_IY3)+SUM(CS136A.CS136_IY4)+SUM(CS136A.CS136_RET))*1.1,0)),0)
+                                                            ELSE 0
+                                                       END SUM_AMT
+                                                  FROM 
+                                                       SAPHEE.ZCST136 CS136A
+                                                              LEFT OUTER JOIN SAPHEE.ZCST131 CS131A ON CS136A.MANDT = CS131A.MANDT
+                                                                                                   AND CS136A.CS136_BSU = CS131A.CS131_BSU
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_ARA = CS131A.CS131_ARA
+                                                                                                   AND CS136A.CS136_GND = CS131A.CS131_GND
+                                                                                                   AND CS136A.CS136_JYM = CS131A.CS131_MYM
+                                                                                                   AND CS136A.CS136_UPN = CS131A.CS131_UPN
+                                                                                                   AND CS136A.CS136_CST = CS131A.CS131_CST
+                                                                                                   AND CS136A.CS136_PJT = CS131A.CS131_PJT
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_SEQ = CS131A.CS131_SEQ
+                                                                                                   AND CS136A.CS136_ISR = CS131A.CS131_ISR
+                                                                                                   AND CS131A.CS131_ARA LIKE '_%'
+                                                                                                   AND CS131A.CS131_BSU LIKE '_%'
+                                                                                                   AND CS131A.CS131_GBU = '3'
+                                                 WHERE 
+                                                       CS136A.MANDT = #G_MANDT#
+                                                   AND CS136A.CS136_GYM = #YYYYMM#
+                                                   AND CS136A.CS136_GBU = '3'
+                                                   AND CS136A.CS136_PST = 'A6'
+                                                   AND CS136A.CS136_MGB = ''
+                                                   AND CS136A.CS136_GNO > ''
+                                                   AND CS136A.CS136_ARA LIKE '_%'
+                                                   AND CS136A.CS136_BSU LIKE '_%'
+                                                   AND (CS131A.CS131_MYB IS NULL OR CS131A.CS131_MYB = '')
+                                                   AND (CS131A.VBELN IS NULL OR CS131A.VBELN > '')
+                                                   AND SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W','Z','J','G')
+                                                   AND CS136A.CS136_BDGBN != 'X'     -- 분담이행방식이 아닌 것
+                                                GROUP BY 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       CS136A.CS136_GND,
+                                                       SUBSTR(CS136A.CS136_HNO,1,1)
+                                               ) A
+                                        GROUP BY 
+                                               CS136_ARA,
+                                               CS136_BSU,
+                                               CS136_HNO,
+                                               CS136_GND
+
+                                        UNION ALL
+
+                                        SELECT
+                                               WB010.BSU_ARA CS136_ARA,
+                                               WB010.LGORT CS136_BSU,
+                                               'G' CS136_HNO,
+                                               'H' CS136_GND,
+                                               0 CS131_CNT,
+                                               0 CS131_AMT,
+                                               SUM(MM034.DMBTR) GONG_AMT,
+                                               0 BUGA_AMT,
+                                               0 SUM_AMT
+                                          FROM 
+                                               SAPHEE.ZMMT034 AS MM034,
+                                               SAPHEE.ZWBT010 AS WB010
+                                         WHERE
+                                               MM034.MANDT = #G_MANDT#
+                                           AND MM034.SPMON = #YYYYMM#
+                                           AND MM034.MANDT = WB010.MANDT
+                                           AND MM034.LIFNR = WB010.LIFNR
+                                           AND WB010.BSU_ARA > ''
+                                           AND MM034.VBTYP = 'NB'
+                                           AND MM034.VBTYP = 'NB'
+                                        GROUP BY 
+                                               WB010.BSU_ARA,
+                                               WB010.LGORT
+                                       ) B
+                                GROUP BY 
+                                       CS136_ARA,
+                                       CS136_BSU,
+                                       CS136_HNO,
+                                       CS136_GND
+
+                                UNION ALL
+
+                                -- 지역 합계
+                                SELECT 
+                                       CS136_ARA,
+                                       'XXXX' CS136_BSU,
+                                       'G' CS136_HNO,
+                                       CS136_GND,
+                                       SUM(CS131_CNT) CS131_CNT,
+                                       SUM(CS131_AMT) CS131_AMT,
+                                       CASE 
+                                            WHEN SUM(CS131_AMT) = 0 THEN 0
+                                            WHEN SUM(CS131_AMT) > 0 THEN ROUND(((DOUBLE(SUM(GONG_AMT))/DOUBLE(SUM(CS131_AMT)))*100),0)
+                                            ELSE 0
+                                       END GISUNG_AMT,
+                                       SUM(GONG_AMT) GONG_AMT,
+                                       0 BUGA_AMT,
+                                       0 SUM_AMT
+                                  FROM 
+                                       (
+                                        SELECT 
+                                               CS136_ARA,
+                                               CS136_BSU,
+                                               'G' CS136_HNO,
+                                               CASE CS136_GND WHEN 'A' THEN 'B' WHEN 'E' THEN 'D' ELSE CS136_GND END CS136_GND,
+                                               SUM(CS131_CNT) CS131_CNT,
+                                               SUM(CS131_AMT) CS131_AMT,
+                                               SUM(GONG_AMT) GONG_AMT
+                                          FROM 
+                                               (
+                                                SELECT 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       'A' CS136_HNO,
+                                                       CS136A.CS136_GND CS136_GND,
+                                                       CASE 
+                                                            WHEN SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W') AND CS136A.CS136_GND IN ('A','B') THEN VALUE(COUNT(CS136A.MANDT),0)
+                                                            WHEN SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W') AND CS136A.CS136_GND IN ('C','D') THEN VALUE(COUNT(CS136A.MANDT),0)
+                                                            ELSE 0
+                                                       END CS131_CNT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND IN ('A','B') THEN 0
+                                                            WHEN CS136A.CS136_GND IN ('C','D','E') THEN VALUE(SUM(CS131A.CS131_AMT),0)
+                                                            ELSE 0
+                                                       END CS131_AMT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND BETWEEN 'A' AND 'E'
+                                                                 THEN VALUE(SUM(CS136A.CS136_BAM)+SUM(CS136A.CS136_IY1)+SUM(CS136A.CS136_IY2)+SUM(CS136A.CS136_IY3)+SUM(CS136A.CS136_IY4)+SUM(CS136A.CS136_RET),0)
+                                                            ELSE 0
+                                                       END GONG_AMT
+                                                  FROM 
+                                                       SAPHEE.ZCST136 CS136A
+                                                              LEFT OUTER JOIN SAPHEE.ZCST131 CS131A ON CS136A.MANDT = CS131A.MANDT
+                                                                                                   AND CS136A.CS136_BSU = CS131A.CS131_BSU
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_ARA = CS131A.CS131_ARA
+                                                                                                   AND CS136A.CS136_GND = CS131A.CS131_GND
+                                                                                                   AND CS136A.CS136_JYM = CS131A.CS131_MYM
+                                                                                                   AND CS136A.CS136_UPN = CS131A.CS131_UPN
+                                                                                                   AND CS136A.CS136_CST = CS131A.CS131_CST
+                                                                                                   AND CS136A.CS136_PJT = CS131A.CS131_PJT
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_SEQ = CS131A.CS131_SEQ
+                                                                                                   AND CS136A.CS136_ISR = CS131A.CS131_ISR
+                                                                                                   AND CS131A.CS131_ARA LIKE '_%'
+                                                                                                   AND CS131A.CS131_BSU LIKE '_%'
+                                                                                                   AND CS131A.CS131_GBU = '3',
+                                                       (
+                                                        SELECT 
+                                                               A.AREA,
+                                                               B.LGORT
+                                                          FROM
+                                                               (
+                                                                SELECT 
+                                                                       MM028A.CODE2 AREA
+                                                                  FROM 
+                                                                       SAPHEE.ZLCODE MM028A
+                                                                 WHERE 
+                                                                       MM028A.MANDT = #G_MANDT#
+                                                                   AND MM028A.LANG = #G_LANG#
+                                                                   AND MM028A.CODE1 = 'CS115'
+                                                               ) A,
+                                                               (
+                                                                SELECT 
+                                                                       MM005A.LGORT,
+                                                                       WB010A.BSU_ARA
+                                                                  FROM 
+                                                                       SAPHEE.ZWBT010 WB010A,
+                                                                       SAPHEE.ZMMT012 MM012A,
+                                                                       SAPHEE.ZMMT005 MM005A
+                                                                 WHERE 
+                                                                       WB010A.MANDT = #G_MANDT#
+                                                                   AND WB010A.MANDT = MM012A.MANDT
+                                                                   AND WB010A.LIFNR = MM012A.LIFNR
+                                                                   AND MM012A.MANDT = MM005A.MANDT
+                                                                   AND MM012A.LIFNR = MM005A.LIFNR
+                                                               ) B
+                                                         WHERE 
+                                                               A.AREA = B.BSU_ARA
+                                                        ORDER BY 
+                                                               A.AREA,
+                                                               B.LGORT
+                                                       ) ARA_BSU
+                                                 WHERE 
+                                                       CS136A.MANDT = #G_MANDT#
+                                                   AND CS136A.CS136_GYM = #YYYYMM#
+                                                   AND CS136A.CS136_GBU = '3'
+                                                   AND CS136A.CS136_PST = 'A6'
+                                                   AND CS136A.CS136_MGB = ''
+                                                   AND CS136A.CS136_GNO > ''
+                                                   AND CS136_ARA = ARA_BSU.AREA
+                                                   AND CS136_BSU = ARA_BSU.LGORT
+                                                   AND CS136A.CS136_ARA LIKE '_%'
+                                                   AND CS136A.CS136_BSU LIKE '_%'
+                                                   AND (CS131A.CS131_MYB IS NULL OR CS131A.CS131_MYB = '')
+                                                   AND (CS131A.VBELN IS NULL OR CS131A.VBELN > '')
+                                                   AND SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W','Z','J','G')
+                                                   AND CS136A.CS136_BDGBN != 'X'     -- 분담이행방식이 아닌 것
+                                                GROUP BY 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       CS136A.CS136_GND,
+                                                       SUBSTR(CS136A.CS136_HNO,1,1)
+                                               ) A
+                                        GROUP BY 
+                                               CS136_ARA,
+                                               CS136_BSU,
+                                               CS136_HNO,
+                                               CS136_GND
+
+                                        UNION ALL
+
+                                        SELECT
+                                               WB010.BSU_ARA CS136_ARA,
+                                               WB010.LGORT CS136_BSU,
+                                               'G' CS136_HNO,
+                                               'F' CS136_GND,
+                                               0 CS131_CNT,
+                                               0 CS131_AMT,
+                                               SUM(MM034.DMBTR) GONG_AMT
+                                          FROM 
+                                               SAPHEE.ZMMT034 AS MM034,
+                                               SAPHEE.ZWBT010 AS WB010
+                                         WHERE
+                                               MM034.MANDT = #G_MANDT#
+                                           AND MM034.SPMON = #YYYYMM#
+                                           AND MM034.MANDT = WB010.MANDT
+                                           AND MM034.LIFNR = WB010.LIFNR
+                                           AND WB010.BSU_ARA > ''
+                                           AND MM034.VBTYP = 'NB'
+                                           AND MM034.VBTYP = 'NB'
+                                        GROUP BY 
+                                               WB010.BSU_ARA,
+                                               WB010.LGORT
+                                       ) B
+                                GROUP BY 
+                                       CS136_ARA,
+                                       CS136_GND
+
+                                UNION ALL
+
+                                -- 지역 합계(SUM)
+                                SELECT 
+                                       CS136_ARA,
+                                       'XXXX' CS136_BSU,
+                                       'G' CS136_HNO,
+                                       CS136_GND,
+                                       SUM(CS131_CNT) CS131_CNT,
+                                       SUM(CS131_AMT) CS131_AMT,
+                                       CASE 
+                                            WHEN SUM(CS131_AMT) = 0 THEN 0
+                                            WHEN SUM(CS131_AMT) > 0 THEN ROUND(((DOUBLE(SUM(GONG_AMT))/DOUBLE(SUM(CS131_AMT)))*100),0)
+                                            ELSE 0
+                                       END GISUNG_AMT,
+                                       SUM(GONG_AMT) GONG_AMT,
+                                       0 BUGA_AMT,
+                                       0 SUM_AMT
+                                  FROM 
+                                       (
+                                        SELECT 
+                                               CS136_ARA,
+                                               CS136_BSU,
+                                               'G' CS136_HNO,
+                                               'H' CS136_GND,
+                                               SUM(CS131_CNT) CS131_CNT,
+                                               SUM(CS131_AMT) CS131_AMT,
+                                               SUM(GONG_AMT) GONG_AMT
+                                          FROM 
+                                               (
+                                                SELECT 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       'A' CS136_HNO,
+                                                       CS136A.CS136_GND CS136_GND,
+                                                       CASE 
+                                                            WHEN SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W') AND CS136A.CS136_GND IN ('A','B') THEN VALUE(COUNT(CS136A.MANDT),0)
+                                                            WHEN SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W') AND CS136A.CS136_GND IN ('C','D') THEN VALUE(COUNT(CS136A.MANDT),0)
+                                                            ELSE 0
+                                                       END CS131_CNT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND IN ('A','B') THEN 0
+                                                            WHEN CS136A.CS136_GND IN ('C','D','E') THEN VALUE(SUM(CS131A.CS131_AMT),0)
+                                                            ELSE 0
+                                                       END CS131_AMT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND BETWEEN 'A' AND 'E'
+                                                                 THEN VALUE(SUM(CS136A.CS136_BAM)+SUM(CS136A.CS136_IY1)+SUM(CS136A.CS136_IY2)+SUM(CS136A.CS136_IY3)+SUM(CS136A.CS136_IY4)+SUM(CS136A.CS136_RET),0)
+                                                            ELSE 0
+                                                       END GONG_AMT
+                                                  FROM 
+                                                       SAPHEE.ZCST136 CS136A
+                                                              LEFT OUTER JOIN SAPHEE.ZCST131 CS131A ON CS136A.MANDT = CS131A.MANDT
+                                                                                                   AND CS136A.CS136_BSU = CS131A.CS131_BSU
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_ARA = CS131A.CS131_ARA
+                                                                                                   AND CS136A.CS136_GND = CS131A.CS131_GND
+                                                                                                   AND CS136A.CS136_JYM = CS131A.CS131_MYM
+                                                                                                   AND CS136A.CS136_UPN = CS131A.CS131_UPN
+                                                                                                   AND CS136A.CS136_CST = CS131A.CS131_CST
+                                                                                                   AND CS136A.CS136_PJT = CS131A.CS131_PJT
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_SEQ = CS131A.CS131_SEQ
+                                                                                                   AND CS136A.CS136_ISR = CS131A.CS131_ISR
+                                                                                                   AND CS131A.CS131_ARA LIKE '_%'
+                                                                                                   AND CS131A.CS131_BSU LIKE '_%'
+                                                                                                   AND CS131A.CS131_GBU = '3',
+                                                       (
+                                                        SELECT 
+                                                               A.AREA,
+                                                               B.LGORT
+                                                          FROM
+                                                               (
+                                                                SELECT 
+                                                                       MM028A.CODE2 AREA
+                                                                  FROM 
+                                                                       SAPHEE.ZLCODE MM028A
+                                                                 WHERE 
+                                                                       MM028A.MANDT = #G_MANDT#
+                                                                   AND MM028A.LANG = #G_LANG#
+                                                                   AND MM028A.CODE1 = 'CS115'
+                                                               ) A,
+                                                               (
+                                                                SELECT 
+                                                                       MM005A.LGORT,
+                                                                       WB010A.BSU_ARA
+                                                                  FROM 
+                                                                       SAPHEE.ZWBT010 WB010A,
+                                                                       SAPHEE.ZMMT012 MM012A,
+                                                                       SAPHEE.ZMMT005 MM005A
+                                                                 WHERE 
+                                                                       WB010A.MANDT = #G_MANDT#
+                                                                   AND WB010A.MANDT = MM012A.MANDT
+                                                                   AND WB010A.LIFNR = MM012A.LIFNR
+                                                                   AND MM012A.MANDT = MM005A.MANDT
+                                                                   AND MM012A.LIFNR = MM005A.LIFNR
+                                                               ) B
+                                                         WHERE 
+                                                               A.AREA = B.BSU_ARA
+                                                        ORDER BY 
+                                                               A.AREA,
+                                                               B.LGORT
+                                                       ) ARA_BSU
+                                                 WHERE 
+                                                       CS136A.MANDT = #G_MANDT#
+                                                   AND CS136A.CS136_GYM = #YYYYMM#
+                                                   AND CS136A.CS136_GBU = '3'
+                                                   AND CS136A.CS136_PST = 'A6'
+                                                   AND CS136A.CS136_MGB = ''
+                                                   AND CS136A.CS136_GNO > ''
+                                                   AND CS136_ARA = ARA_BSU.AREA
+                                                   AND CS136_BSU = ARA_BSU.LGORT
+                                                   AND CS136A.CS136_ARA LIKE '_%'
+                                                   AND CS136A.CS136_BSU LIKE '_%'
+                                                   AND (CS131A.CS131_MYB IS NULL OR CS131A.CS131_MYB = '')
+                                                   AND (CS131A.VBELN IS NULL OR CS131A.VBELN > '')
+                                                   AND SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W','Z','J','G')
+                                                   AND CS136A.CS136_BDGBN != 'X'     -- 분담이행방식이 아닌 것
+                                                GROUP BY 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       CS136A.CS136_GND,
+                                                       SUBSTR(CS136A.CS136_HNO,1,1)
+                                               ) A
+                                        GROUP BY 
+                                               CS136_ARA,
+                                               CS136_BSU,
+                                               CS136_HNO,
+                                               CS136_GND
+
+                                        UNION ALL
+
+                                        SELECT
+                                               WB010.BSU_ARA CS136_ARA,
+                                               WB010.LGORT CS136_BSU,
+                                               'G' CS136_HNO,
+                                               'H' CS136_GND,
+                                               0 CS131_CNT,
+                                               0 CS131_AMT,
+                                               SUM(MM034.DMBTR) GONG_AMT
+                                          FROM 
+                                               SAPHEE.ZMMT034 AS MM034,
+                                               SAPHEE.ZWBT010 AS WB010
+                                         WHERE
+                                               MM034.MANDT = #G_MANDT#
+                                           AND MM034.SPMON = #YYYYMM#
+                                           AND MM034.MANDT = WB010.MANDT
+                                           AND MM034.LIFNR = WB010.LIFNR
+                                           AND WB010.BSU_ARA > ''
+                                           AND MM034.VBTYP = 'NB'
+                                           AND MM034.VBTYP = 'NB'
+                                        GROUP BY 
+                                               WB010.BSU_ARA,
+                                               WB010.LGORT
+                                       ) B
+                                GROUP BY 
+                                       CS136_ARA,
+                                       CS136_GND
+
+                                UNION ALL
+
+                                -- 지방 합계
+                                SELECT 
+                                       'YY' CS136_ARA,
+                                       'YYYY' CS136_BSU,
+                                       'G' CS136_HNO,
+                                       CS136_GND,
+                                       SUM(CS131_CNT) CS131_CNT,
+                                       SUM(CS131_AMT) CS131_AMT,
+                                       CASE 
+                                            WHEN SUM(CS131_AMT) = 0 THEN 0
+                                            WHEN SUM(CS131_AMT) > 0 THEN ROUND(((DOUBLE(SUM(GONG_AMT))/DOUBLE(SUM(CS131_AMT)))*100),0)
+                                            ELSE 0
+                                       END GISUNG_AMT,
+                                       SUM(GONG_AMT) GONG_AMT,
+                                       0 BUGA_AMT,
+                                       0 SUM_AMT
+                                  FROM 
+                                       (
+                                        SELECT 
+                                               'ARA' ARA,
+                                               CS136_ARA,
+                                               CS136_BSU,
+                                               'G' CS136_HNO,
+                                               CASE CS136_GND WHEN 'A' THEN 'B' WHEN 'E' THEN 'D' ELSE CS136_GND END CS136_GND,
+                                               SUM(CS131_CNT) CS131_CNT,
+                                               SUM(CS131_AMT) CS131_AMT,
+                                               SUM(GONG_AMT) GONG_AMT
+                                          FROM 
+                                               (
+                                                SELECT 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       'A' CS136_HNO,
+                                                       CS136A.CS136_GND CS136_GND,
+                                                       CASE 
+                                                            WHEN SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W') AND CS136A.CS136_GND IN ('A','B') THEN VALUE(COUNT(CS136A.MANDT),0)
+                                                            WHEN SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W') AND CS136A.CS136_GND IN ('C','D') THEN VALUE(COUNT(CS136A.MANDT),0)
+                                                            ELSE 0
+                                                       END CS131_CNT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND IN ('A','B') THEN 0
+                                                            WHEN CS136A.CS136_GND IN ('C','D','E') THEN VALUE(SUM(CS131A.CS131_AMT),0)
+                                                            ELSE 0
+                                                       END CS131_AMT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND BETWEEN 'A' AND 'E' THEN VALUE(SUM(CS136A.CS136_BAM)+SUM(CS136A.CS136_IY1)+SUM(CS136A.CS136_IY2)+SUM(CS136A.CS136_IY3)+SUM(CS136A.CS136_IY4)+SUM(CS136A.CS136_RET),0)
+                                                            ELSE 0
+                                                       END GONG_AMT
+                                                  FROM 
+                                                       SAPHEE.ZCST136 CS136A
+                                                              LEFT OUTER JOIN SAPHEE.ZCST131 CS131A ON CS136A.MANDT = CS131A.MANDT
+                                                                                                   AND CS136A.CS136_BSU = CS131A.CS131_BSU
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_ARA = CS131A.CS131_ARA
+                                                                                                   AND CS136A.CS136_GND = CS131A.CS131_GND
+                                                                                                   AND CS136A.CS136_JYM = CS131A.CS131_MYM
+                                                                                                   AND CS136A.CS136_UPN = CS131A.CS131_UPN
+                                                                                                   AND CS136A.CS136_CST = CS131A.CS131_CST
+                                                                                                   AND CS136A.CS136_PJT = CS131A.CS131_PJT
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_SEQ = CS131A.CS131_SEQ
+                                                                                                   AND CS136A.CS136_ISR = CS131A.CS131_ISR
+                                                                                                   AND CS131A.CS131_ARA LIKE '_%'
+                                                                                                   AND CS131A.CS131_BSU LIKE '_%'
+                                                                                                   AND CS131A.CS131_GBU = '3',
+                                                       (
+                                                        SELECT 
+                                                               A.AREA,
+                                                               B.LGORT
+                                                          FROM
+                                                               (
+                                                                SELECT 
+                                                                       MM028A.CODE2 AREA
+                                                                  FROM 
+                                                                       SAPHEE.ZLCODE MM028A
+                                                                 WHERE 
+                                                                       MM028A.MANDT = #G_MANDT#
+                                                                   AND MM028A.LANG = #G_LANG#
+                                                                   AND MM028A.CODE1 = 'CS115'
+                                                                ) A,
+                                                                (
+                                                                 SELECT 
+                                                                        MM005A.LGORT,
+                                                                        WB010A.BSU_ARA
+                                                                   FROM 
+                                                                        SAPHEE.ZWBT010 WB010A,
+                                                                        SAPHEE.ZMMT012 MM012A,
+                                                                        SAPHEE.ZMMT005 MM005A
+                                                                  WHERE 
+                                                                        WB010A.MANDT = #G_MANDT#
+                                                                    AND WB010A.MANDT = MM012A.MANDT
+                                                                    AND WB010A.LIFNR = MM012A.LIFNR
+                                                                    AND MM012A.MANDT = MM005A.MANDT
+                                                                    AND MM012A.LIFNR = MM005A.LIFNR
+                                                                ) B
+                                                          WHERE 
+                                                                A.AREA = B.BSU_ARA
+                                                         ORDER BY 
+                                                                A.AREA,
+                                                                B.LGORT
+                                                       ) ARA_BSU
+                                                 WHERE 
+                                                       CS136A.MANDT = #G_MANDT#
+                                                   AND CS136_ARA &lt;&gt; 'E5'
+                                                   AND CS136A.CS136_GYM = #YYYYMM#
+                                                   AND CS136A.CS136_GBU = '3'
+                                                   AND CS136A.CS136_PST = 'A6'
+                                                   AND CS136A.CS136_MGB = ''
+                                                   AND CS136A.CS136_GNO > ''
+                                                   AND CS136_ARA  = ARA_BSU.AREA
+                                                   AND CS136_BSU  = ARA_BSU.LGORT
+                                                   AND CS136A.CS136_ARA LIKE '_%'
+                                                   AND CS136A.CS136_BSU LIKE '_%'
+                                                   AND (CS131A.CS131_MYB IS NULL OR CS131A.CS131_MYB = '')
+                                                   AND (CS131A.VBELN IS NULL OR CS131A.VBELN > '')
+                                                   AND SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W','Z','J','G')
+                                                   AND CS136A.CS136_BDGBN != 'X'     -- 분담이행방식이 아닌 것
+                                                GROUP BY 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       CS136A.CS136_GND,
+                                                       SUBSTR(CS136A.CS136_HNO,1,1)
+                                               ) A
+                                        GROUP BY 
+                                               CS136_ARA,
+                                               CS136_BSU,
+                                               CS136_HNO,
+                                               CS136_GND
+
+                                        UNION ALL
+
+                                        SELECT
+                                               'ARA' ARA,
+                                               WB010.BSU_ARA CS136_ARA,
+                                               WB010.LGORT CS136_BSU,
+                                               'G' CS136_HNO,
+                                               'F' CS136_GND,
+                                               0 CS131_CNT,
+                                               0 CS131_AMT,
+                                               SUM(MM034.DMBTR) GONG_AMT
+                                          FROM 
+                                               SAPHEE.ZMMT034 AS MM034,
+                                               SAPHEE.ZWBT010 AS WB010
+                                         WHERE
+                                               MM034.MANDT = #G_MANDT#
+                                           AND MM034.SPMON = #YYYYMM#
+                                           AND WB010.BSU_ARA &lt;&gt; 'E5'
+                                           AND MM034.MANDT = WB010.MANDT
+                                           AND MM034.LIFNR = WB010.LIFNR
+                                           AND WB010.BSU_ARA > ''
+                                           AND MM034.VBTYP = 'NB'
+                                           AND MM034.VBTYP = 'NB'
+                                        GROUP BY 
+                                               WB010.BSU_ARA,
+                                               WB010.LGORT
+                                       ) B
+                                GROUP BY 
+                                       ARA,
+                                       CS136_GND
+
+                                UNION ALL
+
+                                -- 지방 합계(SUM)
+                                SELECT 
+                                       'YY' CS136_ARA,
+                                       'YYYY' CS136_BSU,
+                                       'G' CS136_HNO,
+                                       CS136_GND,
+                                       SUM(CS131_CNT) CS131_CNT,
+                                       SUM(CS131_AMT) CS131_AMT,
+                                       CASE 
+                                            WHEN SUM(CS131_AMT) = 0 THEN 0
+                                            WHEN SUM(CS131_AMT) > 0 THEN ROUND(((DOUBLE(SUM(GONG_AMT))/DOUBLE(SUM(CS131_AMT)))*100),0)
+                                            ELSE 0
+                                       END GISUNG_AMT,
+                                       SUM(GONG_AMT) GONG_AMT,
+                                       0 BUGA_AMT,
+                                       0 SUM_AMT
+                                  FROM 
+                                       (
+                                        SELECT 
+                                               'ARA' ARA,
+                                               CS136_ARA,
+                                               CS136_BSU,
+                                               'G' CS136_HNO,
+                                               'H' CS136_GND,
+                                               SUM(CS131_CNT) CS131_CNT,
+                                               SUM(CS131_AMT) CS131_AMT,
+                                               SUM(GONG_AMT) GONG_AMT
+                                          FROM 
+                                               (
+                                                SELECT 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       'A' CS136_HNO,
+                                                       CS136A.CS136_GND CS136_GND,
+                                                       CASE 
+                                                            WHEN SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W') AND CS136A.CS136_GND IN ('A','B') THEN VALUE(COUNT(CS136A.MANDT),0)
+                                                            WHEN SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W') AND CS136A.CS136_GND IN ('C','D') THEN VALUE(COUNT(CS136A.MANDT),0)
+                                                            ELSE 0
+                                                       END CS131_CNT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND IN ('A','B') THEN 0
+                                                            WHEN CS136A.CS136_GND IN ('C','D','E') THEN VALUE(SUM(CS131A.CS131_AMT),0)
+                                                            ELSE 0
+                                                       END CS131_AMT,
+                                                       0 GISUNG_AMT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND BETWEEN 'A' AND 'E' THEN VALUE(SUM(CS136A.CS136_BAM)+SUM(CS136A.CS136_IY1)+SUM(CS136A.CS136_IY2)+SUM(CS136A.CS136_IY3)+SUM(CS136A.CS136_IY4)+SUM(CS136A.CS136_RET),0)
+                                                            ELSE 0
+                                                       END GONG_AMT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND BETWEEN 'A' AND 'E'
+                                                                 THEN ROUND((VALUE(DOUBLE(SUM(CS136A.CS136_BAM)+SUM(CS136A.CS136_IY1)+SUM(CS136A.CS136_IY2)+SUM(CS136A.CS136_IY3)+SUM(CS136A.CS136_IY4)+SUM(CS136A.CS136_RET))*1.1,0)),0) - 
+                                                                      VALUE(SUM(CS136A.CS136_BAM)+SUM(CS136A.CS136_IY1)+SUM(CS136A.CS136_IY2)+SUM(CS136A.CS136_IY3)+SUM(CS136A.CS136_IY4)+SUM(CS136A.CS136_RET),0)
+                                                            ELSE 0
+                                                       END BUGA_AMT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND BETWEEN 'A' AND 'E'
+                                                                 THEN ROUND((VALUE(DOUBLE(SUM(CS136A.CS136_BAM)+SUM(CS136A.CS136_IY1)+SUM(CS136A.CS136_IY2)+SUM(CS136A.CS136_IY3)+SUM(CS136A.CS136_IY4)+SUM(CS136A.CS136_RET))*1.1,0)),0)
+                                                            ELSE 0
+                                                       END SUM_AMT
+                                                  FROM 
+                                                       SAPHEE.ZCST136 CS136A
+                                                              LEFT OUTER JOIN SAPHEE.ZCST131 CS131A ON CS136A.MANDT = CS131A.MANDT
+                                                                                                   AND CS136A.CS136_BSU = CS131A.CS131_BSU
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_ARA = CS131A.CS131_ARA
+                                                                                                   AND CS136A.CS136_GND = CS131A.CS131_GND
+                                                                                                   AND CS136A.CS136_JYM = CS131A.CS131_MYM
+                                                                                                   AND CS136A.CS136_UPN = CS131A.CS131_UPN
+                                                                                                   AND CS136A.CS136_CST = CS131A.CS131_CST
+                                                                                                   AND CS136A.CS136_PJT = CS131A.CS131_PJT
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_SEQ = CS131A.CS131_SEQ
+                                                                                                   AND CS136A.CS136_ISR = CS131A.CS131_ISR
+                                                                                                   AND CS131A.CS131_ARA LIKE '_%'
+                                                                                                   AND CS131A.CS131_BSU LIKE '_%'
+                                                                                                   AND CS131A.CS131_GBU = '3',
+                                                       (
+                                                        SELECT 
+                                                               A.AREA,
+                                                               B.LGORT
+                                                          FROM
+                                                               (
+                                                                SELECT 
+                                                                       MM028A.CODE2 AREA
+                                                                  FROM 
+                                                                       SAPHEE.ZLCODE MM028A
+                                                                 WHERE 
+                                                                       MM028A.MANDT = #G_MANDT#
+                                                                   AND MM028A.LANG = #G_LANG#
+                                                                   AND MM028A.CODE1 = 'CS115'
+                                                                ) A,
+                                                                (
+                                                                 SELECT 
+                                                                        MM005A.LGORT,
+                                                                        WB010A.BSU_ARA
+                                                                   FROM 
+                                                                        SAPHEE.ZWBT010 WB010A,
+                                                                        SAPHEE.ZMMT012 MM012A,
+                                                                        SAPHEE.ZMMT005 MM005A
+                                                                  WHERE 
+                                                                        WB010A.MANDT = #G_MANDT#
+                                                                    AND WB010A.MANDT = MM012A.MANDT
+                                                                    AND WB010A.LIFNR = MM012A.LIFNR
+                                                                    AND MM012A.MANDT = MM005A.MANDT
+                                                                    AND MM012A.LIFNR = MM005A.LIFNR
+                                                                ) B
+                                                          WHERE 
+                                                                A.AREA = B.BSU_ARA
+                                                         ORDER BY 
+                                                                A.AREA,
+                                                                B.LGORT
+                                                       ) ARA_BSU
+                                                 WHERE 
+                                                       CS136A.MANDT = #G_MANDT#
+                                                   AND CS136_ARA &lt;&gt; 'E5'
+                                                   AND CS136A.CS136_GYM = #YYYYMM#
+                                                   AND CS136A.CS136_GBU = '3'
+                                                   AND CS136A.CS136_PST = 'A6'
+                                                   AND CS136A.CS136_MGB = ''
+                                                   AND CS136A.CS136_GNO > ''
+                                                   AND CS136_ARA  = ARA_BSU.AREA
+                                                   AND CS136_BSU  = ARA_BSU.LGORT
+                                                   AND CS136A.CS136_ARA LIKE '_%'
+                                                   AND CS136A.CS136_BSU LIKE '_%'
+                                                   AND (CS131A.CS131_MYB IS NULL OR CS131A.CS131_MYB = '')
+                                                   AND (CS131A.VBELN IS NULL OR CS131A.VBELN > '')
+                                                   AND SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W','Z','J','G')
+                                                   AND CS136A.CS136_BDGBN != 'X'     -- 분담이행방식이 아닌 것
+                                                GROUP BY 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       CS136A.CS136_GND,
+                                                       SUBSTR(CS136A.CS136_HNO,1,1)
+                                               ) A
+                                        GROUP BY 
+                                               CS136_ARA,
+                                               CS136_BSU,
+                                               CS136_HNO,
+                                               CS136_GND
+
+                                        UNION ALL
+
+                                        SELECT
+                                               'ARA' ARA,
+                                               WB010.BSU_ARA CS136_ARA,
+                                               WB010.LGORT CS136_BSU,
+                                               'G' CS136_HNO,
+                                               'H' CS136_GND,
+                                               0 CS131_CNT,
+                                               0 CS131_AMT,
+                                               SUM(MM034.DMBTR) GONG_AMT
+                                          FROM 
+                                               SAPHEE.ZMMT034 AS MM034,
+                                               SAPHEE.ZWBT010 AS WB010
+                                         WHERE
+                                               MM034.MANDT = #G_MANDT#
+                                           AND MM034.SPMON = #YYYYMM#
+                                           AND WB010.BSU_ARA &lt;&gt; 'E5'
+                                           AND MM034.MANDT = WB010.MANDT
+                                           AND MM034.LIFNR = WB010.LIFNR
+                                           AND WB010.BSU_ARA > ''
+                                           AND MM034.VBTYP = 'NB'
+                                           AND MM034.VBTYP = 'NB'
+                                        GROUP BY 
+                                               WB010.BSU_ARA,
+                                               WB010.LGORT
+                                       ) B
+                                GROUP BY 
+                                       ARA,
+                                       CS136_GND
+
+                                UNION ALL
+
+                                -- 총 합계
+                                SELECT 
+                                       '00'CS136_ARA,
+                                       '0000' CS136_BSU,
+                                       'G' CS136_HNO,
+                                       CS136_GND,
+                                       SUM(CS131_CNT) CS131_CNT,
+                                       SUM(DOUBLE(CS131_AMT)) CS131_AMT,
+                                       CASE 
+                                            WHEN SUM(DOUBLE(CS131_AMT)) = 0 THEN 0
+                                            WHEN SUM(DOUBLE(CS131_AMT)) > 0 THEN ROUND(((DOUBLE(SUM(GONG_AMT))/DOUBLE(SUM(CS131_AMT)))*100),0)
+                                            ELSE 0
+                                       END GISUNG_AMT,
+                                       SUM(DOUBLE(GONG_AMT)) GONG_AMT,
+                                       0 BUGA_AMT,
+                                       0 SUM_AMT
+                                  FROM 
+                                       (
+                                        SELECT 
+                                               'TOT' TOT,
+                                               CS136_ARA,
+                                               CS136_BSU,
+                                               'G' CS136_HNO,
+                                               CASE CS136_GND WHEN 'A' THEN 'B' WHEN 'E' THEN 'D' ELSE CS136_GND END CS136_GND,
+                                               SUM(DOUBLE(CS131_CNT)) CS131_CNT,
+                                               SUM(DOUBLE(CS131_AMT)) CS131_AMT,
+                                               SUM(DOUBLE(GONG_AMT)) GONG_AMT
+                                          FROM 
+                                               (
+                                                SELECT 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       'A' CS136_HNO,
+                                                       CS136A.CS136_GND CS136_GND,
+                                                       CASE 
+                                                            WHEN SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W') AND CS136A.CS136_GND IN ('A','B') THEN VALUE(COUNT(CS136A.MANDT),0)
+                                                            WHEN SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W') AND CS136A.CS136_GND IN ('C','D','E') THEN VALUE(COUNT(CS136A.MANDT),0)
+                                                            ELSE 0
+                                                       END CS131_CNT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND IN ('A','B') THEN 0
+                                                            WHEN CS136A.CS136_GND IN ('C','D','E') THEN VALUE(SUM(CS131A.CS131_AMT),0)
+                                                            ELSE 0
+                                                       END CS131_AMT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND BETWEEN 'A' AND 'E'
+                                                                 THEN VALUE(SUM(CS136A.CS136_BAM)+SUM(CS136A.CS136_IY1)+SUM(CS136A.CS136_IY2)+SUM(CS136A.CS136_IY3)+SUM(CS136A.CS136_IY4)+SUM(CS136A.CS136_RET),0)
+                                                            ELSE 0
+                                                       END GONG_AMT
+                                                  FROM 
+                                                       SAPHEE.ZCST136 CS136A
+                                                              LEFT OUTER JOIN SAPHEE.ZCST131 CS131A ON CS136A.MANDT = CS131A.MANDT
+                                                                                                   AND CS136A.CS136_BSU = CS131A.CS131_BSU
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_ARA = CS131A.CS131_ARA
+                                                                                                   AND CS136A.CS136_GND = CS131A.CS131_GND
+                                                                                                   AND CS136A.CS136_JYM = CS131A.CS131_MYM
+                                                                                                   AND CS136A.CS136_UPN = CS131A.CS131_UPN
+                                                                                                   AND CS136A.CS136_CST = CS131A.CS131_CST
+                                                                                                   AND CS136A.CS136_PJT = CS131A.CS131_PJT
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_SEQ = CS131A.CS131_SEQ
+                                                                                                   AND CS136A.CS136_ISR = CS131A.CS131_ISR
+                                                                                                   AND CS131A.CS131_ARA LIKE '_%'
+                                                                                                   AND CS131A.CS131_BSU LIKE '_%'
+                                                                                                   AND CS131A.CS131_GBU = '3',
+                                                       (
+                                                        SELECT 
+                                                               A.AREA,
+                                                               B.LGORT
+                                                          FROM
+                                                               (
+                                                                SELECT 
+                                                                       MM028A.CODE2 AREA
+                                                                  FROM 
+                                                                       SAPHEE.ZLCODE MM028A
+                                                                 WHERE 
+                                                                       MM028A.MANDT = #G_MANDT#
+                                                                   AND MM028A.LANG = #G_LANG#
+                                                                   AND MM028A.CODE1 = 'CS115'
+                                                                ) A,
+                                                                (
+                                                                 SELECT 
+                                                                        MM005A.LGORT,
+                                                                        WB010A.BSU_ARA
+                                                                   FROM 
+                                                                        SAPHEE.ZWBT010 WB010A,
+                                                                        SAPHEE.ZMMT012 MM012A,
+                                                                        SAPHEE.ZMMT005 MM005A
+                                                                  WHERE 
+                                                                        WB010A.MANDT = #G_MANDT#
+                                                                    AND WB010A.MANDT = MM012A.MANDT
+                                                                    AND WB010A.LIFNR = MM012A.LIFNR
+                                                                    AND MM012A.MANDT = MM005A.MANDT
+                                                                    AND MM012A.LIFNR = MM005A.LIFNR
+                                                                ) B
+                                                          WHERE 
+                                                                A.AREA = B.BSU_ARA
+                                                         ORDER BY 
+                                                                A.AREA,
+                                                                B.LGORT
+                                                       ) ARA_BSU
+                                                 WHERE 
+                                                       CS136A.MANDT = #G_MANDT#
+                                                   AND CS136A.CS136_GYM = #YYYYMM#
+                                                   AND CS136A.CS136_GBU = '3'
+                                                   AND CS136A.CS136_PST = 'A6'
+                                                   AND CS136A.CS136_MGB = ''
+                                                   AND CS136A.CS136_GNO > ''
+                                                   AND CS136_ARA  = ARA_BSU.AREA
+                                                   AND CS136_BSU  = ARA_BSU.LGORT
+                                                   AND CS136A.CS136_ARA LIKE '_%'
+                                                   AND CS136A.CS136_BSU LIKE '_%'
+                                                   AND (CS131A.CS131_MYB IS NULL OR CS131A.CS131_MYB = '')
+                                                   AND (CS131A.VBELN IS NULL OR CS131A.VBELN > '')
+                                                   AND SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W','Z','J','G')
+<isNotNull col="AREA">
+                                                   AND CS136A.CS136_ARA = #AREA#
+</isNotNull>
+                                                   AND CS136A.CS136_BDGBN != 'X'     -- 분담이행방식이 아닌 것
+                                                GROUP BY 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       CS136A.CS136_GND,
+                                                       SUBSTR(CS136A.CS136_HNO,1,1)
+                                               ) A
+                                        GROUP BY 
+                                               CS136_ARA,
+                                               CS136_BSU,
+                                               CS136_HNO,
+                                               CS136_GND
+
+                                        UNION ALL
+
+                                        SELECT
+                                               'TOT' TOT,
+                                               WB010.BSU_ARA CS136_ARA,
+                                               WB010.LGORT CS136_BSU,
+                                               'G' CS136_HNO,
+                                               'F' CS136_GND,
+                                               0 CS131_CNT,
+                                               0 CS131_AMT,
+                                               SUM(MM034.DMBTR) GONG_AMT
+                                          FROM 
+                                               SAPHEE.ZMMT034 AS MM034,
+                                               SAPHEE.ZWBT010 AS WB010
+                                         WHERE
+                                               MM034.MANDT = #G_MANDT#
+                                           AND MM034.SPMON = #YYYYMM#
+                                           AND MM034.MANDT = WB010.MANDT
+                                           AND MM034.LIFNR = WB010.LIFNR
+                                           AND WB010.BSU_ARA > ''
+                                           AND MM034.VBTYP = 'NB'
+                                           AND MM034.VBTYP = 'NB'
+<isNotNull col="AREA">
+                                           AND WB010.BSU_ARA = #AREA#
+</isNotNull>
+                                        GROUP BY 
+                                               WB010.BSU_ARA,
+                                               WB010.LGORT
+                                       ) B
+                                GROUP BY 
+                                       TOT,
+                                       CS136_GND
+
+                                UNION ALL
+
+                                -- 총 합계(SUM)
+                                SELECT 
+                                       '00'CS136_ARA,
+                                       '0000' CS136_BSU,
+                                       'G' CS136_HNO,
+                                       CS136_GND,
+                                       SUM(CS131_CNT) CS131_CNT,
+                                       SUM(DOUBLE(CS131_AMT)) CS131_AMT,
+                                       CASE 
+                                            WHEN SUM(DOUBLE(CS131_AMT)) = 0 THEN 0
+                                            WHEN SUM(DOUBLE(CS131_AMT)) > 0 THEN ROUND(((DOUBLE(SUM(GONG_AMT))/DOUBLE(SUM(CS131_AMT)))*100),0)
+                                            ELSE 0
+                                       END GISUNG_AMT,
+                                       SUM(DOUBLE(GONG_AMT)) GONG_AMT,
+                                       0 BUGA_AMT,
+                                       0 SUM_AMT
+                                  FROM 
+                                       (
+                                        SELECT 
+                                               'TOT' TOT,
+                                               CS136_ARA,
+                                               CS136_BSU,
+                                               'G' CS136_HNO,
+                                               'H' CS136_GND,
+                                               SUM(DOUBLE(CS131_CNT)) CS131_CNT,
+                                               SUM(DOUBLE(CS131_AMT)) CS131_AMT,
+                                               SUM(DOUBLE(GONG_AMT)) GONG_AMT
+                                          FROM 
+                                               (
+                                                SELECT 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       'A' CS136_HNO,
+                                                       CS136A.CS136_GND CS136_GND,
+                                                       CASE 
+                                                            WHEN SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W') AND CS136A.CS136_GND IN ('A','B') THEN VALUE(COUNT(CS136A.MANDT),0)
+                                                            WHEN SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W') AND CS136A.CS136_GND IN ('C','D','E') THEN VALUE(COUNT(CS136A.MANDT),0)
+                                                            ELSE 0
+                                                       END CS131_CNT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND IN ('A','B') THEN 0
+                                                            WHEN CS136A.CS136_GND IN ('C','D','E') THEN VALUE(SUM(CS131A.CS131_AMT),0)
+                                                            ELSE 0
+                                                       END CS131_AMT,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND BETWEEN 'A' AND 'E'
+                                                                 THEN VALUE(SUM(CS136A.CS136_BAM)+SUM(CS136A.CS136_IY1)+SUM(CS136A.CS136_IY2)+SUM(CS136A.CS136_IY3)+SUM(CS136A.CS136_IY4)+SUM(CS136A.CS136_RET),0)
+                                                            ELSE 0
+                                                       END GONG_AMT
+                                                  FROM 
+                                                       SAPHEE.ZCST136 CS136A
+                                                              LEFT OUTER JOIN SAPHEE.ZCST131 CS131A ON CS136A.MANDT = CS131A.MANDT
+                                                                                                   AND CS136A.CS136_BSU = CS131A.CS131_BSU
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_ARA = CS131A.CS131_ARA
+                                                                                                   AND CS136A.CS136_GND = CS131A.CS131_GND
+                                                                                                   AND CS136A.CS136_JYM = CS131A.CS131_MYM
+                                                                                                   AND CS136A.CS136_UPN = CS131A.CS131_UPN
+                                                                                                   AND CS136A.CS136_CST = CS131A.CS131_CST
+                                                                                                   AND CS136A.CS136_PJT = CS131A.CS131_PJT
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_SEQ = CS131A.CS131_SEQ
+                                                                                                   AND CS136A.CS136_ISR = CS131A.CS131_ISR
+                                                                                                   AND CS131A.CS131_ARA LIKE '_%'
+                                                                                                   AND CS131A.CS131_BSU LIKE '_%'
+                                                                                                   AND CS131A.CS131_GBU = '3',
+                                                       (
+                                                        SELECT 
+                                                               A.AREA,
+                                                               B.LGORT
+                                                          FROM
+                                                               (
+                                                                SELECT 
+                                                                       MM028A.CODE2 AREA
+                                                                  FROM 
+                                                                       SAPHEE.ZLCODE MM028A
+                                                                 WHERE 
+                                                                       MM028A.MANDT = #G_MANDT#
+                                                                   AND MM028A.LANG = #G_LANG#
+                                                                   AND MM028A.CODE1 = 'CS115'
+                                                                ) A,
+                                                                (
+                                                                 SELECT 
+                                                                        MM005A.LGORT,
+                                                                        WB010A.BSU_ARA
+                                                                   FROM 
+                                                                        SAPHEE.ZWBT010 WB010A,
+                                                                        SAPHEE.ZMMT012 MM012A,
+                                                                        SAPHEE.ZMMT005 MM005A
+                                                                  WHERE 
+                                                                        WB010A.MANDT = #G_MANDT#
+                                                                    AND WB010A.MANDT = MM012A.MANDT
+                                                                    AND WB010A.LIFNR = MM012A.LIFNR
+                                                                    AND MM012A.MANDT = MM005A.MANDT
+                                                                    AND MM012A.LIFNR = MM005A.LIFNR
+                                                                ) B
+                                                          WHERE 
+                                                                A.AREA = B.BSU_ARA
+                                                         ORDER BY 
+                                                                A.AREA,
+                                                                B.LGORT
+                                                       ) ARA_BSU
+                                                 WHERE 
+                                                       CS136A.MANDT = #G_MANDT#
+                                                   AND CS136A.CS136_GYM = #YYYYMM#
+                                                   AND CS136A.CS136_GBU = '3'
+                                                   AND CS136A.CS136_PST = 'A6'
+                                                   AND CS136A.CS136_MGB = ''
+                                                   AND CS136A.CS136_GNO > ''
+                                                   AND CS136_ARA  = ARA_BSU.AREA
+                                                   AND CS136_BSU  = ARA_BSU.LGORT
+                                                   AND CS136A.CS136_ARA LIKE '_%'
+                                                   AND CS136A.CS136_BSU LIKE '_%'
+                                                   AND (CS131A.CS131_MYB IS NULL OR CS131A.CS131_MYB = '')
+                                                   AND (CS131A.VBELN IS NULL OR CS131A.VBELN > '')
+                                                   AND SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W','Z','J','G')
+<isNotNull col="AREA">
+                                                   AND CS136A.CS136_ARA = #AREA#
+</isNotNull>
+                                                   AND CS136A.CS136_BDGBN != 'X'     -- 분담이행방식이 아닌 것
+                                                GROUP BY 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       CS136A.CS136_GND,
+                                                       SUBSTR(CS136A.CS136_HNO,1,1)
+                                               ) A
+                                        GROUP BY 
+                                               CS136_ARA,
+                                               CS136_BSU,
+                                               CS136_HNO,
+                                               CS136_GND
+
+                                        UNION ALL
+
+                                        SELECT
+                                               'TOT' TOT,
+                                               WB010.BSU_ARA CS136_ARA,
+                                               WB010.LGORT CS136_BSU,
+                                               'G' CS136_HNO,
+                                               'H' CS136_GND,
+                                               0 CS131_CNT,
+                                               0 CS131_AMT,
+                                               SUM(MM034.DMBTR) GONG_AMT
+                                          FROM 
+                                               SAPHEE.ZMMT034 AS MM034,
+                                               SAPHEE.ZWBT010 AS WB010
+                                         WHERE
+                                               MM034.MANDT = #G_MANDT#
+                                           AND MM034.SPMON = #YYYYMM#
+                                           AND MM034.MANDT = WB010.MANDT
+                                           AND MM034.LIFNR = WB010.LIFNR
+                                           AND WB010.BSU_ARA > ''
+                                           AND MM034.VBTYP = 'NB'
+                                           AND MM034.VBTYP = 'NB'
+<isNotNull col="AREA">
+                                           AND WB010.BSU_ARA = #AREA#
+</isNotNull>
+                                        GROUP BY 
+                                               WB010.BSU_ARA,
+                                               WB010.LGORT
+                                       ) B
+                                GROUP BY 
+                                       TOT,
+                                       CS136_GND
+                               ) TOT
+                        GROUP BY 
+                               CS136_ARA,
+                               CS136_BSU,
+                               CS136_HNO,
+                               CS136_GND
+                       ) B1 ON A1.AREA = B1.CS136_ARA
+                           AND A1.LGORT = B1.CS136_BSU
+                           AND A1.CS136_HNO = B1.CS136_HNO
+                           AND A1.CS136_GND = B1.CS136_GND
+       LEFT OUTER JOIN (
+                        -- 지역계 부가세, 합계
+                        SELECT
+                               CS136_ARA,
+                               CASE WHEN CS136_ARA = 'E5' THEN 'XXXX' ELSE 'YYYY' END CS136_BSU,
+                               'G' CS136_HNO,
+                               'H' CS136_GND,
+                               CASE WHEN CS136_ARA = 'E5' THEN SUM(GONG_AMT) ELSE SUM(GONG_AMT) END GONG_AMT,
+                               CASE WHEN CS136_ARA = 'E5' THEN SUM(BUGA_AMT) ELSE SUM(BUGA_AMT) END BUGA_AMT,
+                               CASE WHEN CS136_ARA = 'E5' THEN SUM(SUM_AMT) ELSE SUM(SUM_AMT) END SUM_AMT
+                          FROM
+                               (
+                                SELECT 
+                                       CASE WHEN CS136_ARA = 'E5' THEN 'E5' ELSE 'YY' END CS136_ARA,
+                                       CS136_BSU,
+                                       CS136_HNO,
+                                       CS136_GND,
+                                       SUM(GONG_AMT) GONG_AMT,
+                                       TRUNC(SUM(GONG_AMT) / 10,0) BUGA_AMT,
+                                       SUM(GONG_AMT) + TRUNC(SUM(GONG_AMT) / 10,0) SUM_AMT
+                                  FROM 
+                                       (
+                                        SELECT 
+                                               CS136_ARA,
+                                               CS136_BSU,
+                                               'G' CS136_HNO,
+                                               'H' CS136_GND,
+                                               SUM(GONG_AMT) GONG_AMT
+                                          FROM 
+                                               (
+                                                SELECT 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       'A' CS136_HNO,
+                                                       CS136A.CS136_GND CS136_GND,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND BETWEEN 'A' AND 'E'
+                                                                 THEN VALUE(SUM(CS136A.CS136_BAM)+SUM(CS136A.CS136_IY1)+SUM(CS136A.CS136_IY2)+SUM(CS136A.CS136_IY3)+SUM(CS136A.CS136_IY4)+SUM(CS136A.CS136_RET),0)
+                                                            ELSE 0
+                                                       END GONG_AMT
+                                                  FROM 
+                                                       SAPHEE.ZCST136 CS136A
+                                                              LEFT OUTER JOIN SAPHEE.ZCST131 CS131A ON CS136A.MANDT = CS131A.MANDT
+                                                                                                   AND CS136A.CS136_BSU = CS131A.CS131_BSU
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_ARA = CS131A.CS131_ARA
+                                                                                                   AND CS136A.CS136_GND = CS131A.CS131_GND
+                                                                                                   AND CS136A.CS136_JYM = CS131A.CS131_MYM
+                                                                                                   AND CS136A.CS136_UPN = CS131A.CS131_UPN
+                                                                                                   AND CS136A.CS136_CST = CS131A.CS131_CST
+                                                                                                   AND CS136A.CS136_PJT = CS131A.CS131_PJT
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_SEQ = CS131A.CS131_SEQ
+                                                                                                   AND CS136A.CS136_ISR = CS131A.CS131_ISR
+                                                                                                   AND CS131A.CS131_ARA LIKE '_%'
+                                                                                                   AND CS131A.CS131_BSU LIKE '_%'
+                                                                                                   AND CS131A.CS131_GBU = '3'
+                                                 WHERE 
+                                                       CS136A.MANDT = #G_MANDT#
+                                                   AND CS136A.CS136_GYM = #YYYYMM#
+                                                   AND CS136A.CS136_GBU = '3'
+                                                   AND CS136A.CS136_PST = 'A6'
+                                                   AND CS136A.CS136_MGB = ''
+                                                   AND CS136A.CS136_GNO > ''
+                                                   AND CS136A.CS136_ARA LIKE '_%'
+                                                   AND CS136A.CS136_BSU LIKE '_%'
+                                                   AND (CS131A.CS131_MYB IS NULL OR CS131A.CS131_MYB = '')
+                                                   AND (CS131A.VBELN IS NULL OR CS131A.VBELN > '')
+                                                   AND SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W','Z','J','G')
+<isNotNull col="AREA">
+                                                   AND CS136A.CS136_ARA = #AREA#
+</isNotNull>
+                                                   AND CS136A.CS136_BDGBN != 'X'     -- 분담이행방식이 아닌 것
+                                                GROUP BY 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       CS136A.CS136_GND,
+                                                       SUBSTR(CS136A.CS136_HNO,1,1)
+                                               ) A
+                                        GROUP BY 
+                                               CS136_ARA,
+                                               CS136_BSU
+ 
+                                        UNION ALL
+ 
+                                        SELECT
+                                               WB010.BSU_ARA CS136_ARA,
+                                               WB010.LGORT CS136_BSU,
+                                               'G' CS136_HNO,
+                                               'H' CS136_GND,
+                                               SUM(MM034.DMBTR) GONG_AMT
+                                          FROM 
+                                               SAPHEE.ZMMT034 AS MM034,
+                                               SAPHEE.ZWBT010 AS WB010
+                                         WHERE
+                                               MM034.MANDT = #G_MANDT#
+                                           AND MM034.SPMON = #YYYYMM#
+                                           AND MM034.MANDT = WB010.MANDT
+                                           AND MM034.LIFNR = WB010.LIFNR
+                                           AND WB010.BSU_ARA > ''
+                                           AND MM034.VBTYP = 'NB'
+                                           AND MM034.VBTYP = 'NB'
+<isNotNull col="AREA">
+                                           AND WB010.BSU_ARA = #AREA#
+</isNotNull>
+                                        GROUP BY 
+                                               WB010.BSU_ARA,
+                                               WB010.LGORT
+ 
+                                       ) B
+                                GROUP BY 
+                                       CS136_ARA,
+                                       CS136_BSU,
+                                       CS136_HNO,
+                                       CS136_GND
+                               ) C
+                        GROUP BY
+                               CS136_ARA
+                       ) C1 ON A1.AREA = C1.CS136_ARA
+                           AND A1.LGORT = C1.CS136_BSU
+                           AND A1.CS136_HNO = C1.CS136_HNO
+                           AND A1.CS136_GND = C1.CS136_GND
+       LEFT OUTER JOIN (
+                        -- 총합계 부가세, 합계
+                        SELECT
+                               '00' CS136_ARA,
+                               '0000' CS136_BSU,
+                               'G' CS136_HNO,
+                               'H' CS136_GND,
+                               SUM(GONG_AMT) GONG_AMT,
+                               SUM(BUGA_AMT) BUGA_AMT,
+                               SUM(SUM_AMT) SUM_AMT
+                          FROM
+                               (
+                                SELECT 
+                                       '00' CS136_ARA,
+                                       CS136_BSU,
+                                       CS136_HNO,
+                                       CS136_GND,
+                                       SUM(GONG_AMT) GONG_AMT,
+                                       TRUNC(SUM(GONG_AMT) / 10,0) BUGA_AMT,
+                                       SUM(GONG_AMT) + TRUNC(SUM(GONG_AMT) / 10,0) SUM_AMT
+                                  FROM 
+                                       (
+                                        SELECT 
+                                               CS136_ARA,
+                                               CS136_BSU,
+                                               'G' CS136_HNO,
+                                               'H' CS136_GND,
+                                               SUM(GONG_AMT) GONG_AMT
+                                          FROM 
+                                               (
+                                                SELECT 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       'A' CS136_HNO,
+                                                       CS136A.CS136_GND CS136_GND,
+                                                       CASE 
+                                                            WHEN CS136A.CS136_GND BETWEEN 'A' AND 'E'
+                                                                 THEN VALUE(SUM(CS136A.CS136_BAM)+SUM(CS136A.CS136_IY1)+SUM(CS136A.CS136_IY2)+SUM(CS136A.CS136_IY3)+SUM(CS136A.CS136_IY4)+SUM(CS136A.CS136_RET),0)
+                                                            ELSE 0
+                                                       END GONG_AMT
+                                                  FROM 
+                                                       SAPHEE.ZCST136 CS136A
+                                                              LEFT OUTER JOIN SAPHEE.ZCST131 CS131A ON CS136A.MANDT = CS131A.MANDT
+                                                                                                   AND CS136A.CS136_BSU = CS131A.CS131_BSU
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_ARA = CS131A.CS131_ARA
+                                                                                                   AND CS136A.CS136_GND = CS131A.CS131_GND
+                                                                                                   AND CS136A.CS136_JYM = CS131A.CS131_MYM
+                                                                                                   AND CS136A.CS136_UPN = CS131A.CS131_UPN
+                                                                                                   AND CS136A.CS136_CST = CS131A.CS131_CST
+                                                                                                   AND CS136A.CS136_PJT = CS131A.CS131_PJT
+                                                                                                   AND CS136A.CS136_HNO = CS131A.CS131_HNO
+                                                                                                   AND CS136A.CS136_SEQ = CS131A.CS131_SEQ
+                                                                                                   AND CS136A.CS136_ISR = CS131A.CS131_ISR
+                                                                                                   AND CS131A.CS131_ARA LIKE '_%'
+                                                                                                   AND CS131A.CS131_BSU LIKE '_%'
+                                                                                                   AND CS131A.CS131_GBU = '3'
+                                                 WHERE 
+                                                       CS136A.MANDT = #G_MANDT#
+                                                   AND CS136A.CS136_GYM = #YYYYMM#
+                                                   AND CS136A.CS136_GBU = '3'
+                                                   AND CS136A.CS136_PST = 'A6'
+                                                   AND CS136A.CS136_MGB = ''
+                                                   AND CS136A.CS136_GNO > ''
+                                                   AND CS136A.CS136_ARA LIKE '_%'
+                                                   AND CS136A.CS136_BSU LIKE '_%'
+                                                   AND (CS131A.CS131_MYB IS NULL OR CS131A.CS131_MYB = '')
+                                                   AND (CS131A.VBELN IS NULL OR CS131A.VBELN > '')
+                                                   AND SUBSTR(CS136A.CS136_HNO,1,1) IN ('L','S','W','Z','J','G')
+<isNotNull col="AREA">
+                                                   AND CS136A.CS136_ARA = #AREA#
+</isNotNull>
+                                                   AND CS136A.CS136_BDGBN != 'X'     -- 분담이행방식이 아닌 것
+                                                GROUP BY 
+                                                       CS136A.CS136_ARA,
+                                                       CS136A.CS136_BSU,
+                                                       CS136A.CS136_GND,
+                                                       SUBSTR(CS136A.CS136_HNO,1,1)
+                                               ) A
+                                        GROUP BY 
+                                               CS136_ARA,
+                                               CS136_BSU
+
+                                        UNION ALL
+
+                                        SELECT
+                                               WB010.BSU_ARA CS136_ARA,
+                                               WB010.LGORT CS136_BSU,
+                                               'G' CS136_HNO,
+                                               'H' CS136_GND,
+                                               SUM(MM034.DMBTR) GONG_AMT
+                                          FROM 
+                                               SAPHEE.ZMMT034 AS MM034,
+                                               SAPHEE.ZWBT010 AS WB010
+                                         WHERE
+                                               MM034.MANDT = #G_MANDT#
+                                           AND MM034.SPMON = #YYYYMM#
+                                           AND MM034.MANDT = WB010.MANDT
+                                           AND MM034.LIFNR = WB010.LIFNR
+                                           AND WB010.BSU_ARA > ''
+                                           AND MM034.VBTYP = 'NB'
+                                           AND MM034.VBTYP = 'NB'
+<isNotNull col="AREA">
+                                           AND WB010.BSU_ARA = #AREA#
+</isNotNull>
+                                        GROUP BY 
+                                               WB010.BSU_ARA,
+                                               WB010.LGORT
+
+                                       ) B
+                                GROUP BY 
+                                       CS136_ARA,
+                                       CS136_BSU,
+                                       CS136_HNO,
+                                       CS136_GND
+                               ) C
+                       ) D1 ON A1.AREA = D1.CS136_ARA
+                           AND A1.LGORT = D1.CS136_BSU
+                           AND A1.CS136_HNO = D1.CS136_HNO
+                           AND A1.CS136_GND = D1.CS136_GND
+ WHERE 1=1
+<isNotNull col="AREA">
+   AND (A1.AREA = #AREA# OR A1.AREA = '00')
+</isNotNull>
+ORDER BY 
+       A1.ARA_GBN,
+       A1.AREA,
+       A1.LIFNR,
+       A1.CS136_HNO,
+       A1.ORD
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="G_LANG" size="255" type="VARCHAR" description="" /> 
+		<col name="YYYYMM" size="255" type="VARCHAR" description="" /> 
+		<col name="AREA" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

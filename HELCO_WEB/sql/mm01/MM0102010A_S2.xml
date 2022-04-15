@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[사양/납기 변경 조회-수량/사양변경]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT *
+
+FROM
+(
+SELECT 
+	 T3.MANDT AS MANDT
+    ,T3.POSID AS POSID
+    ,T3.POST1 AS POST1
+    ,T3.MATNR AS MATNR
+    ,T3.TXZ01 AS TXZ01
+    ,T3.EBELN AS EBELN
+    ,T3.EBELP AS EBELP
+    ,T3.CHNDAT AS CHNDAT
+    ,T3.GUBN  AS GUBN
+    ,T3.PO_MENGE AS PO_MENGE
+    ,T3.MENGE AS MENGE
+    ,T3.MENGE1 AS MENGE1
+    ,T3.BLOCK_NO AS BLOCK_NO
+    , VALUE(SAPHEE.GET_BUDAT(T3.MANDT,T3.EBELN,T3.EBELP),'') AS BUDAT         -- 입고일
+    , VALUE(SAPHEE.GET_MPASS(T3.MANDT,T3.EBELN,T3.EBELP),0) AS MPASS  -- 입고수량
+   ,T3.EINDT AS EINDT                                      -- 최초 납품 예정일
+   ,T3.UDATE AS UDATE  
+
+FROM
+(
+	SELECT    M13.MANDT AS MANDT    -- CLIENT
+		     ,M13.EBELN AS EBELN      -- 발주번호 
+		     ,M13.EBELP AS EBELP      -- 품목번호 
+		     ,M13.POSID AS POSID      -- 공사번호 
+		     ,M13.POST1 AS POST1     -- 현장명
+		     ,P4.IDNRK  AS MATNR   -- 자재번호
+		     ,M13.TXZ01 AS TXZ01        -- 품명
+		     ,P4.CRDAT AS CHNDAT  -- 변경일
+		     ,CASE WHEN P4.PRCTYP = 'C' THEN ( 
+		           		CASE WHEN P4.OLD_QUAN > 0 THEN (
+	                   			  CASE WHEN P4.MENGE > P4.OLD_QUAN THEN '1'
+	                                   WHEN P4.MENGE &lt; P4.OLD_QUAN THEN '2' 
+	                                   ELSE '3' END)
+		  	            	 ELSE '3' END) 
+	               ELSE '4' END AS GUBN                       -- 구분
+	         ,M13.MENGE AS PO_MENGE       -- 발주수량
+		     ,P4.MENGE AS MENGE       -- 신수량
+		     ,P4.OLD_QUAN AS MENGE1      -- 구수량
+	         ,CASE WHEN M11.BLOCK_NO = ''            THEN ''
+	               WHEN M11.BLOCK_NO LIKE 'A%'  THEN 'A'  
+	               WHEN M11.BLOCK_NO LIKE 'B%'  THEN 'B' 
+	               WHEN M11.BLOCK_NO LIKE 'C%'  THEN 'C'  
+		           WHEN M11.BLOCK_NO LIKE 'D%'  THEN 'D'  
+		           WHEN M11.BLOCK_NO LIKE 'E%'  THEN 'E' END AS BLOCK_NO   -- BLOCK
+		     ,M13.EINDT AS EINDT                                      -- 최초 납품 예정일
+		     ,M13.UDATE AS UDATE
+--		     ,P4.LIFNR2 AS LIFNR2  
+FROM	     
+(
+SELECT P4.MANDT, P4.WOKNUM, P4.CRDAT, P4.MENGE, P4.OLD_QUAN, P4.PRCTYP, P4.MATKL, P4.IDNRK ,
+ 
+( CASE WHEN P4.MATKL IN ('D375A04', 'D375A', 'E331A', 'E331C01', 'E322A') THEN ( SELECT MAX(A.LIFNR)
+																				   FROM SAPHEE.ZMMT013 AS A
+																				   LEFT OUTER JOIN SAPHEE.MARA AS B ON A.MANDT = B.MANDT
+																				                                   AND A.MATNR = B.MATNR
+																				  WHERE A.MANDT = #G_MANDT#
+																				    AND A.POSID = P4.WOKNUM || '-P'
+																				    AND B.BLOCK_NO IN ('E322C01', 'E322C02', 'E322C03', 'E322C04', 'AR11'))
+       WHEN P4.MATKL IN ('C2620', 'E280A', 'E280B') THEN ( SELECT MAX(LIFNR)
+       														 FROM SAPHEE.ZMMT013 
+       														WHERE MANDT = #G_MANDT#
+       														  AND POSID = P4.WOKNUM || '-P'
+       														  AND EKGRP = '117' )
+       
+       WHEN P4.MATKL = 'A2000' THEN ( CASE WHEN P4.ZPART = '1' THEN ( SELECT MAX(LIFNR)
+   	                                                   			   	    FROM SAPHEE.ZMMT013
+		       	                                                       WHERE MANDT = #G_MANDT#
+		       	                                                         AND POSID = P4.WOKNUM || '-P'
+		       	                                                         AND EXTWG = 'BOX02')
+       									   WHEN P4.ZPART = '2' THEN ( SELECT MAX(LIFNR)
+       									   	                            FROM SAPHEE.ZMMT013
+       									   	                           WHERE MANDT = #G_MANDT#
+       									   	                             AND POSID = P4.WOKNUM || '-P'
+       									   	                             AND EKGRP = '117')
+       									   WHEN P4.ZPART = '3' THEN ( SELECT MAX(LIFNR)
+       									                                FROM SAPHEE.ZMMT013
+       									                               WHERE MANDT = #G_MANDT#
+       									                                 AND POSID = P4.WOKNUM || '-P'
+       									                                 AND EXTWG = 'BOX09') 
+       									   ELSE '' END ) 	                              	  
+       ELSE '' END ) AS LIFNR2
+FROM	
+(
+	      SELECT 
+	          A.MANDT AS MANDT
+	         ,A.WOKNUM AS WOKNUM
+	         ,CASE WHEN MAX(A.PRCTYP) IN ('C','D') THEN A.CRDAT
+		                       ELSE B.CRDAT END AS CRDAT
+	         ,A.IDNRK AS IDNRK
+	         ,SUM( (
+	                 CASE
+	                   WHEN A.PRCTYP='D' THEN 0
+	                   ELSE A.MENGE
+	                 END) * (
+	                 CASE
+	                   WHEN B.PRCTYP IS NULL THEN 1
+	                   WHEN B.PRCTYP='D'
+	                     THEN 0
+	                   ELSE B.MENGE
+	                 END) ) AS MENGE  
+	         ,SUM( (
+	                 CASE
+	                      WHEN A.PRCTYP='C' THEN ( CASE 
+                                                        WHEN A.OLD_QUAN > 0 THEN A.OLD_QUAN
+				ELSE A.MENGE END)
+	                   ELSE A.MENGE
+	                 END) * (
+	                 CASE
+	                   WHEN B.PRCTYP IS NULL THEN 1
+	                   WHEN B.PRCTYP='D' THEN B.MENGE
+	                   ELSE B.OLD_QUAN
+	                 END) ) AS OLD_QUAN 
+	          ,MAX( CASE  WHEN A.PRCTYP= 'C' OR B.PRCTYP = 'C'  THEN 'C'
+	                              WHEN A.PRCTYP='D' OR B.PRCTYP = 'D' THEN 'D'
+	                   ELSE '' END) AS PRCTYP 
+	          ,MAX(A.MATKL) AS MATKL
+	          ,MAX(A.ZPART) AS ZPART
+	          FROM (
+	             SELECT *
+	             FROM (
+	             SELECT
+	                 MANDT
+	                ,WOKNUM
+	                ,CRDAT
+	                ,MATNR
+	                ,IDNRK
+	                ,MENGE
+	                ,OLD_QUAN
+	                ,PRCTYP
+	                ,MATKL
+	                ,ZPART
+	                ,ROW_NUMBER() OVER(PARTITION BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,MATKL ORDER BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,CRDAT DESC,SEQNO DESC) AS ROWNO
+	                FROM SAPHEE.ZPPT004
+	                WHERE MANDT = #G_MANDT#
+<isNotNull col="POSID">
+                        AND WOKNUM  LIKE #POSID# || '%'
+</isNotNull>
+<isNull col="POSID">
+                        AND WOKNUM  LIKE '_%'
+</isNull>
+<isNotNull col="MATNR">
+                        AND IDNRK  LIKE #MATNR# || '%'
+</isNotNull>
+	          	        AND CRDAT BETWEEN #UDATE1# AND #UDATE2#
+	                AND PRCTYP IN ( 'C','D')
+	             
+	              ) AS A WHERE ROWNO = 1)  AS A
+	          	LEFT OUTER JOIN (
+	          	SELECT * FROM (
+	          	   SELECT
+	                 MANDT
+	                ,WOKNUM
+	                ,CRDAT
+	                ,MATNR
+	                ,IDNRK
+	                ,MENGE
+	                ,OLD_QUAN
+	                ,PRCTYP
+	                ,MATKL
+	                ,ZPART
+	                ,ROW_NUMBER() OVER(PARTITION BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,MATKL ORDER BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,CRDAT DESC,SEQNO DESC) AS ROWNO
+	                FROM SAPHEE.ZPPT004 
+	                WHERE MANDT = #G_MANDT#
+<isNotNull col="POSID">
+                        AND WOKNUM  LIKE #POSID# || '%'
+</isNotNull>
+<isNull col="POSID">
+                        AND WOKNUM  LIKE '_%'
+</isNull>
+ 
+	          	  AND CRDAT BETWEEN #UDATE1# AND #UDATE2#
+	          	  AND IDNRK IN (
+	          
+	                     SELECT
+	                     DISTINCT MATNR
+	                     FROM SAPHEE.ZPPT004
+	                     WHERE MANDT = #G_MANDT#
+<isNotNull col="POSID">
+                           AND WOKNUM  LIKE #POSID# || '%'
+</isNotNull>
+<isNull col="POSID">
+                        AND WOKNUM  LIKE '_%'
+</isNull>
+           	           AND CRDAT BETWEEN #UDATE1# AND #UDATE2#
+	                         AND PRCTYP IN ( 'C','D'))
+	                   ) AS B  WHERE ROWNO = 1 ) AS B ON B.MANDT = A.MANDT
+	                        AND B.WOKNUM = A.WOKNUM
+	                        AND B.IDNRK = A.MATNR 
+	          WHERE A.ROWNO=1
+	          	     AND A.CRDAT BETWEEN #UDATE1# AND #UDATE2#
+	          	     AND A.MATKL IN ('D375A04', 'D375A', 'E331A', 'E331C01', 'E322A', 'A2000', 'C2620', 'E280A', 'E280B')
+	          		 
+	          GROUP BY A.MANDT,A.WOKNUM, A.CRDAT, A.IDNRK, B.CRDAT
+
+) AS P4 ) AS P4
+
+
+	LEFT OUTER JOIN SAPHEE.ZMMT011 AS M11 ON M11.MANDT = P4.MANDT
+	                                     AND M11.MATNR = P4.IDNRK
+	LEFT OUTER JOIN SAPHEE.ZMMT013 AS M13 ON M13.MANDT = P4.MANDT
+	                                     AND M13.POSID = P4.WOKNUM || '-P'
+	                                     AND M13.MATNR = P4.IDNRK
+	WHERE P4.MANDT = #G_MANDT# 
+<isNotNull col="POSID">
+                     AND P4.WOKNUM  LIKE #POSID# || '%'
+</isNotNull>
+<isNull col="POSID">
+                     AND P4.WOKNUM  LIKE '_%'
+</isNull>
+	  AND P4.CRDAT BETWEEN #UDATE1# AND #UDATE2#
+	  AND P4.LIFNR2 = #LIFNR#
+	  AND M13.STATE = '2' 
+) AS T3
+ WHERE 1=1) AS T
+ 
+ WHERE MENGE > MPASS
+
+ ORDER BY POSID, MATNR, CHNDAT, EINDT, UDATE
+FOR FETCH ONLY WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="255" type="VARCHAR" description="" /> 
+		<col name="UDATE1" size="255" type="VARCHAR" description="" /> 
+		<col name="UDATE2" size="255" type="VARCHAR" description="" /> 
+		<col name="G_VEND_CODE_M" size="255" type="VARCHAR" description="" /> 
+		<col name="GUBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

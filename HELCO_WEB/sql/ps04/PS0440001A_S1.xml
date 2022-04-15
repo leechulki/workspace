@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT A.PSPID, B.BSTNK, C.KUNNR, C.KUNNR_NM AS KUNNRNM, 
+             --C.VDATU,
+             A.DEPT,     A.TEAM,
+             --A.PERSON_NM,      
+             (SELECT X.NAMET
+                 FROM SAPHEE.ZPST0011 AS X
+               WHERE X.MANDT = A.MANDT
+                   AND X.TEMNO = A.PERSON_NM) AS PERSON_NM,
+
+             A.MAKE_MM,   
+             --SAPHEE.GET_CURRENCY2(CAST(A.WAERK AS VARCHAR(15) ), CAST(A.NETWR_L  AS DECIMAL(13, 2) ) ) AS NETWR_L,      
+             --SAPHEE.GET_CURRENCY2(CAST(A.WAERK AS VARCHAR(15) ), CAST(A.WAVWR_L  AS DECIMAL(13, 2) ) ) AS WAVWR_L,                                
+             A.WAERK,
+             A.ERNAM, 
+             VALUE((SELECT ST.USERNAME FROM SAPHEE.ZUSERF AS ST 
+                           WHERE ST.MANDT = A.MANDT AND ST.USERNUMB = A.ERNAM), '') AS ERNAMNM,
+             A.ERDAT, A.AEUSN, A.AEDAT,
+             
+             
+             SAPHEE.GET_CURRENCY2(CAST(A.WAERK AS VARCHAR(15) ), CAST(A.MR_NETWR  AS DECIMAL(13, 2) ) ) AS MR_NETWR, 
+             SAPHEE.GET_CURRENCY2(CAST(A.WAERK AS VARCHAR(15) ), CAST(A.MR_NETWR_T  AS DECIMAL(13, 2) ) ) AS MR_NETWR_T,
+			 SAPHEE.GET_CURRENCY2(CAST(A.WAERK AS VARCHAR(15) ), CAST(A.MR_NETWR_CK  AS DECIMAL(13, 2) ) ) AS MR_NETWR_CK,
+			 
+			 
+			 A.TYPE,
+             A.ACTION,
+			 A.BIGO1,
+             A.MR_RATE1, --A.MR_RATE2,  
+             A.EXAM,  A.GUBUN, A.RATE_L ,A.ZBOSUIN , A.BIGO4,
+             (
+             	SELECT MIN(X.KTEXT)
+             	  FROM SAPHEE.ZPSTW0402 AS X
+             	 WHERE X.MANDT = A.MANDT
+             	   AND X.GUBUN = A.GUBUN
+             	   AND X.PSPID = A.PSPID
+             	   AND X.MAKE_MM = A.MAKE_MM
+             	 FETCH FIRST 1 ROW ONLY
+             ) AS KTEXT1,
+             (
+             	CASE WHEN (SELECT MIN(X.KTEXT)
+             	  FROM SAPHEE.ZPSTW0402 AS X
+             	 WHERE X.MANDT = A.MANDT
+             	   AND X.GUBUN = A.GUBUN
+             	   AND X.PSPID = A.PSPID
+             	   AND X.MAKE_MM = A.MAKE_MM
+             	 FETCH FIRST 1 ROW ONLY) = (SELECT MAX(X.KTEXT)
+							             	  FROM SAPHEE.ZPSTW0402 AS X
+							             	 WHERE X.MANDT = A.MANDT
+							             	   AND X.GUBUN = A.GUBUN
+							             	   AND X.PSPID = A.PSPID
+							             	   AND X.MAKE_MM = A.MAKE_MM
+							             	 FETCH FIRST 1 ROW ONLY)
+			         THEN ''
+			         ELSE (
+			         			SELECT MAX(X.KTEXT)
+				             	  FROM SAPHEE.ZPSTW0402 AS X
+				             	 WHERE X.MANDT = A.MANDT
+				             	   AND X.GUBUN = A.GUBUN
+				             	   AND X.PSPID = A.PSPID
+				             	   AND X.MAKE_MM = A.MAKE_MM
+				             	 FETCH FIRST 1 ROW ONLY
+			              )
+			          END
+             ) AS KTEXT2
+
+    FROM SAPHEE.ZPSTW0401 AS A
+   INNER JOIN SAPHEE.VBAK AS B
+        ON A.MANDT = B.MANDT
+      AND A.PSPID   = B.ZZPJT_ID
+   INNER JOIN SAPHEE.ZMASTER01 AS C
+        ON B.MANDT = C.MANDT
+      AND B.ZZPJT_ID = C.POSID
+    
+  WHERE A.MANDT = #G_MANDT#
+    <isNotNull col="PSPID">
+       AND A.PSPID = #PSPID# 
+    </isNotNull>
+   
+    <isNotNull col="MAKF_DT">
+       AND A.MAKE_MM BETWEEN SUBSTR(#MAKF_DT#,1,6) AND SUBSTR(#MAKT_DT#,1,6)
+    </isNotNull>
+
+    <isNotNull col="VKBUR">
+       --AND B.VKBUR = #VKBUR#
+       AND A.DEPT =  #VKBUR#
+    </isNotNull>
+
+    <isNotNull col="VKGRP">
+       --AND B.VKGRP = #VKGRP#
+       AND A.TEAM = #VKGRP#
+    </isNotNull>
+
+    <isNotEqual col="EXAM" value="A">
+       AND A.EXAM = #EXAM#
+    </isNotEqual>
+
+    <isNotEqual col="GUBUN" value="">
+       AND A.GUBUN = #GUBUN#
+    </isNotEqual>	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

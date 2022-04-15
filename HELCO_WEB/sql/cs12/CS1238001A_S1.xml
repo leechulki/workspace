@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--2020.09.09 제약조건 현업과 협의상 사항으로 적용됨 (조건컬럼이 CASE 문으로 INDEX 추가하여도 의미없음)
+SELECT 
+       X.ARA ARA
+      ,X.BSU BSU
+      ,VALUE(MAX(E.CTEXT2),'')  ARA_NM
+      ,VALUE(MAX(F.CTEXT2),'')  TEM_NM
+      ,VALUE(MAX(B010.ABR_NM),'')  BSU_NM
+      ,SUM(CASE SUBSTR(STDMON,5,2) WHEN '01' THEN 1 ELSE 0 END) M01 
+      ,SUM(CASE SUBSTR(STDMON,5,2) WHEN '02' THEN 1 ELSE 0 END) M02
+      ,SUM(CASE SUBSTR(STDMON,5,2) WHEN '03' THEN 1 ELSE 0 END) M03
+      ,SUM(CASE SUBSTR(STDMON,5,2) WHEN '04' THEN 1 ELSE 0 END) M04
+      ,SUM(CASE SUBSTR(STDMON,5,2) WHEN '05' THEN 1 ELSE 0 END) M05
+      ,SUM(CASE SUBSTR(STDMON,5,2) WHEN '06' THEN 1 ELSE 0 END) M06
+      ,SUM(CASE SUBSTR(STDMON,5,2) WHEN '07' THEN 1 ELSE 0 END) M07
+      ,SUM(CASE SUBSTR(STDMON,5,2) WHEN '08' THEN 1 ELSE 0 END) M08
+      ,SUM(CASE SUBSTR(STDMON,5,2) WHEN '09' THEN 1 ELSE 0 END) M09
+      ,SUM(CASE SUBSTR(STDMON,5,2) WHEN '10' THEN 1 ELSE 0 END) M10
+      ,SUM(CASE SUBSTR(STDMON,5,2) WHEN '11' THEN 1 ELSE 0 END) M11
+      ,SUM(CASE SUBSTR(STDMON,5,2) WHEN '12' THEN 1 ELSE 0 END) M12
+
+FROM (
+       SELECT 
+              A.MANDT
+             ,A.PJT
+             ,A.HNO
+             ,A.ADT
+             ,A.USD
+             ,A.STDMON   
+             ,A.ARA
+             ,A.BSU 
+       
+        FROM (
+        
+        SELECT A.MANDT
+              ,A.CS126_PJT PJT
+              ,A.CS126_HNO HNO
+              ,A.IKD
+              ,A.STDMON 
+              ,CASE WHEN A.IKD > A.CS126_USD THEN VALUE(I.CS157_CAB,'') ELSE A.CS126_ARA END ARA
+              ,CASE WHEN A.IKD > A.CS126_USD THEN VALUE(I.CS157_CHB,'') ELSE A.CS126_BSU END BSU 
+              ,A.CS126_USD USD
+              ,A.CS126_ADT ADT
+          FROM (
+                 SELECT                     
+                         A.MANDT
+                        ,A.CS126_PJT
+                        ,A.CS126_HNO
+                        ,A.CS126_GNO CS126_GNO
+                        ,MAX(A.CS126_ADT) CS126_ADT
+                        ,MAX(A.CS126_USD) CS126_USD                        
+               <isEqual col="YEARCHK" value="X">  
+                        ,CASE WHEN MAX(A.CS126_GKD) = '2' THEN (CASE WHEN SUBSTR(MAX(A.CS126_ADT),1,6) >=   SUBSTR(MAX(A.CS126_USD),1,6) THEN MAX(A.CS126_ADT)
+                                                                WHEN SUBSTR(MAX(A.CS126_ADT),1,6) &lt; SUBSTR(MAX(A.CS126_USD),1,6) THEN MAX(A.CS126_USD) END)
+                                                     ELSE (CASE WHEN SUBSTR(MAX(A.CS126_ADT),1,6) >=   SUBSTR(MAX(A.CS126_UGS),1,6) THEN MAX(A.CS126_ADT)
+                                                                WHEN SUBSTR(MAX(A.CS126_ADT),1,6) &lt; SUBSTR(MAX(A.CS126_UGS),1,6) THEN MAX(A.CS126_UGS) END) 
+                          END STDMON
+               </isEqual>                
+               <isEqual col="YEARCHK" value="">      
+                        ,CASE WHEN SUBSTR(MAX(A.CS126_ADT),1,6) >=   SUBSTR(MAX(A.CS126_USD),1,6) THEN MAX(A.CS126_ADT)
+                              WHEN SUBSTR(MAX(A.CS126_ADT),1,6) &lt; SUBSTR(MAX(A.CS126_USD),1,6) THEN MAX(A.CS126_USD)
+                         END STDMON
+               </isEqual>   
+                        ,MAX(A.CS126_ARA) CS126_ARA
+                        ,MAX(A.CS126_BSU) CS126_BSU
+                        ,VALUE(MIN(C.CS157_IKD),'') IKD
+                                                
+                        ,(SELECT MAX(X.CS126_UMR) 
+                            FROM SAPHEE.ZCST126 AS X 
+                           WHERE X.MANDT = A.MANDT  AND X.CS126_PJT = A.CS126_PJT AND X.CS126_HNO = A.CS126_HNO 
+						     AND X.CS126_PST = 'A6'	AND X.CS126_DDT = ''	AND X.CS126_GND = 'D'  
+ 						     AND SUBSTR(X.CS126_HNO,1,1) NOT IN ('J','G')	AND VALUE(X.CS126_SLA,'N') = 'N'  
+ 							 AND X.CS126_USD >= '20170101' ) AS URM_MAX    -- 20201103 이준석 책임 요청 추가	
+                     
+                  FROM SAPHEE.ZCST126 A     INNER JOIN SAPHEE.ZCST111 B
+                                                    ON A.MANDT = B.MANDT
+                                                   AND A.CS126_PJT = B.PJT
+                                                   AND A.CS126_HNO = B.HNO
+                                                   AND B.EXC = ''
+                                                   
+        											              LEFT OUTER JOIN SAPHEE.ZCST157 C
+        											                      ON A.MANDT = C.MANDT
+        														               AND A.CS126_PJT = C.CS157_PJT
+        														               AND A.CS126_HNO = C.CS157_HNO
+        														               AND C.CS157_IKD &gt; A.CS126_ADT
+        														               AND C.CS157_GND = 'D'
+                                                                
+                WHERE A.MANDT = #G_MANDT#
+                  AND A.CS126_PST = 'A6'
+                  AND A.CS126_DDT = ''
+                  AND A.CS126_GND = 'D'                                
+                  AND SUBSTR(A.CS126_HNO,1,1) NOT IN ('J','G')
+               <isEqual col="YEARCHK" value="X">    
+               		<isEqual col="GBN1" value="D">
+                      AND CASE WHEN CS126_ADT > CS126_USD THEN CS126_ADT ELSE CS126_USD END 
+                            BETWEEN #FYM#||'01' AND #TYM#||'31' --승인일 기준   
+               		      
+               		</isEqual>                                 
+	                <isNotEqual col="GBN1" value="D"> 
+               	      AND  A.CS126_USD >= '20170101'
+                      AND CASE WHEN CS126_ADT > CS126_UGS THEN CS126_ADT ELSE CS126_UGS END 
+                             BETWEEN #FYM#||'01' AND #TYM#||'31' --승인일 기준   
+               		</isNotEqual> 
+               </isEqual>                  
+               <isEqual col="YEARCHK" value="">     
+                  AND CASE WHEN A.CS126_ADT > A.CS126_USD THEN A.CS126_ADT ELSE A.CS126_USD END 
+                        BETWEEN #FYM#||'01' AND #TYM#||'31' --승인일 기준   
+               </isEqual>           
+               <isNotNull col="PJT">
+                  AND A.CS126_PJT = #PJT#
+               </isNotNull>           
+               <isEqual col="GBN1" value="A">
+                  AND A.CS126_GKD = '1'
+               </isEqual>
+               <isEqual col="GBN1" value="C">
+                  AND A.CS126_GKD IN ( '4', '5')
+               </isEqual> 
+               <isEqual col="GBN1" value="D">
+                  AND A.CS126_GKD = '2'
+               </isEqual>
+               <isEqual col="CHK_SLA_EX" value="1">      
+                   AND VALUE(A.CS126_SLA,'N') = 'N'  
+               </isEqual>  
+
+                GROUP BY A.MANDT, A.CS126_PJT, A.CS126_HNO, A.CS126_GNO,CS126_SEQ
+               ) 
+                 A 
+        					 LEFT OUTER JOIN SAPHEE.ZCST157 I
+        					         ON I.MANDT = #G_MANDT# 
+        					        AND A.CS126_PJT = I.CS157_PJT
+        					        AND A.CS126_HNO = I.CS157_HNO
+        					        AND A.IKD = I.CS157_IKD 
+        					        AND I.CS157_GND = 'D'
+        					        
+        	  --WHERE SUBSTR(A.URM_MAX,1,6) >= SUBSTR(A.CS126_ADT,1,6)  -- 20201103 이준석 책임 요청 추가	
+               WHERE (CASE WHEN A.CS126_ADT >= '20201001' THEN SUBSTR(A.URM_MAX,1,6) 
+                           ELSE SUBSTR(A.CS126_ADT,1,6) END)  >= SUBSTR(A.CS126_ADT,1,6) -- 20201103 이준석 책임 요청 추가
+                
+             ) A
+             
+       WHERE 1=1
+         
+         
+       
+       ) X   LEFT OUTER JOIN SAPHEE.ZWBT010 B010
+                          ON X.MANDT = B010.MANDT
+                         AND X.BSU = B010.LGORT
+                                    
+             LEFT OUTER JOIN SAPHEE.ZLCODE E
+                          ON X.MANDT = E.MANDT
+                         AND X.ARA = E.CODE2
+                         AND E.CODE1 = 'CS115'
+                         AND E.LANG = 'ko'  
+             LEFT OUTER JOIN SAPHEE.ZLCODE F
+                          ON X.MANDT = F.MANDT
+                         AND B010.VKGRP = F.CODE2
+                         AND F.CODE1 = 'VKGRP'
+                         AND F.LANG = 'ko'  
+                         
+ 
+ WHERE 1=1
+ 
+<isNotNull col="ARA">
+   AND X.ARA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+   AND X.BSU = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+   AND B010.BSU_PM = #BPM#
+</isNotNull>
+<isNotNull col="TEM">
+   AND B010.VKGRP = #TEM#
+</isNotNull>     
+<isNotNull col="DPT">
+   AND SUBSTR(B010.VKGRP,1,2)||'00' = #DPT#
+</isNotNull>  
+                         
+ GROUP BY  X.ARA,X.BSU 
+ ORDER BY  X.ARA,X.BSU     
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

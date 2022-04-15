@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT  A.PSPID, C.ZSITE_NM, A.POSID, B.POSID_OLD,  A.ZZGUBUN
+             ,(CASE WHEN A.ZZGUBUN = '10' THEN 'EL'
+                        WHEN A.ZZGUBUN = '11' THEN 'ES'
+                        WHEN A.ZZGUBUN = '12' THEN 'MW'
+                        ELSE ''
+                END ) AS ZZGUBUN_NM
+
+             ,B.ZZACTSS,   B.TEXT30	
+             ,(SELECT X.USERNAME FROM SAPHEE.ZUSERF AS X  
+                                               WHERE X.MANDT = A.MANDT 
+                                                   AND X.USERNUMB = A.ERNAM) AS CERNAM
+
+             ,A.CODE1
+             ,(SELECT X.CODENM FROM SAPHEE.ZQMTW0201 AS X
+                 WHERE X.MANDT = A.MANDT AND X.ZZGUBUN = A.ZZGUBUN AND X.CODE = A.CODE1) AS CODE1_NM
+             ,A.CODE2
+             ,(SELECT X.CODENM FROM SAPHEE.ZQMTW0201  AS X
+                 WHERE X.MANDT = A.MANDT AND X.ZZGUBUN = A.ZZGUBUN AND X.CODE = A.CODE2) AS CODE2_NM
+             ,A.CODE3
+             ,(SELECT X.CODENM FROM SAPHEE.ZQMTW0201  AS X
+                 WHERE X.MANDT = A.MANDT AND X.ZZGUBUN = A.ZZGUBUN AND X.CODE = A.CODE3) AS CODE3_NM
+             ,A.BIGO,   A.MDATE, A.MTIME, A.ERNAM,  A.EDATE, A.ETIME, A.AENAM
+             ,B.ZBEPJEO,  B.ZBOSUOUT, B.ZBOSUIN, B.ZSPEC1, B.ZSPEC2, B.TEMNO, B.NAMET, B.TEMNO2, B.NAMET2
+             ,B.LIFNR,  D.NAME1
+
+   FROM SAPHEE.ZQMTW0202 AS A
+   INNER JOIN SAPHEE.ZMASTER02 AS B
+       ON A.MANDT  = B.MANDT
+     AND A.PSPID    = B.POSID
+     AND A.POSID    = B.POSID_1
+
+   INNER JOIN SAPHEE.ZMASTER01 AS C
+        ON A.MANDT = C.MANDT
+      AND A.PSPID   = C.POSID
+
+   LEFT OUTER JOIN SAPHEE.LFA1 AS D
+      ON B.MANDT = D.MANDT
+    AND B.LIFNR = D.LIFNR
+
+   INNER JOIN (SELECT X.MANDT,  X.PSPID, X.HOGI, X.PAPRDT
+                         FROM SAPHEE.ZQMT019 AS X
+                       WHERE X.MANDT = #G_MANDT#   
+                           AND X.WERKS = '1000'
+                           AND X.ART = '8960'
+                           AND X.SEQ = ( SELECT MIN(X2.SEQ)
+	                                      FROM SAPHEE.ZQMT019 AS X2
+			         WHERE X2.MANDT = X.MANDT
+			             AND X2.WERKS = X.WERKS
+			             AND X2.PSPID = X.PSPID
+			             AND X2.ART = X.ART
+			             AND X2.HOGI = X.HOGI)
+                       <isNotNull col="PSPID">
+                         AND X.PSPID = #PSPID#	 
+                       </isNotNull>
+                       ) AS E
+      ON B.MANDT = E.MANDT
+    AND B.POSID = E.PSPID
+    AND B.POSID_1 = E.HOGI
+
+ WHERE A.MANDT = #G_MANDT#   
+            <isNotNull col="PSPID">
+              AND A.PSPID = #PSPID#	 
+            </isNotNull>
+
+            <isNotNull col="ZTEMNO">
+             AND B.TEMNO2 = #ZTEMNO#
+            </isNotNull>
+	
+             AND E.PAPRDT BETWEEN  #PAPRDT_F# AND #PAPRDT_T#
+          
+            <isNotNull col="ZZLIFNR">
+              AND B.LIFNR = #ZZLIFNR#      
+            </isNotNull>
+	  
+            <isNotNull col="ZZACTSS">
+            AND B.ZZACTSS = #ZZACTSS#
+--서울사무소코드화로인한 주석처리	
+--              <isEqual col="ZZACTSS" value="02">
+--                 <isEqual col="SO_GBN" value="1TEM">
+--	       AND B.ZTEAM &lt;&gt; 'X'
+--	   </isEqual>
+	   
+--                 <isEqual col="SO_GBN" value="2TEM">
+--	       AND B.ZTEAM = 'X'
+--	   </isEqual>		 
+--              </isEqual>
+            </isNotNull>
+
+
+            <isEqual col="ZZGUBUN" value="1">
+               AND B.ZZGUBUN IN ('10', '11', '12')
+            </isEqual>
+
+            <isEqual col="ZZGUBUN" value="2">
+               AND B.ZZGUBUN = '10'
+            </isEqual>
+	   
+            <isEqual col="ZZGUBUN" value="3">
+               AND B.ZZGUBUN IN ('11', '12')
+            </isEqual>
+
+
+
+ORDER BY A.PSPID, A.POSID
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list1">
+	</output>
+</query>

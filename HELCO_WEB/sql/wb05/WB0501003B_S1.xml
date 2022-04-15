@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+	SELECT  P.LIFNR
+	       ,P.PERNO
+	       ,P.GBN
+	       ,M.NAME1
+	       ,P.NAMEE
+	       ,P.TEMNO
+	       ,P.NAMET
+	       ,P.NAMEC    
+	       ,CASE WHEN POSIT = 'X' THEN TEMNO ELSE P.PERNO END AS TEMNO1      
+	    ,CASE WHEN RETIF = 'X' THEN '퇴직' ELSE '' END RETIF
+	    <![CDATA[
+        , NVL( ( SELECT TIMESTAMPDIFF(256, CHAR(TIMESTAMP(CURRENT_DATE) - TIMESTAMP_FORMAT(SUBSTR(A.BIRTH,  1, 8 ) , 'YYYYMMDD')) ) 
+              AS AGE
+              FROM SAPHEE.ZPST0001 A 
+            WHERE A.LIFNR = P.LIFNR  
+                AND A.PERNO = P.PERNO
+                AND A.MANDT = P.MANDT
+                AND A.GBN = P.GBN
+                AND A.BIRTH IS NOT NULL
+                AND A.BIRTH <> ''
+                AND SUBSTR(A.BIRTH , 1,2) >= '19'
+                AND SUBSTR(A.BIRTH , 5,2) >= '01' AND SUBSTR(A.BIRTH , 5,2) <= '12'
+                AND SUBSTR(A.BIRTH , 7,2) >= '01' AND SUBSTR(A.BIRTH , 7,2) <= '31'
+         ), '00') AS AGE	    
+         , P.BIRTH
+	]]>
+	FROM SAPHEE.ZPST0001 AS P
+	     ,SAPHEE.ZMMT012 AS M
+	WHERE P.MANDT = '183'
+	AND P.MANDT = M.MANDT
+	AND P.LIFNR = M.LIFNR
+	  AND P.RETIF = ''     
+
+<isEqual col="HDEL_YN" value="N">
+<![CDATA[
+          AND M.NAME1 <> '직영설치'
+]]>          
+</isEqual>
+<isEqual col="HDEL_YN" value="Y">
+          AND M.NAME1 = '직영설치'
+</isEqual>          
+
+<isNotNull col="LIFNR_NM">
+       AND M.NAME1 LIKE  '%'||#LIFNR_NM#||'%' 
+</isNotNull>
+<isNotNull col="NAMEE">
+       AND P.NAMEE LIKE  '%'||#NAMEE#||'%'
+</isNotNull>
+  ORDER BY P.LIFNR,P.POSIC DESC,P.POSIT DESC,P.POSIE, P.NAMEE
+   FOR FETCH ONLY
+WITH UR  
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

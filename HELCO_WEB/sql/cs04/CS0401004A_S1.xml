@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[결재문서함 -head]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT * FROM 
+(
+	 SELECT 
+		 CS6.MANDT
+		,CS6.POSID 
+		,CS649_DOC
+		,CS649_DKN
+	    ,CASE WHEN CS649_DKN = '12' THEN
+	  	  		   DECODE(LENGTH(CS1.DOC1), 0, 'I', 'E')
+	      	  WHEN CS649_DKN = '13' THEN
+	        	   DECODE(LENGTH(CS1.DOC2), 0, 'I', 'E')
+	          WHEN CS649_DKN = '14' THEN
+	               DECODE(LENGTH(CS1.DOC3), 0, 'I', 'E')
+	          WHEN CS649_DKN = '15' THEN
+	        	   DECODE(LENGTH(CS1.DOC4), 0, 'I', 'E')
+	   	      WHEN CS649_DKN = '20' THEN
+	        	   DECODE(LENGTH(CS1.DOC5), 0, 'I', 'E')
+	          --ELSE COALESCE((SELECT 'E' FROM SAPHEE.ZWBAP01 where DOCNO=CS649_DOC),'I') 
+                        ELSE COALESCE((SELECT 'E' FROM SAPHEE.ZWBAP01 where MANDT = CS6.MANDT AND DOCNO=CS649_DOC),'I') 
+	     END AS CS649_STA
+	    ,VALUE(CS1.QTNUM, '') AS QTNUM
+	    ,VALUE(CS1.SEQ, '') AS SEQ
+	    ,VALUE(CS1.UPN, '') AS UPN
+	    ,VALUE(CS1.CST, '') AS CST
+		,CS649_BNU
+		,CS649_NAM
+		,CS649_LIF
+		,CS649_DAT
+		,CS649_TIM
+		,CS649_TXT
+		,CS649_FNA
+		,CS649_FSZ
+		,'' AS FILE_PATH
+		,'' AS L_CS649_FNA
+		,(SELECT MAX(DTEXT2) FROM SAPHEE.ZLCODE 
+		    WHERE MANDT= #G_MANDT#
+		    AND CODE1 = 'WBAP_DOCKIND'
+			AND CODE2 = CS649_DKN ) AS TARGET
+			
+		,(CASE WHEN CS649_DKN = '13' AND CS1.REQKIND = 'S' THEN '시*공' ELSE '' END) AS GSGB 	
+			
+	FROM SAPHEE.ZCST649 AS CS6 
+		LEFT OUTER JOIN SAPHEE.ZCST001 AS CS1
+		  ON CS6.MANDT = CS1.MANDT
+		 AND CS1.QTNUM = SUBSTR(CS649_DOC, 1, 10) 
+		 AND CS1.SEQ = SUBSTR(CS649_DOC, 11)    
+		LEFT OUTER JOIN SAPHEE.ZWBT010 WB
+		  ON CS6.MANDT = WB.MANDT   
+		 AND CS6.CS649_BSU =  WB.LGORT
+		 AND WB.LGORT > ''
+	WHERE CS6.MANDT= #G_MANDT#
+	<isNotNull col="CRDATE_TO">
+		AND CS649_DAT BETWEEN #CRDATE_FM# AND #CRDATE_TO#
+	</isNotNull>
+	<isNotNull col="DOCNO">
+		AND CS649_DOC = #DOCNO#
+	</isNotNull>
+	<isNotNull col="DOCKIND">
+		AND CS649_DKN = #DOCKIND#
+	</isNotNull>
+	<isNotNull col="TEM">
+		AND WB.VKGRP = #TEM#
+	</isNotNull>
+	<isNull col="TEM">										
+		<isNotNull col="DPT">									
+		   AND WB.VKGRP IN (SELECT CODE2 AS CODE
+							  FROM SAPHEE.ZLCODE
+							 WHERE MANDT = #G_MANDT#
+							   AND LANG  = #G_LANG# 
+							   AND CODE1 = 'VKGRP'
+							   AND DTEXT1 = #DPT#)				
+		</isNotNull>									
+	</isNull>
+	<isNotNull col="BSU">
+		AND CS649_BSU = #BSU#
+	</isNotNull>
+) AS A
+WHERE 1=1
+<isEqual col="APSTAT" value="E">
+	AND CS649_STA = 'E'	  
+</isEqual>
+<isEqual col="APSTAT" value="I">
+	 AND CS649_STA = 'I'
+</isEqual>
+ORDER BY CS649_DAT DESC, CS649_TIM DESC
+  FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_head">
+	</output>
+</query>

@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+	 X.CHECK
+	,X.PJT
+	,X.HNO
+	,X.HNA
+	,X.LGORTBEFORE
+	,X.LGORTBEFORETEXT
+	,X.AGB 
+	,X.AGBTEXT
+	,G.CTEXT2 AS BALJUTEXT
+	,X.SEQ
+	,X.BALJUCODE
+	,X.WORKDATE
+	,X.REGDATE 
+	,X.FLAG 
+	,X.GHB
+	,X.LGORTAFTER
+	,X.GBA
+	,X.GHA
+	,X.IHT
+	,X.JUB
+	,X.BUB
+	,X.JUA
+	,X.BUA
+FROM
+(
+SELECT 
+	 F.CHECK
+	,F.PJT
+	,F.HNO
+	,F.HNA
+	,F.LGORTBEFORE
+	,F.LGORTBEFORETEXT
+	,F.AGB 
+	,F.AGBTEXT
+	,CASE WHEN MAX(VALUE(I.CS126_GND,'')) = 'D' AND MAX(VALUE(I.CS126_UMR,'')) > MAX(VALUE(H.CS116_BMT,'')) THEN MAX(I.CS126_SEQ)
+	      WHEN MAX(VALUE(I.CS126_GND,'')) = 'C' AND MAX(VALUE(I.CS126_UMR,'')) > MAX(VALUE(H.CS116_BMT,'')) THEN MAX(I.CS126_SEQ)
+	      WHEN MAX(VALUE(H.CS116_GND,'')) = 'B' AND MAX(VALUE(I.CS126_UMR,'')) < MAX(VALUE(H.CS116_BMT,'')) THEN MAX(H.CS116_SEQ) 
+	      WHEN MAX(VALUE(H.CS116_GND,'')) = 'A' AND MAX(VALUE(I.CS126_UMR,'')) < MAX(VALUE(H.CS116_BMT,'')) THEN MAX(H.CS116_SEQ) 
+	 END AS SEQ
+	,CASE WHEN MAX(VALUE(I.CS126_GND,'')) = 'D' AND MAX(VALUE(I.CS126_UMR,'')) > MAX(VALUE(H.CS116_BMT,'')) THEN 'D' 
+	      WHEN MAX(VALUE(I.CS126_GND,'')) = 'C' AND MAX(VALUE(I.CS126_UMR,'')) > MAX(VALUE(H.CS116_BMT,'')) THEN 'C'
+	      WHEN MAX(VALUE(H.CS116_GND,'')) = 'B' AND MAX(VALUE(I.CS126_UMR,'')) < MAX(VALUE(H.CS116_BMT,'')) THEN 'B'  
+	      WHEN MAX(VALUE(H.CS116_GND,'')) = 'A' AND MAX(VALUE(I.CS126_UMR,'')) < MAX(VALUE(H.CS116_BMT,'')) THEN 'A'
+	 END AS BALJUCODE
+	,'' AS WORKDATE
+	,'' AS REGDATE 
+	,'' AS FLAG 
+	,'' AS GHB
+	,'' AS LGORTAFTER
+	,'' AS GBA
+	,'' AS GHA
+	,'' AS IHT  
+	,'' AS JUB
+	,'' AS BUB
+	,'' AS JUA
+	,'' AS BUA
+FROM 
+(
+	SELECT  
+		'' AS CHECK
+		,A.MANDT AS MANDT
+		,A.UPN AS UPN
+		,A.CST AS CST
+		,A.PJT AS PJT
+		,A.HNO AS HNO
+		,B.CS101_HNA AS HNA
+		,C.LGORT AS LGORTBEFORE
+		,D.NAME1 AS LGORTBEFORETEXT
+		,A.AGB AS AGB
+		,E.CTEXT2 AS AGBTEXT
+	FROM 
+		SAPHEE.ZCST111 AS A 
+		,SAPHEE.ZCST101 AS B
+		,SAPHEE.ZMMT005 AS C   
+		,SAPHEE.ZMMT012 AS D 
+		,SAPHEE.ZLCODE AS E 
+	WHERE 
+		A.MANDT = #G_MANDT# 
+		AND B.MANDT = A.MANDT  
+		AND C.MANDT = B.MANDT  
+		AND D.MANDT = C.MANDT  
+		AND E.MANDT = D.MANDT 
+		AND A.PJT = B.CS101_PJT 
+		AND A.HNO = B.CS101_HNO  
+		AND A.UIS = '' 
+		AND A.BSU = C.LGORT 
+		AND C.LIFNR = D.LIFNR  
+		AND E.CODE1 = 'CS116' 
+		AND E.LANG = #G_LANG#
+		AND A.AGB = E.CODE2
+		AND A.HST NOT IN ('D','F')
+) AS F 
+LEFT OUTER JOIN SAPHEE.ZCST116 AS H ON H.MANDT = #G_MANDT# AND H.CS116_PJT = F.PJT AND H.CS116_HNO = F.HNO
+LEFT OUTER JOIN SAPHEE.ZCST126 AS I ON I.MANDT = #G_MANDT# AND I.CS126_UPN = F.UPN AND I.CS126_CST = F.CST AND I.CS126_PJT = F.PJT AND I.CS126_HNO = F.HNO
+WHERE F.PJT = #PJT# 
+GROUP BY
+	 F.CHECK
+	,F.PJT
+	,F.HNO
+	,F.HNA
+	,F.LGORTBEFORE
+	,F.LGORTBEFORETEXT
+	,F.AGB 
+	,F.AGBTEXT
+) X
+LEFT OUTER JOIN SAPHEE.ZLCODE AS G ON G.MANDT = #G_MANDT# AND G.CODE1 = 'CS119' AND G.CODE2 = X.BALJUCODE AND G.LANG = #G_LANG#
+ORDER BY PJT, HNO
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="G_LANG" size="255" type="VARCHAR" description="" /> 
+		<col name="PJT" size="18" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="CHECK" size="0" type="VARCHAR" description="" /> 
+		<col name="PJT" size="18" type="VARCHAR" description="" /> 
+		<col name="HNO" size="9" type="VARCHAR" description="" /> 
+		<col name="HNA" size="90" type="VARCHAR" description="" /> 
+		<col name="LGORTBEFORE" size="12" type="VARCHAR" description="" /> 
+		<col name="LGORTBEFORETEXT" size="105" type="VARCHAR" description="" /> 
+		<col name="AGB" size="3" type="VARCHAR" description="" /> 
+		<col name="AGBTEXT" size="60" type="VARCHAR" description="" /> 
+		<col name="BALJUTEXT" size="60" type="VARCHAR" description="" /> 
+		<col name="SEQ" size="6" type="VARCHAR" description="" /> 
+		<col name="BALJUCODE" size="1" type="VARCHAR" description="" /> 
+		<col name="WORKDATE" size="0" type="VARCHAR" description="" /> 
+		<col name="REGDATE" size="0" type="VARCHAR" description="" /> 
+		<col name="FLAG" size="0" type="VARCHAR" description="" /> 
+		<col name="GHB" size="0" type="VARCHAR" description="" /> 
+		<col name="LGORTAFTER" size="0" type="VARCHAR" description="" /> 
+		<col name="GBA" size="0" type="VARCHAR" description="" /> 
+		<col name="GHA" size="0" type="VARCHAR" description="" /> 
+		<col name="IHT" size="0" type="VARCHAR" description="" /> 
+		<col name="JUB" size="0" type="VARCHAR" description="" /> 
+		<col name="BUB" size="0" type="VARCHAR" description="" /> 
+		<col name="JUA" size="0" type="VARCHAR" description="" /> 
+		<col name="BUA" size="0" type="VARCHAR" description="" /> 
+	</output>
+</query>

@@ -1,0 +1,439 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form BKColor="user0" Height="24" Id="Coms013" Left="8" OnLoadCompleted="fn_OnLoadCompleted" PidAttrib="7" Title="부서,팀,담당자" Top="8" Ver="1.0" Width="656" WorkArea="true">
+		<Static Align="Right" Height="24" Id="Static0" Style="sty_lb_search" TabOrder="10" Text="부서&#32;" VAlign="Middle" Width="80"></Static>
+		<Static Align="Right" Height="24" Id="Static1" Left="217" Style="sty_lb_search" TabOrder="11" Text="팀&#32;" VAlign="Middle" Width="80"></Static>
+		<Static Align="Right" Height="24" Id="Static2" Left="434" Style="sty_lb_search" TabOrder="12" Text="담당자&#32;" VAlign="Middle" Width="80"></Static>
+		<Combo Border="Flat" CodeColumn="CODE" Column="CODE_NAME" DataColumn="CODE_NAME" Height="20" Id="cb_frvb" InnerDataset="ds_frvb_cd" Left="83" OnChanged="cb_frvb_OnChanged" Style="sty_ipt_search" TabOrder="1" Top="1" Width="133"></Combo>
+		<Combo Border="Flat" CodeColumn="CODE" Column="CODE_NAME" DataColumn="CODE_NAME" Height="20" Id="cb_frvg" InnerDataset="ds_frvg_cd" Left="300" Style="sty_ipt_search" TabOrder="2" Top="1" Width="133"></Combo>
+		<Combo Border="Flat" CodeColumn="CODE" Column="CODE_NAME" DataColumn="CODE_NAME" Height="20" Id="cb_tovb" InnerDataset="ds_tovb_cd" Left="83" OnChanged="cb_tovb_OnChanged" Style="sty_ipt_search" TabOrder="4" Top="53" Width="133"></Combo>
+		<Combo Border="Flat" CodeColumn="CODE" Column="CODE_NAME" DataColumn="CODE_NAME" Height="20" Id="cb_tovg" InnerDataset="ds_tovg_cd" Left="300" Style="sty_ipt_search" TabOrder="5" Top="53" Width="133"></Combo>
+		<Edit Border="Flat" Column="SMAN" Height="20" Id="ed_sman_cd" Left="517" LeftMargin="4" OnKeyDown="ed_sman_cd_OnKeyDown" RightMargin="4" Style="sty_ipt_form" TabOrder="3" Top="1" UpperOnly="TRUE" Width="114"></Edit>
+		<Button Height="18" Id="btn_popSman" ImageID="btn_icon_search" Left="744" OnClick="fn_OnClick_popup" TabOrder="7" TabStop="FALSE" Text="Button0" Top="2" Transparent="TRUE" Width="18"></Button>
+		<Static Height="16" Id="Static3" TabOrder="13" Text="부서" Top="77" Width="146"></Static>
+		<Static Height="16" Id="Static4" Left="216" TabOrder="14" Text="팀" Top="77" Width="146"></Static>
+		<Static Height="16" Id="Static5" Left="440" TabOrder="15" Text="담당자코드/담당자명" Top="77" Width="146"></Static>
+		<Static Align="Center" Border="None" Color="user7" Font="굴림,9" Height="20" Id="st_from_to_vb" Left="584" TabOrder="8" Text="~" Top="77" VAlign="Middle" Width="18"></Static>
+		<Static Align="Center" Border="None" Color="user7" Font="굴림,9" Height="20" Id="st_from_to_vg" Left="616" TabOrder="9" Text="~" Top="77" VAlign="Middle" Width="18"></Static>
+		<Edit Border="Flat" CheckLength="Byte" Height="20" Id="ed_sman_nm" ImeMode="none" Left="517" LeftMargin="4" MaxLength="105" OnKeyDown="ed_sman_nm_OnKeyDown" RightMargin="4" Style="sty_ipt_search" TabOrder="6" Top="53" UpperOnly="TRUE" Width="145"></Edit>
+	</Form>
+	<Script><![CDATA[/*
+ ******************************************************************************************
+ * 기      능   : 부서,팀 콤보조회 기능 
+ * 작  성  자   : 
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */ 
+#include "LIB::commons.js";	// 공통 스크립트 
+#include "LIB::nsfRequest.js";	// 공통 스크립트  /* GNY 추가 */
+#include "LIB::common_hdel.js";	// 공통 스크립트  /* GNY 추가 */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+
+// 필요 시 부모 화면에 선언되어야 할 폼변수
+var F_VBVG_WIDTH 	= "";  	// 부서/팀코드 서브화면 폼 WIDTH
+var F_VBVG_VB_WIDTH	= "";  	// 부서/팀코드 서브화면 부서코드 WIDTH
+var F_VBVG_VG_WIDTH	= "";  	// 부서/팀코드 서브화면 팀코드 WIDTH
+var F_FRVB_ESSN_YN  = "";	// 시작부서코드 필수여부
+var F_TOVB_ESSN_YN  = "";	// 종료부서코드 필수여부
+var F_TOVB_HIDDEN_YN = "";	// 종료부서코드 숨김 여부
+
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+var F_TOVB_HIDDEN_YN_SET = "N";		// 종료부서콤보 숨김여부
+var F_USER_GROUP_B = "";  			// 사용자권한 (G_USER_GROUP_B)
+var F_USER_ID = ""; 
+function fn_OnLoadCompleted(obj) 
+{ 
+	F_USER_GROUP_B = G_USER_GROUP_B;  // 임시 추가
+	F_USER_ID = G_SAP_USER_ID;
+	//F_USER_ID = G_ORG_VEND_CODE_B;
+	
+	// 폼 초기화
+	fn_init();  
+	
+	if (parent.div_main.url == 'SBP::Sbp0160.xml') {
+		if (G_VEND_WGBN == 'E') {
+			ed_sman_cd.Text = G_SAP_USER_PM_B;
+			ed_sman_nm.Text = G_SAP_USER_PMNM_B;
+		}
+	}
+	// 폼사이즈 및 컨트롤 사이즈 재조정
+	fn_setSize();
+}
+
+// 폼 초기화
+function fn_init()
+{
+	fn_init_auth();  
+}
+
+// 사용자 권한별 설정
+function fn_init_auth()
+{  
+	// 사용자권한에 따라 
+	switch (F_USER_GROUP_B)  
+	{
+		case "B50" :   // 부서, 팀 제어 가능
+		
+			// 부서 콤보목록 조회 
+			fn_nsfRequest("combo","comboFrVb","ds_frvb_cd=ds_frvb_cd","ds_frvb_cd=ds_frvb_cd","fn_afterQuery_frvb");
+			fn_nsfRequest("combo","comboToVb","ds_tovb_cd=ds_tovb_cd","ds_tovb_cd=ds_tovb_cd","fn_afterQuery_tovb");
+			fn_nsfRequest("combo","comboFrVgAll","ds_frvg_cd=ds_frvg_cd","ds_frvg_cd=ds_frvg_cd","fn_afterQuery_frvg");
+			fn_nsfRequest("combo","comboToVgAll","ds_tovg_cd=ds_tovg_cd","ds_tovg_cd=ds_tovg_cd","fn_afterQuery_tovg");
+			break;
+		  
+		case "B40" : 	// 팀 제어 가능
+		
+			// 부서콤보 = 소속부서로 강제설정
+			fn_init_vbcd();
+			
+			// 팀코드목록 조회 
+			fn_Vg_Load();
+			
+			break;
+			
+		case "B30" : 	// 제어 불가능
+			
+			// 부서콤보 = 소속부서로 강제설정
+			fn_init_vbcd();
+			
+			// 팀콤보 = 소속팀으로 강제설정
+			fn_init_vgcd();
+			
+			break; 
+			  
+		default:
+			// 부서콤보 = 소속부서로 강제설정
+			fn_init_vbcd();
+			
+			// 팀콤보 = 소속팀으로 강제설정
+			fn_init_vgcd();
+			
+			fn_init_sman();
+			
+			break;
+	} 
+	
+	if ( parent.div_main.url == 'SCH::Sch0060.xml' ) {
+		ed_sman_cd.text = F_USER_ID;
+		ed_sman_nm.text = G_SAP_USER_NAME;
+		if ( F_USER_GROUP_B == "B30" || F_USER_GROUP_B == "" ) {
+			ed_sman_cd.Enable = false;
+			btn_popSman.Enable = false;
+		}
+	}
+}
+
+/********************************************************************************
+* 기      능   : 담당자팝업 =  기본값 강제설정
+********************************************************************************/ 
+function fn_init_sman()
+{	 
+	ed_sman_cd.text = F_USER_ID;	// 리턴된 담당자코드로 검색조건 SET
+	ed_sman_nm.text = G_SAP_USER_NAME;
+		
+	ed_sman_cd.Enable = false;
+	btn_popSman.Enable = false;
+}
+
+/********************************************************************************
+* 기      능   : 종료팀 콤보목록 조회
+********************************************************************************/  
+function fn_Vg_Load()
+{
+	// 시작팀 콤보목록 조회
+	ds_frvg_cd.ClearData();
+	ds_frvg_cd.AddRow();  
+	ds_frvg_cd.SetColumn(0,"CODE", cb_frvb.Value);  // 시작부서코드
+	
+	// 종료팀 콤보목록 조회
+	ds_tovg_cd.ClearData();
+	ds_tovg_cd.AddRow();  
+	ds_tovg_cd.SetColumn(0,"CODE", cb_tovb.Value);  // 종료부서코드
+	
+	fn_nsfRequest("combo","comboFrVg","ds_frvg_cd=ds_frvg_cd","ds_frvg_cd=ds_frvg_cd","fn_afterQuery_frvg");
+	fn_nsfRequest("combo","comboToVg","ds_tovg_cd=ds_tovg_cd","ds_tovg_cd=ds_tovg_cd","fn_afterQuery_tovg");
+}
+
+/********************************************************************************
+* 기      능   : 부서콤보 = 소속부서로 강제설정
+********************************************************************************/ 
+function fn_init_vbcd()
+{	 
+	// 시작부서코드
+	ds_frvb_cd.ClearData();
+	ds_frvb_cd.AddRow();
+	ds_frvb_cd.SetColumn(0, "CODE"		, G_SAP_USER_VBCD); // 부서코드
+	ds_frvb_cd.SetColumn(0, "CODE_NAME"	, G_SAP_USER_VBNM);	// 부서명
+	cb_frvb.index = 0;
+	cb_frvb.Enable = false;
+	
+	// 종료부서코드
+	ds_tovb_cd.ClearData();
+	ds_tovb_cd.AddRow();
+	ds_tovb_cd.SetColumn(0, "CODE"		, G_SAP_USER_VBCD); // 부서코드
+	ds_tovb_cd.SetColumn(0, "CODE_NAME"	, G_SAP_USER_VBNM);	// 부서명
+	cb_tovb.index = 0;
+	cb_tovb.Enable = false;
+}
+
+/********************************************************************************
+* 기      능   : 팀콤보 = 소속팀으로 강제설정
+********************************************************************************/
+function fn_init_vgcd()
+{	  
+	// 시작팀코드
+	ds_frvg_cd.ClearData();
+	ds_frvg_cd.AddRow();
+	ds_frvg_cd.SetColumn(0, "CODE"		, G_SAP_USER_VGCD); // 팀코드
+	ds_frvg_cd.SetColumn(0, "CODE_NAME"	, G_SAP_USER_VGNM);	// 팀명
+	cb_frvg.index = 0;
+	cb_frvg.Enable = false;
+	
+	// 종료팀코드
+	ds_tovg_cd.ClearData();
+	ds_tovg_cd.AddRow();
+	ds_tovg_cd.SetColumn(0, "CODE"		, G_SAP_USER_VGCD); // 팀코드
+	ds_tovg_cd.SetColumn(0, "CODE_NAME"	, G_SAP_USER_VGNM);	// 팀명
+	cb_tovg.index = 0;
+	cb_tovg.Enable = false;
+}
+
+/********************************************************************************
+* 기      능   : 부서코드 선택 1
+********************************************************************************/
+function cb_frvb_OnChanged(obj,strCode,strText,nOldIndex,nNewIndex)
+{
+	ds_frvg_cd.DeleteAll();
+	ds_frvg_cd.AddRow();
+	ds_frvg_cd.SetColumn(0,"CODE",strCode);
+	ds_frvg_cd.SetColumn(0,"CODE_NAME",strText);
+	fn_nsfRequest("combo","comboFrVg","ds_frvg_cd=ds_frvg_cd","ds_frvg_cd=ds_frvg_cd","fn_afterQuery_frvg");
+	cb_frvg.SetFocus();
+}
+
+/********************************************************************************
+* 기      능   : 부서코드 선택 2
+********************************************************************************/
+function cb_tovb_OnChanged(obj,strCode,strText,nOldIndex,nNewIndex)
+{
+	ds_tovg_cd.DeleteAll();
+	ds_tovg_cd.AddRow();
+	ds_tovg_cd.SetColumn(0,"CODE",strCode);
+	ds_tovg_cd.SetColumn(0,"CODE_NAME",strText);
+	fn_nsfRequest("combo","comboToVg","ds_tovg_cd=ds_tovg_cd","ds_tovg_cd=ds_tovg_cd","fn_afterQuery_tovg");
+	cb_tovg.SetFocus();
+}
+
+/********************************************************************************
+* 기      능   : 시작부서코드목록 조회 Callback  
+********************************************************************************/
+function fn_afterQuery_frvb(errCode, errMsg) 
+{  
+	if (ds_frvb_cd.RowCount() == 0) return;
+	
+	gfn_InsertRowCombo(ds_frvb_cd, 0, "Y", "N"); // 시작부서코드목록에 전체 행 추가  
+	cb_frvb.index = 0;
+}  
+
+/********************************************************************************
+* 기      능   : 종료부서코드목록 조회 Callback  
+********************************************************************************/
+function fn_afterQuery_tovb(errCode, errMsg) 
+{  
+	if (ds_tovb_cd.RowCount() == 0) return;
+	
+	gfn_InsertRowCombo(ds_tovb_cd, 0, "Y", "N"); // 종료부서코드목록에 전체 행 추가 
+	cb_tovb.index = 0;
+} 
+
+/********************************************************************************
+* 기      능   : 시작팀코드목록 조회 Callback  
+********************************************************************************/
+function fn_afterQuery_frvg(errCode, errMsg) 
+{  
+	gfn_InsertRowCombo(ds_frvg_cd, 0, "Y", "N"); // 시작팀코드목록에 전체 행 추가
+	cb_frvg.index = 0;
+}
+
+/********************************************************************************
+* 기      능   : 종료팀코드목록 조회 Callback  
+********************************************************************************/
+function fn_afterQuery_tovg(errCode, errMsg) 
+{  
+	gfn_InsertRowCombo(ds_tovg_cd, 0, "Y", "N"); // 종료팀코드목록에 전체 행 추가
+	cb_tovg.index = 0;
+}
+
+/********************************************************************************
+* 기      능   : 공통코드가 조회된 후의 Callback 함수 
+********************************************************************************/
+function fn_completeInit(sCode, sDsObj, sCodeType) 
+{
+//	tit_createActionInfo();
+	
+//	SetTimer(100, 500);	
+}
+/********************************************************************************
+* 기      능   : form UnloadCompleted 
+********************************************************************************/
+function fn_OnUnloadCompleted(obj) 
+{
+
+} 
+
+// 폼사이즈 및 컨트롤 사이즈 재조정
+function fn_setSize()
+{  
+	
+	// 시작부서코드가 필수이면
+ 	if (IsValidObject(F_FRVB_ESSN_YN)   ==false && F_FRVB_ESSN_YN == "Y"	  ) 
+ 	{	
+		cb_frvb.Style = "sty_ipt_search_ind";
+	}
+	
+	// 종료부서가 Hidden이면 
+	if (IsValidObject(F_TOVB_HIDDEN_YN)   ==false && F_TOVB_HIDDEN_YN == "Y") 
+	{
+		cb_tovb.Visible = false;
+		st_from_to_vb.Visible = false;
+		F_TOVB_HIDDEN_YN_SET = "Y"; // 자체 폼변수
+	}
+	else
+	{
+		F_TOVB_HIDDEN_YN_SET = "N"; // 자체 폼변수
+		
+		// 종료부서코드가 필수이면
+		if (IsValidObject(F_TOVB_ESSN_YN)   ==false && F_TOVB_ESSN_YN == "Y"	  ) 
+		{	
+			cb_tovb.Style = "sty_ipt_search_ind";
+		}
+	}
+	
+ 	if (IsValidObject(F_VBVG_WIDTH)   	==false && F_VBVG_WIDTH>0	  ) 
+ 	{	
+		Coms013.Width 	= F_VBVG_WIDTH;
+	}
+ 	if (IsValidObject(F_VBVG_VB_WIDTH)	==false && F_VBVG_VB_WIDTH>0) 
+ 	{	
+		cb_frvb.Width= F_VBVG_VB_WIDTH;
+		cb_tovb.Width= F_VBVG_VB_WIDTH;
+	}
+ 	if (IsValidObject(F_VBVG_VG_WIDTH)	==false && F_VBVG_VG_WIDTH>0) 
+ 	{
+		cb_frvg.Width= F_VBVG_VG_WIDTH; 
+		cb_tovg.Width= F_VBVG_VG_WIDTH; 
+	} 
+	
+	st_from_to_vb.left 	= cb_frvb.left 		+ cb_frvb.Width 	+ 1;  
+	cb_tovb.left	= st_from_to_vb.left 	+ st_from_to_vb.Width 	+ 1; 
+	st_from_to_vg.left 	= cb_frvg.left 		+ cb_frvg.Width 	+ 1;  
+	cb_tovg.left	= st_from_to_vg.left 	+ st_from_to_vg.Width 	+ 1; 
+
+}
+
+function fn_nsfRequest(url1,url2,ds1,ds2,callback) {
+	nsfRequest("query", url1+"/"+url2, ds1, ds2+" ds_error=ds_error", "", callback);
+}
+
+/********************************************************************************
+* 기      능   :  담당자 조회   
+********************************************************************************/
+function fn_query_sman() { 
+	
+	gfn_clearMsgBar();   
+	
+	if (fn_valid_chk("query_sman") == false)  return; // 조회조건 항목오류검증
+	if (fn_param_set("query_sman") == false)  return; // 조회조건 설정
+	
+//	trace(ds_cond_sman.SaveXML()); 	
+	
+	// 출력데이타셋 초기화
+	ds_list_sman.ClearData();
+	ds_cond_sman.ClearData();
+	ds_cond_sman.AddRow();
+	ds_cond_sman.SetColumn(ds_cond_sman.row, "SMAN_CD", trim(ed_sman_cd.text));
+	ds_cond_sman.SetColumn(ds_cond_sman.row, "SMAN_NM", trim(ed_sman_nm.text));
+
+	// 서비스호출
+	nsfRequest("query"									// srvId
+				, "com0030/find"						// url
+				, "ds_cond_sman=ds_cond_sman ds_list_sman=ds_list_sman"		// inDsList
+				, "ds_list_sman=ds_list_sman ds_error_sman=ds_error_sman"	// outDsList
+				, ""									// strParam
+				, "fn_afterQuery_sman");				// CallBackFunc
+}
+
+
+/********************************************************************************
+* 기      능   :  담당자 조회 Callback  
+********************************************************************************/ 
+function fn_afterQuery_sman(errCode, errMsg) {
+	if(ds_error_sman.rowcount() > 0) { 	// 호출결과처리
+		trace("fn_Query FAILED!!! "
+		       + "[idx : " 			+ ds_error.GetColumn(0,"IDX") + "] "
+		       + "[error message : "+ ds_error.GetColumn(0,"ERRMSG") + "]"
+		       );		       
+	} else {
+		if (ds_list_sman.RowCount() = 1) { // 한 건 조회된 경우
+			// 조회해 온 값으로 담당자 검색정보 SET
+			ed_sman_cd.Text = ds_list_sman.GetColumn(ds_list_sman.row, "SMAN_CD");
+			ed_sman_nm.Text = ds_list_sman.GetColumn(ds_list_sman.row, "SMAN_NM");
+		} 
+		else if (ds_list_sman.RowCount() > 1) { // 다 건 조회된 경우	
+			fn_OnClick_popup(btn_popSman); // 담당자조회 팝업화면  호출
+		}
+	}
+}
+
+// 담당자코드에서 엔터키 누르면
+function ed_sman_cd_OnKeyDown(obj,nChar,bShift,bCtrl, bAlt,LLParam,HLParam) {
+	if (nChar == 13) {
+		// 입력된 조건이 없으면
+		if (length(trim(ed_sman_cd.text)) == 0 && length(trim(ed_sman_nm.text)) == 0) {
+			fn_OnClick_popup(btn_popSman);  // 팝업화면 호출
+		} else {
+			fn_query_sman();  				// 담당자조회 서비스 호출
+		}
+	} else { // 다른 키 누르면 담당자명 clear
+		ed_sman_nm.text = "";
+	}
+}
+
+// 담당자명에서 엔터키 누르면
+function ed_sman_nm_OnKeyDown(obj,nChar,bShift,bCtrl, bAlt,LLParam,HLParam) {
+	if (nChar == 13) {
+		// 입력된 조건이 없으면
+		if (length(trim(ed_sman_cd.text)) == 0 && length(trim(ed_sman_nm.text)) == 0) {
+			fn_OnClick_popup(btn_popSman);  // 팝업화면 호출
+		} else {
+			fn_query_sman();  				// 담당자조회 서비스 호출
+		}
+	} else { // 다른 키 누르면 담당자코드 clear
+		//ed_sman_cd.text = "";
+	}
+}
+
+function fn_OnClick_popup(obj)
+{
+	var arg = "fa_sman_cd= " 	+ quote(ed_sman_cd.text) // 담당자코드
+			 + " fa_sman_nm = " + quote(ed_sman_nm.text); // 담당자명 
+			 	
+	var arr = gfn_openPopUpUrlHdel("Com::Com0030.xml", true, arg);	
+	
+	trace("arr : " + arr);
+	
+	if (arr != null && arr != 0) {
+		ed_sman_cd.text = arr[0];	// 리턴된 담당자코드로 검색조건 SET
+		ed_sman_nm.text = arr[1];	// 리턴된 담당자명으로 검색조건 SET
+	} 
+} ]]></Script>
+</Window>

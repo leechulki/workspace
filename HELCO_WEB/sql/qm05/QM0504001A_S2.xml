@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT  T.POSID AS PSPID
+             ,T.POSID_1 AS POSID
+             ,T3.ZSITE_NM
+             ,(SELECT Y.VALUE
+	    FROM SAPHEE.ZSDT0005 AS Y
+	  WHERE Y.MANDT = T.MANDT
+	      AND Y.HOGI = T.POSID_1
+	      AND Y.CHARACTERISTIC = 'EL_ARUL'
+	      AND Y.SEQ = (SELECT MAX( X.SEQ )
+	            		   FROM SAPHEE.ZSDT0005 AS X
+		               WHERE X.MANDT = Y.MANDT
+			     AND X.HOGI = Y.HOGI
+			     AND X.CHARACTERISTIC = Y.CHARACTERISTIC )
+                ) AS ARUL
+			 
+	,T.BLOCK
+	,(CASE WHEN T.BLOCK = 'A'  THEN 'TM'    
+	           WHEN T.BLOCK = 'B'  THEN 'CP'
+	           WHEN T.BLOCK = 'C'  THEN 'CAGE'
+	           WHEN T.BLOCK = 'D'  THEN 'BUFFER'
+	   END
+	 ) AS BLOCKNM
+	,T.PPEDAT
+	,T.PPMDAT
+	,T.PPIDAT
+	,VALUE(T2.INSPECT, '') AS INSPECT  -- 검사신청여부   
+	,VALUE(T2.SJ_INSPDAT, '00000000') AS SJ_INSPDAT  -- 선주검사예정일   
+	,VALUE(T2.INSP_END, '00000000') AS INSP_END    -- 검사완료일   
+	,T.ZZSHIP1
+
+		
+	,T.BUDAT  AS SG_INSPDAT
+		
+	,VALUE(CAST(T2.BIGO AS VARCHAR(1200)), '') AS BIGO
+              ,'' AS CHECK	 
+ 
+			 
+   FROM (				
+	-- =========================TM=============================
+	SELECT  A.MANDT, A.POSID,   A.POSID_1  ,'A' AS BLOCK 
+	             ,MAX(VALUE(D.PPEDAT, '00000000')) AS PPEDAT    -- 생산일   
+	             ,MAX(VALUE(D.PPMDAT, '00000000')) AS PPMDAT  -- 이송일 
+	             ,MAX(VALUE(D.PPIDAT, '00000000')) AS PPIDAT      -- 출하일 
+	             ,MAX(C.BUDAT0) AS ZZSHIP1  -- 출하예정일   
+	             ,MAX(C.BUDAT) AS BUDAT
+	   FROM SAPHEE.ZMASTER02 AS A
+	  INNER JOIN SAPHEE.ZSDT0005 AS B
+	       ON A.MANDT = B.MANDT
+	     AND A.POSID_1 = B.HOGI
+	  
+                  LEFT OUTER JOIN ( SELECT  X.MANDT , X.POSID 
+		                                 ,SAPHEE.GET_WORKINGDAY(  (CASE WHEN X.BUDAT0 = '00000000' THEN '19000101' ELSE X.BUDAT0 END)    , -1 ) AS BUDAT
+		                                 ,X.BUDAT0
+	                                     FROM SAPHEE.ZMMT080 AS X
+	                                    WHERE X.MANDT = #G_MANDT# ) AS C
+ 	      ON A.MANDT = C.MANDT
+ 	    AND A.POSID_1 = C.POSID
+
+	   LEFT OUTER JOIN SAPHEE.ZPPT034 AS D
+	      ON A.MANDT = D.MANDT
+	     AND A.POSID = D.PSPID
+	     AND A.POSID_1 = D.POSID	  
+	     AND D.PRCTYP &lt;&gt; 'D'
+	     AND D.WERKS = '1000'
+	     AND D.ITEMNO = 'A101A'         
+
+                 LEFT OUTER JOIN SAPHEE.ZQMTW0205 AS F
+	      ON A.MANDT = F.MANDT
+	    AND A.POSID = F.PSPID
+	    AND A.POSID_1 = F.POSID
+                  AND F.ZGBN = 'A'
+	
+				
+	WHERE B.MANDT = #G_MANDT#
+	    AND B.CHARACTERISTIC = 'EL_ARULA'
+	    AND B.SEQ = ( SELECT MAX( X.SEQ )
+	       		 FROM SAPHEE.ZSDT0005 AS X
+		             WHERE X.MANDT = B.MANDT
+			   AND X.HOGI = B.HOGI
+			   AND X.CHARACTERISTIC = B.CHARACTERISTIC )
+	    AND B.VALUE = 'F'	   
+	    AND A.ZZGUBUN = '13'
+	    AND A.TXT04 &lt;&gt; 'C'
+
+                <isNull col="PSPID">
+	   --AND C.BUDAT BETWEEN #FROM_SGDT_1#  AND #TO_SGDT_1# 
+                  AND ( (C.BUDAT BETWEEN #FROM_SGDT_1#  AND #TO_SGDT_1# ) OR (F.SJ_INSPDAT BETWEEN #FROM_SGDT_1#  AND #TO_SGDT_1# ) )
+                </isNull>
+                <isNotNull col="PSPID">
+ 	    AND A.POSID = #PSPID#
+                </isNotNull>
+
+               GROUP BY A.MANDT, A.POSID,   A.POSID_1
+				 
+	 -- =========================CP=============================	 
+	 UNION ALL 
+				 
+             SELECT  A.MANDT, A.POSID,   A.POSID_1  ,'B' AS BLOCK
+	            ,MAX(VALUE(D.PPEDAT, '00000000')) AS PPEDAT    -- 생산일   
+	            ,MAX(VALUE(D.PPMDAT, '00000000')) AS PPMDAT  -- 이송일 
+	            ,MAX(VALUE(D.PPIDAT, '00000000')) AS PPIDAT      -- 출하일 		 
+	            ,MAX(C.BUDAT0) AS ZZSHIP1  -- 출하예정일
+ 	            ,MAX(C.BUDAT) AS BUDAT
+							  
+	  FROM SAPHEE.ZMASTER02 AS A
+	 INNER JOIN SAPHEE.ZSDT0005 AS B
+	      ON A.MANDT = B.MANDT
+	    AND A.POSID_1 = B.HOGI
+	  
+                LEFT OUTER JOIN ( SELECT  X.MANDT , X.POSID
+		                               ,SAPHEE.GET_WORKINGDAY(  (CASE WHEN X.BUDAT0 = '00000000' THEN '19000101' ELSE X.BUDAT0 END)    , -1 ) AS BUDAT
+		                               ,X.BUDAT0 	
+		                     FROM SAPHEE.ZMMT080 AS X
+		                   WHERE X.MANDT = #G_MANDT# ) AS C
+ 	      ON A.MANDT = C.MANDT
+ 	    AND A.POSID_1 = C.POSID
+
+	  LEFT OUTER JOIN SAPHEE.ZPPT034 AS D
+	     ON A.MANDT = D.MANDT
+	    AND A.POSID = D.PSPID
+  	    AND A.POSID_1 = D.POSID	  
+	    AND D.PRCTYP &lt;&gt; 'D'
+	    AND D.WERKS = '1000'
+	    AND D.ITEMNO = 'A204A'      
+			
+                 LEFT OUTER JOIN SAPHEE.ZQMTW0205 AS F
+	      ON A.MANDT = F.MANDT
+	    AND A.POSID = F.PSPID
+	    AND A.POSID_1 = F.POSID
+                  AND F.ZGBN = 'B'
+
+
+	WHERE B.MANDT = #G_MANDT#
+	    AND B.CHARACTERISTIC = 'EL_ARULA'
+	    AND B.SEQ = ( SELECT MAX( X.SEQ )
+	                       	 FROM SAPHEE.ZSDT0005 AS X
+		             WHERE X.MANDT = B.MANDT
+		                 AND X.HOGI = B.HOGI
+			   AND X.CHARACTERISTIC = B.CHARACTERISTIC )
+	   AND B.VALUE = 'F'	   
+	   AND A.ZZGUBUN = '13'
+	   AND A.TXT04 &lt;&gt; 'C'
+			
+                <isNull col="PSPID">		      
+	    --AND C.BUDAT BETWEEN #FROM_SGDT_1#  AND #TO_SGDT_1# 
+                 AND ( (C.BUDAT BETWEEN #FROM_SGDT_1#  AND #TO_SGDT_1# ) OR (F.SJ_INSPDAT BETWEEN #FROM_SGDT_1#  AND #TO_SGDT_1# ) )
+                </isNull>
+                <isNotNull col="PSPID">
+	   AND A.POSID = #PSPID#
+                </isNotNull>
+	
+               GROUP BY A.MANDT, A.POSID,   A.POSID_1
+				 
+				 
+	 -- =========================CAGE=============================
+				 
+	 UNION ALL 
+		 
+             SELECT  A.MANDT, A.POSID,   A.POSID_1   ,'C' AS BLOCK
+	            ,MAX(VALUE(D.PPEDAT, '00000000')) AS PPEDAT    -- 생산일   
+	            ,MAX(VALUE(D.PPMDAT, '00000000')) AS PPMDAT  -- 이송일 
+	            ,MAX(VALUE(D.PPIDAT, '00000000')) AS PPIDAT      -- 출하일 						                          
+                          ,MAX(C.BUDATC) AS ZZSHIP1  -- 출하예정일
+	            ,MAX(C.BUDAT) AS BUDAT   
+							  
+	  FROM SAPHEE.ZMASTER02 AS A
+	  INNER JOIN SAPHEE.ZSDT0005 AS B
+	       ON A.MANDT = B.MANDT
+	     AND A.POSID_1 = B.HOGI
+
+                  LEFT OUTER JOIN ( SELECT  X.MANDT , X.POSID
+		                                 ,SAPHEE.GET_WORKINGDAY(  (CASE WHEN X.BUDATC = '00000000' THEN '19000101' ELSE X.BUDATC END)    , -1 ) AS BUDAT
+		                                 ,X.BUDATC
+		                       FROM SAPHEE.ZMMT080 AS X
+		                     WHERE X.MANDT = #G_MANDT# 
+		                      AND  X.BUDATC  between '20100101' and '20300101') AS C
+ 	      ON A.MANDT = C.MANDT
+ 	    AND A.POSID_1 = C.POSID
+
+	  
+	    LEFT OUTER JOIN SAPHEE.ZPPT034 AS D
+	       ON A.MANDT = D.MANDT
+	     AND A.POSID = D.PSPID
+	     AND A.POSID_1 = D.POSID	  
+	     AND D.PRCTYP &lt;&gt; 'D'
+	     AND D.WERKS = '1000'
+	     AND D.ITEMNO = 'E100A'       
+				
+                 LEFT OUTER JOIN SAPHEE.ZQMTW0205 AS F
+	      ON A.MANDT = F.MANDT
+	    AND A.POSID = F.PSPID
+	    AND A.POSID_1 = F.POSID
+                  AND F.ZGBN = 'C'
+
+
+	WHERE B.MANDT = #G_MANDT#
+	    AND B.CHARACTERISTIC = 'EL_ARULA'
+	    AND B.SEQ = ( SELECT MAX( X.SEQ )
+		                FROM SAPHEE.ZSDT0005 AS X
+		              WHERE X.MANDT = B.MANDT
+		                   AND X.HOGI = B.HOGI
+			     AND X.CHARACTERISTIC = B.CHARACTERISTIC )
+	   AND B.VALUE = 'F'	   
+	   AND A.ZZGUBUN = '13'
+	   AND A.TXT04 &lt;&gt; 'C'
+	  <isNull col="PSPID">	      			     
+	   --AND C.BUDAT BETWEEN #FROM_SGDT_1#  AND #TO_SGDT_1# 
+                 AND ( (C.BUDAT BETWEEN #FROM_SGDT_1#  AND #TO_SGDT_1# ) OR (F.SJ_INSPDAT BETWEEN #FROM_SGDT_1#  AND #TO_SGDT_1# ) )
+                </isNull>
+                <isNotNull col="PSPID">
+	   AND A.POSID = #PSPID#
+                </isNotNull>
+            GROUP BY A.MANDT, A.POSID,   A.POSID_1
+				 
+				 
+	 -- =========================BUFFER=============================
+				 
+             UNION ALL 
+			 
+           SELECT  A.MANDT, A.POSID,   A.POSID_1  ,'D' AS BLOCK
+	          ,'00000000' AS PPEDAT    -- 생산일   
+	          ,'00000000' AS PPMDAT  -- 이송일 
+	          ,'00000000' AS PPIDAT      -- 출하일 						 
+                        ,MAX(C.BUDATC) AS ZZSHIP1  -- 출하예정일   
+	          ,MAX(C.BUDAT) AS BUDAT
+							  
+	FROM SAPHEE.ZMASTER02 AS A
+              INNER JOIN SAPHEE.ZSDT0005 AS B
+	    ON A.MANDT = B.MANDT
+	  AND A.POSID_1 = B.HOGI
+
+              LEFT OUTER JOIN ( SELECT  X.MANDT , X.POSID
+		                             ,SAPHEE.GET_WORKINGDAY(  (CASE WHEN X.BUDATC = '00000000' THEN '19000101' ELSE X.BUDATC END)    , -3 ) AS BUDAT
+		                             ,X.BUDATC
+		                  FROM SAPHEE.ZMMT080 AS X
+		                WHERE X.MANDT = #G_MANDT# 
+ 	                      AND  X.BUDATC  between '20100101' and '20300101') AS C
+ 	   ON A.MANDT = C.MANDT
+ 	 AND A.POSID_1 = C.POSID
+
+	  				
+            INNER JOIN SAPHEE.ZSDT0005 AS E
+	  ON A.MANDT = E.MANDT
+	AND A.POSID_1 = E.HOGI
+					
+             LEFT OUTER JOIN SAPHEE.ZQMTW0205 AS F
+	  ON A.MANDT = F.MANDT
+	AND A.POSID = F.PSPID
+	AND A.POSID_1 = F.POSID
+              AND F.ZGBN = 'D'
+
+ 
+          WHERE B.MANDT = #G_MANDT#
+	AND B.CHARACTERISTIC = 'EL_ARULA'
+	AND B.SEQ = ( SELECT MAX( X.SEQ )
+	 	           FROM SAPHEE.ZSDT0005 AS X
+		          WHERE X.MANDT = B.MANDT
+		              AND X.HOGI = B.HOGI
+		              AND X.CHARACTERISTIC = B.CHARACTERISTIC )
+	AND B.VALUE = 'F'	   			  
+	AND E.CHARACTERISTIC = 'EL_ARUL'
+	AND E.SEQ = ( SELECT MAX( X.SEQ )
+	                          FROM SAPHEE.ZSDT0005 AS X
+		          WHERE X.MANDT = B.MANDT
+			AND X.HOGI = B.HOGI
+		              AND X.CHARACTERISTIC = B.CHARACTERISTIC )
+	AND E.VALUE = 'ABS'		     					   
+	AND A.ZZGUBUN = '13'
+	AND A.TXT04 &lt;&gt; 'C'
+             <isNull col="PSPID">	    
+	--AND C.BUDAT BETWEEN #FROM_SGDT_3#  AND #TO_SGDT_3#
+              AND ( (C.BUDAT BETWEEN #FROM_SGDT_1#  AND #TO_SGDT_1# ) OR (F.SJ_INSPDAT BETWEEN #FROM_SGDT_1#  AND #TO_SGDT_1# ) )
+            </isNull>
+            <isNotNull col="PSPID">
+	AND A.POSID = #PSPID#
+            </isNotNull>
+	
+            GROUP BY A.MANDT, A.POSID,   A.POSID_1
+				 
+              )   AS T
+			 
+    LEFT OUTER JOIN SAPHEE.ZQMTW0205 AS T2
+       ON T.MANDT = T2.MANDT
+     AND T.POSID = T2.PSPID
+     AND T.POSID_1 = T2.POSID
+     AND T.BLOCK  = T2.ZGBN 		
+	  
+  INNER JOIN SAPHEE.ZMASTER01 AS T3
+       ON T.MANDT = T3.MANDT
+      AND T.POSID = T3.POSID 
+	  		
+ WHERE T.MANDT = #G_MANDT#	 
+<isEqual col="GBN" value="B">
+      AND T2.INSPECT = '1'
+</isEqual>
+
+<isEqual col="GBN" value="C">
+      AND ( T2.INSPECT IS NULL  OR T2.INSPECT = '0' OR T2.INSPECT = '' )
+</isEqual>
+
+				 
+ ORDER BY T.POSID   ,T.POSID_1 ,T.BLOCK
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond2">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description>설치로드</description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>1</result-count>
+    <statement>
+        WITH INWON AS (
+            SELECT A.MANDT,
+                   Z00.ACTSS,
+                   A.LIFNR,
+                   A.NAME1,
+                   A.TEMNO,
+                   A.NAMET,
+                   A.PERNO,
+                   A.NAMEE,
+                   CASE WHEN A.POSIT = 'X' THEN '팀장' ELSE '사원' END POSIT,
+                   '등록'    AS                                      GUBUN,
+                   A.ENTER,
+                   A.BIRTH
+
+              FROM SAPHEE.ZPST0001 AS A
+                       INNER JOIN SAPHEE.ZPST0034 AS B ON A.MANDT = B.MANDT AND A.LIFNR = B.LIFNR AND A.GBN = B.GBN
+                       INNER JOIN SAPHEE.ZPST0002 AS D ON A.LIFNR = D.LIFNR AND A.TEMNO = D.TEMNO
+                      LEFT OUTER JOIN SAPHEE.ZPST0001 Z01 ON Z01.MANDT = A.MANDT AND Z01.LIFNR = A.LIFNR AND Z01.GBN = 'A' AND Z01.PERNO = A.PERNO
+                      LEFT OUTER JOIN SAPHEE.ZPST0000 Z00 ON Z00.MANDT = Z01.MANDT AND Z00.ACTSS = Z01.ACTSS
+
+              WHERE A.MANDT = '183'
+                AND A.GBN = 'A'
+                AND (A.POSIE = 'X' OR A.POSIT = 'X')
+                AND A.GUBUN IN ('01', '02')
+                AND A.TYPE = '1'
+                AND A.DIRECT = 'X'
+                AND (A.RETID = '' OR A.RETID = '00000000' OR A.RETID &gt;= #INP_DT#)
+                AND B.SO5 &lt;&gt; 'X'
+                AND A.ENTER &lt;= #INP_DT#
+
+              UNION ALL
+
+              SELECT P1.MANDT,
+                     Z00.ACTSS,
+                     P1.LIFNR,
+                     P1.NAME1,
+                     P1.TEMNO,
+                     P1.NAMET,
+                     P1.PERNO,
+                     P1.NAMEE,
+                     CASE WHEN P1.POSIT = 'X' THEN '팀장' ELSE '사원' END POSIT,
+                     '대기'     AS                                      GUBUN,
+                     P1.ENTER,
+                     P1.BIRTH
+
+              FROM SAPHEE.ZPST0138 AS P1
+                       INNER JOIN SAPHEE.ZPST0034 AS B ON P1.MANDT = B.MANDT AND P1.LIFNR = B.LIFNR AND P1.GBN = B.GBN
+                       LEFT OUTER JOIN SAPHEE.ZPST0001 Z01 ON Z01.MANDT = P1.MANDT AND Z01.LIFNR = P1.LIFNR AND Z01.GBN = 'A' AND Z01.PERNO = P1.PERNO
+                       LEFT OUTER JOIN SAPHEE.ZPST0000 Z00 ON Z00.MANDT = Z01.MANDT AND Z00.ACTSS = Z01.ACTSS
+
+              WHERE P1.MANDT = '183'
+                AND P1.GBN = 'A'
+                AND (SELECT CASE
+                                WHEN COUNT(P.MANDT) = 0 THEN 'B'
+                                ELSE CASE
+                                         WHEN (SELECT COUNT(*)
+                                               FROM SAPHEE.ZPST0143 P2
+                                               WHERE P2.MANDT = P1.MANDT
+                                                 AND P2.LIFNR = P1.LIFNR
+                                                 AND P2.PERNO = P1.PERNO
+                                                 AND P2.SIGN &gt; ''
+                                                 AND P2.GBN = 'A') = 0 THEN 'A'
+                                         WHEN (SELECT COUNT(*)
+                                               FROM SAPHEE.ZPST0143 P2
+                                               WHERE P2.MANDT = P1.MANDT
+                                                 AND P2.LIFNR = P1.LIFNR
+                                                 AND P2.PERNO = P1.PERNO
+                                                 AND P2.SIGN = '반송'
+                                                 AND P2.GBN = 'A') &gt; 0 OR (SELECT COUNT(*)
+                                                                           FROM SAPHEE.ZPST0143 P2
+                                                                           WHERE P2.MANDT = P1.MANDT
+                                                                             AND P2.LIFNR = P1.LIFNR
+                                                                             AND P2.PERNO = P1.PERNO
+                                                                             AND P2.SIGN &gt; ''
+                                                                             AND P2.GBN = 'A') = COUNT(P.MANDT) THEN 'D'
+                                         ELSE 'C' END
+                                END CNT
+                     FROM SAPHEE.ZPST0143 AS P
+                     WHERE P.MANDT = P1.MANDT
+                       AND P.LIFNR = P1.LIFNR
+                       AND P.PERNO = P1.PERNO
+                       AND P.GBN = 'A'
+                    ) IN ('A', 'C')
+                AND (SELECT CASE
+                                WHEN COUNT(P.MANDT) = 0 THEN 'B'
+                                ELSE CASE
+                                         WHEN (SELECT COUNT(*)
+                                               FROM SAPHEE.ZPST0143 P2
+                                               WHERE P2.MANDT = P1.MANDT
+                                                 AND P2.LIFNR = P1.LIFNR
+                                                 AND P2.PERNO = P1.PERNO
+                                                 AND P2.SIGN &gt; ''
+                                                 AND P2.GBN = 'A') = 0 THEN 'A'
+                                         WHEN (SELECT COUNT(*)
+                                               FROM SAPHEE.ZPST0143 P2
+                                               WHERE P2.MANDT = P1.MANDT
+                                                 AND P2.LIFNR = P1.LIFNR
+                                                 AND P2.PERNO = P1.PERNO
+                                                 AND P2.SIGN = '반송'
+                                                 AND P2.GBN = 'A') &gt; 0 OR (SELECT COUNT(*)
+                                                                           FROM SAPHEE.ZPST0143 P2
+                                                                           WHERE P2.MANDT = P1.MANDT
+                                                                             AND P2.LIFNR = P1.LIFNR
+                                                                             AND P2.PERNO = P1.PERNO
+                                                                             AND P2.SIGN &gt; ''
+                                                                             AND P2.GBN = 'A') = COUNT(P.MANDT) THEN 'D'
+                                         ELSE 'C' END
+                                END CNT
+                     FROM SAPHEE.ZPST0143 AS P
+                     WHERE P.MANDT = P1.MANDT
+                       AND P.LIFNR = P1.LIFNR
+                       AND P.PERNO = P1.PERNO
+                       AND P.GBN = 'A'
+                    ) &lt;&gt; 'D'
+                AND P1.STATS = 'B'
+                AND P1.RETIF = ''
+                AND (P1.POSIE = 'X' OR P1.POSIT = 'X')
+                AND P1.GUBUN IN ('01', '02')
+                AND P1.TYPE = '1'
+                AND P1.DIRECT = 'X'
+                AND (P1.RETID = '' OR P1.RETID = '00000000' OR P1.RETID &gt;= #INP_DT#)
+                AND B.SO5 &lt;&gt; 'X'
+                AND P1.ENTER &lt;= #INP_DT#
+        )
+        SELECT INWON.MANDT
+             , C.PSPID
+             , C.POSID
+             , C.INP_DT
+             , INWON.PERNO
+             , INWON.LIFNR
+             , L.NAME1
+             , INWON.NAMEE
+             , CASE WHEN INWON.POSIT = 'X' THEN '팀장' ELSE '사원' END POSIT
+             , INWON.TEMNO   AS                                                                                            TMCD
+             , INWON.ENTER
+             , INWON.NAMET                                                                                                 TMNM
+             , INWON.GUBUN DGUBUN
+             , CASE
+                 WHEN D.ZBOSUOUT = '00000000' AND '20190424' &lt; D.ZZCHAKD THEN '착공예정'
+                 WHEN D.ZBOSUOUT = '00000000' AND '20190424' &gt;= D.ZZCHAKD THEN '진행대수'
+                 WHEN D.ZBOSUOUT &lt;&gt; '00000000' THEN '준공완료'
+                 WHEN D.ZZJUNGO = 'X' THEN '준공완료' END HGUBUN
+             , INWON.BIRTH
+             , E.ZSITE_NM
+             , D.ZSPEC1
+             , D.ZSPEC2
+             , D.ZZCOMP2
+             , D.ZZSHIP1
+             , D.ZZCHAKD
+             , D.ZBOSUOUT
+             , C.M_MH
+             , C.A_MH
+             , C.N_MH
+             , C.BEFORE_R
+             , C.DAY_R
+             , A.TUIP_CHKA
+             , A.TUIP_CHKB
+             , CASE WHEN A.TUIP_CHKA = 'X' THEN '투입' ELSE '미투입' END TUIP_YN
+             , A.SAYU
+             , A.BIGO
+             , F.TOT_MH
+             , (SELECT SUM(M_MH) FROM SAPHEE.ZPSTW0302 WHERE MANDT = A.MANDT AND LIFNR = INWON.LIFNR AND PERNO = INWON.PERNO AND PSPID = C.PSPID AND POSID = C.POSID AND INP_DT = #INP_DT#) SUM_M_MH
+             , (SELECT SUM(A_MH) FROM SAPHEE.ZPSTW0302 WHERE MANDT = A.MANDT AND LIFNR = INWON.LIFNR AND PERNO = INWON.PERNO AND PSPID = C.PSPID AND POSID = C.POSID AND INP_DT = #INP_DT#) SUM_A_MH
+             , (SELECT SUM(N_MH) FROM SAPHEE.ZPSTW0302 WHERE MANDT = A.MANDT AND LIFNR = INWON.LIFNR AND PERNO = INWON.PERNO AND PSPID = C.PSPID AND POSID = C.POSID AND INP_DT = #INP_DT#) SUM_N_MH
+             , (SELECT ROUND(SUM(PS116.PRO_R), 2)
+                FROM SAPHEE.ZPST0116 PS116
+                         INNER JOIN SAPHEE.ZPST0116A PS116A
+                                    ON PS116.MANDT = PS116A.MANDT
+                                        AND PS116.PSPID = PS116A.PSPID
+                                        AND PS116.POSID = PS116A.POSID
+                                        AND PS116.SEQNO = PS116A.SEQNO
+                                        AND PS116A.GUBUN = '5'
+                                        AND PS116A.STATE = 'Y'
+                                        AND PS116.BELNR &gt; ' '
+                WHERE PS116.MANDT = C.MANDT
+                  AND PS116.PSPID = C.PSPID
+                  AND PS116.POSID = C.POSID)                                                                            TOT_C
+
+             , G.TEXT30   AS                                                                                            ACTSS_NM_OFFICE
+             , H.ACTSS_NM AS                                                                                            ACTSS_NM_CORP
+             , I.ACTSS_NM AS                                                                                            ACTSS_NM_GAEIN
+
+        FROM INWON
+
+                 LEFT OUTER JOIN SAPHEE.ZPSTW0301 AS A ON (INWON.MANDT = A.MANDT AND INWON.LIFNR = A.LIFNR AND INWON.PERNO = A.PERNO AND A.INP_DT = #INP_DT#)
+                 LEFT OUTER JOIN SAPHEE.ZPSTW0302 AS C ON (C.MANDT = A.MANDT AND C.INP_DT = A.INP_DT AND C.LIFNR = A.LIFNR AND C.PERNO = A.PERNO AND C.INP_DT = #INP_DT#)
+                 LEFT OUTER JOIN SAPHEE.ZMASTER02 AS D ON (D.MANDT = C.MANDT AND D.POSID = C.PSPID AND D.POSID_1 = C.POSID)
+                 LEFT OUTER JOIN SAPHEE.ZMASTER01 AS E ON (E.MANDT = D.MANDT AND E.POSID = D.POSID)
+                 LEFT OUTER JOIN (SELECT MANDT,
+                                 PSPID,
+                                 POSID,
+                                 TOT_MH
+                          FROM SAPHEE.ZPST0100 S1
+                          WHERE MANDT = '183'
+                            AND CHGNO = (SELECT MAX(S2.CHGNO)
+                                         FROM SAPHEE.ZPST0113 S2
+                                         WHERE S1.MANDT = S2.MANDT
+                                           AND S1.PSPID = S2.PSPID
+                                           AND S1.POSID = S2.POSID
+                                           AND S2.CNF_GBN = 'A'
+                                           AND S2.GUBUN = '3'
+                                           AND S2.STATE = 'Y')) AS F ON (F.MANDT = D.MANDT AND F.PSPID = D.POSID AND F.POSID = D.POSID_1)
+
+                 LEFT OUTER JOIN SAPHEE.J_1AACTT AS G ON (G.MANDT = INWON.MANDT AND G.J_1AACT = INWON.ACTSS AND G.SPRAS = '3' AND G.J_1AACT = #ZZACTSS#)
+                 LEFT OUTER JOIN SAPHEE.LFA1 AS L ON (L.MANDT = INWON.MANDT AND L.LIFNR = INWON.LIFNR)
+                 LEFT OUTER JOIN SAPHEE.ZPST0000 AS H ON (H.MANDT = L.MANDT AND H.ACTSS = L.ACTSS)
+                 LEFT OUTER JOIN SAPHEE.ZPST0000 AS I ON (I.MANDT = INWON.MANDT AND I.ACTSS = INWON.ACTSS)
+
+        WHERE 1 = 1
+          AND INWON.MANDT = #G_MANDT#
+        <isNotNull col="ZZACTSS">
+          AND INWON.ACTSS = #ZZACTSS#
+        </isNotNull>
+        <isNotNull col="LIFNR">
+          AND INWON.LIFNR = #LIFNR#
+        </isNotNull>
+        <isNotNull col="ZZPMNUM">
+          AND INWON.TEMNO = #ZZPMNUM#
+        </isNotNull>
+        <isNotNull col="GRUP">
+          AND INWON.ACTSS IN (SELECT CODE2 FROM SAPHEE.ZLCODE P WHERE MANDT = #G_MANDT# AND P.LANG = 'ko' AND P.CODE1 = 'PS003' AND DTEXT4 = #GRUP#)
+        </isNotNull>
+        FOR FETCH ONLY
+        WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+
+    <output default-name="ds_list">
+    </output>
+
+</query>

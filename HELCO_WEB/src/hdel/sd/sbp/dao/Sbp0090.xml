@@ -1,0 +1,573 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.sbp.dao.Sbp0090D">
+  
+	<resultMap id="SbpResultMap" type="hdel.sd.sbp.domain.Sbp0090VO"></resultMap>
+
+	<!-- 수주 -->	
+	<select id="SelectOrder" parameterType="hdel.sd.sbp.domain.Sbp0090VO" resultMap="SbpResultMap">
+		<![CDATA[ 
+		SELECT 
+			ZSDT1012.MANDT 							-- 클라이언트
+			,ZSDT1012.ZBPNNR						-- 사업계획번호
+			,ZSDT1012.ZPYEAR 						-- 편성년도
+			,ZSDT1012.ZPYM 							-- 계획년월
+			,ZSDT1012.SPART 						-- 제품군
+			,ZSDT1012.AUART 						-- 판매문서유형
+			,ZSDT1012.MATNR 						-- 자재번호
+			,(SELECT BEZEI						
+			    FROM SAPHEE.TVKBT
+			   WHERE MANDT = #{MANDT}
+			     AND VKBUR = ZSDT1012.VKBUR
+			     AND SPRAS = '3'
+			 )AS VKBUR								-- 사업장
+			,ZSDT1012.VKGRP							-- 영업그룹
+			,(SELECT NAME1						
+				FROM SAPHEE.LFA1
+		  	   WHERE MANDT = #{MANDT}
+				 AND LIFNR = ZSDT1012.ZAGNT
+	         ) AS ZAGNT								-- 대리점
+			,(SELECT NAME1						
+			    FROM SAPHEE.KNA1
+			   WHERE MANDT = #{MANDT}
+			     AND KTOKD = 'Z201'
+			     AND KUNNR = ZSDT1012.ZKUNNR
+			 )AS ZKUNNR								-- 영업사원
+			,ZSDT1012.RTYPE 						-- 실기종
+			,ZSDT1012.GTYPE 						-- 기종
+			,ZSDT1012.TYPE1 						-- 타입1
+			,ZSDT1012.TYPE2 						-- 타입2
+			,ZSDT1012.TYPE3	 						-- 타입3
+			,ZSDT1012.ZNUMBER 						-- 대수
+			, (SELECT NAME1 
+                   FROM SAPHEE.KNA1 
+                  WHERE MANDT= #{MANDT}
+                    AND KTOKD IN ( 'Z001', 'Z002', 'Z004' ) 
+                    AND KUNNR = CHAR(REPEAT('0', 10 - LENGTH(RTRIM(LTRIM(ZSDT1012.KUNNR||''))) ) ||ZSDT1012.KUNNR||'')
+                )AS KUNNR 								-- 고객번호
+            ,(   SELECT  (SELECT LANDX FROM SAPHEE.T005T B WHERE B.MANDT = A.MANDT 		-- 국가명
+		                                       AND B.SPRAS = '3'
+                                               AND B.LAND1 = A.LAND1 
+				            ) 												AS LAND1_NM		-- 국가명
+					  FROM SAPHEE.KNA1 A        
+				        WHERE A.MANDT= #{MANDT}
+				          AND A.KTOKD IN ( 'Z001', 'Z002', 'Z004' ) 
+				          AND A.KUNNR = CHAR(REPEAT('0', 10 - LENGTH(RTRIM(LTRIM(ZSDT1012.KUNNR||''))) ) ||ZSDT1012.KUNNR||'')
+		     ) AS LAND1								-- 국가
+			,ZSDT1012.GSNAM 						-- 공사명
+			,ZSDT1012.REGION 						-- 설치지역
+			,ZSDT1012.ZDELI 						-- 단납기구분
+			,ZSDT1012.SHANGH 						-- 국내/상해구분
+			,ZSDT1012.ZINTER 						-- 중계무역구분
+			,ZSDT1012.SOFOCA 						-- 수주예상액
+			,ZSDT1012.ZFORE 						-- 예상시행율
+			,ZSDT1012.WAERK 						-- 통화
+			,ZSDT1012.DELDAT 						-- 납기예정일
+			,ZSDT1012.ZRMK 							-- 비고
+			,ZSDT1012.VBELN 						-- 판매문서
+			,ZSDT1012.PSPID 						-- 프로젝트
+			,ZSDT1012.CDATE 						-- 입력일
+			,ZSDT1012.CTIME 						-- 입력시간
+			,ZSDT1012.CUSER 						-- 입력자
+			,ZSDT1012.UDATE 						-- 변경일
+			,ZSDT1012.UTIME 						-- 변경시간
+			,ZSDT1012.UUSER 						-- 변경자
+			,ZSDT1012.DDATE 						-- 삭제일
+			,ZSDT1012.DTIME 						-- 삭제시간
+			,ZSDT1012.DUSER 						-- 삭제자
+			,ZSDT1012.ZBDTYP                        -- 건물용도 jss
+	        ,VALUE((SELECT STEXT 
+	      			FROM SAPHEE.ZSDT1152  
+	      			WHERE ZBDTYP_L = DECODE(VALUE(ZSDT1012.ZDELI,'')
+									,'X'
+									, 'B5'
+									,(SELECT ZBDTYP_L
+										FROM SAPHEE.ZSDTBDTYP 
+										WHERE MANDT=ZSDT1012.MANDT
+										AND ZBDTYP=ZSDT1012.ZBDTYP
+										FETCH FIRST 1 ROW ONLY
+									 )
+									) 
+	      			FETCH FIRST 1 ROW ONLY ),'') AS ZBDTYP_LNM  --건물용도대분류 jss
+		  FROM SAPHEE.ZSDT1012 ZSDT1012 			-- 사업계획(수주)
+	     WHERE 1=1
+	       AND ZSDT1012.MANDT 	= #{MANDT} 			-- 클라이언트
+	       AND ZSDT1012.ZPYEAR 	= #{ZPYEAR} 		-- 편성년도
+	    ]]>
+	    
+	    <!-- 제품군 -->
+	    <if test="SPART != ''" >
+	    	AND ZSDT1012.SPART = #{SPART}
+	    </if>
+	    
+	    <!-- 사업장 -->
+	    <if test="VKBUR_F != '' and VKBUR_T != ''" >
+	    	AND ZSDT1012.VKBUR BETWEEN #{VKBUR_F} AND #{VKBUR_T}
+	    </if>
+	    <if test="VKBUR_F != '' and VKBUR_T == ''" >
+	    	AND ZSDT1012.VKBUR = #{VKBUR_F} 
+	    </if>
+	    <if test="VKBUR_F == '' and VKBUR_T != ''" >
+	    	AND ZSDT1012.VKBUR = #{VKBUR_T} 
+	    </if>
+	    
+	    <!-- 영업그룹 -->
+	    <if test="VKGRP_F != '' and VKGRP_T != ''" >
+	    	AND ZSDT1012.VKGRP BETWEEN #{VKGRP_F} AND #{VKGRP_T}
+	    </if>
+	    <if test="VKGRP_F != '' and VKGRP_T == ''" >
+	    	AND ZSDT1012.VKGRP = #{VKGRP_F} 
+	    </if>
+	    <if test="VKGRP_F == '' and VKGRP_T != ''" >
+	    	AND ZSDT1012.VKGRP = #{VKGRP_T} 
+	    </if>
+	    
+	    <!-- 영업사원 -->
+	    <if test="ZKUNNR != ''" >
+	    	AND ZSDT1012.ZKUNNR = #{ZKUNNR}
+	    </if>
+	    ORDER BY 
+		       ZSDT1012.ZPYM 						-- 계획년월
+		       ,ZSDT1012.SPART 						-- 제품군
+		       ,ZSDT1012.AUART 						-- 판매문서유형
+		       ,ZSDT1012.MATNR 						-- 자재번호
+		       ,ZSDT1012.VKBUR 						-- 사업장
+		       ,ZSDT1012.VKGRP 						-- 영업그룹
+		       ,ZSDT1012.ZKUNNR 					-- 영업사원
+		       ,ZSDT1012.GTYPE 						-- 기종
+		WITH UR
+	</select>
+	
+	<!-- 매출 -->	
+	<select id="SelectSales" parameterType="hdel.sd.sbp.domain.Sbp0090VO" resultMap="SbpResultMap">
+		<![CDATA[
+		SELECT 
+			ZSDT1012.MANDT 							-- 클라이언트
+			,ZSDT1012.ZBPNNR						-- 사업계획번호
+			,ZSDT1012.ZPYEAR 						-- 편성년도
+			,ZSDT1012.ZPYM 							-- 계획년월
+			,ZSDT1013.ZSAYM  AS ZPYM_DETAIL			-- 매출년월
+			,ZSDT1012.SPART 						-- 제품군
+			,ZSDT1012.AUART 						-- 판매문서유형
+			,ZSDT1012.MATNR 						-- 자재번호
+			,(SELECT BEZEI						
+			    FROM SAPHEE.TVKBT
+			   WHERE MANDT = #{MANDT}
+			     AND VKBUR = ZSDT1012.VKBUR
+			     AND SPRAS = '3'
+			 )AS VKBUR								-- 사업장
+			,ZSDT1012.VKGRP							-- 영업그룹
+			,( SELECT NAME1						
+				 FROM SAPHEE.LFA1
+			    WHERE MANDT = #{MANDT}
+				  AND LIFNR = ZSDT1012.ZAGNT
+	         ) AS ZAGNT								-- 대리점
+			,(SELECT NAME1						
+			    FROM SAPHEE.KNA1
+			   WHERE MANDT = #{MANDT}
+			     AND KTOKD = 'Z201'
+			     AND KUNNR = ZSDT1012.ZKUNNR
+			 )AS ZKUNNR								-- 영업사원
+			,ZSDT1012.RTYPE 						-- 실기종
+			,ZSDT1012.GTYPE 						-- 기종
+			,ZSDT1012.TYPE1 						-- 타입1
+			,ZSDT1012.TYPE2 						-- 타입2
+			,ZSDT1012.TYPE3	 						-- 타입3
+			-- 2016.11.16 환산대수 오류 보정 by mj.Shin
+			-- 매출 환 산대수 = (매출계획 / 수주계획) * 수주계획 대수  
+	        ,ROUND((ZSDT1013.NETWR_SA / ZSDT1012.SOFOCA) * ZSDT1012.ZNUMBER,2) AS ZNUMBER   -- 매출은 수주금액대비 환산대수 김윤성대리 요청 
+			, (SELECT NAME1 
+                   FROM SAPHEE.KNA1 
+                  WHERE MANDT= #{MANDT}
+                    AND KTOKD IN ( 'Z001', 'Z002', 'Z004' ) 
+                    AND KUNNR = CHAR(REPEAT('0', 10 - LENGTH(RTRIM(LTRIM(ZSDT1012.KUNNR||''))) ) ||ZSDT1012.KUNNR||'')
+                )AS KUNNR 								-- 고객번호
+            ,(   SELECT  (SELECT LANDX FROM SAPHEE.T005T B WHERE B.MANDT = A.MANDT 		-- 국가명
+		                                       AND B.SPRAS = '3'
+                                               AND B.LAND1 = A.LAND1 
+				            ) 												AS LAND1_NM		-- 국가명
+					  FROM SAPHEE.KNA1 A        
+				        WHERE A.MANDT= #{MANDT}
+				          AND A.KTOKD IN ( 'Z001', 'Z002', 'Z004' ) 
+				          AND A.KUNNR = CHAR(REPEAT('0', 10 - LENGTH(RTRIM(LTRIM(ZSDT1012.KUNNR||''))) ) ||ZSDT1012.KUNNR||'')
+		     ) AS LAND1								-- 국가
+			,ZSDT1012.GSNAM 						-- 공사명
+			,ZSDT1012.REGION 						-- 설치지역
+			,ZSDT1012.ZDELI 						-- 단납기구분
+			,ZSDT1012.SHANGH 						-- 국내/상해구분
+			,ZSDT1012.ZINTER 						-- 중계무역구분
+			,ZSDT1013.NETWR_SA AS SOFOCA			-- 매출예상액
+			,ZSDT1012.ZFORE 						-- 예상시행율
+			,ZSDT1012.WAERK 						-- 통화
+			,ZSDT1012.DELDAT 						-- 납기예정일
+			,ZSDT1013.ZRMK AS ZRMK					-- 비고
+			,ZSDT1012.VBELN 						-- 판매문서
+			,ZSDT1012.PSPID 						-- 프로젝트
+			,ZSDT1012.CDATE 						-- 입력일
+			,ZSDT1012.CTIME 						-- 입력시간
+			,ZSDT1012.CUSER 						-- 입력자
+			,ZSDT1012.UDATE 						-- 변경일
+			,ZSDT1012.UTIME 						-- 변경시간
+			,ZSDT1012.UUSER 						-- 변경자
+			,ZSDT1012.DDATE 						-- 삭제일
+			,ZSDT1012.DTIME 						-- 삭제시간
+			,ZSDT1012.DUSER 						-- 삭제자
+		    ,ZSDT1012.ZBDTYP                        -- 건물용도  jss
+	        ,VALUE((SELECT STEXT 
+	      			FROM SAPHEE.ZSDT1152  
+	      			WHERE ZBDTYP_L = DECODE(VALUE(ZSDT1012.ZDELI,'')
+									,'X'
+									, 'B5'
+									,(SELECT ZBDTYP_L
+										FROM SAPHEE.ZSDTBDTYP 
+										WHERE MANDT=ZSDT1012.MANDT
+										AND ZBDTYP=ZSDT1012.ZBDTYP
+										FETCH FIRST 1 ROW ONLY
+									 )
+									) 
+	      			FETCH FIRST 1 ROW ONLY ),'') AS ZBDTYP_LNM  --건물용도대분류 jss
+		  FROM SAPHEE.ZSDT1012 ZSDT1012				-- 사업계획(수주)
+   			  ,SAPHEE.ZSDT1013 ZSDT1013				-- 사업계획(매출)
+	     WHERE 1=1
+	       AND ZSDT1012.MANDT 	= #{MANDT} 			-- 클라이언트
+	       AND ZSDT1012.ZPYEAR 	= #{ZPYEAR} 		-- 편성년도
+		   AND ZSDT1012.MANDT 	= ZSDT1013.MANDT 	-- 클라이언트
+		   AND ZSDT1012.ZBPNNR 	= ZSDT1013.ZBPNNR 	-- 사업계획번호
+	    ]]>
+	    
+	    <!-- 제품군 -->
+	    <if test="SPART != ''" >
+	    	AND ZSDT1012.SPART = #{SPART}
+	    </if>
+	    
+	    <!-- 사업장 -->
+	    <if test="VKBUR_F != '' and VKBUR_T != ''" >
+	    	AND ZSDT1012.VKBUR BETWEEN #{VKBUR_F} AND #{VKBUR_T}
+	    </if>
+	    <if test="VKBUR_F != '' and VKBUR_T == ''" >
+	    	AND ZSDT1012.VKBUR = #{VKBUR_F} 
+	    </if>
+	    <if test="VKBUR_F == '' and VKBUR_T != ''" >
+	    	AND ZSDT1012.VKBUR = #{VKBUR_T} 
+	    </if>
+	    
+	    <!-- 영업그룹 -->
+	    <if test="VKGRP_F != '' and VKGRP_T != ''" >
+	    	AND ZSDT1012.VKGRP BETWEEN #{VKGRP_F} AND #{VKGRP_T}
+	    </if>
+	    <if test="VKGRP_F != '' and VKGRP_T == ''" >
+	    	AND ZSDT1012.VKGRP = #{VKGRP_F} 
+	    </if>
+	    <if test="VKGRP_F == '' and VKGRP_T != ''" >
+	    	AND ZSDT1012.VKGRP = #{VKGRP_T} 
+	    </if>
+	    
+	    <!-- 영업사원 -->
+	    <if test="ZKUNNR != ''" >
+	    	AND ZSDT1012.ZKUNNR = #{ZKUNNR}
+	    </if>
+	    ORDER BY 
+		       ZSDT1012.ZPYM 						-- 계획년월
+		       ,ZSDT1012.SPART 						-- 제품군
+		       ,ZSDT1012.AUART 						-- 판매문서유형
+		       ,ZSDT1012.MATNR 						-- 자재번호
+		       ,ZSDT1012.VKBUR 						-- 사업장
+		       ,ZSDT1012.VKGRP 						-- 영업그룹
+		       ,ZSDT1012.ZKUNNR 					-- 영업사원
+		       ,ZSDT1012.GTYPE 						-- 기종
+	    
+		WITH UR
+	</select>
+	
+	<!-- 청구 -->	
+	<select id="SelectCharge" parameterType="hdel.sd.sbp.domain.Sbp0090VO" resultMap="SbpResultMap">
+		<![CDATA[
+		SELECT 
+			ZSDT1012.MANDT 							-- 클라이언트
+			,ZSDT1012.ZBPNNR						-- 사업계획번호
+			,ZSDT1012.ZPYEAR 						-- 편성년도
+			,ZSDT1012.ZPYM 							-- 계획년월
+			,ZSDT1014.ZRQYM  AS ZPYM_DETAIL			-- 청구년월
+			,ZSDT1012.SPART 						-- 제품군
+			,ZSDT1012.AUART 						-- 판매문서유형
+			,ZSDT1012.MATNR 						-- 자재번호
+			,(SELECT BEZEI						
+			    FROM SAPHEE.TVKBT
+			   WHERE MANDT = #{MANDT}
+			     AND VKBUR = ZSDT1012.VKBUR
+			     AND SPRAS = '3'
+			 )AS VKBUR								-- 사업장
+			,ZSDT1012.VKGRP							-- 영업그룹
+			,( SELECT NAME1						
+				 FROM SAPHEE.LFA1
+			    WHERE MANDT = #{MANDT}
+			      AND LIFNR = ZSDT1012.ZAGNT
+	         ) AS ZAGNT								-- 대리점
+			,(SELECT NAME1						
+			    FROM SAPHEE.KNA1
+			   WHERE MANDT = #{MANDT}
+			     AND KTOKD = 'Z201'
+			     AND KUNNR = ZSDT1012.ZKUNNR
+			 )AS ZKUNNR								-- 영업사원
+			,ZSDT1012.RTYPE 						-- 실기종
+			,ZSDT1012.GTYPE 						-- 기종
+			,ZSDT1012.TYPE1 						-- 타입1
+			,ZSDT1012.TYPE2 						-- 타입2
+			,ZSDT1012.TYPE3	 						-- 타입3
+			,ZSDT1012.ZNUMBER 						-- 대수
+			, (SELECT NAME1 
+                   FROM SAPHEE.KNA1 
+                  WHERE MANDT= #{MANDT}
+                    AND KTOKD IN ( 'Z001', 'Z002', 'Z004' ) 
+                    AND KUNNR = CHAR(REPEAT('0', 10 - LENGTH(RTRIM(LTRIM(ZSDT1012.KUNNR||''))) ) ||ZSDT1012.KUNNR||'')
+                )AS KUNNR 								-- 고객번호
+            ,(   SELECT  (SELECT LANDX FROM SAPHEE.T005T B WHERE B.MANDT = A.MANDT 		-- 국가명
+		                                       AND B.SPRAS = '3'
+                                               AND B.LAND1 = A.LAND1 
+				            ) 												AS LAND1_NM		-- 국가명
+					  FROM SAPHEE.KNA1 A        
+				        WHERE A.MANDT= #{MANDT}
+				          AND A.KTOKD IN ( 'Z001', 'Z002', 'Z004' ) 
+				          AND A.KUNNR = CHAR(REPEAT('0', 10 - LENGTH(RTRIM(LTRIM(ZSDT1012.KUNNR||''))) ) ||ZSDT1012.KUNNR||'')
+		     ) AS LAND1								-- 국가
+			,ZSDT1012.GSNAM 						-- 공사명
+			,ZSDT1012.REGION 						-- 설치지역
+			,ZSDT1012.ZDELI 						-- 단납기구분
+			,ZSDT1012.SHANGH 						-- 국내/상해구분
+			,ZSDT1012.ZINTER 						-- 중계무역구분
+			,ZSDT1014.NETWR_RQ AS SOFOCA			-- 청구예상액
+			,ZSDT1012.ZFORE 						-- 예상시행율
+			,ZSDT1012.WAERK 						-- 통화
+			,ZSDT1012.DELDAT 						-- 납기예정일
+			,ZSDT1014.ZRMK AS ZRMK					-- 비고
+			,ZSDT1012.VBELN 						-- 판매문서
+			,ZSDT1012.PSPID 						-- 프로젝트
+			,ZSDT1012.CDATE 						-- 입력일
+			,ZSDT1012.CTIME 						-- 입력시간
+			,ZSDT1012.CUSER 						-- 입력자
+			,ZSDT1012.UDATE 						-- 변경일
+			,ZSDT1012.UTIME 						-- 변경시간
+			,ZSDT1012.UUSER 						-- 변경자
+			,ZSDT1012.DDATE 						-- 삭제일
+			,ZSDT1012.DTIME 						-- 삭제시간
+			,ZSDT1012.DUSER 						-- 삭제자
+			,ZSDT1012.ZBDTYP                        -- 건물용도  jss
+	        ,VALUE((SELECT STEXT 
+	      			FROM SAPHEE.ZSDT1152  
+	      			WHERE ZBDTYP_L = DECODE(VALUE(ZSDT1012.ZDELI,'')
+									,'X'
+									, 'B5'
+									,(SELECT ZBDTYP_L
+										FROM SAPHEE.ZSDTBDTYP 
+										WHERE MANDT=ZSDT1012.MANDT
+										AND ZBDTYP=ZSDT1012.ZBDTYP
+										FETCH FIRST 1 ROW ONLY
+									 )
+									) 
+	      			FETCH FIRST 1 ROW ONLY ),'') AS ZBDTYP_LNM  --건물용도대분류 jss
+		  FROM SAPHEE.ZSDT1012 ZSDT1012				-- 사업계획(수주)
+   			  ,SAPHEE.ZSDT1014 ZSDT1014				-- 사업계획(청구)
+	     WHERE 1=1
+	       AND ZSDT1012.MANDT 	= #{MANDT} 			-- 클라이언트
+	       AND ZSDT1012.ZPYEAR 	= #{ZPYEAR} 		-- 편성년도
+		   AND ZSDT1012.MANDT 	= ZSDT1014.MANDT 	-- 클라이언트
+		   AND ZSDT1012.ZBPNNR 	= ZSDT1014.ZBPNNR 	-- 사업계획번호
+	    ]]>
+	    
+	    <!-- 제품군 -->
+	    <if test="SPART != ''" >
+	    	AND ZSDT1012.SPART = #{SPART}
+	    </if>
+	    
+	    <!-- 사업장 -->
+	    <if test="VKBUR_F != '' and VKBUR_T != ''" >
+	    	AND ZSDT1012.VKBUR BETWEEN #{VKBUR_F} AND #{VKBUR_T}
+	    </if>
+	    <if test="VKBUR_F != '' and VKBUR_T == ''" >
+	    	AND ZSDT1012.VKBUR = #{VKBUR_F} 
+	    </if>
+	    <if test="VKBUR_F == '' and VKBUR_T != ''" >
+	    	AND ZSDT1012.VKBUR = #{VKBUR_T} 
+	    </if>
+	    
+	    <!-- 영업그룹 -->
+	    <if test="VKGRP_F != '' and VKGRP_T != ''" >
+	    	AND ZSDT1012.VKGRP BETWEEN #{VKGRP_F} AND #{VKGRP_T}
+	    </if>
+	    <if test="VKGRP_F != '' and VKGRP_T == ''" >
+	    	AND ZSDT1012.VKGRP = #{VKGRP_F} 
+	    </if>
+	    <if test="VKGRP_F == '' and VKGRP_T != ''" >
+	    	AND ZSDT1012.VKGRP = #{VKGRP_T} 
+	    </if>
+	    
+	    <!-- 영업사원 -->
+	    <if test="ZKUNNR != ''" >
+	    	AND ZSDT1012.ZKUNNR = #{ZKUNNR}
+	    </if>
+	    ORDER BY 
+		       ZSDT1012.ZPYM 						-- 계획년월
+		       ,ZSDT1012.SPART 						-- 제품군
+		       ,ZSDT1012.AUART 						-- 판매문서유형
+		       ,ZSDT1012.MATNR 						-- 자재번호
+		       ,ZSDT1012.VKBUR 						-- 사업장
+		       ,ZSDT1012.VKGRP 						-- 영업그룹
+		       ,ZSDT1012.ZKUNNR 					-- 영업사원
+		       ,ZSDT1012.GTYPE 						-- 기종
+		WITH UR
+	    
+	</select>
+	
+	<!-- 수금 -->	
+	<select id="SelectCollection" parameterType="hdel.sd.sbp.domain.Sbp0090VO" resultMap="SbpResultMap">
+		<![CDATA[
+		SELECT 
+			ZSDT1012.MANDT 							-- 클라이언트
+			,ZSDT1012.ZBPNNR						-- 사업계획번호
+			,ZSDT1012.ZPYEAR 						-- 편성년도
+			,ZSDT1012.ZPYM 							-- 계획년월
+			,ZSDT1015.BYSYM AS ZPYM_DETAIL			-- 수금년월
+			,ZSDT1012.SPART 						-- 제품군
+			,ZSDT1012.AUART 						-- 판매문서유형
+			,ZSDT1012.MATNR 						-- 자재번호
+			,(SELECT BEZEI						
+			    FROM SAPHEE.TVKBT
+			   WHERE MANDT = #{MANDT}
+			     AND VKBUR = ZSDT1012.VKBUR
+			     AND SPRAS = '3'
+			 )AS VKBUR								-- 사업장
+			,ZSDT1012.VKGRP							-- 영업그룹
+			,(SELECT NAME1						
+			    FROM SAPHEE.LFA1
+			   WHERE MANDT = #{MANDT}
+				 AND LIFNR = ZSDT1012.ZAGNT
+	         ) AS ZAGNT								-- 대리점
+			,(SELECT NAME1						
+			    FROM SAPHEE.KNA1
+			   WHERE MANDT = #{MANDT}
+			     AND KTOKD = 'Z201'
+			     AND KUNNR = ZSDT1012.ZKUNNR
+			 )AS ZKUNNR								-- 영업사원
+			,ZSDT1012.RTYPE 						-- 실기종
+			,ZSDT1012.GTYPE 						-- 기종
+			,ZSDT1012.TYPE1 						-- 타입1
+			,ZSDT1012.TYPE2 						-- 타입2
+			,ZSDT1012.TYPE3	 						-- 타입3
+			,ZSDT1012.ZNUMBER 						-- 대수
+			, (SELECT NAME1 
+                   FROM SAPHEE.KNA1 
+                  WHERE MANDT= #{MANDT}
+                    AND KTOKD IN ( 'Z001', 'Z002', 'Z004' ) 
+                    AND KUNNR = CHAR(REPEAT('0', 10 - LENGTH(RTRIM(LTRIM(ZSDT1012.KUNNR||''))) ) ||ZSDT1012.KUNNR||'')
+                )AS KUNNR 								-- 고객번호
+            ,(   SELECT  (SELECT LANDX FROM SAPHEE.T005T B WHERE B.MANDT = A.MANDT 		-- 국가명
+		                                       AND B.SPRAS = '3'
+                                               AND B.LAND1 = A.LAND1 
+				            ) 												AS LAND1_NM		-- 국가명
+					  FROM SAPHEE.KNA1 A        
+				        WHERE A.MANDT= #{MANDT}
+				          AND A.KTOKD IN ( 'Z001', 'Z002', 'Z004' ) 
+				          AND A.KUNNR = CHAR(REPEAT('0', 10 - LENGTH(RTRIM(LTRIM(ZSDT1012.KUNNR||''))) ) ||ZSDT1012.KUNNR||'')
+		     ) AS LAND1								-- 국가
+			,ZSDT1012.GSNAM 						-- 공사명
+			,ZSDT1012.REGION 						-- 설치지역
+			,ZSDT1012.ZDELI 						-- 단납기구분
+			,ZSDT1012.SHANGH 						-- 국내/상해구분
+			,ZSDT1012.ZINTER 						-- 중계무역구분
+			,ZSDT1015.COLBI AS SOFOCA				-- 수금예상액
+			,ZSDT1012.ZFORE 						-- 예상시행율
+			,ZSDT1012.WAERK 						-- 통화
+			,ZSDT1012.DELDAT 						-- 납기예정일
+			,ZSDT1015.ZRMK AS ZRMK					-- 비고
+			,ZSDT1012.VBELN 						-- 판매문서
+			,ZSDT1012.PSPID 						-- 프로젝트
+			,ZSDT1012.CDATE 						-- 입력일
+			,ZSDT1012.CTIME 						-- 입력시간
+			,ZSDT1012.CUSER 						-- 입력자
+			,ZSDT1012.UDATE 						-- 변경일
+			,ZSDT1012.UTIME 						-- 변경시간
+			,ZSDT1012.UUSER 						-- 변경자
+			,ZSDT1012.DDATE 						-- 삭제일
+			,ZSDT1012.DTIME 						-- 삭제시간
+			,ZSDT1012.DUSER 						-- 삭제자
+			,ZSDT1012.ZBDTYP                        -- 건물용도  jss
+	        ,VALUE((SELECT STEXT 
+	      			FROM SAPHEE.ZSDT1152  
+	      			WHERE ZBDTYP_L = DECODE(VALUE(ZSDT1012.ZDELI,'')
+									,'X'
+									, 'B5'
+									,(SELECT ZBDTYP_L
+										FROM SAPHEE.ZSDTBDTYP 
+										WHERE MANDT=ZSDT1012.MANDT
+										AND ZBDTYP=ZSDT1012.ZBDTYP
+										FETCH FIRST 1 ROW ONLY
+									 )
+									) 
+	      			FETCH FIRST 1 ROW ONLY ),'') AS ZBDTYP_LNM  --건물용도대분류 jss
+		  FROM SAPHEE.ZSDT1012 ZSDT1012				-- 사업계획(수주)
+   			  ,SAPHEE.ZSDT1015 ZSDT1015				-- 사업계획(수금)
+	     WHERE 1=1
+	       AND ZSDT1012.MANDT 	= #{MANDT} 			-- 클라이언트
+	       AND ZSDT1012.ZPYEAR 	= #{ZPYEAR} 		-- 편성년도
+		   AND ZSDT1012.MANDT 	= ZSDT1015.MANDT 	-- 클라이언트
+		   AND ZSDT1012.ZBPNNR 	= ZSDT1015.ZBPNNR 	-- 사업계획번호
+	    ]]>
+	    
+	    <!-- 제품군 -->
+	    <if test="SPART != ''" >
+	    	AND ZSDT1012.SPART = #{SPART}
+	    </if>
+	    
+	    <!-- 사업장 -->
+	    <if test="VKBUR_F != '' and VKBUR_T != ''" >
+	    	AND ZSDT1012.VKBUR BETWEEN #{VKBUR_F} AND #{VKBUR_T}
+	    </if>
+	    <if test="VKBUR_F != '' and VKBUR_T == ''" >
+	    	AND ZSDT1012.VKBUR = #{VKBUR_F} 
+	    </if>
+	    <if test="VKBUR_F == '' and VKBUR_T != ''" >
+	    	AND ZSDT1012.VKBUR = #{VKBUR_T} 
+	    </if>
+	    
+	    <!-- 영업그룹 -->
+	    <if test="VKGRP_F != '' and VKGRP_T != ''" >
+	    	AND ZSDT1012.VKGRP BETWEEN #{VKGRP_F} AND #{VKGRP_T}
+	    </if>
+	    <if test="VKGRP_F != '' and VKGRP_T == ''" >
+	    	AND ZSDT1012.VKGRP = #{VKGRP_F} 
+	    </if>
+	    <if test="VKGRP_F == '' and VKGRP_T != ''" >
+	    	AND ZSDT1012.VKGRP = #{VKGRP_T} 
+	    </if>
+	    
+	    <!-- 영업사원 -->
+	    <if test="ZKUNNR != ''" >
+	    	AND ZSDT1012.ZKUNNR = #{ZKUNNR}
+	    </if>
+	    ORDER BY 
+		       ZSDT1012.ZPYM 						-- 계획년월
+		       ,ZSDT1012.SPART 						-- 제품군
+		       ,ZSDT1012.AUART 						-- 판매문서유형
+		       ,ZSDT1012.MATNR 						-- 자재번호
+		       ,ZSDT1012.VKBUR 						-- 사업장
+		       ,ZSDT1012.VKGRP 						-- 영업그룹
+		       ,ZSDT1012.ZKUNNR 					-- 영업사원
+		       ,ZSDT1012.GTYPE 						-- 기종
+		WITH UR
+	    
+	</select>
+	
+	<select id="getExchangeBPUSD" parameterType="map" resultType="java.lang.Float">
+		select ukurs
+		from saphee.ztcurr
+		where mandt=#{mandt}
+			and kurst='BP'
+			and fcurr='USD'
+			and tcurr='KRW'
+			and frdat &lt;= #{bsdat}
+			and todat &gt;= #{bsdat}
+		with ur
+	</select>
+</mapper>  

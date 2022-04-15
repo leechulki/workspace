@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[선박용 CAGE 부품 LIST-조회회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+ PP004.WOKNUM AS HOGIN
+,(SELECT ZSITE_NM FROM SAPHEE.ZMASTER01 AS MS001 WHERE MS001.MANDT=PP004.MANDT AND MS001.POSID=PP004.POSID) AS SITE_NM
+,MS002.ZSPEC1 AS SPEC1
+,MS002.ZSPEC2 AS SPEC2
+,PP004.MATNR  AS MATNR
+,PP004.IDNRK  AS IDNRK
+,PP004.ITEM_SEQ AS ITEM_SEQ
+,CASE WHEN MM011.MATNR_NM='' THEN MM011.MAKTX ELSE  MM011.MATNR_NM END AS MATNR_NM
+,MM011.SPEC   AS SPEC
+,PP004.MENGE  AS MENGE
+,PP004.MEINS  AS MEINS
+,PP004.DZEINR AS DZEINR
+,PP004.MATKL  AS MATKL
+,PP004.LGFSB  AS LGFSB
+,PP004.LIFNR AS LIFNR
+,VALUE(CASE WHEN MM011.MTART = 'ROH' THEN 
+      (SELECT VALUE(MM013.LNAME, '') 
+	     FROM SAPHEE.ZMMT013 MM013 
+	   WHERE MM013.MANDT = PP004.MANDT
+	      AND MM013.POSID = (CASE WHEN SUBSTR(PP004.WOKNUM,7,2) IN ('NS','NB','NC') THEN PP004.WOKNUM ELSE PP004.WOKNUM  || '-P' END)
+          AND MM013.MATNR=PP004.IDNRK 
+          AND MM013.DDATE IN ('00000000','')
+		  ORDER BY SDATE DESC
+		  FETCH FIRST 1 ROW ONLY)  ELSE '' END,'') AS LNAME
+ , MC.SBDKZ
+ , CASE WHEN ZM1.KUNNR LIKE '00005%' THEN M80.BUDAT1 ELSE M80.BUDATC END AS BUDAT
+ FROM (
+
+      SELECT
+       P4.MANDT
+      ,P4.CRDAT
+      ,P4.SEQNO
+      ,P4.WOKNUM
+      ,P4.MATNR
+      ,P4.IDNRK
+      ,P4.ITEM_SEQ
+      ,P4.MENGE
+      ,P4.MEINS
+      ,P4.MATKL
+      ,P4.DZEINR
+      ,ROW_NUMBER() OVER(PARTITION BY P4.MANDT,P4.WOKNUM,P4.MATNR,P4.IDNRK,P4.ITEM_SEQ,MATKL ORDER BY P4.MANDT,P4.WOKNUM,P4.MATNR,P4.IDNRK,P4.ITEM_SEQ,P4.CRDAT DESC,P4.SEQNO DESC) AS ROWNO
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(P4.WOKNUM,3,6)
+            WHEN SUBSTR(P4.WOKNUM,1,1)='Q'  THEN SUBSTR(P4.WOKNUM,2,6) ELSE SUBSTR(P4.WOKNUM,1,6) END AS POSID
+      ,CASE WHEN SUBSTR(P4.WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,9)
+            WHEN SUBSTR(P4.WOKNUM,1,1)='Q'  THEN SUBSTR(P4.WOKNUM,2,9) ELSE SUBSTR(P4.WOKNUM,1,9) END AS POSID_1
+      ,M96.LGFSB
+      ,M96.LIFNR
+      FROM SAPHEE.ZPPT004 P4
+	  RIGHT OUTER JOIN SAPHEE.ZMMT096 M96 ON M96.MANDT= P4.MANDT 
+                                                                              AND M96.MATNR = P4.IDNRK 
+                                                                              AND M96.DEL_FLAG = ''
+      WHERE P4.MANDT = #G_MANDT#
+      AND WOKNUM LIKE #HOGIN#||'%' 
+      AND LENGTH(CAST(#HOGIN# AS VARCHAR(15))) &gt;= 6
+	  
+      AND PRCTYP&lt;&gt;'D'
+<isNotNull col="LIFNR">
+      AND M96.LIFNR =  #LIFNR# 
+</isNotNull> 
+    ) AS PP004
+    LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MS002 ON MS002.MANDT=PP004.MANDT 
+                                                                                 AND MS002.POSID=PP004.POSID 
+                                                                                 AND MS002.POSID_1=PP004.POSID_1
+    LEFT OUTER JOIN SAPHEE.ZMMT011   AS MM011 ON MM011.MANDT=PP004.MANDT 
+                                                                                AND MM011.MATNR=PP004.IDNRK
+    LEFT OUTER JOIN SAPHEE.MARC MC ON MC.MANDT=PP004.MANDT
+	                                                         AND MC.MATNR = PP004.IDNRK
+		                 		 AND MC.WERKS = '1000'-- PP004.WERKS
+			                             AND MC.LGFSB = PP004.LGFSB
+   -- E131A BLCOK 기준으로 선사의 차순 출하일 조회															 
+	LEFT OUTER JOIN SAPHEE.ZMASTER01 AS ZM1 ON ZM1.MANDT= PP004.MANDT                        
+	                                                                       AND ZM1.POSID = SUBSTR(PP004.POSID,1,6)
+    LEFT OUTER JOIN SAPHEE.ZMMT080 AS M80 ON M80.MANDT= PP004.MANDT
+	                                                                     AND M80.POSID =  PP004.WOKNUM															   
+WHERE ROWNO=1
+
+  ORDER BY PP004.WOKNUM,PP004.MATKL,PP004.IDNRK,PP004.ITEM_SEQ
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="HOGIN" size="72" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="HOGIN" size="72" type="VARCHAR" description="" /> 
+		<col name="SITE_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="SPEC1" size="15" type="VARCHAR" description="" /> 
+		<col name="SPEC2" size="75" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="IDNRK" size="54" type="VARCHAR" description="" /> 
+		<col name="ITEM_SEQ" size="12" type="VARCHAR" description="" /> 
+		<col name="MATNR_NM" size="120" type="VARCHAR" description="" /> 
+		<col name="SPEC" size="180" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="13" type="DECIMAL" description="" /> 
+		<col name="MEINS" size="9" type="VARCHAR" description="" /> 
+		<col name="DZEINR" size="120" type="VARCHAR" description="" /> 
+		<col name="MATKL" size="27" type="VARCHAR" description="" /> 
+		<col name="LGFSB" size="12" type="VARCHAR" description="" /> 
+		<col name="LNAME" size="105" type="VARCHAR" description="" /> 
+		<col name="SBDKZ" size="3" type="VARCHAR" description="" /> 
+		<col name="BUDAT" size="24" type="VARCHAR" description="" /> 
+	</output>
+</query>

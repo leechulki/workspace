@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT   A.WRKLFN , A.W_POSID, A.W_INST
+		      ,(SELECT NAME1 FROM SAPHEE.ZMMT012 B WHERE B.MANDT = A.MANDT AND B.LIFNR = A.WRKLFN) WRKLFN_NM
+		      ,(SELECT DISTINCT ZSITE_NM 
+		          FROM SAPHEE.ZMASTER01 C 
+		         WHERE C.MANDT = A.MANDT 
+		           AND C.POSID = CASE WHEN LENGTH(A.PSPID) > 6 THEN SUBSTR(A.PSPID,2,6) ELSE A.PSPID END FETCH FIRST 1 ROWS ONLY) PSPID_NM
+			  ,A.PSPID    ,A.INSDT     ,A.WRKTX    ,A.BLDAT
+		      ,SAPHEE.GET_CURRDATA(A.WAERS,A.TWBTR) TWBTR		      
+       		  ,CASE WHEN A.STATE = '1' THEN '입력'
+              			 WHEN A.STATE = '2' THEN '작업완료'
+						 WHEN A.STATE = '3' THEN '전표완료'
+                END STATE
+              ,A.GUBUN    ,A.HKONT    ,A.SEQNO     ,B.ITEMTX
+       		  ,CASE WHEN A.PAYDAT = '00000000' THEN '' ELSE A.PAYDAT END AS PAYDAT
+       		  ,A.BELNR     ,J_TEMNO     ,J_NAME     ,A.WASTE_CK     ,A.FI_CHK
+   FROM  SAPHEE.ZPST0117 A
+     LEFT OUTER JOIN
+		   (
+            SELECT  A.MANDT,    A.PSPID,   A.GUBUN,   A.HKONT,     A.SEQNO
+                   		 ,CASE WHEN B.CNT > 0 THEN A.ITEMTX||' 외 '||TRIM(CHAR(B.CNT))||'건' ELSE  A.ITEMTX END AS ITEMTX
+               FROM SAPHEE.ZPST0117L A,
+		                  (
+		                    SELECT   MANDT,  PSPID,  GUBUN,    HKONT,    SEQNO
+		                           		  ,MIN(ITEMNO) AS ITEMNO,       COUNT(*)-1 AS CNT
+		                       FROM SAPHEE.ZPST0117L
+		                     WHERE MANDT = #G_MANDT#
+		                     GROUP BY MANDT,PSPID,GUBUN,HKONT,SEQNO
+		                   ) B
+            WHERE A.MANDT = B.MANDT
+            	 AND A.PSPID = B.PSPID
+            	 AND A.GUBUN = B.GUBUN
+            	 AND A.HKONT = B.HKONT
+            	 AND A.SEQNO = B.SEQNO
+            	 AND A.ITEMNO = B.ITEMNO
+		   ) B
+           ON A.MANDT = B.MANDT
+         AND A.PSPID = B.PSPID
+         AND A.GUBUN = B.GUBUN
+         AND A.HKONT = B.HKONT
+         AND A.SEQNO = B.SEQNO
+      <isNotNull col="ZZACTSS">
+		 ,SAPHEE.ZMASTER01 AS MA
+	  </isNotNull>
+ WHERE A.MANDT = #G_MANDT#
+  <isNotNull col="LIFNR">
+      AND   A.WRKLFN = #LIFNR#
+  </isNotNull>
+
+  <isEqual col="GUBUN" value="A">
+    <isEqual col="GBN" value="1">
+     AND   A.BLDAT BETWEEN #DATEF# AND #DATET#
+    </isEqual>
+    <isEqual col="GBN" value="2">
+     AND   A.INSDT BETWEEN #DATEF# AND #DATET#
+    </isEqual>
+
+    <isEqual col="GBN" value="3">
+     AND   A.W_REQDAT BETWEEN #DATEF# AND #DATET#
+    </isEqual>
+
+    <isEqual col="GBN" value="4">
+    AND   A.W_WRITDAT BETWEEN #DATEF# AND #DATET#
+    </isEqual>
+
+   <isEqual col="GBN" value="5">
+    AND   A.BCDATE BETWEEN #DATEF# AND #DATET#
+    </isEqual>
+    AND   A.PSPID NOT LIKE 'Q%' 
+ 
+  </isEqual>
+
+  <isEqual col="GUBUN" value="B">
+    AND   A.PSPID = #PSPID#
+  </isEqual>
+
+   <isEqual col="CHK_GBN" value="A">
+    AND   A.STATE IN ('1','2','3')
+   </isEqual>
+   <isEqual col="CHK_GBN" value="B">
+    AND   A.STATE IN (#CHK1#,#CHK2#,#CHK3#)
+   </isEqual>
+   <isNotNull col="ZZACTSS">
+    AND A.MANDT = MA.MANDT
+	AND A.PSPID = MA.POSID
+	AND MA.ZZACTSS = #ZZACTSS#
+   </isNotNull>
+
+   <isEqual col="CHK" value="1">
+    AND A.W_INST = 'X'
+   </isEqual>
+
+   <isEqual col="CHK" value="2">
+   -- AND A.W_INST = ''
+   </isEqual>
+
+   <isEqual col="USERGROUP" value="10">
+  --  AND A.HKONT &lt;&gt; '0053041040'  //고희수SW요청
+   </isEqual>
+
+UNION ALL
+
+SELECT   A.WRKLFN , A.W_POSID, A.W_INST
+		      ,(SELECT NAME1 FROM SAPHEE.ZMMT012 B WHERE B.MANDT = A.MANDT AND B.LIFNR = A.WRKLFN) WRKLFN_NM
+		      ,(SELECT DISTINCT ZSITE_NM FROM SAPHEE.ZMASTER01 C WHERE C.MANDT = A.MANDT AND C.POSID = CASE WHEN LENGTH(A.PSPID) > 6 THEN SUBSTR(A.PSPID,2,6) ELSE A.PSPID END FETCH FIRST 1 ROWS ONLY) PSPID_NM
+			  ,A.PSPID    ,A.INSDT     ,A.WRKTX    ,A.BLDAT
+		      ,SAPHEE.GET_CURRDATA(A.WAERS,A.TWBTR) TWBTR		      
+       		  ,CASE WHEN A.STATE = '1' THEN '입력'
+              			 WHEN A.STATE = '2' THEN '작업완료'
+						 WHEN A.STATE = '3' THEN '전표완료'
+                END STATE
+              ,A.GUBUN    ,A.HKONT    ,A.SEQNO     ,B.ITEMTX
+       		  ,CASE WHEN A.PAYDAT = '00000000' THEN '' ELSE A.PAYDAT END AS PAYDAT
+       		  ,A.BELNR     ,J_TEMNO     ,J_NAME     ,A.WASTE_CK     ,A.FI_CHK
+   FROM  SAPHEE.ZPST0117 A
+     LEFT OUTER JOIN
+		   (
+            SELECT  A.MANDT,    A.PSPID,   A.GUBUN,   A.HKONT,     A.SEQNO
+                   		 ,CASE WHEN B.CNT > 0 THEN A.ITEMTX||' 외 '||TRIM(CHAR(B.CNT))||'건' ELSE  A.ITEMTX END AS ITEMTX
+               FROM SAPHEE.ZPST0117L A,
+		                  (
+		                    SELECT   MANDT,  PSPID,  GUBUN,    HKONT,    SEQNO
+		                           		  ,MIN(ITEMNO) AS ITEMNO,       COUNT(*)-1 AS CNT
+		                       FROM SAPHEE.ZPST0117L
+		                     WHERE MANDT = #G_MANDT#
+		                     GROUP BY MANDT,PSPID,GUBUN,HKONT,SEQNO
+		                   ) B
+            WHERE A.MANDT = B.MANDT
+            	 AND A.PSPID = B.PSPID
+            	 AND A.GUBUN = B.GUBUN
+            	 AND A.HKONT = B.HKONT
+            	 AND A.SEQNO = B.SEQNO
+            	 AND A.ITEMNO = B.ITEMNO
+		   ) B
+           ON A.MANDT = B.MANDT
+         AND A.PSPID = B.PSPID
+         AND A.GUBUN = B.GUBUN
+         AND A.HKONT = B.HKONT
+         AND A.SEQNO = B.SEQNO
+      <isNotNull col="ZZACTSS">
+		 ,SAPHEE.ZMASTER01 AS MA
+	  </isNotNull>
+ WHERE A.MANDT = #G_MANDT#
+  <isNotNull col="LIFNR">
+      AND   A.WRKLFN = #LIFNR#
+  </isNotNull>
+
+  <isEqual col="GUBUN" value="A">
+    <isEqual col="GBN" value="1">
+     AND   A.BLDAT BETWEEN #DATEF# AND #DATET#
+    </isEqual>
+    <isEqual col="GBN" value="2">
+     AND   A.INSDT BETWEEN #DATEF# AND #DATET#
+    </isEqual>
+
+    <isEqual col="GBN" value="3">
+     AND   A.W_REQDAT BETWEEN #DATEF# AND #DATET#
+    </isEqual>
+
+    <isEqual col="GBN" value="4">
+    AND   A.W_WRITDAT BETWEEN #DATEF# AND #DATET#
+    </isEqual>
+
+   <isEqual col="GBN" value="5">
+    AND   A.BCDATE BETWEEN #DATEF# AND #DATET#
+    </isEqual>
+	AND   A.PSPID LIKE 'Q%' 
+	
+   </isEqual>
+
+  <isEqual col="GUBUN" value="B">
+    AND   A.PSPID LIKE 'Q%' || #PSPID# || '%'
+  </isEqual>
+
+   <isEqual col="CHK_GBN" value="A">
+    AND   A.STATE IN ('1','2','3')
+   </isEqual>
+   <isEqual col="CHK_GBN" value="B">
+    AND   A.STATE IN (#CHK1#,#CHK2#,#CHK3#)
+   </isEqual>
+   <isNotNull col="ZZACTSS">
+    AND MA.MANDT = A.MANDT
+	AND MA.POSID = SUBSTR(A.PSPID, 2, 6)
+	AND MA.ZZACTSS = #ZZACTSS#
+   </isNotNull>
+
+   <isEqual col="CHK" value="1">
+    AND A.W_INST = 'X'
+   </isEqual>
+
+   <isEqual col="CHK" value="2">
+  --  AND A.W_INST = ''
+   </isEqual>
+
+   <isEqual col="USERGROUP" value="10">
+  --  AND A.HKONT &lt;&gt; '0053041040' //고희수SW요청
+   </isEqual>   
+   
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="DATEF" size="255" type="VARCHAR" description="" /> 
+		<col name="DATET" size="255" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="255" type="VARCHAR" description="" /> 
+		<col name="CHK_GBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="BLDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="GUBUN" size="3" type="VARCHAR" description="" /> 
+		<col name="HKONT" size="30" type="VARCHAR" description="" /> 
+		<col name="INSDT" size="24" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="72" type="VARCHAR" description="" /> 
+		<col name="PSPID_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="SEQNO" size="9" type="VARCHAR" description="" /> 
+		<col name="STATE" size="6" type="VARCHAR" description="" /> 
+		<col name="TWBTR" size="15" type="NUMERIC" description="" /> 
+		<col name="WRKLFN" size="30" type="VARCHAR" description="" /> 
+		<col name="WRKLFN_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="WRKTX" size="60" type="VARCHAR" description="" /> 
+	</output>
+</query>

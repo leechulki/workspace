@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT  DISTINCT
+        T.MANDT
+       , '0' AS CHK
+       ,T.POSID
+       ,T.ZSITE_NM
+       ,T.VDATU
+       ,T.CONTR_DA
+       ,T.ZQNTY --총대수
+       ,T.KUNNR_NM
+       ,CASE WHEN SUBSTR(T.POSID,1,1) = 'E' OR SUBSTR(T.POSID,1,1) = 'T' OR SUBSTR(T.POSID,1,1) = 'C' 
+              THEN (SELECT (SELECT Y.LANDX 
+                                                       FROM SAPHEE.T005T AS Y 
+              WHERE Y.MANDT = Z.MANDT AND Y.SPRAS = '3' AND Y.LAND1 = Z.LAND1) 
+                                         FROM SAPHEE.VBPA AS Z
+             WHERE Z.MANDT = T.MANDT
+    AND Z.VBELN = T.POSID
+                                           AND Z.POSNR = '000000'
+    AND Z.PARVW = 'WE' )
+     ELSE T.ADDR   
+         END AS ADDR
+       ,T.ADDR2
+       ,T.TEXT30
+       ,T.VALUE --총층수
+       ,T.ZSITE_TEL
+       ,T.ZTEL
+       ,T.ZMAN
+       ,T.ZMAN_NM
+       ,T.CDATE
+       --by chs 현장에 PM이 여러명일 경우 총대수 총층수 구분 쿼리 개선 2019 03 25
+       ,(SELECT TEMNO FROM SAPHEE.ZMASTER02 AS MASTER02C WHERE MASTER02C.MANDT = T.MANDT AND MASTER02C.POSID = T.POSID FETCH FIRST 1 ROW ONLY) AS TEMNO 
+       ,(SELECT NAMET FROM SAPHEE.ZMASTER02 AS MASTER02C WHERE MASTER02C.MANDT = T.MANDT AND MASTER02C.POSID = T.POSID FETCH FIRST 1 ROW ONLY) AS NAMET
+FROM (
+        SELECT  DISTINCT
+                MASTER01A.MANDT
+               ,MASTER01A.POSID
+               ,MASTER01A.ZSITE_NM
+               ,MASTER01A.VDATU
+               ,MASTER01A.CONTR_DA
+               ,MASTER01A.ZQNTY
+               ,MASTER01A.KUNNR_NM
+               ,MASTER01A.ADDR1 || ' ' || MASTER01A.ADDR2 AS ADDR 
+               ,(SELECT E.CS121_P1C || ' ' || E.CS121_P2C FROM SAPHEE.ZCST121 AS E WHERE MASTER01A.MANDT = E.MANDT AND MASTER01A.POSID = E.CS121_UPN AND E.CS121_CST= '') AS ADDR2                       
+               ,(SELECT P.PRDUSERNAME FROM SAPHEE.ZPPT150  AS P WHERE MASTER01A.MANDT = P.MANDT AND MASTER01A.ZZACTSS = P.J_1AACT) AS PRDUSERNAME
+               ,(SELECT P.PRDUSERID FROM SAPHEE.ZPPT150  AS P WHERE MASTER01A.MANDT = P.MANDT AND MASTER01A.ZZACTSS = P.J_1AACT) AS PRDUSERID
+               ,MASTER01A.TEXT30
+               ,MASTER02B.VALUE
+               ,MASTER01A.ZSITE_TEL
+               ,MASTER01A.ZTEL
+               ,MASTER01A.ZMAN
+               ,MASTER01A.ZMAN_NM
+               ,MASTER01A.CDATE
+               --,MASTER02C.TEMNO
+               --,MASTER02C.NAMET               
+        FROM  SAPHEE.ZMASTER01 AS MASTER01A
+           LEFT OUTER JOIN
+           ( SELECT  SD.MANDT
+                    ,SD.POSID
+                    ,SUM(SD.VALUE) AS VALUE
+                FROM  (
+                       SELECT  MASTER02A.MANDT
+                             ,MASTER02A.POSID
+                            ,ROWNUMBER() OVER(PARTITION BY SD0005.HOGI  ORDER BY SD0005.HOGI , SD0005.SEQ DESC ) AS RN
+                              ,(CASE WHEN VALUE(SD0005.VALUE,'0') = '' THEN 0 ELSE  INT(VALUE(SD0005.VALUE,'0')) END) AS VALUE
+                       FROM  SAPHEE.ZSDT0005 AS SD0005
+                           ,SAPHEE.ZMASTER02 MASTER02A
+                       WHERE SD0005.MANDT = MASTER02A.MANDT
+                     AND MASTER02A.MANDT = #G_MANDT#
+                     <isNotNull col="POSID">
+                     AND MASTER02A.POSID = #POSID#
+                     </isNotNull>
+                       AND MASTER02A.ZZGUBUN IN ('10','13')        -- 제품구분(10:EL,13:EL선박)
+                       AND MASTER02A.PRART IN ('01','11')          -- 프로젝트유형(01:승강기(국내),11:교체공사)
+                       AND SD0005.HOGI = MASTER02A.POSID_1
+                       AND SD0005.CHARACTERISTIC = 'EL_ASTQ'    -- 정지층수
+                      ) AS SD
+                WHERE SD.RN = 1
+                GROUP BY SD.MANDT,SD.POSID
+             ) AS MASTER02B
+          ON MASTER01A.MANDT = MASTER02B.MANDT
+             AND MASTER01A.POSID = MASTER02B.POSID
+          --,SAPHEE.ZMASTER02 AS MASTER02C
+        WHERE MASTER01A.MANDT = #G_MANDT#
+        
+        <isNotNull col="POSID">
+        AND MASTER01A.POSID = #POSID#
+        </isNotNull>
+        
+        <isNotNull col="ZSITE_NM">
+        AND MASTER01A.ZSITE_NM LIKE '%' || #ZSITE_NM# || '%'
+        </isNotNull>
+        
+        <isNotNull col="ADDR">
+        AND (MASTER01A.ADDR1 LIKE '%'||#ADDR#||'%' OR MASTER01A.ADDR2 LIKE '%'||#ADDR#||'%') 
+        </isNotNull>
+        
+        --AND MASTER01A.MANDT = MASTER02C.MANDT
+        --AND MASTER01A.POSID = MASTER02C.POSID
+    ) AS T
+<isNotNull col="FIRSTROW">
+FETCH FIRST 1 ROW ONLY
+</isNotNull>    
+
+FOR FETCH ONLY
+WITH UR </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

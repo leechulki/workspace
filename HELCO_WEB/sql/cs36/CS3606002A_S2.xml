@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[오브젝트 생성일자 시간 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+       MAX(A.ERDAT) ERDAT,
+       MAX(A.ERTIM) ERTIM,
+       SUBSTR(MAX(A.ERDAT),1,4) || '/' || SUBSTR(MAX(A.ERDAT),5,2) || '/' || SUBSTR(MAX(A.ERDAT),7,2) ||
+'   시간 : '|| SUBSTR(MAX(A.ERTIM),1,2) || ':' || SUBSTR(MAX(A.ERTIM),3,2) || ':' ||  SUBSTR(MAX(A.ERTIM), 5,2) DATE
+  FROM
+       (
+        SELECT
+               VKBUR,
+               VKGRP,
+               ZYEAR,
+               ZMON,
+               AUART,
+               ERDAT,
+               ERTIM,
+               DECODE(AUART,'U',SUM(DAMT_T),0) DAMT_T_U,
+               DECODE(AUART,'U',SUM(DAMT_S),0) DAMT_S_U,
+               DECODE(AUART,'S',SUM(DAMT_T),0) DAMT_T_S,
+               DECODE(AUART,'S',SUM(DAMT_S),0) DAMT_S_S,
+               DECODE(AUART,'J',SUM(DAMT_T),0) DAMT_T_J,
+               DECODE(AUART,'J',SUM(DAMT_S),0) DAMT_S_J,
+               DECODE(AUART,'U',SUM(NAMT_T),0) NAMT_T_U,
+               DECODE(AUART,'U',SUM(NAMT_S),0) NAMT_S_U,
+               DECODE(AUART,'S',SUM(NAMT_T),0) NAMT_T_S,
+               DECODE(AUART,'S',SUM(NAMT_S),0) NAMT_S_S,
+               DECODE(AUART,'J',SUM(NAMT_T),0) NAMT_T_J,
+               DECODE(AUART,'J',SUM(NAMT_S),0) NAMT_S_J
+          FROM
+               SAPHEE.ZCST197
+          WHERE
+               MANDT = #G_MANDT#                -- 클라이언트
+             AND ZYEAR = #ZYEAR#                  -- 기준년도
+             AND ZMON = #ZMON#                    -- 기준월
+             AND GBN IN (#GBN#, #T_GBN#)       -- 수주/매출/수금/목표
+             AND AUART IN ('U','S','J')               -- 판매문서유형
+          <isNotNull col="TEM">
+             AND VKGRP = #TEM#
+         </isNotNull>
+          <isNull col="TEM">
+	<isNotNull col="DPT">
+              AND VKGRP IN (SELECT CODE2 AS CODE
+                                      FROM SAPHEE.ZLCODE
+                         		WHERE MANDT = #G_MANDT#
+                             	AND LANG  = #G_LANG# 
+                            	AND CODE1 = 'VKGRP'
+                           		AND DTEXT1 = #DPT#)
+            </isNotNull>
+        </isNull> 
+        GROUP BY
+               VKBUR,
+               VKGRP,
+               ZYEAR,
+               ZMON,
+               AUART,
+               ERDAT,
+               ERTIM
+       ) A
+        GROUP BY
+               VKBUR,
+               VKGRP,
+               ZYEAR,
+               ZMON
+FETCH FIRST 1 ROWS ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list2">
+	</output>
+</query>

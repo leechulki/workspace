@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.ses.dao.Ses0350D"> 
+  
+	<resultMap id="selectListHeaderMap" type="hdel.sd.ses.domain.Ses0350"> 
+	    <result property="mandt" column="MANDT"/>
+	    <result property="qtnum" column="QTNUM"/>
+	    <result property="qtser" column="QTSER"/>
+	    <result property="qtdat" column="QTDAT"/>
+	    <result property="vkbur" column="VKBUR"/>
+	    <result property="vkgrp" column="VKGRP"/>
+	    <result property="zkunnr" column="ZKUNNR"/>
+	    <result property="gsnam" column="GSNAM"/>
+	    <result property="vbeln" column="VBELN"/>
+	    <result property="waerk" column="WAERK"/>
+	    <result property="cdate" column="CDATE"/>
+	    <result property="zprgflg" column="ZPRGFLG"/>
+	    <result property="zkunnr_nm" column="ZKUNNR_NM"/>
+	    <result property="finl"  column="FINL"/>
+	    <result property="seq"  column="SEQ"/>
+	    <result property="bigo"  column="BIGO"/>
+	    <result property="auart"  column="AUART"/>
+	    <result property="zsum_zcost"  column="ZSUM_ZCOST"/>
+	</resultMap>
+	
+	<select id="selectListHeader" parameterType="hdel.sd.ses.domain.Ses0350ParamVO" resultMap="selectListHeaderMap">
+ 		SELECT X.MANDT						-- 클라이언트
+			 , X.QTNUM		 				-- 견적번호
+			 , X.QTSER						-- 견적차수
+			 , X.CDATE						-- 신청일
+			 , X.PSPID  AS VBELN			-- 프로젝트번호
+			 , A.QTDAT						-- 견적일자
+			 , A.VKBUR						-- 사업장
+			 , A.VKGRP						-- 영업그룹
+			 , A.ZKUNNR						-- 영업사원
+			 , A.GSNAM						-- 공사명
+			 , A.WAERK                      -- 통화
+			 , A.ZPRGFLG					-- 견적신행상태
+			 , A.AUART					    -- 제품군
+			 , B.NAME1 AS ZKUNNR_NM			-- 담당자명
+			 , ''  AS FINL
+			 , ''  AS SEQ
+			 , '견적원가' AS BIGO
+			 , A.ZSUM_ZCOST
+		FROM SAPHEE.ZSDT1054H 	X
+			 INNER JOIN SAPHEE.ZSDT1046 A 	-- 견적 Header
+			 	     ON	X.MANDT = A.MANDT AND X.QTNUM = A.QTNUM AND X.QTSER = A.QTSER AND ZPRGFLG IN ('32', '33', '41', '42', '50', '61', '62', '90')
+					<if test="vkbur != null and vkbur != ''">
+					  AND A.VKBUR = #{vkbur}
+					</if>
+					<if test="vkgrp != null and vkgrp != ''">
+					  AND A.VKGRP = #{vkgrp}
+					</if>
+					<if test="zkunnr != null and zkunnr != ''">
+					  AND A.ZKUNNR = #{zkunnr}
+					</if>
+			LEFT OUTER JOIN SAPHEE.KNA1 B
+					ON B.KUNNR = A.ZKUNNR AND B.MANDT = A.MANDT
+		WHERE X.MANDT = #{mandt}
+		  AND REPLACE(X.PSPID, ' ', '') = ''
+		<if test="frcdate != null and frcdate != ''">
+		  AND X.CDATE BETWEEN #{frcdate} AND #{tocdate}
+		</if>
+		<if test="qtnum != null and qtnum != ''">
+		  AND X.QTNUM = #{qtnum}
+		</if>
+		<if test="qtser != null and qtser != ''">
+		  AND X.QTSER = #{qtser}
+		</if>
+		<if test="vbeln != null and vbeln != ''">
+		  AND X.PSPID = #{vbeln}
+		</if>
+		UNION ALL
+ 		SELECT X.MANDT						-- 클라이언트
+			 , X.QTNUM		 				-- 견적번호
+			 , X.QTSER						-- 견적차수
+			 , X.CDATE						-- 신청일
+			 , X.PSPID  AS VBELN			-- 프로젝트번호
+			 , (SELECT BSTDK FROM SAPHEE.VBAK WHERE MANDT = X.MANDT AND ZZPJT_ID = X.PSPID) AS QTDAT		-- 수주등록일자
+			 , A.VKBUR						-- 사업장
+			 , A.VKGRP						-- 영업그룹
+			 , A.ZKUNNR						-- 영업사원
+			 , A.GSNAM						-- 공사명
+			 , A.WAERK                      -- 통화
+			 , A.ZPRGFLG					-- 견적신행상태
+			 , A.AUART					    -- 제품군
+			 , B.NAME1 AS ZKUNNR_NM			-- 담당자명
+			 , C.FINL  AS FINL				-- 계약처리상태(' ' : 미승인, 'R':원가요청, 'S':원가산출완료, 'X' : 승인)
+			 , REPLACE(CHAR(C.SEQ), ' ', '') AS SEQ
+			 , '계약원가' AS BIGO
+			 , C.ZSUM_ZCOST
+		FROM SAPHEE.ZSDT1054H 	X
+			 INNER JOIN SAPHEE.ZSDT1046 A 	-- 견적 Header
+			 	     ON	X.MANDT = A.MANDT AND X.QTNUM = A.QTNUM  AND X.QTSER = A.QTSER 
+					<if test="vkbur != null and vkbur != ''">
+					  AND A.VKBUR = #{vkbur}
+					</if>
+					<if test="vkgrp != null and vkgrp != ''">
+					  AND A.VKGRP = #{vkgrp}
+					</if>
+					<if test="zkunnr != null and zkunnr != ''">
+					  AND A.ZKUNNR = #{zkunnr}
+					</if>
+			INNER JOIN TABLE (SELECT MANDT, PSPID, FINL, SEQ, CHWAVWR AS ZSUM_ZCOST FROM SAPHEE.ZSDT0090
+							   WHERE X.MANDT = MANDT AND X.PSPID = PSPID
+							 	 AND SEQ = (SELECT MAX(SEQ) FROM SAPHEE.ZSDT0090 WHERE X.MANDT = MANDT AND X.PSPID = PSPID )
+							  ) AS C
+				    ON X.MANDT = C.MANDT AND X.PSPID = C.PSPID AND C.FINL IN (' ', '', 'R', 'S', 'X') -- 원가의뢰요청
+			LEFT OUTER JOIN SAPHEE.KNA1 B
+					ON B.KUNNR = A.ZKUNNR AND B.MANDT = A.MANDT
+		WHERE X.MANDT = #{mandt}
+		  AND REPLACE(X.PSPID, ' ', '') != ''
+		<if test="frcdate != null and frcdate != ''">
+		  AND X.CDATE BETWEEN #{frcdate} AND #{tocdate}
+		</if>
+		<if test="qtnum != null and qtnum != ''">
+		  AND X.QTNUM = #{qtnum}
+		</if>
+		<if test="qtser != null and qtser != ''">
+		  AND X.QTSER = #{qtser}
+		</if>
+		<if test="vbeln != null and vbeln != ''">
+		  AND X.PSPID = #{vbeln}
+		</if>
+		ORDER BY 1, 2, 3
+		WITH UR
+	</select>
+	
+	<resultMap id="selectZuamMap" type="hdel.sd.ses.domain.Ses0350"> 
+	    <result property="mandt" column="MANDT"/>
+	    <result property="qtnum" column="QTNUM"/>
+	    <result property="qtser" column="QTSER"/>
+	    <result property="zsum_zcost" column="ZSUM_ZCOST"/>
+	</resultMap>
+
+	<select id="selectZuam" parameterType="map" resultMap="selectZuamMap">
+		SELECT A.MANDT
+		     , A.QTNUM
+		     , A.QTSER
+		     , A.ZSUM_ZCOST
+		FROM SAPHEE.ZSDT1046 AS A
+	   WHERE A.MANDT = #{mandt}
+		 AND A.QTNUM = #{qtnum}
+	     AND A.QTSER = #{qtser}
+	  WITH UR
+	</select>
+	
+	<select id="selectWavwr" parameterType="map" resultMap="selectZuamMap">
+		SELECT A.MANDT
+		     , A.PSPID AS QTNUM
+		     , A.SEQ AS SEQ
+		     , A.CHWAVWR AS ZSUM_ZCOST
+		FROM SAPHEE.ZSDT0090 AS A
+	   WHERE A.MANDT = #{mandt}
+		 AND A.PSPID = #{pspid}
+	     AND A.SEQ = #{seq}
+	  WITH UR
+	</select>
+
+</mapper>

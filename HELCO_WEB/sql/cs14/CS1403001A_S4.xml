@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+	A.CS157_UPN AS UPN
+	,A.CS157_CST AS CST
+	,(CASE A.CS157_GND
+         WHEN 'A' THEN VALUE(J.ZSITE_NM,'')
+         WHEN 'B' THEN VALUE(J.ZSITE_NM,'')
+         WHEN 'C' THEN VALUE(K.CS121_SPT,'')
+         WHEN 'D' THEN VALUE(K.CS121_SPT,'')
+         WHEN 'Z' THEN VALUE(J.ZSITE_NM,'')
+         ELSE ''
+    END) SPT
+	,A.CS157_PJT AS PJT
+	,A.CS157_HNO AS HNO
+	,B.CS101_HNA AS HNA 
+	,C.LIFNR AS LIFNRBEFORE -- 2018.11.01 지사항목 추가. 전현정DL 요청
+	,(SELECT VKGRP_NM FROM SAPHEE.ZWBT010 WHERE MANDT = '183' AND LIFNR = C.LIFNR AND BSU_ARA != '') AS VKGRP_NM_BEFORE -- 2018.11.01 지사항목 추가. 전현정DL 요청		
+	,C.LGORT AS LGORTBEFORE
+	,D.NAME1 AS LGORTBEFORETEXT
+	,A.CS157_GBB AS AGB
+	,E.CTEXT2 AS AGBTEXT
+	,F.LIFNR AS LIFNRAFTER -- 2018.11.01 지사항목 추가. 전현정DL 요청
+	,(SELECT VKGRP_NM FROM SAPHEE.ZWBT010 WHERE MANDT = '183' AND LIFNR = F.LIFNR AND BSU_ARA != '') AS VKGRP_NM_AFTER -- 2018.11.01 지사항목 추가. 전현정DL 요청		
+	,F.LGORT AS LGORTAFTER
+	,G.NAME1 AS LGORTAFTERTEXT 
+	,A.CS157_GBA AS AGBAFTER
+	,H.CTEXT2 AS AGBAFTERTEXT  
+	,CASE A.CS157_GND WHEN 'Z' THEN '미입주' ELSE VALUE(I.CTEXT2, '') END AS BALJUTEXT
+	,A.CS157_IJU AS WORKDATE
+	,A.CS157_RSN AS RSN   
+	,A.CS157_IKD AS REGDATE
+	,'' AS FLAG 
+	,'' AS GHB
+	,'' AS GBA
+	,'' AS GHA
+	,'' AS IHT  
+	,'' AS IGM
+	,'' AS LIFNR
+	,'' AS CHECK 
+	,SAPHEE.GET_BOSU_INWON(A.MANDT,A.CS157_JUB) JUB_NM
+	,SAPHEE.GET_BOSU_INWON(A.MANDT,A.CS157_BUB) BUB_NM
+	,SAPHEE.GET_BOSU_INWON(A.MANDT,A.CS157_JUA) JUA_NM
+	,SAPHEE.GET_BOSU_INWON(A.MANDT,A.CS157_BUA) BUA_NM
+	,A.CS157_HST HST
+	,(CASE A.CS157_HST
+         WHEN 'UI0' THEN '유상일반'
+         WHEN 'UI1' THEN '유상일반만료'
+         WHEN 'MI0' THEN '무상일반'
+         WHEN 'MI1' THEN '무상일반만료'
+         WHEN 'UK0' THEN '유상공사'
+         WHEN 'UK1' THEN '유상공사만료'
+         WHEN 'MK0' THEN '무상공사'
+         WHEN 'MK1' THEN '무상공사만료'
+         WHEN 'BI1' THEN '미입주'
+         ELSE ''
+    END) HST_NM
+    
+    ,Q2.DOCNO
+    ,VALUE(Q2.APSTAT, '0') AS APSTAT
+    
+    ,(SELECT  CASE WHEN EXC = 'X' AND MAC = 'N' THEN 'A'                                            -- 추가(2020.02.25)                                                                            
+                   WHEN EXC = ''  AND MAC = 'Y' THEN 'B'                                            -- 추가(2020.02.25)                                                                              
+                   WHEN EXC = ''  AND MAC = 'N' THEN 'C'                                            -- 추가(2020.02.25)                                                                          
+                   WHEN EXC = 'X' AND MAC = 'Y' THEN ''                                             -- 추가(2020.02.25)                                                                                         
+         END  RSN                                                                                   -- 추가(2020.02.25)  
+      FROM    SAPHEE.ZCST111                                                                        -- 추가(2020.02.25)  
+      WHERE   MANDT = #G_MANDT#                                                                     -- 추가(2020.02.25)     
+      AND     PJT   = A.CS157_PJT                                                                   -- 추가(2020.02.25)       
+      AND     HNO   = A.CS157_HNO) AS RSN2                                                          -- 추가(2020.02.25)         
+      
+    --,0 AS ZMUSAOCNT
+    --,0 AS ZMUSAUCNT
+    --=================== 
+	,VALUE((SELECT INTEGER(VALUE(M02.ZMUSAOCNT,0)) + INTEGER(VALUE(M02.ZMUSAOCNT2,0))  FROM SAPHEE.ZMASTER02 AS M02  WHERE M02.MANDT = #G_MANDT#  AND M02.POSID = A.CS157_PJT  AND M02.POSID_1 =  A.CS157_PJT || A.CS157_HNO),0)  AS ZMUSAOCNT  -- 예정
+	,VALUE((SELECT INTEGER(VALUE(M02.ZMUSAUCNT,0)) + INTEGER(VALUE(M02.ZMUSAUCNT2,0))  FROM SAPHEE.ZMASTER02 AS M02  WHERE M02.MANDT = #G_MANDT#  AND M02.POSID = A.CS157_PJT  AND M02.POSID_1 =  A.CS157_PJT || A.CS157_HNO),0)  AS ZMUSAUCNT   --사용
+    --==================  
+              
+FROM 
+	SAPHEE.ZCST157 AS A
+	       LEFT OUTER JOIN SAPHEE.ZLCODE I ON I.MANDT = A.MANDT
+                                          AND I.CODE1 = 'CS119'
+                                          AND I.LANG = #G_LANG#
+                                          AND I.CODE2 = A.CS157_GND
+         LEFT OUTER JOIN SAPHEE.ZMASTER01 J ON J.MANDT = A.MANDT
+                                           AND J.POSID = A.CS157_PJT
+         LEFT OUTER JOIN SAPHEE.ZCST121 K ON K.MANDT = A.MANDT
+                                         AND K.CS121_UPN = A.CS157_UPN
+                                         AND K.CS121_CST = A.CS157_CST
+                                         
+         LEFT OUTER JOIN SAPHEE.ZWBAP01 AS Q2  ON A.MANDT = Q2.MANDT
+                                              AND A.CS157_DOC = Q2.DOCNO                             
+                                         
+	,SAPHEE.ZCST101 AS B --보수인계인수 정보
+	,SAPHEE.ZMMT005 AS C   
+	,SAPHEE.ZMMT012 AS D 
+	,SAPHEE.ZLCODE AS E 
+	,SAPHEE.ZMMT005 AS F   
+	,SAPHEE.ZMMT012 AS G 
+	,SAPHEE.ZLCODE AS H
+WHERE 
+	A.MANDT = #G_MANDT# 
+	AND B.MANDT = A.MANDT 
+	AND C.MANDT = B.MANDT 
+	AND D.MANDT = C.MANDT 
+	AND E.MANDT = D.MANDT 
+	AND F.MANDT = E.MANDT 
+	AND G.MANDT = F.MANDT 
+	AND H.MANDT = G.MANDT 
+<isNotNull col="UPN">
+	AND A.CS157_UPN = #UPN#
+	AND A.CS157_CST = #CST#
+</isNotNull>
+<isNotNull col="PJT">
+	AND A.CS157_PJT = #PJT#
+</isNotNull>
+<isNotNull col="YYYYMM">
+	AND A.CS157_IGM = #YYYYMM#
+</isNotNull>
+<isNotNull col="ARA">
+	AND B.CS101_ARA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+	AND A.CS157_CHA = #BSU#
+</isNotNull>
+<isEqual col="FYN" value="N">
+	AND 1=1
+</isEqual>
+<isEqual col="FYN" value="Y">
+	AND 1=2
+</isEqual>
+	AND A.CS157_PJT = B.CS101_PJT 
+	AND A.CS157_HNO = B.CS101_HNO 
+	AND A.CS157_CHB = C.LGORT 
+	AND C.LIFNR = D.LIFNR 
+	AND E.CODE1 = 'CS116' 
+	AND A.CS157_GBB = E.CODE2 
+	AND A.CS157_CHA = F.LGORT 
+	AND F.LIFNR = G.LIFNR 
+	AND H.CODE1 = 'CS116' 
+	AND E.LANG = #G_LANG#
+	AND H.LANG = #G_LANG#
+	AND A.CS157_GBA = H.CODE2 
+ORDER BY 
+	CS157_UPN
+	,CS157_CST
+	,CS157_PJT
+	,CS157_HNO
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_LANG" size="255" type="VARCHAR" description="" /> 
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="UPN" size="255" type="VARCHAR" description="" /> 
+		<col name="CST" size="255" type="VARCHAR" description="" /> 
+		<col name="PJT" size="255" type="VARCHAR" description="" /> 
+		<col name="YYYYMM" size="255" type="VARCHAR" description="" /> 
+		<col name="ARA" size="255" type="VARCHAR" description="" /> 
+		<col name="BSU" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="AGB" size="3" type="VARCHAR" description="" /> 
+		<col name="AGBAFTER" size="3" type="VARCHAR" description="" /> 
+		<col name="AGBAFTERTEXT" size="60" type="VARCHAR" description="" /> 
+		<col name="AGBTEXT" size="60" type="VARCHAR" description="" /> 
+		<col name="BALJUTEXT" size="60" type="VARCHAR" description="" /> 
+		<col name="BUA_NM" size="20" type="VARCHAR" description="" /> 
+		<col name="BUB_NM" size="20" type="VARCHAR" description="" /> 
+		<col name="CHECK" size="0" type="VARCHAR" description="" /> 
+		<col name="CST" size="9" type="VARCHAR" description="" /> 
+		<col name="FLAG" size="0" type="VARCHAR" description="" /> 
+		<col name="GBA" size="0" type="VARCHAR" description="" /> 
+		<col name="GHA" size="0" type="VARCHAR" description="" /> 
+		<col name="GHB" size="0" type="VARCHAR" description="" /> 
+		<col name="HNA" size="90" type="VARCHAR" description="" /> 
+		<col name="HNO" size="9" type="VARCHAR" description="" /> 
+		<col name="HST" size="6" type="VARCHAR" description="" /> 
+		<col name="HST_NM" size="18" type="VARCHAR" description="" /> 
+		<col name="IGM" size="0" type="VARCHAR" description="" /> 
+		<col name="IHT" size="0" type="VARCHAR" description="" /> 
+		<col name="JUA_NM" size="20" type="VARCHAR" description="" /> 
+		<col name="JUB_NM" size="20" type="VARCHAR" description="" /> 
+		<col name="LGORTAFTER" size="12" type="VARCHAR" description="" /> 
+		<col name="LGORTAFTERTEXT" size="105" type="VARCHAR" description="" /> 
+		<col name="LGORTBEFORE" size="12" type="VARCHAR" description="" /> 
+		<col name="LGORTBEFORETEXT" size="105" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="0" type="VARCHAR" description="" /> 
+		<col name="PJT" size="18" type="VARCHAR" description="" /> 
+		<col name="REGDATE" size="24" type="VARCHAR" description="" /> 
+		<col name="RSN" size="60" type="VARCHAR" description="" /> 
+		<col name="SPT" size="150" type="VARCHAR" description="" /> 
+		<col name="UPN" size="18" type="VARCHAR" description="" /> 
+		<col name="WORKDATE" size="24" type="VARCHAR" description="" /> 
+	</output>
+</query>

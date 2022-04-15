@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  PSPID AS PSPID
+       ,SUBSTR(POSID,8) AS HOGIT
+       ,TRIM(CHAR(FLOOR)) AS FLOOR
+       ,CASE SPEC_GBN WHEN 'ES' THEN 'E/S' WHEN 'MW' THEN 'M/W' WHEN '' THEN ''
+	                    WHEN 'BD' THEN '병원'      WHEN 'BH' THEN '병원,장애' WHEN 'DW' THEN '덤웨이터' 
+	                    WHEN 'EB' THEN '비상,병원' WHEN 'EF' THEN '비상,화물' WHEN 'EH' THEN '비상,장애' 
+	                    WHEN 'EO' THEN '비상,전망' WHEN 'EP' THEN '비상'      WHEN 'FT' THEN '화물' 
+	                    WHEN 'HC' THEN '장애'      WHEN 'HF' THEN '인화'      WHEN 'HY' THEN '유압' 
+	                    WHEN 'ND' THEN '누드'      WHEN 'NH' THEN '누드,장애' WHEN 'OB' THEN '전망' 
+	                    WHEN 'OH' THEN '전망,장애' WHEN 'PF' THEN '인화'      WHEN 'PS' THEN '인승' 
+	                    WHEN 'WL' THEN '휠체어'
+		    END AS SPEC_GBN
+FROM (
+        SELECT
+                P.MANDT
+               ,P.PSPID
+               ,P.POSID
+               ,CASE WHEN  M2.ZSPEC2 > '' AND (SUBSTR(M2.POSID_1,7,1) = 'S' OR SUBSTR(M2.POSID_1,7,1) = 'W') AND LOCATE('-',SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1)) > 0
+                       THEN (SUBSTR(SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1),1,LOCATE('-',SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1))-1))
+                     WHEN  M2.ZSPEC2 > '' AND (SUBSTR(M2.POSID_1,7,1) = 'S' OR SUBSTR(M2.POSID_1,7,1) = 'W') AND LOCATE('-',SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1)) = 0
+                       THEN (SUBSTR(SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1),1))
+                     WHEN  M2.ZSPEC2 > ''
+                       THEN CHAR(INT(VALUE(M2.ZSPEC11,'0')))  
+--                            (CASE WHEN LOCATE('/',SUBSTR(SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1),LOCATE('-',SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1))+1)) >0
+--                                      THEN SUBSTR(SUBSTR(SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1),LOCATE('-',SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1))+1),LOCATE('/',SUBSTR(SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1),LOCATE('-',SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1))+1))+1)
+--                                    ELSE (SUBSTR(SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1),LOCATE('-',SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1))+1))
+--                             END)
+                     ELSE '0'
+                END AS FLOOR
+               ,CASE  WHEN SUBSTR(P.POSID,7,1) = 'S' THEN 'ES'
+						          WHEN SUBSTR(P.POSID,7,1) = 'W' THEN 'MW'  
+						          WHEN P.AUSE = '' AND SUBSTR(M2.ZSPEC2,1,2) = 'FT' AND M2.ZSPEC1 = 'HYD' THEN 'HY'
+			                WHEN P.AUSE = '' AND SUBSTR(M2.ZSPEC2,1,2) = 'FT' THEN 'FT' 
+						          ELSE CASE WHEN P.AUSE &lt;&gt; '' THEN P.AUSE ELSE 'EH' END END AS SPEC_GBN
+        FROM  SAPHEE.ZPST0024 AS P
+                LEFT OUTER JOIN SAPHEE.ZMMT012 AS M
+                ON P.MANDT = M.MANDT
+                AND P.LIFNR = M.LIFNR
+                AND M.KTOKK = ''
+             ,SAPHEE.ZMASTER02 AS M2
+             ,SAPHEE.ZMASTER01 AS M1			 
+             ,SAPHEE.ZPST0036 AS P2
+        WHERE P.MANDT = #G_MANDT#
+        AND P.MANDT = M1.MANDT
+        AND P.PSPID = M1.POSID
+        AND P.MANDT = M2.MANDT
+        AND P.PSPID = M2.POSID
+        AND P.POSID = M2.POSID_1
+        AND P.MANDT = P2.MANDT
+        AND P.PSPID = P2.PSPID
+        AND P.POSID = P2.POSID
+        AND P.DATE1 != '00000000'
+        AND P2.CHK_KIND = #KIND#
+<isNotNull col="GUBUN">
+        #GUBUN+#
+</isNotNull>
+ 
+    ) AS T	</statement>
+	<input default-name="ds_cond_p">
+	</input>
+	<output default-name="ds_hogit">
+	</output>
+</query>

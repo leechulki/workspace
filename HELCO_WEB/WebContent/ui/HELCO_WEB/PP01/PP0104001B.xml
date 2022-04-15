@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="144" Id="PS9602003A" Left="8" OnLoadCompleted="OnLoadCompleted" PidAttrib="7" Title="날짜선택" Top="8" Ver="1.0" Width="416" WorkArea="true">
+		<Shape BKColor="user12" Bottom="130" Height="26" Id="Shape1" Left="74" LineColor="user13" Right="334" TabOrder="1" Top="104" Type="Rectangle" Width="260"></Shape>
+		<Static Align="Right" Height="24" Id="st_date" Left="75" Style="sty_lb_form_basic" TabOrder="2" Text="복사할&#32;작업일자&#32;" Top="105" VAlign="Middle" Width="144"></Static>
+		<Div Height="32" Id="div_btn" TabOrder="3" Url="WB01::CommBtnForm.xml" Width="416">
+			<Contents></Contents>
+		</Div>
+		<Calendar Border="Flat" ClickedBkColor="user32" ClickedTextColor="user33" Dateformat="yyyy.MM.dd" DayFont="돋움,9" DaySelect="Auto" DaySpacingHeight="6" DrawWeekSeparator="FALSE" EditAlign="CENTER" Font="돋움,9" HeaderBorder="NONE" HeaderFont="돋움,10,Bold" Height="20" Id="cal_date" Left="223" MonthPickerFormat="yyyy년&#32;MMMM" MonthPopupBorder="FLAT" OnKeyDown="cal_date_OnKeyDown" SaturdayTextColor="user34" SelectedDayFont="돋움,9,Bold" Style="sty_ipt_search" SundayTextColor="user35" TabOrder="4" TextColor="user36" TitleBKColor="user37" TitleTextColor="user38" TodayColor="user39" Top="107" WeekBKColor="user40" WeekColor="user41" WeeksFont="돋움,10" Width="97"></Calendar>
+		<Static Height="30" Id="Static0" Left="8" TabOrder="5" Text="&#13;&#10;&#32;최근&#32;작업일보를&#32;복사&#32;하시려면&#32;일자를&#32;선택하시고&#32;확인하시기&#32;바랍니다.&#32;" Top="48" Width="395"></Static>
+		<Static Height="16" Id="Static1" Left="12" TabOrder="6" Text="작성된" Top="40" Width="48"></Static>
+		<Static Height="16" Id="Static2" Left="216" TabOrder="7" Text="작업일보가&#32;없습니다." Top="40" Width="136"></Static>
+		<Edit Border="None" Height="19" Id="ed_wkdat" Left="60" OnChanged="ed_wkdat_OnChanged" Readonly="TRUE" TabOrder="8" Top="37" Width="90"></Edit>
+		<Static Height="16" Id="Static3" Left="12" TabOrder="9" Text="최종&#32;등록된&#32;작업일은" Top="80" Width="124"></Static>
+		<Edit Border="None" Height="19" Id="ed_maxdat" Left="120" OnChanged="ed_wkdat_OnChanged" Readonly="TRUE" TabOrder="11" Top="81" Width="104"></Edit>
+		<Static Height="16" Id="Static4" Left="232" TabOrder="10" Text="입니다." Top="80" Width="136"></Static>
+		<Edit Border="None" Height="19" Id="ed_oday" Left="152" OnChanged="ed_wkdat_OnChanged" Readonly="TRUE" TabOrder="12" Top="37" Width="30"></Edit>
+		<Edit Border="None" Height="19" Id="ed_nday" Left="192" OnChanged="ed_wkdat_OnChanged" Readonly="TRUE" TabOrder="13" Top="81" Width="30"></Edit>
+	</Form>
+	<Script><![CDATA[
+﻿﻿﻿﻿﻿﻿﻿﻿/*
+ ******************************************************************************************
+ * 기      능   : copy tool 
+				  이전 화면에서 tGrid , arrCols 정보를 받아 해당 그리드의 특정 로우의 특정 컬럼을 복사한다.
+				  ex) tGrid - "grdList" , arrCols - "COL1=COL1,COL2=COL2"
+ * 작  성  자   : 
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+#include "LIB::commons.js";	// 공통 스크립트 
+#include "LIB::utility.js";	// 다중 선택 
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function OnLoadCompleted(obj)
+{
+	// Form 로드 이벤트 맨 첫줄에 기술 
+	gfn_initForm(); 
+	if(fa_maxdat != null && length(fa_maxdat) > 0)
+	{	
+		ed_wkdat.Text = fa_wkdat;			
+		cal_date.Value = fa_maxdat;
+		ed_maxdat.Text = gfn_formatDate(fa_maxdat);
+		
+		nDay = GetDay(Replace(fa_wkdat,".",""));
+		ed_oday.Text = "("+ Decode( nDay, 0, "일",1,"월",2,"화",3,"수",4,"목",5,"금",6,"토") + ")";
+		
+		nDay2 = GetDay(Replace(fa_maxdat,".",""));
+		ed_nday.Text = "("+ Decode( nDay2, 0, "일",1,"월",2,"화",3,"수",4,"목",5,"금",6,"토") + ")";
+		//trace(ed_oday.Text);;
+	}
+	cal_date.SetFocus();
+}
+/********************************************************************************
+* 기      능   : 닫기  
+********************************************************************************/
+function fn_close(obj){
+	close(obj);
+}
+
+/********************************************************************************
+* 기      능   : 확인
+********************************************************************************/
+function fn_confirm()
+{
+	if(length(trim(cal_date.Value)) == 0 || trim(replace(cal_date.Value,'-','')) == "")
+	{
+		gfn_showMsg("CW00008",st_date.Value);
+		return;
+	}
+	var lv_wkdate = gfn_getWorkingDate(-7,"1000",gfn_getCurrDate());
+	//trace(lv_wkdate);
+	
+	nDay = GetDay(Replace(fa_wkdat,".",""));         //등록요일
+	nDay3 = GetDay(Replace(cal_date.Value,".",""));  //복사요일
+	//trace("nDay"+nDay);
+	//trace("nDay3----"+nDay3);
+		
+	if ( cal_date.Value < lv_wkdate ) { //복사날짜 < 현재기준 7일 전 날짜 
+		gfn_showAlert("CW10025", "금일부터 7일 이전의 작업일보만 복사할 수 있습니다");
+		return;
+	} else if ( (nDay == "0" || nDay == "6") and ( nDay3 == "1" || nDay3 == "2" || nDay3 == "3" || nDay3 == "4" || nDay3 == "5" ) ){ //20.04.24
+		gfn_showAlert("CW10025", "주말 특근 등록시 평일 작업일보 복사 불가");
+		return;
+	} else if ( (nDay3 == "0" || nDay3 == "6") and ( nDay == "1" || nDay == "2" || nDay == "3" || nDay == "4" || nDay == "5" ) ){ //20.04.24
+		gfn_showAlert("CW10025", "평일 등록시 주말 작업일보 복사 불가");
+		return;
+	}else {
+	 ds_maxdat.Setcolumn(0, "MAXDAT",cal_date.Value);
+	}
+	
+	fn_close("Y");
+}
+
+/********************************************************************************
+* 기      능   :  취소
+********************************************************************************/
+function fn_cancel()
+{
+	
+	fn_close("N");
+}
+
+
+
+function cal_date_OnKeyDown(obj,nChar,bShift,bCtrl,bAlt,nLLParam,nHLParam)
+{
+//	if(nChar == '13') fn_confirm();
+}
+
+
+
+function ed_wkdat_OnChanged(obj,strText)
+{
+	
+}
+]]></Script>
+</Window>

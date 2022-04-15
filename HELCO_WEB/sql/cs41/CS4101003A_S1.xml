@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+		
+		
+SELECT   A.SPMON
+        ,A.NAME1
+        --,A.LIFNR
+        ,CASE WHEN (B.VKGRP = 'H11' AND SUBSTR(A.LIFNR, 1,6) = '000000') THEN '9999999999' ELSE A.LIFNR END LIFNR        
+        
+        ,A.POSID
+        ,A.DMBTR
+        ,A.GBN
+        ,A.BELNR
+        ,A.STATUS
+        ,A.STATUS_CODE
+        ,A.MECH
+        ,A.BAM
+        ,A.INCENTIVE  
+        ,A.RET
+        ,A.RMK
+        ,CASE WHEN A.GBN IN ('MI','MG') THEN MAX(D.ZSITE_NM) ELSE MAX(B.BSTNK) END AS ZSITE_NM
+        ,CASE WHEN A.GBN IN ('MI','MG') THEN MAX(D.KUNNR_NM) ELSE MAX(C.NAME1) END AS KUNNR_NM
+        
+  FROM (
+        /*WBS 별 정기보수 + 소급처리 기성확정 금액 ZCST034*/
+        
+        SELECT  A.SPMON
+               ,A.NAME1
+               ,A.LIFNR
+               ,A.POSID
+               ,A.DMBTR
+               ,A.GBN
+               ,C.BELNR
+               ,CASE WHEN C.MANDT IS NULL     AND VALUE(C.BELNR,'') = '' THEN '기성확정 전'
+                     WHEN C.MANDT IS NOT NULL AND VALUE(C.BELNR,'') = '' THEN 'ZMMR016-전표 미생성'
+                     ELSE 'ZMMR016-전표생성 완료' END
+                  AS STATUS
+               ,CASE WHEN C.MANDT IS NULL     AND VALUE(C.BELNR,'') = '' THEN 'X'
+                     WHEN C.MANDT IS NOT NULL AND VALUE(C.BELNR,'') = '' THEN ''
+                     ELSE '' END 
+                 AS STATUS_CODE
+               ,A.MECH
+               ,A.BAM
+               ,A.INCENTIVE  
+               ,A.RET
+               ,A.RMK
+          FROM  SAPHEE.ZCST034 A LEFT OUTER JOIN SAPHEE.ZWBT010 AS B
+                                        ON B.MANDT = A.MANDT
+                                       AND B.LIFNR = A.LIFNR 
+                                       
+                                 LEFT OUTER JOIN SAPHEE.ZMMT034 AS C
+                                        ON C.MANDT = A.MANDT
+                                       AND C.SPMON = A.SPMON 
+                                       AND C.POSID = A.POSID 
+                                       AND C.LIFNR = A.LIFNR 
+         WHERE A.MANDT = #G_MANDT#
+           AND A.SPMON BETWEEN #SPMON_FM# AND #SPMON_TO# 
+        <isNotNull col="SPART">
+           AND A.GUBUN = #SPART#
+        </isNotNull>
+        <isNotNull col="POSID">
+           AND A.POSID LIKE #POSID#||'%'
+        </isNotNull>
+        <isNotNull col="GND">
+           AND A.GBN = #GND#
+        </isNotNull>
+        
+        <isNotNull col="ARA">
+           AND B.BSU_ARA = #ARA#
+        </isNotNull>
+         
+        <isNotNull col="BSU">
+           AND B.LGORT = #BSU#
+        </isNotNull>
+        
+        <isNotNull col="TEM">
+           AND B.VKGRP = #TEM#
+        </isNotNull>
+        
+        <isNotNull col="DPT">
+           AND SUBSTR(B.VKGRP,1,2) = SUBSTR(#DPT#,1,2)
+        </isNotNull>
+        
+        UNION ALL
+ 
+        /*WBS 별 부품판매 인건비 기성확정 금액 ZMMT034*/    
+           
+        SELECT  A.SPMON
+               ,A.NAME1
+               ,A.LIFNR
+               ,A.POSID
+               ,A.DMBTR
+               , A.VBTYP AS GBN
+               ,A.BELNR
+               
+               
+               ,CASE WHEN VALUE(A.BELNR,'') = '' THEN 'ZMMR016-전표 미생성'
+                     ELSE 'ZMMR016-전표생성 완료' END
+                  AS STATUS
+              
+               --,CASE WHEN VALUE(A.BELNR,'') = '' THEN ''  --2020.07.01 
+               ,CASE WHEN VALUE(A.BELNR,'') = '' THEN 'X'
+                     ELSE '' END 
+                 AS STATUS_CODE
+               ,0  AS MECH
+               ,0  AS BAM
+               ,0  AS INCENTIVE  
+               ,0  AS RET
+               ,'' AS RMK
+          FROM  SAPHEE.ZMMT034 A LEFT OUTER JOIN SAPHEE.ZWBT010 AS B
+                                        ON B.MANDT = A.MANDT
+                                       AND B.LIFNR = A.LIFNR 
+                                       
+         WHERE A.MANDT = #G_MANDT#
+           AND A.SPMON BETWEEN #SPMON_FM# AND #SPMON_TO#
+           AND A.VBTYP = 'NB'
+        <isNotNull col="SPART">
+           AND A.GUBUN = #SPART#
+        </isNotNull>
+        <isNotNull col="POSID">
+           AND A.POSID LIKE #POSID#||'%'
+        </isNotNull>
+        <isNotNull col="GND">
+           AND A.VBTYP = #GND#
+        </isNotNull>
+        
+        <isNotNull col="ARA">
+           AND B.BSU_ARA = #ARA#
+        </isNotNull>
+         
+        <isNotNull col="BSU">
+           AND B.LGORT = #BSU#
+        </isNotNull>
+        
+        <isNotNull col="TEM">
+           AND B.VKGRP = #TEM#
+        </isNotNull>
+        
+        <isNotNull col="DPT">
+           AND SUBSTR(B.VKGRP,1,2) = SUBSTR(#DPT#,1,2)
+        </isNotNull>
+            
+        ) AS A                LEFT OUTER JOIN SAPHEE.VBAK AS B
+                                      ON B.MANDT = #G_MANDT#
+                                     AND B.ZZPJT_ID = A.POSID
+                                     
+                              LEFT OUTER JOIN SAPHEE.KNA1 AS C
+                                      ON C.MANDT = #G_MANDT#
+                                     AND C.KUNNR = B.KUNNR
+                                     
+                              LEFT OUTER JOIN SAPHEE.ZMASTER01 AS D
+                                      ON D.MANDT = #G_MANDT#
+                                     AND D.POSID = SUBSTR(A.POSID,1,6)
+                                     
+GROUP BY A.SPMON
+        ,A.NAME1
+        --,A.LIFNR       
+        ,CASE WHEN (B.VKGRP = 'H11' AND SUBSTR(A.LIFNR, 1,6) = '000000') THEN '9999999999' ELSE A.LIFNR END
+        ,A.POSID
+        ,A.DMBTR
+        ,A.GBN
+        ,A.BELNR
+        ,A.STATUS
+        ,A.STATUS_CODE
+        ,A.MECH
+        ,A.BAM
+        ,A.INCENTIVE  
+        ,A.RET
+        ,A.RMK
+--ORDER BY A.LIFNR,A.POSID
+ORDER BY LIFNR,A.POSID
+ WITH UR
+  
+  
+</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

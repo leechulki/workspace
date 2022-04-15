@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+       X.CHK,
+       X.ARA,
+       X.ARA_NM,
+       X.BSU,
+       X.BSU_NM,
+       X.PJT,
+       X.HNO,
+       X.SPT_NM,
+       X.HST,
+       X.BLD,
+       X.BLD_NM,
+       MAX(X.FSD) FSD,
+       MAX(X.YDT) YDT,
+       MAX(X.YBN) YBN,
+       MAX(X.YMT) YMT,
+       MAX(X.YON) YON,
+       MAX(X.YDA) YDA,
+       X.GBN,
+       X.SAV,
+       X.SAV_D,
+       X.RMK,
+       X.MYN
+  FROM
+       (
+        SELECT
+               '' CHK,
+               A.ARA,
+               VALUE(F.CTEXT2,'') ARA_NM,
+               A.BSU,
+               VALUE(G.ABR_NM,'') BSU_NM,
+               A.PJT,
+               A.HNO,
+               VALUE(H.ZSITE_NM,'') SPT_NM,
+               A.HST,
+               A.BLD,
+               VALUE(E.CTEXT2,'') BLD_NM,
+               C.CS143_FSD FSD,
+               CASE
+                    WHEN VALUE(D.MANDT,'') > '' THEN VALUE(D.CS115_YDT,'')
+                    ELSE REPLACE(CHAR(DATE(SUBSTR(C.CS143_FSD,1,4) || '-' || SUBSTR(C.CS143_FSD,5,2) || '-' || SUBSTR(C.CS143_FSD,7,2)) + 12 MONTH),'-','')
+               END YDT,
+               CASE WHEN VALUE(D.CS115_YBN,'N') = 'Y' THEN '1' ELSE '0' END YBN,
+               VALUE(D.CS115_YMT,VALUE(I.DMT,0)) YMT,
+               VALUE(D.CS115_YON,12) YON,
+               VALUE(D.CS115_YDA,VALUE(I.DMT,0)*12) YDA,
+               CASE WHEN A.HST NOT IN ('D','F') THEN 'Y' ELSE 'N' END GBN,
+               VALUE(D.CS115_RMK,'') RMK,
+               CASE WHEN D.CS115_HNO IS NOT NULL THEN 'Y' ELSE 'N' END SAV,
+               CASE WHEN D.CS115_UDT = '' OR D.CS115_UDT = '00000000' OR D.CS115_UDT IS NULL THEN D.CS115_MDT ELSE D.CS115_UDT END SAV_D,
+               D.CS115_MYN MYN
+          FROM
+               SAPHEE.ZCST111 A
+                      LEFT OUTER JOIN SAPHEE.ZCST115 D ON D.MANDT = A.MANDT
+                                                      AND D.CS115_PJT = A.PJT
+                                                      AND D.CS115_HNO = A.HNO
+                      LEFT OUTER JOIN SAPHEE.ZLCODE E ON E.MANDT = A.MANDT
+                                                     AND E.CODE2 = A.BLD
+                                                     AND E.CODE1 = 'CS123'
+                                                     AND E.LANG = #G_LANG#
+                      LEFT OUTER JOIN SAPHEE.ZLCODE F ON F.MANDT = A.MANDT
+                                                     AND F.CODE2 = A.ARA
+                                                     AND F.CODE1 = 'CS115'
+                                                     AND F.LANG = #G_LANG#
+                      LEFT OUTER JOIN SAPHEE.ZWBT010 G ON G.MANDT = A.MANDT
+                                                     AND G.LGORT = A.BSU
+                                                     AND G.LGORT > ''
+                      LEFT OUTER JOIN SAPHEE.ZMASTER01 H ON H.MANDT = A.MANDT
+                                                        AND H.POSID = A.PJT
+                      LEFT OUTER JOIN (
+                                       SELECT
+                                              B.BSU_ARA ARA,
+                                              B.LGORT BSU,
+                                              A.BLD,
+                                              CASE WHEN A.SILCNT = 0 THEN 0 ELSE DEC(ROUND((A.SILAMT * 100 / A.SILCNT),0)) END DMT
+                                         FROM
+                                              (
+                                               SELECT
+                                                      ROW_NUMBER() OVER(PARTITION BY VKBUR, VKGRP, LIFNR, BLD ORDER BY ZYEAR DESC, ZMON DESC) RNO,
+                                                      ZYEAR,
+                                                      ZMON,
+                                                      LIFNR,
+                                                      BLD,
+                                                      SILAMT,
+                                                      SILCNT
+                                                 FROM
+                                                      SAPHEE.ZCST192
+                                                WHERE
+                                                      MANDT = #G_MANDT#
+                                                  AND VKBUR = 'E500'
+                                                  AND AUART = 'ZR11'
+                                                  AND GBN = 'E'
+                                                  AND KND = ''
+                                                  AND BLD > ''
+                                                  AND ARA > ''
+                                              ) A,
+                                              SAPHEE.ZWBT010 B
+                                        WHERE
+                                              B.MANDT = #G_MANDT#
+                                          AND A.LIFNR = B.LIFNR
+                                          AND A.RNO = 1
+                                          AND B.LGORT > ''
+                                      ) I ON I.ARA = A.ARA
+                                         AND I.BSU = A.BSU
+                                         AND I.BLD = A.BLD,
+               SAPHEE.ZCST144 B,
+               SAPHEE.ZCST143 C,
+               (
+               	SELECT
+               	       PJT,
+               	       HNO
+               	  FROM
+               	       SAPHEE.ZCST111
+               	 WHERE
+               	       MANDT = #G_MANDT#
+
+               	EXCEPT
+
+               	SELECT
+               	       CS172_PJO PJT,
+               	       CS172_HNO HNO
+               	  FROM
+               	       SAPHEE.ZCST172
+               	 WHERE
+               	       MANDT = #G_MANDT#
+               	   AND CS172_GBN = 'B'
+               ) J,
+               SAPHEE.ZWBT010 WB
+         WHERE
+               A.MANDT = #G_MANDT#
+           AND A.MANDT = B.MANDT
+           AND A.PJT = B.CS144_PJT
+           AND A.HNO = B.CS144_HNO
+           AND B.MANDT = C.MANDT
+           AND B.CS144_SEQ = C.CS143_SEQ
+           AND A.PJT = J.PJT
+           AND A.HNO = J.HNO
+           AND A.MANDT = WB.MANDT
+           AND A.BSU = WB.LGORT
+           AND WB.LGORT > ''
+           AND C.CS143_PST = 'A6'
+           AND C.CS143_FSD > '00000000'
+          --    실패 사유 체크 로직 삭제 201706 최인식 과장 요청
+          -- AND C.CS143_GBN NOT IN ('M11','U11','U12','U13')
+           AND A.ARA > ''
+           AND A.BSU > ''
+        <isNotNull col="ARA">
+           AND A.ARA = #ARA#
+        </isNotNull>
+        <isNotNull col="BSU">
+           AND A.BSU = #BSU#
+        </isNotNull>
+        <isNotNull col="BPM">
+           AND A.BPM = #BPM#
+        </isNotNull>
+        <isNotNull col="TEM">
+           AND WB.VKGRP = #TEM#
+        </isNotNull>
+        <isNotNull col="PJT">
+           AND A.PJT = #PJT#
+        </isNotNull>
+        <isEqual col="GBN" value="Y">
+           AND A.HST NOT IN ('D','F')
+        </isEqual>
+        <isEqual col="GBN" value="N">
+           AND A.HST = 'F'
+        </isEqual>
+
+        UNION ALL
+
+        SELECT
+               '' CHK,
+               A.ARA,
+               VALUE(F.CTEXT2,'') ARA_NM,
+               A.BSU,
+               VALUE(G.ABR_NM,'') BSU_NM,
+               A.PJT,
+               A.HNO,
+               VALUE(H.ZSITE_NM,'') SPT_NM,
+               A.HST,
+               A.BLD,
+               VALUE(E.CTEXT2,'') BLD_NM,
+               '' FSD,
+               VALUE(D.CS115_YDT,'') YDT,
+               CASE WHEN VALUE(D.CS115_YBN,'N') = 'Y' THEN '1' ELSE '0' END YBN,
+               VALUE(D.CS115_YMT,VALUE(I.DMT,0)) YMT,
+               VALUE(D.CS115_YON,12) YON,
+               VALUE(D.CS115_YDA,VALUE(I.DMT,0)*12) YDA,
+               CASE WHEN A.HST NOT IN ('D','F') THEN 'Y' ELSE 'N' END GBN,
+               VALUE(D.CS115_RMK,'') RMK,
+               CASE WHEN D.CS115_HNO IS NOT NULL THEN 'Y' ELSE 'N' END SAV,
+               CASE WHEN D.CS115_UDT = '' OR D.CS115_UDT = '00000000' OR D.CS115_UDT IS NULL THEN D.CS115_MDT ELSE D.CS115_UDT END SAV_D,
+               D.CS115_MYN MYN
+          FROM
+               SAPHEE.ZCST111 A
+                      LEFT OUTER JOIN SAPHEE.ZCST115 D ON D.MANDT = A.MANDT
+                                                      AND D.CS115_PJT = A.PJT
+                                                      AND D.CS115_HNO = A.HNO
+                      LEFT OUTER JOIN SAPHEE.ZLCODE E ON E.MANDT = A.MANDT
+                                                     AND E.CODE2 = A.BLD
+                                                     AND E.CODE1 = 'CS123'
+                                                     AND E.LANG = #G_LANG#
+                      LEFT OUTER JOIN SAPHEE.ZLCODE F ON F.MANDT = A.MANDT
+                                                     AND F.CODE2 = A.ARA
+                                                     AND F.CODE1 = 'CS115'
+                                                     AND F.LANG = #G_LANG#
+                      LEFT OUTER JOIN SAPHEE.ZWBT010 G ON G.MANDT = A.MANDT
+                                                     AND G.LGORT = A.BSU
+                                                     AND G.LGORT > ''
+                      LEFT OUTER JOIN SAPHEE.ZMASTER01 H ON H.MANDT = A.MANDT
+                                                        AND H.POSID = A.PJT
+                      LEFT OUTER JOIN (
+                                       SELECT
+                                              B.BSU_ARA ARA,
+                                              B.LGORT BSU,
+                                              A.BLD,
+                                              CASE WHEN A.SILCNT = 0 THEN 0 ELSE DEC(ROUND((A.SILAMT * 100 / A.SILCNT),0)) END DMT
+                                         FROM
+                                              (
+                                               SELECT
+                                                      ROW_NUMBER() OVER(PARTITION BY VKBUR, VKGRP, LIFNR, BLD ORDER BY ZYEAR DESC, ZMON DESC) RNO,
+                                                      ZYEAR,
+                                                      ZMON,
+                                                      LIFNR,
+                                                      BLD,
+                                                      SILAMT,
+                                                      SILCNT
+                                                 FROM
+                                                      SAPHEE.ZCST192
+                                                WHERE
+                                                      MANDT = #G_MANDT#
+                                                  AND VKBUR = 'E500'
+                                                  AND AUART = 'ZR11'
+                                                  AND GBN = 'E'
+                                                  AND KND = ''
+                                                  AND BLD > ''
+                                                  AND ARA > ''
+                                              ) A,
+                                              SAPHEE.ZWBT010 B
+                                        WHERE
+                                              B.MANDT = #G_MANDT#
+                                          AND A.LIFNR = B.LIFNR
+                                          AND A.RNO = 1
+                                          AND B.LGORT > ''
+                                      ) I ON I.ARA = A.ARA
+                                         AND I.BSU = A.BSU
+                                         AND I.BLD = A.BLD,
+               (
+               	SELECT
+               	       PJT,
+               	       HNO
+               	  FROM
+               	       SAPHEE.ZCST111
+               	 WHERE
+               	       MANDT = #G_MANDT#
+
+               	EXCEPT
+
+               	SELECT
+               	       CS172_PJO PJT,
+               	       CS172_HNO HNO
+               	  FROM
+               	       SAPHEE.ZCST172
+               	 WHERE
+               	       MANDT = #G_MANDT#
+               	   AND CS172_GBN = 'B'
+               ) J,
+               SAPHEE.ZWBT010 WB
+         WHERE
+               A.MANDT = #G_MANDT#
+           AND A.PJT = J.PJT
+           AND A.HNO = J.HNO
+           AND A.MANDT = WB.MANDT
+           AND A.BSU = WB.LGORT
+           AND WB.LGORT > ''
+           AND SUBSTR(A.PJT,1,1) = 'M'
+           AND A.ARA > ''
+           AND A.BSU > ''
+        <isNotNull col="ARA">
+           AND A.ARA = #ARA#
+        </isNotNull>
+        <isNotNull col="BSU">
+           AND A.BSU = #BSU#
+        </isNotNull>
+        <isNotNull col="BPM">
+           AND A.BPM = #BPM#
+        </isNotNull>
+        <isNotNull col="TEM">
+           AND WB.VKGRP = #TEM#
+        </isNotNull>
+        <isNotNull col="PJT">
+           AND A.PJT = #PJT#
+        </isNotNull>
+        <isEqual col="GBN" value="Y">
+           AND A.HST NOT IN ('D','F')
+        </isEqual>
+        <isEqual col="GBN" value="N">
+           AND A.HST = 'D'
+        </isEqual>
+       ) X
+ WHERE 1=1
+<isNotNull col="YEAR1">
+   AND SUBSTR(X.YDT,1,4) BETWEEN #YEAR1# AND #YEAR2#
+</isNotNull>
+<isNotNull col="YEAR3">
+   AND SUBSTR(X.FSD,1,4) BETWEEN #YEAR3# AND #YEAR4#
+</isNotNull>
+GROUP BY
+       X.CHK,
+       X.ARA,
+       X.ARA_NM,
+       X.BSU,
+       X.BSU_NM,
+       X.PJT,
+       X.HNO,
+       X.SPT_NM,
+       X.HST,
+       X.BLD,
+       X.BLD_NM,
+       X.GBN,
+       X.SAV,
+       X.SAV_D,
+       X.RMK,
+       X.MYN
+ORDER BY
+       X.ARA,
+       X.BSU,
+       X.PJT,
+       X.HNO
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

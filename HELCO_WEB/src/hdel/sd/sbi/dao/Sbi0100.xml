@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.sbi.dao.Sbi0100D"> 
+
+	<select id="selectSayangList" parameterType="hashMap" resultType="hdel.sd.sbi.domain.SanyangPrd">
+	SELECT  X.MANDT
+	      , X.BRNDSEQ
+	      , Y.ZPRDGBN
+	      , X.BRNDCD
+	      , Y.ATKLA
+	      , Y.PRH
+	      , Y.ATBEZ AS PRHNAME
+	      , Y.MSEQ AS MSEQ
+	      , CASE WHEN Z.DISPTP IS NOT NULL THEN
+			    '적용'
+			ELSE
+			    '미적용'
+	        END AS MDATATYPE
+	      , CASE WHEN Y.DSEQ = '1' THEN 
+	            Z.DISPTP
+	        ELSE
+	            ''
+	        END AS MDISPTP
+	      , CASE WHEN Y.DSEQ = '1' THEN 
+	            Z.MODITP
+	        ELSE 
+	            ''
+	        END AS MMODITP
+	      , CASE WHEN Y.DSEQ = '1' THEN 
+	            Z.EGISSND
+	        ELSE 
+	            ''
+	        END AS MEGISSND
+	      , CASE WHEN Y.DSEQ = '1' THEN 
+	            Z.DIPSDAT
+	        ELSE
+	            ''
+	        END AS MDIPSDAT
+	      , Y.DSEQ AS DSEQ
+	      , Y.PRD
+	      , Y.PRDNAME
+	      , CASE WHEN R.DISPTP IS NOT NULL THEN
+	            '적용'
+	         ELSE
+	            '미적용'
+	        END AS DDATATYPE
+	      , R.DISPTP AS DDISPTP 
+	      , R.DIPSDAT AS DDIPSDAT 	        
+	FROM   (
+<choose>
+    <when test="BRNDSEQ == '000'">
+           SELECT	CAST(#{MANDT}   AS VARCHAR(4))  AS MANDT
+                   ,CAST(#{BRNDSEQ} AS VARCHAR(3))  AS BRNDSEQ
+                   ,CAST(#{ZPRDGBN} AS VARCHAR(20)) AS ZPRDGBN
+                   ,CAST('NOBRND'   AS VARCHAR(30)) AS BRNDCD
+             FROM	SYSIBM.SYSDUMMY1    
+    </when>
+    <otherwise>
+	       SELECT	E.MANDT AS MANDT
+	               ,CAST(#{BRNDSEQ} AS VARCHAR(3)) AS BRNDSEQ
+	               ,D.CLASS AS ZPRDGBN
+	               ,E.ATWRT AS BRNDCD
+	         FROM	SAPHEE.KSML AS A
+	                INNER JOIN SAPHEE.CABN AS B	ON A.MANDT = B.MANDT AND A.IMERK = B.ATINN
+			        INNER JOIN SAPHEE.KLAH AS D	ON A.MANDT = D.MANDT AND A.CLINT = D.CLINT
+	 		        LEFT OUTER JOIN	SAPHEE.CAWN AS E ON B.MANDT = E.MANDT AND B.ATINN = E.ATINN
+	       WHERE    A.MANDT	= #{MANDT}
+	         AND    A.KLART	= '300'
+	         AND    D.CLASS	= #{ZPRDGBN}
+	         AND    B.ATNAM	= 'EL_ABRAND'
+<if test="brndcdList != null">
+	         AND    E.ATWRT IN (<foreach collection="brndcdList" item="item" separator=",">#{item.BRNDCD}</foreach>)
+</if>					  
+    </otherwise>
+</choose>
+	      ) X
+	      INNER JOIN (
+			SELECT     A.MANDT
+			         , A.ZPRDGBN
+			         , A.PRH
+			         , A.ATKLA
+			         , A.ATBEZ
+			         , A.MSEQ
+			         , CASE B.ATWRT WHEN '' THEN 
+			               CHAR(INTEGER(VALUE(B.ATFLV,0)))
+					   ELSE 
+					       B.ATWRT 
+				   	   END AS PRD
+			         , ROW_NUMBER() OVER (PARTITION BY A.MANDT, A.ZPRDGBN, A.PRH) AS DSEQ
+			         , C.ATWTB AS PRDNAME
+			FROM     (      
+			         SELECT  A.MANDT
+			               , A.CLASS AS ZPRDGBN
+			               , C.ATNAM AS PRH
+			               , C.ATKLA
+			               , D.ATBEZ
+			               , ROW_NUMBER() OVER (PARTITION BY A.MANDT, A.CLASS ORDER BY CASE WHEN C.ATKLA = ' ' THEN '2' || C.ATKLA ELSE '1' || C.ATKLA END, D.ATBEZ) AS MSEQ
+			               , C.ATINN
+			               , B.ADZHL
+			         FROM   SAPHEE.KLAH A
+			                INNER JOIN SAPHEE.KSML B ON B.MANDT = A.MANDT AND B.CLINT = A.CLINT
+			                INNER JOIN SAPHEE.CABN C ON C.MANDT = B.MANDT AND C.ATINN = B.IMERK
+			                INNER JOIN SAPHEE.CABNT D ON D.MANDT = B.MANDT AND D.ATINN = B.IMERK
+			                LEFT OUTER JOIN SAPHEE.ZSDT1073 AS E ON A.MANDT = E.MANDT AND A.CLASS = E.CLASS AND C.ATNAM = E.ATNAM
+			         WHERE  A.MANDT = #{MANDT}
+			           AND  A.KLART = '300'
+			           AND  A.CLASS = #{ZPRDGBN}
+			           AND  C.ATNAM NOT LIKE 'EL_Z%'
+			           AND  C.ATNAM NOT LIKE 'VARCOND%'
+			           AND  C.ATNAM NOT IN ( 'EL_DOPTA', 'EL_DITEM' )
+			           AND  D.SPRAS = '3'
+			           AND  E.ATNAM IS NULL
+<if test="ATKLA != null and ATKLA != 'NA'">AND C.ATKLA = #{ATKLA}</if>
+<if test="PRH != null and PRH != ''">AND C.ATNAM LIKE '%'||#{PRH}||'%' </if>
+<if test="PRHNAME != null and PRHNAME != ''">AND D.ATBEZ LIKE '%'||UPPER(#{PRHNAME})||'%' </if>
+			       ) AS A
+			       LEFT OUTER JOIN SAPHEE.CAWN AS B ON A.MANDT = B.MANDT AND A.ATINN = B.ATINN AND A.ADZHL = B.ADZHL
+			       LEFT OUTER JOIN SAPHEE.CAWNT AS C ON A.MANDT = C.MANDT AND A.ATINN = C.ATINN AND B.ATZHL = C.ATZHL AND B.ADZHL = C.ADZHL AND C.SPRAS = '3'
+			       LEFT OUTER JOIN SAPHEE.ZSDT1072 AS D ON A.MANDT = D.MANDT AND A.PRH = D.ATNAM AND B.ATWRT = D.ATWRT
+			WHERE  D.ATWRT IS NULL
+		 ) AS Y ON X.MANDT = Y.MANDT AND X.ZPRDGBN = Y.ZPRDGBN
+	     LEFT OUTER JOIN SAPHEE.ZSDT1141 AS Z ON X.MANDT = Z.MANDT AND X.BRNDSEQ = Z.BRNDSEQ AND X.ZPRDGBN = Z.ZPRDGBN AND X.BRNDCD = Z.BRNDCD AND Y.PRH = Z.PRH
+	     LEFT OUTER JOIN SAPHEE.ZSDT1142 AS R ON X.MANDT = R.MANDT AND X.BRNDSEQ = R.BRNDSEQ AND X.ZPRDGBN = R.ZPRDGBN AND X.BRNDCD = R.BRNDCD AND Y.PRH = R.PRH AND Y.PRD = R.PRD
+    ORDER BY X.BRNDCD, Y.MSEQ, Y.DSEQ
+	WITH UR
+	</select>
+    
+</mapper>

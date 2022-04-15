@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>update</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+
+UPDATE saphee.zmaster02 AS T
+   SET (T.zspec12, T.ZSPEC6, T.ZSPEC3, T.ZSPEC5) = 
+     
+        ( SELECT (CASE WHEN TRIM(MAX(Z.EL_ATYP))  = '' THEN (SELECT X.ZSPEC12 FROM SAPHEE.ZMASTER02 AS X  WHERE X.MANDT = Z.MANDT  AND X.POSID_1 = Z.HOGI_ID) ELSE MAX(Z.EL_ATYP) END )  AS EL_ATYP
+			    ,(CASE WHEN TRIM(MAX(Z.EL_ACAPA)) = '' THEN (SELECT X.ZSPEC6  FROM SAPHEE.ZMASTER02 AS X  WHERE X.MANDT = Z.MANDT  AND X.POSID_1 = Z.HOGI_ID) ELSE MAX(Z.EL_ACAPA) END ) AS EL_ACAPA
+			    ,(CASE WHEN TRIM(MAX(Z.EL_ASPD))  = '' THEN (SELECT X.ZSPEC3  FROM SAPHEE.ZMASTER02 AS X  WHERE X.MANDT = Z.MANDT  AND X.POSID_1 = Z.HOGI_ID) ELSE MAX(Z.EL_ASPD) END )  AS EL_ASPD
+			    ,(CASE WHEN TRIM(MAX(Z.EL_AMAN))  = '' THEN (SELECT X.ZSPEC5  FROM SAPHEE.ZMASTER02 AS X  WHERE X.MANDT = Z.MANDT  AND X.POSID_1 = Z.HOGI_ID) ELSE MAX(Z.EL_AMAN) END )  AS EL_AMAN
+			 				 			 			 
+           FROM (
+				  SELECT D.HOGI_ID ,          
+						(CASE WHEN A.COD = 'EL_ATYP'  THEN  (CASE WHEN  A.KND = 'KEYIN'  THEN A.KNM  ELSE  B.CS801_KNM END)   ELSE '' END) AS EL_ATYP ,
+						(CASE WHEN A.COD = 'EL_ACAPA' THEN  (CASE WHEN  A.KND = 'KEYIN'  THEN A.KNM  ELSE  B.CS801_KNM END)   ELSE '' END) AS EL_ACAPA ,
+			            (CASE WHEN A.COD = 'EL_ASPD'  THEN  (CASE WHEN  A.KND = 'KEYIN'  THEN A.KNM  ELSE  B.CS801_KNM END)   ELSE '' END) AS EL_ASPD ,
+						(CASE WHEN A.COD = 'EL_AMAN'  THEN  (CASE WHEN  A.KND = 'KEYIN'  THEN A.KNM  ELSE  B.CS801_KNM END)   ELSE '' END) AS EL_AMAN ,						
+						 A.POSID , D.MANDT     					 
+				   FROM SAPHEE.ZCST802 AS A
+				   LEFT OUTER JOIN SAPHEE.ZCST801 AS B
+				     ON A.MANDT = B.MANDT
+				    AND A.COD = B.CS801_COD
+				    AND A.KNM = B.CS801_KND
+				  INNER JOIN SAPHEE.ZCST001 AS C
+				     ON A.MANDT = C.MANDT
+				    AND A.POSID = C.PS_PSPID
+				  INNER JOIN SAPHEE.ZCST002 AS D
+				     ON C.MANDT = D.MANDT
+					AND C.QTNUM = D.QTNUM
+					AND C.SEQ = D.SEQ	 
+				  WHERE A.MANDT = #G_MANDT#
+				    AND A.POSID = #HOGI#  
+				    AND A.GRP = 'EL_BASIC' 
+				    AND A.COD IN ( 'EL_ATYP' , 'EL_ACAPA' , 'EL_ASPD', 'EL_AMAN'  )
+				    AND A.SEQ = #SEQ#  	
+                    AND C.REQKIND = 'S'				
+					--AND D.HOGI_ID = T.POSID_1			 
+				   GROUP BY  D.HOGI_ID , 
+							 CASE WHEN A.KND = 'KEYIN'  THEN A.KNM  ELSE  B.CS801_KNM END, 
+						 	 A.POSID , D.MANDT  , A.COD
+                 )	AS Z			
+            GROUP BY 	Z.MANDT, Z.POSID, Z.HOGI_ID		
+            HAVING Z.HOGI_ID = T.POSID_1	
+         )
+        
+        
+     
+WHERE EXISTS (   
+               SELECT  *
+				 FROM (
+				        SELECT D.MANDT,  D.HOGI_ID, SUBSTR(D.HOGI_ID, 1,6) AS POSID
+					      FROM SAPHEE.ZCST802 AS A
+					      LEFT OUTER JOIN SAPHEE.ZCST801 AS B
+						    ON A.MANDT = B.MANDT
+						   AND A.COD = B.CS801_COD
+						   --AND A.KNM = B.CS801_KND
+						 INNER JOIN SAPHEE.ZCST001 AS C
+						    ON A.MANDT = C.MANDT
+						   AND A.POSID = C.PS_PSPID
+						 INNER JOIN SAPHEE.ZCST002 AS D
+						    ON C.MANDT = D.MANDT
+						   AND C.QTNUM = D.QTNUM
+						   AND C.SEQ = D.SEQ	 
+						 WHERE A.MANDT = #G_MANDT#
+						   AND A.POSID = #HOGI#   
+						   AND A.GRP = 'EL_BASIC' 
+						   AND A.COD IN ( 'EL_ATYP' , 'EL_ACAPA' , 'EL_ASPD', 'EL_AMAN'  )   -- #COD#
+						   AND A.SEQ = #SEQ# 		
+                           AND C.REQKIND = 'S'								 
+						 GROUP BY D.MANDT, D.HOGI_ID, SUBSTR(D.HOGI_ID, 1,6)
+						)  AS X
+				 WHERE T.MANDT = X.MANDT
+			       AND T.POSID_1 = X.HOGI_ID
+				)  
+
+
+	</statement>
+	<input default-name="ds_pdm_cp">
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

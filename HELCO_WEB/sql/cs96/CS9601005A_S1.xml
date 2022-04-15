@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[wbs검색 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+ Z21.CS121_UPN AS UPN							-- 통합프로젝트
+,Z21.CS121_CST AS CST							-- 거래선
+,Z21.CS121_SPT AS SPT							-- 현장명
+,Z21.CS121_NAM AS NAM							-- 고객명
+,SAPHEE.GET_VEND_CODE(Z21.MANDT,Z21.CS121_GNO) AS KUNNR                          -- 고객번호
+,Z11.PJT || Z11.HNO AS PJT						              -- 원WBS
+,Z22.CS122_PRO AS PRO							-- 제품구분
+,Z11.TYP	AS TYP								-- 기종
+,Z11.BPM	 AS BPM								-- 보수PM
+,SAPHEE.GET_BOSU_INWON(Z11.MANDT,Z11.BPM)  AS BPM_NAM                             -- 보수PM명
+,Z11.BSU	AS BSU								-- 보수협력사
+,SAPHEE.GET_VENDER_NAME(Z11.MANDT,Z11.BSU)   AS BSU_NAM		-- 보수협력사명
+,Z11.ARA	 AS ARA								-- 사무소(대지역)
+,SAPHEE.CODE_CONV(Z11.MANDT,'CS115',Z11.ARA) AS ARA_NAM		              -- 사무소명
+, Z01.CS101_HNA AS HNA                                                                                         -- 호기명
+, (SELECT STATUS FROM SAPHEE.ZCST005 WHERE MANDT = Z22.MANDT AND PSPID = Z11.PJT || Z11.HNO) AS STATUS
+FROM SAPHEE.ZCST121 AS Z21						-- 통합프로젝트 기본정보
+    ,SAPHEE.ZCST122 AS Z22							-- 통합프로젝트 호기정보
+    ,SAPHEE.ZCST111 AS Z11							-- 보수대상 호기 마스타
+    ,SAPHEE.ZCST101 AS Z01							-- 보수 인수인계 정보
+WHERE Z22.MANDT     = Z11.MANDT						--
+  AND Z22.CS122_PJT = Z11.PJT       						--
+  AND Z22.CS122_HNO = Z11.HNO       						--
+  AND Z22.MANDT     = Z21.MANDT     						--
+  AND Z22.CS122_UPN = Z21.CS121_UPN                				--
+  AND Z22.CS122_CST = Z21.CS121_CST 					--
+  AND Z22.CS122_PJT = Z01.CS101_PJT      				              --
+  AND Z22.CS122_HNO = Z01.CS101_HNO       					--
+  AND Z21.MANDT     = #G_MANDT#                                                                          -- 
+  AND Z22.MANDT     = #G_MANDT#                                                                          --
+  AND Z11.MANDT     = #G_MANDT#                                                                          --
+  AND Z01.MANDT     = #G_MANDT#                                                                          --
+<isNotNull col="UPN">
+  AND Z21.CS121_UPN LIKE '%'||#UPN#||'%' 
+</isNotNull>
+<isNotNull col="SPT">
+  AND (Z21.CS121_SPT LIKE '%'||#SPT#||'%'  OR Z21.CS121_NAM LIKE '%'||#SPT#||'%' )
+</isNotNull>
+<isNotNull col="PRO">
+  AND Z22.CS122_PRO LIKE '%'||#PRO#||'%' 
+</isNotNull>
+<isEqual col="USER_GROUP" value="10">
+  AND Z11.BSU = #G_VEND_CODE_R#
+</isEqual>
+<isEqual col="USER_GROUP" value="20">
+  AND Z11.BPM = #G_USER_ID#  
+</isEqual>
+<isEqual col="USER_GROUP" value="30">
+  AND Z11.ARA = #G_AREA_CODE#  
+</isEqual>
+ORDER BY UPN,CST,PJT
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="SAP client number" /> 
+		<col name="UPN" size="255" type="VARCHAR" description="통합프로젝트" /> 
+		<col name="SPT" size="255" type="VARCHAR" description="현장명/고객명" /> 
+		<col name="PRO" size="255" type="VARCHAR" description="제품구분" /> 
+		<col name="USER_GROUP" size="255" type="VARCHAR" description="사용권한" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="ARA" size="6" type="VARCHAR" description="" /> 
+		<col name="ARA_NAM" size="80" type="VARCHAR" description="" /> 
+		<col name="BPM" size="30" type="VARCHAR" description="보수PM" /> 
+		<col name="BPM_NAM" size="20" type="VARCHAR" description="" /> 
+		<col name="BSU" size="12" type="VARCHAR" description="보수협력사" /> 
+		<col name="BSU_NAM" size="100" type="VARCHAR" description="" /> 
+		<col name="CST" size="9" type="VARCHAR" description="거래선" /> 
+		<col name="HNA" size="90" type="VARCHAR" description="" /> 
+		<col name="KUNNR" size="100" type="VARCHAR" description="사업자번호" /> 
+		<col name="NAM" size="150" type="VARCHAR" description="고객명" /> 
+		<col name="PJT" size="27" type="VARCHAR" description="" /> 
+		<col name="PRO" size="3" type="VARCHAR" description="제품구부" /> 
+		<col name="SPT" size="150" type="VARCHAR" description="현장명" /> 
+		<col name="TYP" size="15" type="VARCHAR" description="기종" /> 
+		<col name="UPN" size="18" type="VARCHAR" description="통합프로젝트" /> 
+	</output>
+</query>

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.ses.dao.Ses0161D"> 
+
+	<!-- 기술검토결과등록 처리  --> 
+	<update id="saveZSDT1058" parameterType="hdel.sd.ses.domain.Ses0161">
+	
+	UPDATE SAPHEE.ZSDT1058		--  견적 Header
+	   SET
+			 UDATE    = HEX(CURRENT DATE) 															--  변경일자
+			,UTIME    = HEX(CURRENT TIME) 															--  변경시간
+			<if test="USER_ID!=null">,UUSER    = LTRIM(''||RTRIM(#{USER_ID}||''))    		</if>	--  변경자ID
+			<if test="USER_ID==null">,UUSER    = ''    										</if>	--  변경자ID
+			,ZRQSTAT    = '05'																		--  요청상태
+			,ZRSRLT    = #{zrsrlt} 																	--  요청결과
+	 WHERE MANDT  		= #{mandt}         															-- 클라이언트
+	   AND ZRQSEQ  		= #{zrqseq}        															-- 요청일련번호
+
+	  WITH UR
+				  
+	</update>
+	
+	<!-- 기술검토첨부등록 처리  --> 
+	<insert id="saveZSDT1059" parameterType="hdel.sd.ses.domain.Ses0161">
+		MERGE INTO SAPHEE.ZSDT1059 AS T1
+		USING (
+			SELECT 
+					  CAST(#{mandt}   AS VARCHAR(9)) AS MANDT 
+					, CAST(#{zrqseq}  AS DECIMAL)    AS ZRQSEQ
+					, CAST(#{zattseq} AS DECIMAL)    AS ZATTSEQ
+			  FROM 
+			        SYSIBM.SYSDUMMY1
+		) AS T2 ON T1.MANDT = T2.MANDT AND T1.ZRQSEQ = T2.ZRQSEQ AND T1.ZATTSEQ = T2.ZATTSEQ
+		
+		WHEN MATCHED THEN
+			UPDATE SET 
+		         T1.ZATTPATH = #{zattpath}
+		       , T1.ZATTFN   = #{zattfn}
+		       , T1.UDATE    = HEX(CURRENT DATE)
+		       , T1.UTIME    = HEX(CURRENT TIME)
+		       , T1.UUSER    = #{cuser}
+		
+		WHEN NOT MATCHED THEN
+			INSERT (
+						  MANDT     
+						, ZRQSEQ    
+						, ZATTSEQ   
+						, ZATTPATH  
+						, ZATTFN    
+						, CDATE     
+						, CTIME     
+						, CUSER 
+			   ) VALUES (
+					   #{mandt}
+					<if test="zrqseq !='0'">
+					, #{zrqseq}
+					</if>   
+					<if test="zrqseq =='0'">
+					, (
+						SELECT VALUE(MAX(ZRQSEQ), 1)
+						  FROM SAPHEE.ZSDT1058
+						 WHERE MANDT = #{mandt}
+					  )	
+					</if>
+					, (
+						SELECT VALUE(MAX(ZATTSEQ)+1, 1)
+						  FROM SAPHEE.ZSDT1059
+						 WHERE MANDT  = #{mandt}
+						   AND ZRQSEQ = #{zrqseq}
+					  )	
+					, #{zattpath}
+					, #{zattfn}
+					, HEX(CURRENT DATE)
+					, HEX(CURRENT TIME)
+					, #{cuser}	
+			   )
+	</insert>			
+	
+</mapper>  

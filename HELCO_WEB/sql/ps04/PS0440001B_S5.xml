@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  SUBSTR(HEX(CURRENT DATE), 1, 6) AS MAKE_MM,    A.KSTAR,
+              A.KTEXT ,  'F' AS CHANGE,   
+              CAST(#GUBUN#  AS VARCHAR(6)) AS GUBUN,          
+              CAST(#PSPID#  AS VARCHAR(72)) AS  PSPID,  
+              --#GUBUN# AS GUBUN,        
+              --#PSPID# AS PSPID,            
+              0 AS DMR_NETWR,     'KRW' AS WAERK,	 0.0 AS RETREN_RATE,
+	0 AS RETREN_AMT,    '' AS WD_END,		 
+              --'' AS SAYU,
+              CAST('' AS VARCHAR(300) ) as SAYU,
+	--'' AS HOGI,
+              CAST('' AS VARCHAR(30) ) as  HOGI,
+
+             VALUE((SELECT CASE WHEN A.KSTAR = '0053025040' THEN  SUM(M.EQME09) * 100                                               
+                                WHEN A.KSTAR = '0053031030' THEN  SUM(M.EQME05 + M.EQME06) * 100
+                                WHEN A.KSTAR = '0053037020' THEN  SUM(M.EQME51) * 100
+                                WHEN A.KSTAR = '0053037040' THEN  SUM(M.EQME53) * 100
+                                WHEN A.KSTAR = '0053037210' THEN  SUM(M.EQME98) * 100
+                                WHEN A.KSTAR = '0053037160' THEN  SUM(M.EQME96) * 100
+                                ELSE 0
+                                       END
+
+                            FROM SAPHEE.ZCOBT300 AS M
+                            INNER JOIN SAPHEE.ZMASTER02 AS XX
+                                 ON XX.MANDT   = M.MANDT
+                               AND XX.POSID   = M.PSPID
+                               AND XX.POSID_1 = M.POSID
+                           WHERE XX.MANDT = #G_MANDT#
+                               AND XX.POSID  = #PSPID#  
+							   AND M.DIV ='5'
+
+                             <isEqual col="CHK3" value="Y">
+		   AND XX.ZZGUBUN IN ('11', '12', '14', '91', '92')
+                             </isEqual>
+
+                             <isEqual col="CHK3" value="N">                             
+		   AND XX.ZZGUBUN IN ('11', '12', '14')
+                             </isEqual>
+-- 
+--                                AND M.GJAHR = ( SELECT MAX( BB.GJAHR )
+--                                                             FROM SAPHEE.ZCABT300 AS BB
+--                                                           WHERE BB.MANDT = M.MANDT
+--                                                                AND BB.PSPID  = M.PSPID
+--                                                                AND BB.POSID  = M.POSID )
+-- 
+--                                AND M.POPER = ( SELECT MAX( CC.POPER )
+--                                                              FROM SAPHEE.ZCABT300 AS CC
+--                                                             WHERE CC.MANDT = M.MANDT
+--                                                                 AND CC.PSPID = M.PSPID
+--                                                                 AND CC.POSID = M.POSID
+--                                                                 AND CC.GJAHR = ( SELECT MAX( DD.GJAHR )
+--                                                                                                FROM SAPHEE.ZCABT300 AS DD
+--                                                                                              WHERE DD.MANDT = M.MANDT
+--                                                                                                  AND DD.PSPID  = M.PSPID
+--                                                                                                  AND DD.POSID  = M.POSID   )  )
+--              
+
+
+             ), 0)  AS NETWR,
+			
+
+	  
+           VALUE((SELECT SUM(T3.WKG001 + T3.WKG002 + T3.WKG003 + T3.WKG004 + T3.WKG005 + T3.WKG006  +
+	                   T3.WKG007 + T3.WKG008 + T3.WKG009 + T3.WKG010 + T3.WKG011 + T3.WKG012  +
+	                   T3.WKG013 + T3.WKG014 + T3.WKG015 + T3.WKG016) * 100
+
+	 FROM SAPHEE.PRPS AS T1
+              INNER JOIN  (
+	   	       SELECT X1.MANDT, X1.POSID AS PSPID, X1.POSID_1 || '-E' AS POSID
+		          FROM SAPHEE.ZMASTER02 AS X1
+		        WHERE X1.MANDT = #G_MANDT#    AND   X1.POSID = #PSPID#
+                                      <isEqual col="CHK3" value="Y">
+		            AND X1.ZZGUBUN IN ('11', '12', '14', '91', '92')
+                                      </isEqual>
+                                       <isEqual col="CHK3" value="N">
+		             AND X1.ZZGUBUN IN ('11', '12', '14')
+                                       </isEqual>
+						                
+                                    UNION ALL
+										
+	                     SELECT X1.MANDT, X1.POSID AS PSPID, X1.POSID_1 || '-R' AS POSID
+	                        FROM SAPHEE.ZMASTER02 AS X1
+	                      WHERE X1.MANDT = #G_MANDT#    AND   X1.POSID = #PSPID#
+                                      <isEqual col="CHK3" value="Y">
+		            AND X1.ZZGUBUN IN ('11', '12', '14', '91', '92')
+                                      </isEqual>
+                                       <isEqual col="CHK3" value="N">
+		             AND X1.ZZGUBUN IN ('11', '12', '14')
+                                       </isEqual>
+		       ) AS T2
+	    ON T1.MANDT = T2.MANDT
+	  AND T1.POSID = T2.POSID
+             INNER JOIN SAPHEE.COSP AS T3
+	    ON T3.MANDT = T1.MANDT
+	  AND T3.OBJNR = T1.OBJNR
+           WHERE T3.MANDT =  #G_MANDT#
+	 AND T3.WRTTP = '04'   AND  T3.VERSN = '000' 
+	 AND T3.KSTAR = A.KSTAR
+           )  , 0 ) AS WAVWR ,
+				  
+           (CASE WHEN (SELECT COUNT(*) FROM SAPHEE.ZPSTW0402 AS X
+                                  WHERE X.MANDT = A.MANDT
+                                      AND X.GUBUN = #GUBUN#
+                                      AND X.PSPID  = #PSPID#
+                                      --AND X.MAKE_MM &lt;&gt; SUBSTR(HEX(CURRENT DATE), 1, 6)
+                                      AND X.KSTAR = A.KSTAR
+                                      AND X.DMR_NETWR > 0 )  > 0                            THEN 'F'
+                      ELSE 'I'
+             END ) AS FINISH
+
+
+
+   FROM SAPHEE.CSKU AS A   
+ WHERE A.MANDT = #G_MANDT#
+      AND A.SPRAS ='3'
+      AND A.KSTAR IN ( '0053031030' , '0053037020', '0053037040', '0053025040', '0053037210', '0053031080', '0053037160')
+	  
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_detail">
+	</output>
+</query>

@@ -1,0 +1,962 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[PS1601002A_S2]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>1</result-count>
+    <statement>
+     
+SELECT PAPRYYYYMM, LIFNR, LIFNRNM, TEMNM, ZZACTSS AS  ZZACTSS_NM
+     , CNT1
+     , CNT2  --경력사원변동
+     , CNT3
+     , CNT4  --월말보유인원
+     , CNT5  --신입사원변동
+     , POINT  --환산점수
+     , DIFF_MON
+     , CNT2_SUM  --경력사원변동누계
+     , CNT4_SUM  --월말보유인원누계
+     , CNT5_SUM  --신입사원변동누계
+     , CNT4_AVG
+     , CNT1_SUM
+     , POINT1_SUM2 + POINT2_SUM2 AS POINT_SUM2  --집계환산점수
+     , DENSE_RANK() OVER(ORDER BY POINT1_SUM2 + POINT2_SUM2 desc) AS RANKING  --순위
+  FROM (
+      SELECT PAPRYYYYMM, LIFNR, LIFNRNM, TEMNM, ZZACTSS
+           , CNT1
+           , CNT2
+           , CNT3
+           , CNT4
+           , CNT5
+           , POINT
+           , DIFF_MON
+           , CNT2_SUM
+           , CNT4_SUM
+           , CNT5_SUM
+           , CNT4_AVG
+           , CNT1_SUM
+           , CASE WHEN POINT1_SUM IS NULL THEN 0 
+                  WHEN POINT1_SUM <![CDATA[ < ]]> 0 THEN 0
+                  WHEN POINT1_SUM <![CDATA[ > ]]> CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE) THEN CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE)
+                  ELSE POINT1_SUM END AS POINT1_SUM2
+           , CASE WHEN POINT2_SUM IS NULL THEN 0 
+                  WHEN POINT2_SUM <![CDATA[ < ]]> 0 THEN 0
+                  WHEN POINT2_SUM <![CDATA[ > ]]> CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE) THEN CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE)
+                  ELSE POINT2_SUM END AS POINT2_SUM2
+        FROM (
+             SELECT PAPRYYYYMM, LIFNR, LIFNRNM, TEMNM, ZZACTSS
+                  , CNT1
+                  , CNT2
+                  , CNT3
+                  , CNT4
+                  , CNT5
+                  , POINT
+                  , DIFF_MON
+                  , CNT2_SUM
+                  , CNT4_SUM
+                  , CNT5_SUM
+                  , CNT4_AVG
+                  , CNT1_SUM
+                  , CNT1_SUM * 0.5 AS POINT1_SUM
+                  , ( CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE) + (CNT5_SUM * CAST(REPLACE(#VAR2#, ' ', '') AS DOUBLE)) + (CNT2_SUM * CAST(REPLACE(#VAR3#, ' ', '') AS DOUBLE)))* 0.5 AS POINT2_SUM
+              FROM (
+                  SELECT PAPRYYYYMM, TEMNM, ZZACTSS, LIFNR, LIFNRNM
+                       , CNT1
+                       , CNT2
+                       , CNT3
+                       , CNT4
+                       , CNT5
+                       , POINT
+                       , DIFF_MON
+                       , CNT2_SUM
+                       , CNT4_SUM
+                       , CNT5_SUM
+                       , CNT4_AVG
+                      -- , CASE WHEN TRUNCATE(CNT4_AVG) <![CDATA[>=]]>  1 AND TRUNCATE(CNT4_AVG) <![CDATA[<=]]> 14 THEN 2
+                      --        WHEN TRUNCATE(CNT4_AVG) <![CDATA[>=]]> 15 AND TRUNCATE(CNT4_AVG) <![CDATA[<=]]> 19 THEN 3
+                      --        WHEN TRUNCATE(CNT4_AVG) <![CDATA[>=]]> 20 AND TRUNCATE(CNT4_AVG) <![CDATA[<=]]> 24 THEN 4
+                      --        WHEN TRUNCATE(CNT4_AVG) <![CDATA[>=]]> 25 AND TRUNCATE(CNT4_AVG) <![CDATA[<=]]> 29 THEN 5
+                      --        WHEN TRUNCATE(CNT4_AVG) <![CDATA[>=]]> 30 AND TRUNCATE(CNT4_AVG) <![CDATA[<=]]> 34 THEN 6
+                      --        WHEN TRUNCATE(CNT4_AVG) <![CDATA[>=]]> 35 AND TRUNCATE(CNT4_AVG) <![CDATA[<=]]> 39 THEN 7
+                      --        WHEN TRUNCATE(CNT4_AVG) <![CDATA[>=]]> 40 AND TRUNCATE(CNT4_AVG) <![CDATA[<=]]> 44 THEN 8
+                      --        WHEN TRUNCATE(CNT4_AVG) <![CDATA[>=]]> 45 AND TRUNCATE(CNT4_AVG) <![CDATA[<=]]> 49 THEN 9
+                      --        WHEN TRUNCATE(CNT4_AVG) <![CDATA[>=]]> 50 THEN 10
+                      --        ELSE 0
+                      --       END  AS CNT1_SUM
+                      , SAPHEE.GET_POINTS(#G_MANDT#, '1601003','1',TRUNCATE(CNT4_AVG)) AS CNT1_SUM
+                    FROM (
+                       SELECT PAPRYYYYMM
+                            , TEAM_NM AS TEMNM
+                            , ZZACTSS_NM AS ZZACTSS 
+                            , LIFNR
+                            , LIFNRNM
+                            , CNT1
+                            , CNT2
+                            , CNT3
+                            , CNT4
+                            , CNT5
+                            , POINT1 + POINT2 AS POINT
+                            , DIFF_MON
+                            , CNT2_SUM
+                            , CNT4_SUM
+                            , CNT5_SUM
+                            , DEC(nullif(CNT4_SUM,0)/ DEC(DIFF_MON, 10,1), 10,1)  AS CNT4_AVG
+                         FROM (
+                             SELECT E.PAPRYYYYMM, E.LIFNR
+                                  , (SELECT DISTINCT NN.NAME1 FROM SAPHEE.ZPST0034 NN WHERE NN.MANDT = E.MANDT   AND NN.LIFNR = E.LIFNR  AND NN.GBN = 'A' AND (NN.SO = 'X' OR NN.SO3 = 'X')) AS LIFNRNM
+                                  , L.TEAM_CD
+                                  , L.TEAM_NM
+                                  , L.ZZACTSS_CD
+                                  , L.ZZACTSS_NM
+                                  , CASE WHEN E.CNT1 IS NULL THEN 0 ELSE E.CNT1 END AS CNT1
+                                  , CASE WHEN E.CNT2 IS NULL THEN 0 ELSE E.CNT2 END AS CNT2
+                                  , CASE WHEN E.CNT3 IS NULL THEN 0 ELSE E.CNT3 END AS CNT3
+                                  , CASE WHEN E.CNT4 IS NULL THEN 0 ELSE E.CNT4 END AS CNT4
+                                  , CASE WHEN E.CNT5 IS NULL THEN 0 ELSE E.CNT5 END AS CNT5
+                                  , CASE WHEN E.POINT1 IS NULL THEN 0 
+                                          WHEN E.POINT1 <![CDATA[ < ]]> 0 THEN 0
+                                          WHEN E.POINT1 <![CDATA[ > ]]> CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE) THEN CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE)
+                                   ELSE E.POINT1 END AS POINT1
+                                  , CASE WHEN E.POINT2 IS NULL THEN 0 
+                                          WHEN E.POINT2 <![CDATA[ < ]]> 0 THEN 0
+                                          WHEN E.POINT2 <![CDATA[ > ]]> CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE) THEN CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE)
+                                   ELSE E.POINT2 END AS POINT2
+                                 , SUM( E.CNT4 ) OVER (PARTITION BY E.LIFNR ORDER BY E.LIFNR ) AS CNT4_SUM
+                                 , SUM( E.CNT5 ) OVER (PARTITION BY E.LIFNR ORDER BY E.LIFNR ) AS CNT5_SUM
+                                 , SUM( E.CNT2 ) OVER (PARTITION BY E.LIFNR ORDER BY E.LIFNR ) AS CNT2_SUM
+                                 , CAST(REPLACE(#DIFF_MON#, ' ', '0') AS INT) AS DIFF_MON
+                              FROM (
+                                  SELECT MANDT, PAPRYYYYMM, LIFNR
+                                       , SUM(CNT1) AS CNT1
+                                       , SUM(CNT2) AS CNT2
+                                       , SUM(CNT3) AS CNT3
+                                       , SUM(CNT4) AS CNT4
+                                       , SUM(CNT5) AS CNT5
+                                       , SUM(CNT1)* 0.5 AS POINT1
+                                       , ( CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE) + ( SUM(CNT5) * CAST(REPLACE(#VAR2#, ' ', '') AS DOUBLE) ) + (SUM(CNT2) * CAST(REPLACE(#VAR3#, ' ', '') AS DOUBLE)) ) * 0.5 AS POINT2  
+                                    FROM (
+                                        SELECT MANDT, PAPRYYYYMM,  LIFNR
+                                             , SUM(CNT1) AS CNT1
+                                             , SUM(CNT2) AS CNT2
+                                             , SUM(CNT3) AS CNT3
+                                             , SUM(CNT4) AS CNT4
+                                             , SUM(CNT5) AS CNT5
+                                          FROM (
+                                              SELECT MANDT, PAPRYYYYMM,  LIFNR
+                                                   , 0  AS CNT1
+                                                   , SUM(CAREY_POINT) AS CNT2
+                                                   , 0 AS CNT3
+                                                   , 0 AS CNT4
+                                                   , SUM(NEW_POINT)  AS CNT5
+                                                FROM (
+                                                    SELECT MANDT, substr(ENTER,1,6) AS PAPRYYYYMM,  LIFNR, PERNO, PERKEY
+                                                         , CAREY
+                                                         , CASE WHEN CAREY   <![CDATA[ >= ]]>   '01' THEN 1
+                                                                ELSE 0
+                                                                END AS CAREY_POINT
+                                                         , CASE WHEN CAREY = '00' THEN 1
+                                                                ELSE 0
+                                                                END AS NEW_POINT
+                                                      FROM SAPHEE.ZPST0001
+                                                     WHERE 1=1 
+                                                       AND substr(ENTER,1,6) BETWEEN #YYYYMMF# AND #YYYYMMT#
+                                                       AND GBN = 'A'
+                                                       AND TYPE = '1'
+                                                       AND MANDT = #G_MANDT#
+                                                       <isNotNull col="ZTEMNO">
+                                                       AND TEMNO = #ZTEMNO# 
+                                                       </isNotNull>
+                                                       <isNotNull col="ZZLIFNR">
+                                                       AND LIFNR = #ZZLIFNR#      
+                                                       </isNotNull>
+                                                       <isNotNull col="CHK_GBN2">
+                                                       AND GUBUN = #CHK_GBN2#
+                                                       </isNotNull>
+                                                     ) GROUP BY MANDT, PAPRYYYYMM, LIFNR
+                                                     UNION ALL
+                                                     SELECT MANDT, PAPRYYYYMM, LIFNR
+                                                          , 0 AS CNT1 
+                                                          , SUM( CAREY_POINT) AS CNT2
+                                                          , COUNT(PERKEY)  AS CNT3
+                                                          , 0 AS CNT4
+                                                          , SUM( NEW_POINT)  AS CNT5
+                                                       FROM (
+                                                           SELECT MANDT, substr(RETID,1,6) AS PAPRYYYYMM, LIFNR, PERNO, PERKEY, CAREY
+                                                                , CASE WHEN CAREY     <![CDATA[ >= ]]>     '01' THEN -1
+                                                                       ELSE 0
+                                                                       END AS CAREY_POINT
+                                                                , CASE WHEN CAREY = '00' THEN -1
+                                                                       ELSE 0
+                                                                       END AS NEW_POINT
+                                                             FROM SAPHEE.ZPST0001
+                                                            WHERE 1=1 
+                                                              AND ( substr(RETID,1,6) BETWEEN #YYYYMMF# AND #YYYYMMT#  AND RETID   <![CDATA[ <> ]]>   '00000000' AND RETID   <![CDATA[ <> ]]>   '')
+                                                              AND GBN = 'A'
+                                                              AND TYPE = '1'
+                                                              AND MANDT = #G_MANDT#
+                                                             <isNotNull col="ZTEMNO">
+                                                              AND TEMNO = #ZTEMNO# 
+                                                             </isNotNull>
+                                                             <isNotNull col="ZZLIFNR">
+                                                             AND LIFNR = #ZZLIFNR#      
+                                                             </isNotNull>
+                                                             <isNotNull col="CHK_GBN2">
+                                                             AND GUBUN = #CHK_GBN2#
+                                                             </isNotNull>
+                                                             ) GROUP BY MANDT, PAPRYYYYMM, LIFNR
+                                                 ) GROUP BY MANDT, PAPRYYYYMM, LIFNR
+                                  <isNotNull col="YYYYMMDD0" >
+                                  UNION ALL
+                                  (
+                                       SELECT MANDT, substr(#YYYYMMDD0#,1,6)  AS PAPRYYYYMM, LIFNR
+                                           -- , CASE WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 14 THEN 2
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 19 THEN 3
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 24 THEN 4
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 29 THEN 5
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 34 THEN 6
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 39 THEN 7
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 44 THEN 8
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 49 THEN 9
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ >= ]]> 50 THEN 10
+                                           --   ELSE 0
+                                           --   END AS CNT1
+                                            , SAPHEE.GET_POINTS(#G_MANDT#, '1601003','1',COUNT(PERKEY)) AS CNT1
+                                            , 0 AS CNT2, 0 AS CNT3, COUNT(PERKEY) AS CNT4, 0 AS CNT5
+                                        FROM (
+                                            SELECT MANDT, LIFNR, PERNO, PERKEY
+                                              FROM SAPHEE.ZPST0001
+                                            WHERE 1=1 
+                                                AND ENTER   <![CDATA[ <= ]]>   #YYYYMMDD0#
+                                                AND GBN = 'A'
+                                                AND TYPE = '1'
+                                                AND MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                    AND TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                     AND LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                                <isNotNull col="CHK_GBN2">
+                                                AND GUBUN = #CHK_GBN2#
+                                                </isNotNull>
+                                          GROUP BY MANDT, LIFNR, PERNO, PERKEY
+                                       EXCEPT
+                                            SELECT MANDT, LIFNR , PERNO, PERKEY
+                                              FROM (
+                                            SELECT P.MANDT, P.LIFNR, P.PERNO, P.PERKEY
+                                              FROM SAPHEE.ZPST0001  P
+                                               WHERE 1=1 
+                                                  AND   (P.RETID  <![CDATA[ <= ]]>  #YYYYMMDD0#  AND P.RETID <![CDATA[ <> ]]> '00000000' AND P.RETID <![CDATA[ <> ]]> '')
+                                                    AND P.GBN = 'A'
+                                                    AND P.TYPE = '1'
+                                                    AND P.MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                    AND P.TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                     AND P.LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                               <isNotNull col="CHK_GBN2">
+                                                AND P.GUBUN = #CHK_GBN2#
+                                                </isNotNull>
+                                                  ) GROUP BY MANDT, LIFNR, PERNO, PERKEY 
+                                           ) GROUP BY MANDT, LIFNR
+                                   )
+                                   </isNotNull>
+                                <isNotNull col="YYYYMMDD1" >
+                                UNION ALL
+                                (
+                                    SELECT  MANDT, substr(#YYYYMMDD1#,1,6)  AS PAPRYYYYMM, LIFNR
+                                           -- , CASE WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 14 THEN 2
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 19 THEN 3
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 24 THEN 4
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 29 THEN 5
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 34 THEN 6
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 39 THEN 7
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 44 THEN 8
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 49 THEN 9
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ >= ]]> 50 THEN 10
+                                           --   ELSE 0
+                                           --   END AS CNT1
+                                            , SAPHEE.GET_POINTS(#G_MANDT#, '1601003','1',COUNT(PERKEY)) AS CNT1
+                                            , 0 AS CNT2, 0 AS CNT3, COUNT(PERKEY) AS CNT4, 0 AS CNT5
+                                        FROM (
+                                            SELECT MANDT, LIFNR, PERNO, PERKEY
+                                              FROM SAPHEE.ZPST0001
+                                            WHERE 1=1 
+                                                AND ENTER   <![CDATA[ <= ]]>   #YYYYMMDD1#
+                                                AND GBN = 'A'
+                                                AND TYPE = '1'
+                                                AND MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                    AND TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                     AND LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                                <isNotNull col="CHK_GBN2">
+                                                AND GUBUN = #CHK_GBN2#
+                                                </isNotNull>
+                                          GROUP BY MANDT, LIFNR, PERNO, PERKEY
+                                       EXCEPT
+                                            SELECT MANDT, LIFNR , PERNO, PERKEY
+                                              FROM (
+                                            SELECT P.MANDT, P.LIFNR, P.PERNO, P.PERKEY
+                                              FROM SAPHEE.ZPST0001  P
+                                               WHERE 1=1 
+                                                  AND   (P.RETID  <![CDATA[ <= ]]>  #YYYYMMDD1#  AND P.RETID <![CDATA[ <> ]]> '00000000' AND P.RETID <![CDATA[ <> ]]> '')
+                                                    AND P.GBN = 'A'
+                                                    AND P.TYPE = '1'
+                                                    AND P.MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                    AND P.TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                     AND P.LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                               <isNotNull col="CHK_GBN2">
+                                                AND P.GUBUN = #CHK_GBN2#
+                                                </isNotNull>
+                                                  ) GROUP BY MANDT, LIFNR, PERNO, PERKEY 
+                                           ) GROUP BY MANDT, LIFNR
+                                   )
+                              </isNotNull>
+                              <isNotNull col="YYYYMMDD2" >
+                              UNION ALL
+                              (
+                                   SELECT  MANDT, substr(#YYYYMMDD2#,1,6)  AS PAPRYYYYMM, LIFNR
+                                           -- , CASE WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 14 THEN 2
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 19 THEN 3
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 24 THEN 4
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 29 THEN 5
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 34 THEN 6
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 39 THEN 7
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 44 THEN 8
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 49 THEN 9
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ >= ]]> 50 THEN 10
+                                           --   ELSE 0
+                                           --   END AS CNT1
+                                            , SAPHEE.GET_POINTS(#G_MANDT#, '1601003','1',COUNT(PERKEY)) AS CNT1
+                                            , 0 AS CNT2, 0 AS CNT3, COUNT(PERKEY) AS CNT4, 0 AS CNT5
+                                        FROM (
+                                            SELECT MANDT, LIFNR, PERNO, PERKEY
+                                              FROM SAPHEE.ZPST0001
+                                            WHERE 1=1 
+                                                AND ENTER   <![CDATA[ <= ]]> #YYYYMMDD2#
+                                                AND GBN = 'A'
+                                                AND TYPE = '1'
+                                                AND MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                    AND TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                     AND LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                                <isNotNull col="CHK_GBN2">
+                                                AND GUBUN = #CHK_GBN2#
+                                                </isNotNull>
+                                          GROUP BY MANDT, LIFNR, PERNO, PERKEY
+                                       EXCEPT
+                                            SELECT MANDT, LIFNR , PERNO, PERKEY
+                                              FROM (
+                                            SELECT P.MANDT, P.LIFNR, P.PERNO, P.PERKEY
+                                              FROM SAPHEE.ZPST0001  P
+                                               WHERE 1=1 
+                                                 AND (P.RETID  <![CDATA[ <= ]]>  #YYYYMMDD2#  AND P.RETID <![CDATA[ <> ]]> '00000000' AND P.RETID <![CDATA[ <> ]]> '')
+                                                 AND P.GBN = 'A'
+                                                 AND P.TYPE = '1'
+                                                 AND P.MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                    AND P.TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                     AND P.LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                               <isNotNull col="CHK_GBN2">
+                                                AND P.GUBUN = #CHK_GBN2#
+                                                </isNotNull>
+                                                  ) GROUP BY MANDT, LIFNR, PERNO, PERKEY 
+                                           ) GROUP BY MANDT, LIFNR
+                                   )
+                                 </isNotNull>
+                                <isNotNull col="YYYYMMDD3" >
+                                UNION ALL
+                                (
+                                    SELECT  MANDT, substr(#YYYYMMDD3#,1,6)  AS PAPRYYYYMM, LIFNR
+                                           -- , CASE WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 14 THEN 2
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 19 THEN 3
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 24 THEN 4
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 29 THEN 5
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 34 THEN 6
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 39 THEN 7
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 44 THEN 8
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 49 THEN 9
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ >= ]]> 50 THEN 10
+                                           --   ELSE 0
+                                           --   END AS CNT1
+                                            , SAPHEE.GET_POINTS(#G_MANDT#, '1601003','1',COUNT(PERKEY)) AS CNT1
+                                            , 0 AS CNT2, 0 AS CNT3, COUNT(PERKEY) AS CNT4, 0 AS CNT5
+                                        FROM (
+                                            SELECT MANDT, LIFNR, PERNO, PERKEY
+                                              FROM SAPHEE.ZPST0001
+                                            WHERE 1=1 
+                                                AND ENTER   <![CDATA[ <= ]]>   #YYYYMMDD3#
+                                                AND GBN = 'A'
+                                                AND TYPE = '1'
+                                                AND MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                    AND TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                     AND LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                                <isNotNull col="CHK_GBN2">
+                                                AND GUBUN = #CHK_GBN2#
+                                                </isNotNull>   
+                                          GROUP BY MANDT, LIFNR, PERNO, PERKEY
+                                       EXCEPT
+                                            SELECT MANDT, LIFNR , PERNO, PERKEY
+                                              FROM (
+                                            SELECT P.MANDT, P.LIFNR, P.PERNO, P.PERKEY
+                                              FROM SAPHEE.ZPST0001  P
+                                               WHERE 1=1 
+                                                  AND   (P.RETID  <![CDATA[ <= ]]>  #YYYYMMDD3#  AND P.RETID <![CDATA[ <> ]]> '00000000' AND P.RETID <![CDATA[ <> ]]> '')
+                                                    AND P.GBN = 'A'
+                                                    AND P.TYPE = '1'
+                                                    AND P.MANDT = #G_MANDT#
+                                                    <isNotNull col="ZTEMNO">
+                                                    AND P.TEMNO = #ZTEMNO# 
+                                                    </isNotNull>
+                                                    <isNotNull col="ZZLIFNR">
+                                                    AND P.LIFNR = #ZZLIFNR#      
+                                                    </isNotNull>
+                                                    <isNotNull col="CHK_GBN2">
+                                                    AND P.GUBUN = #CHK_GBN2#
+                                                    </isNotNull>
+                                                  ) GROUP BY MANDT, LIFNR, PERNO, PERKEY 
+                                           ) GROUP BY MANDT, LIFNR
+                                   )
+                                </isNotNull>
+                                <isNotNull col="YYYYMMDD4" >
+                                UNION ALL
+                                (
+                                    SELECT  MANDT, substr(#YYYYMMDD4#,1,6)  AS PAPRYYYYMM, LIFNR
+                                           -- , CASE WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 14 THEN 2
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 19 THEN 3
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 24 THEN 4
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 29 THEN 5
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 34 THEN 6
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 39 THEN 7
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 44 THEN 8
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 49 THEN 9
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ >= ]]> 50 THEN 10
+                                           --   ELSE 0
+                                           --   END AS CNT1
+                                            , SAPHEE.GET_POINTS(#G_MANDT#, '1601003','1',COUNT(PERKEY)) AS CNT1
+                                            , 0 AS CNT2, 0 AS CNT3, COUNT(PERKEY) AS CNT4, 0 AS CNT5
+                                        FROM (
+                                            SELECT MANDT, LIFNR, PERNO, PERKEY
+                                              FROM SAPHEE.ZPST0001
+                                            WHERE 1=1 
+                                                AND ENTER   <![CDATA[ <= ]]>   #YYYYMMDD4#
+                                                AND GBN = 'A'
+                                                AND TYPE = '1'
+                                                AND MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                    AND TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                     AND LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                                <isNotNull col="CHK_GBN2">
+                                                AND GUBUN = #CHK_GBN2#
+                                                </isNotNull>
+                                          GROUP BY MANDT, LIFNR, PERNO, PERKEY
+                                       EXCEPT
+                                            SELECT MANDT, LIFNR , PERNO, PERKEY
+                                              FROM (
+                                            SELECT P.MANDT, P.LIFNR, P.PERNO, P.PERKEY
+                                              FROM SAPHEE.ZPST0001  P
+                                               WHERE 1=1 
+                                                  AND   (P.RETID  <![CDATA[ <= ]]>  #YYYYMMDD4#  AND P.RETID <![CDATA[ <> ]]> '00000000' AND P.RETID <![CDATA[ <> ]]> '')
+                                                    AND P.GBN = 'A'
+                                                    AND P.TYPE = '1'
+                                                    AND P.MANDT = #G_MANDT#
+                                                    <isNotNull col="ZTEMNO">
+                                                    AND P.TEMNO = #ZTEMNO# 
+                                                    </isNotNull>
+                                                    <isNotNull col="ZZLIFNR">
+                                                     AND P.LIFNR = #ZZLIFNR#      
+                                                    </isNotNull>
+                                                    <isNotNull col="CHK_GBN2">
+                                                    AND P.GUBUN = #CHK_GBN2#
+                                                    </isNotNull>
+                                                  ) GROUP BY MANDT, LIFNR, PERNO, PERKEY 
+                                           ) GROUP BY MANDT, LIFNR
+                                   )
+                                  </isNotNull>
+                                  <isNotNull col="YYYYMMDD5" >
+                                  UNION ALL
+                                 (
+                                    SELECT  MANDT, substr(#YYYYMMDD5#,1,6)  AS PAPRYYYYMM, LIFNR
+                                           -- , CASE WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 14 THEN 2
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 19 THEN 3
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 24 THEN 4
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 29 THEN 5
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 34 THEN 6
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 39 THEN 7
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 44 THEN 8
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 49 THEN 9
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ >= ]]> 50 THEN 10
+                                           --   ELSE 0
+                                           --   END AS CNT1
+                                            , SAPHEE.GET_POINTS(#G_MANDT#, '1601003','1',COUNT(PERKEY)) AS CNT1
+                                            , 0 AS CNT2, 0 AS CNT3, COUNT(PERKEY) AS CNT4, 0 AS CNT5
+                                        FROM (
+                                            SELECT MANDT, LIFNR, PERNO, PERKEY
+                                              FROM SAPHEE.ZPST0001
+                                            WHERE 1=1 
+                                                AND ENTER   <![CDATA[ <= ]]>   #YYYYMMDD5#
+                                                AND GBN = 'A'
+                                                AND TYPE = '1'
+                                                AND MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                AND TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                AND LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                                <isNotNull col="CHK_GBN2">
+                                                AND GUBUN = #CHK_GBN2#
+                                                </isNotNull>
+                                          GROUP BY MANDT, LIFNR, PERNO, PERKEY
+                                       EXCEPT
+                                            SELECT MANDT, LIFNR , PERNO, PERKEY
+                                              FROM (
+                                            SELECT P.MANDT, P.LIFNR, P.PERNO, P.PERKEY
+                                              FROM SAPHEE.ZPST0001  P
+                                               WHERE 1=1 
+                                                  AND   (P.RETID  <![CDATA[ <= ]]>  #YYYYMMDD5#  AND P.RETID <![CDATA[ <> ]]> '00000000' AND P.RETID <![CDATA[ <> ]]> '')
+                                                    AND P.GBN = 'A'
+                                                    AND P.TYPE = '1'
+                                                    AND P.MANDT = #G_MANDT#
+                                                    <isNotNull col="ZTEMNO">
+                                                    AND P.TEMNO = #ZTEMNO# 
+                                                    </isNotNull>
+                                                    <isNotNull col="ZZLIFNR">
+                                                    AND P.LIFNR = #ZZLIFNR#      
+                                                    </isNotNull>
+                                                    <isNotNull col="CHK_GBN2">
+                                                    AND P.GUBUN = #CHK_GBN2#
+                                                    </isNotNull>
+                                                  ) GROUP BY MANDT, LIFNR, PERNO, PERKEY 
+                                           ) GROUP BY MANDT, LIFNR
+                                   )
+                                   </isNotNull>
+                                   <isNotNull col="YYYYMMDD6" >
+                                   UNION ALL
+                                  (
+                                      SELECT MANDT, substr(#YYYYMMDD6#,1,6)  AS PAPRYYYYMM, LIFNR
+                                           -- , CASE WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 14 THEN 2
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 19 THEN 3
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 24 THEN 4
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 29 THEN 5
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 34 THEN 6
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 39 THEN 7
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 44 THEN 8
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 49 THEN 9
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ >= ]]> 50 THEN 10
+                                           --   ELSE 0
+                                           --   END AS CNT1
+                                            , SAPHEE.GET_POINTS(#G_MANDT#, '1601003','1',COUNT(PERKEY)) AS CNT1
+                                            , 0 AS CNT2, 0 AS CNT3, COUNT(PERKEY) AS CNT4, 0 AS CNT5
+                                        FROM (
+                                            SELECT MANDT, LIFNR, PERNO, PERKEY
+                                              FROM SAPHEE.ZPST0001
+                                            WHERE 1=1 
+                                                AND ENTER   <![CDATA[ <= ]]>   #YYYYMMDD6#
+                                                AND GBN = 'A'
+                                                AND TYPE = '1'
+                                                AND MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                    AND TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                     AND LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                                <isNotNull col="CHK_GBN2">
+                                                AND GUBUN = #CHK_GBN2#
+                                                </isNotNull>
+                                          GROUP BY MANDT, LIFNR, PERNO, PERKEY
+                                       EXCEPT
+                                            SELECT MANDT, LIFNR , PERNO, PERKEY
+                                              FROM (
+                                            SELECT P.MANDT, P.LIFNR, P.PERNO, P.PERKEY
+                                              FROM SAPHEE.ZPST0001  P
+                                               WHERE 1=1 
+                                                  AND   (P.RETID  <![CDATA[ <= ]]>  #YYYYMMDD6#  AND P.RETID <![CDATA[ <> ]]> '00000000' AND P.RETID <![CDATA[ <> ]]> '')
+                                                    AND P.GBN = 'A'
+                                                    AND P.TYPE = '1'
+                                                    AND P.MANDT = #G_MANDT#
+                                                    <isNotNull col="ZTEMNO">
+                                                    AND P.TEMNO = #ZTEMNO# 
+                                                    </isNotNull>
+                                                    <isNotNull col="ZZLIFNR">
+                                                    AND P.LIFNR = #ZZLIFNR#      
+                                                    </isNotNull>
+                                                    <isNotNull col="CHK_GBN2">
+                                                    AND P.GUBUN = #CHK_GBN2#
+                                                    </isNotNull>
+                                                  ) GROUP BY MANDT, LIFNR, PERNO, PERKEY 
+                                           ) GROUP BY MANDT, LIFNR
+                                   )
+                                 </isNotNull>
+                                 <isNotNull col="YYYYMMDD7" >
+                                 UNION ALL
+                                 (
+                                    SELECT  MANDT, substr(#YYYYMMDD7#,1,6)  AS PAPRYYYYMM, LIFNR
+                                           -- , CASE WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 14 THEN 2
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 19 THEN 3
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 24 THEN 4
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 29 THEN 5
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 34 THEN 6
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 39 THEN 7
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 44 THEN 8
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 49 THEN 9
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ >= ]]> 50 THEN 10
+                                           --   ELSE 0
+                                           --   END AS CNT1
+                                            , SAPHEE.GET_POINTS(#G_MANDT#, '1601003','1',COUNT(PERKEY)) AS CNT1
+                                            , 0 AS CNT2, 0 AS CNT3, COUNT(PERKEY) AS CNT4, 0 AS CNT5
+                                        FROM (
+                                            SELECT MANDT, LIFNR, PERNO, PERKEY
+                                              FROM SAPHEE.ZPST0001
+                                            WHERE 1=1 
+                                                AND ENTER   <![CDATA[ <= ]]>   #YYYYMMDD7#
+                                                AND GBN = 'A'
+                                                AND TYPE = '1'
+                                                AND MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                    AND TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                     AND LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                                <isNotNull col="CHK_GBN2">
+                                                AND GUBUN = #CHK_GBN2#
+                                                </isNotNull>
+                                          GROUP BY MANDT, LIFNR, PERNO, PERKEY
+                                       EXCEPT
+                                            SELECT MANDT, LIFNR , PERNO, PERKEY
+                                              FROM (
+                                            SELECT P.MANDT, P.LIFNR, P.PERNO, P.PERKEY
+                                              FROM SAPHEE.ZPST0001  P
+                                               WHERE 1=1 
+                                                  AND   (P.RETID  <![CDATA[ <= ]]>  #YYYYMMDD7#  AND P.RETID <![CDATA[ <> ]]> '00000000' AND P.RETID <![CDATA[ <> ]]> '')
+                                                    AND P.GBN = 'A'
+                                                    AND P.TYPE = '1'
+                                                    AND P.MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                    AND P.TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                     AND P.LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                               <isNotNull col="CHK_GBN2">
+                                                AND P.GUBUN = #CHK_GBN2#
+                                                </isNotNull>
+                                                  ) GROUP BY MANDT, LIFNR, PERNO, PERKEY 
+                                           ) GROUP BY MANDT, LIFNR
+                                   )
+                                 </isNotNull>
+                                <isNotNull col="YYYYMMDD8" >
+                                UNION ALL
+                                (
+                                    SELECT  MANDT, substr(#YYYYMMDD8#,1,6)  AS PAPRYYYYMM, LIFNR
+                                           -- , CASE WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 14 THEN 2
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 19 THEN 3
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 24 THEN 4
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 29 THEN 5
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 34 THEN 6
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 39 THEN 7
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 44 THEN 8
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 49 THEN 9
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ >= ]]> 50 THEN 10
+                                           --   ELSE 0
+                                           --   END AS CNT1
+                                            , SAPHEE.GET_POINTS(#G_MANDT#, '1601003','1',COUNT(PERKEY)) AS CNT1
+                                            , 0 AS CNT2, 0 AS CNT3, COUNT(PERKEY) AS CNT4, 0 AS CNT5
+                                        FROM (
+                                            SELECT MANDT, LIFNR, PERNO, PERKEY
+                                              FROM SAPHEE.ZPST0001
+                                            WHERE 1=1 
+                                                AND ENTER   <![CDATA[ <= ]]>   #YYYYMMDD8#
+                                                AND GBN = 'A'
+                                                AND TYPE = '1'
+                                                AND MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                    AND TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                     AND LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                                <isNotNull col="CHK_GBN2">
+                                                AND GUBUN = #CHK_GBN2#
+                                                </isNotNull>
+                                          GROUP BY MANDT, LIFNR, PERNO, PERKEY
+                                       EXCEPT
+                                            SELECT MANDT, LIFNR , PERNO, PERKEY
+                                              FROM (
+                                            SELECT P.MANDT, P.LIFNR, P.PERNO, P.PERKEY
+                                              FROM SAPHEE.ZPST0001  P
+                                               WHERE 1=1 
+                                                  AND   (P.RETID  <![CDATA[ <= ]]>  #YYYYMMDD8#  AND P.RETID <![CDATA[ <> ]]> '00000000' AND P.RETID <![CDATA[ <> ]]> '')
+                                                    AND P.GBN = 'A'
+                                                    AND P.TYPE = '1'
+                                                    AND P.MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                    AND P.TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                     AND P.LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                               <isNotNull col="CHK_GBN2">
+                                                AND P.GUBUN = #CHK_GBN2#
+                                                </isNotNull>
+                                                  ) GROUP BY MANDT, LIFNR, PERNO, PERKEY 
+                                           ) GROUP BY MANDT, LIFNR
+                                   )
+                               </isNotNull>
+                               <isNotNull col="YYYYMMDD9" >
+                               UNION ALL
+                               (
+                                    SELECT  MANDT, substr(#YYYYMMDD9#,1,6)  AS PAPRYYYYMM, LIFNR
+                                           -- , CASE WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 14 THEN 2
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 19 THEN 3
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 24 THEN 4
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 29 THEN 5
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 34 THEN 6
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 39 THEN 7
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 44 THEN 8
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 49 THEN 9
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ >= ]]> 50 THEN 10
+                                           --   ELSE 0
+                                           --   END AS CNT1
+                                            , SAPHEE.GET_POINTS(#G_MANDT#, '1601003','1',COUNT(PERKEY)) AS CNT1
+                                            , 0 AS CNT2, 0 AS CNT3, COUNT(PERKEY) AS CNT4, 0 AS CNT5
+                                        FROM (
+                                            SELECT MANDT, LIFNR, PERNO, PERKEY
+                                              FROM SAPHEE.ZPST0001
+                                            WHERE 1=1 
+                                                AND ENTER   <![CDATA[ <= ]]>   #YYYYMMDD9#
+                                                AND GBN = 'A'
+                                                AND TYPE = '1'
+                                                AND MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                    AND TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                     AND LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                                <isNotNull col="CHK_GBN2">
+                                                AND GUBUN = #CHK_GBN2#
+                                                </isNotNull>
+                                          GROUP BY MANDT, LIFNR, PERNO, PERKEY
+                                       EXCEPT
+                                            SELECT MANDT, LIFNR , PERNO, PERKEY
+                                              FROM (
+                                            SELECT P.MANDT, P.LIFNR, P.PERNO, P.PERKEY
+                                              FROM SAPHEE.ZPST0001  P
+                                               WHERE 1=1 
+                                                 AND (P.RETID  <![CDATA[ <= ]]>  #YYYYMMDD9#  AND P.RETID <![CDATA[ <> ]]> '00000000' AND P.RETID <![CDATA[ <> ]]> '')
+                                                 AND P.GBN = 'A'
+                                                 AND P.TYPE = '1'
+                                                 AND P.MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                    AND P.TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                     AND P.LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                                <isNotNull col="CHK_GBN2">
+                                                AND P.GUBUN = #CHK_GBN2#
+                                                </isNotNull>
+                                                ) GROUP BY MANDT, LIFNR, PERNO, PERKEY 
+                                           ) GROUP BY MANDT, LIFNR
+                                   )
+                             </isNotNull>
+                              <isNotNull col="YYYYMMDD10" >
+                               UNION ALL
+                               (
+                                    SELECT  MANDT, substr(#YYYYMMDD10#,1,6)  AS PAPRYYYYMM, LIFNR
+                                           -- , CASE WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 14 THEN 2
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 19 THEN 3
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 24 THEN 4
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 29 THEN 5
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 34 THEN 6
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 39 THEN 7
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 44 THEN 8
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 49 THEN 9
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ >= ]]> 50 THEN 10
+                                           --   ELSE 0
+                                           --   END AS CNT1
+                                            , SAPHEE.GET_POINTS(#G_MANDT#, '1601003','1',COUNT(PERKEY)) AS CNT1
+                                            , 0 AS CNT2, 0 AS CNT3, COUNT(PERKEY) AS CNT4, 0 AS CNT5
+                                        FROM (
+                                            SELECT MANDT, LIFNR, PERNO, PERKEY
+                                              FROM SAPHEE.ZPST0001
+                                            WHERE 1=1 
+                                                AND ENTER   <![CDATA[ <= ]]>   #YYYYMMDD10#
+                                                AND GBN = 'A'
+                                                AND TYPE = '1'
+                                                AND MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                    AND TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                     AND LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                                <isNotNull col="CHK_GBN2">
+                                                AND GUBUN = #CHK_GBN2#
+                                                </isNotNull>
+                                          GROUP BY MANDT, LIFNR, PERNO, PERKEY
+                                       EXCEPT
+                                            SELECT MANDT, LIFNR , PERNO, PERKEY
+                                              FROM (
+                                            SELECT P.MANDT, P.LIFNR, P.PERNO, P.PERKEY
+                                              FROM SAPHEE.ZPST0001  P
+                                               WHERE 1=1 
+                                                  AND   (P.RETID  <![CDATA[ <= ]]>  #YYYYMMDD10#  AND P.RETID <![CDATA[ <> ]]> '00000000' AND P.RETID <![CDATA[ <> ]]> '')
+                                                  AND P.GBN = 'A'
+                                                  AND P.TYPE = '1'
+                                                  AND P.MANDT = #G_MANDT#
+                                                  <isNotNull col="ZTEMNO">
+                                                  AND P.TEMNO = #ZTEMNO# 
+                                                  </isNotNull>
+                                                  <isNotNull col="ZZLIFNR">
+                                                  AND P.LIFNR = #ZZLIFNR#      
+                                                  </isNotNull>
+                                                  <isNotNull col="CHK_GBN2">
+                                                  AND P.GUBUN = #CHK_GBN2#
+                                                  </isNotNull>
+                                                  ) GROUP BY MANDT, LIFNR, PERNO, PERKEY 
+                                           ) GROUP BY MANDT, LIFNR
+                                   )
+                             </isNotNull>
+                             <isNotNull col="YYYYMMDD11" >
+                            UNION ALL
+                            (
+                              SELECT  MANDT, substr(#YYYYMMDD11#,1,6)  AS PAPRYYYYMM, LIFNR
+                                           -- , CASE WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 14 THEN 2
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 19 THEN 3
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 24 THEN 4
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 29 THEN 5
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 34 THEN 6
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 39 THEN 7
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 44 THEN 8
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ <= ]]> 49 THEN 9
+                                           --        WHEN COUNT(PERKEY) <![CDATA[ >= ]]> 50 THEN 10
+                                           --   ELSE 0
+                                           --   END AS CNT1
+                                            , SAPHEE.GET_POINTS(#G_MANDT#, '1601003','1',COUNT(PERKEY)) AS CNT1
+                                    , 0 AS CNT2, 0 AS CNT3, COUNT(PERKEY) AS CNT4, 0 AS CNT5
+                                 FROM (
+                                      SELECT MANDT, LIFNR, PERNO, PERKEY
+                                        FROM SAPHEE.ZPST0001
+                                       WHERE 1=1 
+                                         AND ENTER   <![CDATA[ <= ]]>   #YYYYMMDD11#
+                                         AND GBN = 'A'
+                                         AND TYPE = '1'
+                                         AND MANDT = #G_MANDT#
+                                         <isNotNull col="ZTEMNO">
+                                         AND TEMNO = #ZTEMNO# 
+                                         </isNotNull>
+                                         <isNotNull col="ZZLIFNR">
+                                         AND LIFNR = #ZZLIFNR#      
+                                         </isNotNull>
+                                         <isNotNull col="CHK_GBN2">
+                                         AND GUBUN = #CHK_GBN2#
+                                         </isNotNull>
+                                          GROUP BY MANDT, LIFNR, PERNO, PERKEY
+                                       EXCEPT
+                                            SELECT MANDT, LIFNR , PERNO, PERKEY
+                                              FROM (
+                                            SELECT P.MANDT, P.LIFNR, P.PERNO, P.PERKEY
+                                              FROM SAPHEE.ZPST0001  P
+                                               WHERE 1=1 
+                                                 AND   (P.RETID  <![CDATA[ <= ]]>  #YYYYMMDD11#  AND P.RETID <![CDATA[ <> ]]> '00000000' AND P.RETID <![CDATA[ <> ]]> '')
+                                                 AND P.GBN = 'A'
+                                                 AND P.TYPE = '1'
+                                                 AND P.MANDT = #G_MANDT#
+                                                 <isNotNull col="ZTEMNO">
+                                                 AND P.TEMNO = #ZTEMNO# 
+                                                 </isNotNull>
+                                                 <isNotNull col="ZZLIFNR">
+                                                 AND P.LIFNR = #ZZLIFNR#      
+                                                 </isNotNull>
+                                                 <isNotNull col="CHK_GBN2">
+                                                 AND P.GUBUN = #CHK_GBN2#
+                                                 </isNotNull>
+                                           ) GROUP BY MANDT, LIFNR, PERNO, PERKEY 
+                                       ) GROUP BY MANDT, LIFNR
+                                   )
+                             </isNotNull>
+              ) GROUP BY MANDT, PAPRYYYYMM, LIFNR
+        ) AS E
+        INNER JOIN SAPHEE.ZPST0034 AS C 
+                ON E.MANDT = C.MANDT AND E.LIFNR = C.LIFNR AND C.GBN = 'A' AND (C.SO = 'X' OR C.SO3 = 'X')
+        LEFT OUTER JOIN SAPHEE.ZWBT010 W
+              ON E.MANDT = W.MANDT
+             AND E.LIFNR = W.LIFNR
+        INNER JOIN  
+        (
+          SELECT        
+           MANDT
+         , DTEXT3 AS TEAM_CD     --팀코드
+         , DTEXT4 AS TEAM_NM     --팀명
+         , CODE2 AS ZZACTSS_CD   --지사코드
+         , CTEXT2 AS ZZACTSS_NM  --지사명
+      FROM SAPHEE.ZLCODE N 
+       WHERE N.CODE1 = 'PS003' AND N.DTEXT3  <![CDATA[ <> ]]>  '' 
+         AND N.LANG = 'ko' 
+                      --AND N.CODE2 = ZZACTSS
+        ) L ON W.MANDT = L.MANDT
+        AND W.ZZACTSS = L.ZZACTSS_CD
+    WHERE E.MANDT = #G_MANDT#
+       AND (W.ZZACTSS IS NOT NULL OR W.ZZACTSS != '' OR W.ZZACTSS != ' ')
+       AND C.SO5 <![CDATA[<>]]> 'X'
+       <isNotNull col="CHK_GBN">
+       <isEqual col="CHK_GBN" value="10">
+       AND (C.EL_INDC = 'X' OR (C.EL_INDC = 'X' AND C.ES_INDC = 'X')) AND E.LIFNR  <![CDATA[  <> ]]> '0000008001'
+       </isEqual>
+       </isNotNull>
+       <isNotNull col="CHK_GBN">
+       <isEqual col="CHK_GBN" value="11">
+       AND (C.ES_INDC = 'X' OR (C.ES_INDC = 'X' AND C.ES_INDC = 'X')) AND E.LIFNR  <![CDATA[  <> ]]> '0000008001'
+       </isEqual>
+       </isNotNull>
+       <isNotNull col="TEMNO">
+            AND W.ZZACTSS IN ( SELECT CODE2 FROM SAPHEE.ZLCODE  WHERE MANDT = E.MANDT AND CODE1 = 'PS003' AND LANG = 'ko' AND DTEXT3 = #TEMNO# )
+       </isNotNull>
+       <isNotNull col="ZZACTSS">
+           AND W.ZZACTSS = #ZZACTSS#
+       </isNotNull>
+          )
+        )
+      )
+    )
+  )
+FOR FETCH ONLY
+WITH UR</statement>
+     <input default-name="ds_cond">
+ 
+    </input>
+
+    <output default-name="ds_list1">
+        
+    </output>
+
+</query>
+
+

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT T.PSPID, T.GBN , T.TEXT , T.BIGO , T.CODE , T.UNIT , T.MEASURE,
+             T.AMT , VALUE(INT(T.AMT) * T.UNIT,0) AS NETWR ,ROWNUMBER() OVER(PARTITION BY T.PSPID ) AS SEQ
+FROM
+(SELECT  A.MANDT , A.POSID AS PSPID , B.GBN , B.TEXT , B.BIGO , B.CODE,
+                SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST( B.UNIT  AS DECIMAL(13, 2) ) )  AS UNIT,                       B.MEASURE ,   
+                CASE  WHEN B.AMT = 'D' THEN A.ZQNTY*1  
+	            WHEN B.AMT = 'F' THEN A.ZQNTY*3  
+	            WHEN B.AMT = 'G' THEN (CASE WHEN T.ZZCOMP2 = '00000000' 
+                                 OR T.ZZCOMP2 = ''  OR T.ZZCHAKD = '00000000' OR T.ZZCHAKD = ''  THEN 0 
+                            ELSE  (DAYS(INSERT(INSERT(T.ZZCOMP2,5,0,'-'),8,0,'-'))     
+		       -   DAYS(INSERT(INSERT(T.ZZCHAKD,5,0,'-'),8,0,'-')))   END) ELSE 0 END AS AMT 
+FROM SAPHEE.ZMASTER01 AS A
+   INNER JOIN SAPHEE.ZPST0063 AS B
+      ON A.MANDT = B.MANDT
+   INNER JOIN (
+    SELECT X.MANDT, X.POSID, MIN(X.ZZCHAKD) AS ZZCHAKD , MAX(X.ZZCOMP2) AS ZZCOMP2
+       FROM SAPHEE.ZMASTER02 AS X 
+    WHERE X.MANDT = #G_MANDT# 
+        AND X.POSID = #PSPID#
+	GROUP BY X.MANDT, X.POSID
+	     FETCH FIRST 1 ROWS ONLY
+  ) AS T
+  ON A.MANDT = T.MANDT 
+  AND A.POSID = T.POSID
+        	
+WHERE A.MANDT = #G_MANDT#
+    AND A.POSID = #PSPID#  
+    AND B.GBN = 'C'
+	
+ORDER BY B.SORT
+
+) AS T	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list3">
+	</output>
+</query>

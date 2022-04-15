@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[입고/미입고 조회-detail]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+      '' AS CHECK
+    , '' AS FLAG
+		, MM001.MANDT                      AS MANDT
+		, MM001.REQNR                      AS REQNR
+		, MM001.REQITEM                    AS REQITEM
+		, MM001.REQKIND                    AS REQKIND
+    , MM001.REQDATE                    AS REQDATE
+		, EP01.ABR_NM                      AS LGORT1
+		, MM001.POSID                      AS POSID
+		, MM001.MATNR                      AS MATNR
+		, MM001.MAKTX                      AS MAKTX
+		, MM001.BWTAR                      AS BWTAR
+		, MM001.MTART                      AS MTART
+		, MM001.MENGE                      AS MENGE
+		, MM001.MEINS                      AS MEINS
+		, MM001.RDATE                      AS RDATE		
+		, SAPHEE.GET_ZERODATE(MM001.YDATE) AS YDATE		
+		, SAPHEE.GET_ZERODATE(MM001.BUDAT) AS BUDAT		
+		, MM001.CHAR1                      AS CHAR1
+		, MM001.SERIO                      AS SERIO
+    , ZM01.ZSITE_NM                    AS SPT
+    , CASE WHEN YDATE > BUDAT THEN (CASE WHEN BUDAT = '00000000' THEN YDATE ELSE BUDAT END ) 
+           ELSE (CASE WHEN YDATE = '00000000' THEN BUDAT ELSE YDATE END ) 
+      END AS BUDAT2
+    , (SELECT MAX(CRT_DTE)  FROM SAPHEE.ZLET037 WHERE MANDT = #G_MANDT# AND REQNR = MM001.REQNR AND REQITEM = MM001.REQITEM) AS QR_DATE
+    , CASE WHEN SAPHEE.GET_ZERODATE(MM001.YDATE) = '' AND SAPHEE.GET_ZERODATE(MM001.BUDAT) = '' THEN '2' ELSE '1' END AS IPGO_GBU
+    , CS01.QTNUM
+    , CS01.QTNAM
+    , EP01.LAND1
+    , value(CS31.YIPGOYDT,'')                AS YIPGOYDT
+    , value(CS31.PACKING_STAT,'')            AS PACKING_S
+    , value(CS31.PACKINGDT_RQ,'')            AS PACKINGDT_RQ
+    , value(CS31.PACKINGDT,'')               AS PACKINGDT
+    , SAPHEE.GET_SHIPPING_DATE(MM001.MANDT , MM001.POSID)               AS SHIPPINGDT
+    , value(CS31.REMARK,'')                  AS REMARK
+    , 'status0'||value(CS31.PACKING_STAT,'') AS IMG
+    ,EKO.LIFNR   AS LIFNRM     --공급업체명
+    ,ZM12.NAME1  AS LIFNRM_NM  --공급업체명
+	 FROM SAPHEE.ZMMT001 AS MM001
+	                               LEFT OUTER JOIN SAPHEE.ZCST031 AS CS31 
+	                                            ON MM001.MANDT   = CS31.MANDT
+	                                           AND MM001.REQNR   = CS31.REQNR
+	                                           AND MM001.REQITEM = CS31.REQITEM
+	                                           
+	                               LEFT OUTER JOIN SAPHEE.ZCST001G AS CS01 
+	                                            ON MM001.MANDT = CS01.MANDT
+	                                           AND MM001.POSID = CS01.PS_PSPID
+	                                              
+	                               LEFT OUTER JOIN SAPHEE.ZCSTEP01 AS EP01 
+	                                            ON MM001.MANDT = EP01.MANDT
+	                                           AND CS01.LIFNR  = EP01.LIFNR
+	                                              
+	                               LEFT OUTER JOIN SAPHEE.ZMASTER01 AS ZM01 
+	                                            ON MM001.MANDT             = ZM01.MANDT
+	                                           AND SUBSTR(MM001.POSID,1,6) = ZM01.POSID
+	                                           
+	                               LEFT OUTER JOIN SAPHEE.EBAN AS EBN 
+	                                            ON MM001.MANDT = EBN.MANDT
+	                                           AND MM001.MATNR = EBN.MATNR
+	                                           AND EBN.IDNLF =  MM001.REQNR||'+'|| MM001.REQITEM
+	                                           
+	                               LEFT OUTER JOIN SAPHEE.EKPO AS EPO 
+	                                            ON MM001.MANDT = EPO.MANDT
+	                                           AND EBN.BANFN = EPO.BANFN
+	                                           AND EBN.BNFPO = EPO.BNFPO
+	                                           AND EPO.LOEKZ = ''
+	                                           
+	                               LEFT OUTER JOIN SAPHEE.EKKO AS EKO 
+	                                            ON EKO.MANDT = ZM01.MANDT
+	                                           AND EKO.EBELN = EPO.EBELN
+	                                           
+	                               LEFT OUTER JOIN SAPHEE.ZMMT012 AS ZM12 
+	                                            ON ZM12.MANDT = ZM01.MANDT
+	                                           AND ZM12.LIFNR = EKO.LIFNR
+	                                           
+	 WHERE MM001.MANDT = #G_MANDT#
+	       	<!-- 국내/해외 분리 -->
+	   AND MM001.LGORT BETWEEN '9501' AND '9999'
+	       	<!-- 국내/해외 분리 -->
+ <isEqual col="RECE_4" value="1"> 
+	   AND MM001.RECE_F != '4'
+ </isEqual>
+
+ <isNotNull col="LAND1"> 	<!-- 국가키 -->
+ 	   AND EP01.LAND1 = #LAND1# 
+ </isNotNull>
+ <isNotNull col="LIFNR">
+ 	   AND CS01.LIFNR = #LIFNR#
+ </isNotNull>	  
+ <isNotNull col="QTNAM">
+ 	   AND CS01.QTNAM LIKE '%'|| #QTNAM#||'%'
+ </isNotNull>	    
+
+ <isNotNull col="REQNO">
+    AND MM001.REQNR LIKE  '%'||#REQNO#||'%'
+ </isNotNull>
+
+ <isNotNull col="MATNR">
+    AND MM001.MATNR LIKE  '%'||#MATNR#||'%'
+ </isNotNull>
+
+ <isNotNull col="BWTAR">
+    AND MM001.BWTAR =  #BWTAR#
+ </isNotNull>
+ AND MM001.REQDATE BETWEEN #BUDAT_FM# AND #BUDAT_TO# 
+
+	<isEqual col="GUBN01" value="1">
+	    AND ( MM001.YDATE BETWEEN #BUDAT_FM# AND #BUDAT_TO# OR 
+                           MM001.BUDAT BETWEEN #BUDAT_FM# AND #BUDAT_TO# )
+	</isEqual>
+
+	<isEqual col="GUBN01" value="2">
+	    AND MM001.REQDATE BETWEEN #BUDAT_FM# AND #BUDAT_TO# 
+	    AND SAPHEE.GET_ZERODATE(MM001.YDATE) = ''
+	    AND SAPHEE.GET_ZERODATE(MM001.BUDAT) = ''
+	</isEqual>
+	
+	 <isNotNull col="REQKIND">
+	    AND MM001.REQKIND =  #REQKIND#
+	 </isNotNull>
+
+	 <isNotNull col="PJT">
+	    AND MM001.POSID LIKE '%'||#PJT#||'%'
+	 </isNotNull>
+
+	 <isNotNull col="POSID">
+	 	  AND MM001.POSID LIKE '%'||#POSID#||'%'
+	 </isNotNull>
+
+
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

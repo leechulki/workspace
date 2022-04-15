@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[보수자재관리-견적리스트-마스터정보 Retrieve]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+-- 	2019.04.18 검색기간 최대6개월로 제한.
+SELECT DISTINCT
+	       CS01.QTNUM AS QTNUM ,
+	       CS01.SEQ AS SEQ ,
+	       CS01.QTNAM AS QTNAM ,
+	       CS01.VBELN AS VBELN ,
+	       CS01.VKBUR AS VKBUR ,
+	       CS01.VKGRP AS VKGRP ,
+
+	       --SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, 'CS001_GBN', CS01.CS001_GBN) AS CS001_GBN ,
+	       --SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, 'VKGRP', CS01.VKGRP) AS VKGRPNM ,
+	       VALUE((SELECT RTRIM(X.CTEXT2) FROM SAPHEE.ZLCODE AS X WHERE X.MANDT = CS01.MANDT AND X.LANG = #G_LANG# and X.CODE1 = 'CS001_GBN' AND X.CODE2 = CS01.CS001_GBN ), '') AS CS001_GBN,
+    	       VALUE((SELECT RTRIM(X.CTEXT2) FROM SAPHEE.ZLCODE AS X WHERE X.MANDT = CS01.MANDT AND X.LANG = #G_LANG# and X.CODE1 = 'VKGRP' AND X.CODE2 = CS01.VKGRP ), '') AS VKGRPNM,
+
+	       CASE
+	           WHEN CS01.LIFNR IS NULL
+	           THEN SAPHEE.GET_LIFNR(CS01.MANDT,CAST(#G_VEND_CODE_R# AS CHAR(10)))
+	           ELSE CS01.LIFNR
+		   END AS LIFNR ,
+	       CASE
+	           WHEN CS01.LIFNR IS NULL
+	           THEN SAPHEE.GET_VENDER_NAME(CS01.MANDT,SAPHEE.GET_LIFNR(CS01.MANDT,CAST(#G_VEND_CODE_R# AS CHAR(10))))
+	           ELSE SAPHEE.GET_VENDER_NAME(CS01.MANDT,CS01.LIFNR)
+	       END AS ED_LIFNR ,
+	       SAPHEE.GET_VENDER_NAME(CS01.MANDT,CS01.LIFNR) AS BSUNM,
+	       CS01.MA_PSPID AS MA_PSPID ,
+	       CASE
+	           WHEN CS01.SPT > '' THEN CS01.SPT
+	           WHEN CS01.MA_PSPID > '' THEN CS121.CS121_SPT
+	           ELSE ''
+	       END AS SPT ,
+	       CS01.REQKIND AS REQKIND ,
+	       CASE WHEN CS01.REQKIND = '1' THEN '부품판매'
+	            WHEN CS01.REQKIND = '7' THEN '수리공사'
+	            WHEN CS01.REQKIND = '8' THEN '재청구'
+	            WHEN CS01.REQKIND = 'S' THEN '시스템공사'
+	       END AS REQKINDNM,
+           CASE WHEN CS01.SUM_STD > 0 THEN
+         		       CS01.SUM_STD * 100
+                ELSE CS01.NETWR * 100
+           END AS BILAMT1,
+           CASE WHEN CS01.SUM_OFR > 0 THEN
+         				   CS01.SUM_OFR * 100
+                ELSE CS01.AMOUNT * 100
+           END AS AMOUNT,
+	       CASE WHEN CS01.NETWR_OFR = 0 OR CS01.NETWR_STD = 0 THEN
+                CASE WHEN CS01.AMOUNT > 0 AND CS01.NETWR > 0 THEN
+                   		  ROUND((CS01.AMOUNT / CS01.NETWR) * 100, 0)
+                     ELSE 0
+                END
+	            ELSE ROUND((CS01.SUM_OFR / CS01.SUM_STD) * 100, 0)
+	       END AS SORATE,
+	       CS01.CRDAT AS CRDAT ,
+	       CS01.SODAT AS SODAT ,
+	       CS01.APDAT AS APDAT ,
+	       CS01.QSTAT AS QSTAT,
+	       CS01.ADJCOST * 100 AS ADJCOST,
+
+	       --'청구 ' || SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, '7', CS01.QSTAT) AS QSTATNM,
+               '청구 ' || VALUE((SELECT RTRIM(X.CTEXT2) FROM SAPHEE.ZLCODE AS X WHERE X.MANDT = CS01.MANDT AND X.LANG = #G_LANG# and X.CODE1 = '7' AND X.CODE2 = CS01.QSTAT ), '') AS QSTATNM, 
+
+	       (SELECT STATUS FROM SAPHEE.ZCST005 WHERE MANDT = CS01.MANDT AND PSPID = CS01.PS_PSPID) AS LABSTAT,  		--수주상태(인건비지급여부 확인용)
+	       CS01.PS_PSPID,
+	       CS01.DOC1,
+	       CS01.DOC2,
+	       CS01.DOC3,
+	       CS01.DOC4,
+	       CS01.DOC5,
+	       CASE
+	           --WHEN COALESCE(WB01.APSTAT, -1) BETWEEN 1 AND 3 THEN '견적승인 ' || SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, 'WBAP_STAT', WB01.APSTAT)
+               WHEN COALESCE(WB01.APSTAT, -1) BETWEEN 1 AND 3 THEN '견적승인 ' || VALUE((SELECT RTRIM(X.CTEXT2) FROM SAPHEE.ZLCODE AS X WHERE X.MANDT = CS01.MANDT AND X.LANG = #G_LANG# and X.CODE1 = 'WBAP_STAT' AND X.CODE2 = WB01.APSTAT ), '')  
+			   WHEN COALESCE(WB01.APSTAT, -1) = '6' AND CS01.VBELN != '' THEN '수주결재 완료' -- 2019.07.03 최인식 요청. 수주문서 생성건에 대해서는 수주등록진행이 아닌 수주결재완료로 조회되도록
+	           WHEN COALESCE(WB01.APSTAT, -1) = '6' THEN '수주등록진행'
+	           ELSE '견적저장 완료'
+	       END AS DOC1STATNM,
+	       CASE
+--	           WHEN COALESCE(WB02.APSTAT, -1) BETWEEN 1 AND 3 THEN '수주결재 '
+--	           WHEN COALESCE(WB02.APSTAT, -1) BETWEEN 4 AND 6 THEN '수주승인 '
+			   WHEN COALESCE(WB02.APSTAT, -1) BETWEEN 1 AND 3 THEN '기안결재 '
+	           WHEN COALESCE(WB02.APSTAT, -1) BETWEEN 4 AND 6 THEN '수주결재 '
+	           ELSE ''
+	       --END || SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, 'WBAP_STAT', WB02.APSTAT) AS DOC2STATNM,
+               END || VALUE((SELECT RTRIM(X.CTEXT2) FROM SAPHEE.ZLCODE AS X WHERE X.MANDT = CS01.MANDT AND X.LANG = #G_LANG# and X.CODE1 = 'WBAP_STAT' AND X.CODE2 = WB02.APSTAT ), '')   AS DOC2STATNM,
+
+	       CASE
+	       	   WHEN VALUE(WB03.APSTAT, '') = '' AND CS01.CHGBN = '3' THEN '저장완료'
+	           WHEN COALESCE(WB03.APSTAT, -1) BETWEEN 1 AND 3 THEN '기안결재 '
+	           WHEN COALESCE(WB03.APSTAT, -1) BETWEEN 4 AND 6 THEN '수신결재 '
+	           ELSE ''
+	       --END || SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, 'WBAP_STAT', WB03.APSTAT) AS DOC3STATNM,
+               END || VALUE((SELECT RTRIM(X.CTEXT2) FROM SAPHEE.ZLCODE AS X WHERE X.MANDT = CS01.MANDT AND X.LANG = #G_LANG# and X.CODE1 = 'WBAP_STAT' AND X.CODE2 = WB03.APSTAT ), '')   AS DOC3STATNM, 
+
+	       CASE
+	           WHEN VALUE(WB04.APSTAT, '') = '' AND CS01.CHGBN = '1' THEN '저장완료'
+	           WHEN COALESCE(WB04.APSTAT, -1) BETWEEN 1 AND 3 THEN '기안결재 '
+	           WHEN COALESCE(WB04.APSTAT, -1) BETWEEN 4 AND 6 THEN '수신결재 '
+	           ELSE ''
+	       --END || SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, 'WBAP_STAT', WB04.APSTAT) AS DOC4STATNM,
+               END || VALUE((SELECT RTRIM(X.CTEXT2) FROM SAPHEE.ZLCODE AS X WHERE X.MANDT = CS01.MANDT AND X.LANG = #G_LANG#  and X.CODE1 = 'WBAP_STAT' AND X.CODE2 = WB04.APSTAT ), '')   AS DOC4STATNM,
+
+	       CASE
+	       	   WHEN VALUE(WB05.APSTAT, '') = '' AND CS01.CHGBN = '2' THEN '저장완료'
+	           WHEN COALESCE(WB05.APSTAT, -1) BETWEEN 1 AND 3 THEN '기안결재 '
+	           WHEN COALESCE(WB05.APSTAT, -1) BETWEEN 4 AND 5 THEN '수신결재 '
+	           ELSE ''
+	       --END || SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, 'WBAP_STAT', WB05.APSTAT) AS DOC5STATNM,
+               END || VALUE((SELECT RTRIM(X.CTEXT2) FROM SAPHEE.ZLCODE AS X WHERE X.MANDT = CS01.MANDT AND X.LANG = #G_LANG# and X.CODE1 = 'WBAP_STAT' AND X.CODE2 = WB05.APSTAT ), '')   AS DOC5STATNM,
+
+	       --SAPHEE.GET_BOSU_INWON(CS01.MANDT, CS01.CRNAM) AS CRNAME,
+               ( SELECT RTRIM(CCSB1EPN)   FROM SAPHEE.ZTBCSB1  WHERE MANDT = CS01.MANDT   AND CCSB1EMP = CS01.CRNAM) AS CRNAME,
+
+	       CS01.CRNAM AS CRNAME_ID,
+	       CS01.ENDYN,
+	       CS01.ENDDAT,
+	       CS01.ENDID,
+	       CS01.ENDRSN,
+	       CASE
+	            WHEN COALESCE(WB01.APSTAT, -1) = 6 OR COALESCE(WB02.APSTAT, -1) &gt;= 1 OR COALESCE(WB03.APSTAT, -1) &gt;= 1 OR COALESCE(WB04.APSTAT, -1) &gt;= 1 OR COALESCE(WB05.APSTAT, -1) &gt;= 1 THEN 'N'
+	            ELSE 'Y'
+	       END ENDCHK,
+	       CASE WHEN CS01.BUSSI = '1' THEN '승강기'
+	            WHEN CS01.BUSSI = '2' THEN '주차'
+	            WHEN CS01.BUSSI = '4' THEN 'PSD'
+	       ELSE '' END  JPGBN_NM
+	       ,WEEK(SAPHEE.GET_DATE_FORMAT(CS01.CRDAT)) AS WEEK
+	       ,( SELECT ZTEXT 
+	            FROM SAPHEE.ZCST030 
+	           WHERE MANDT = #G_MANDT#
+	             AND ZYEAR = YEAR(SAPHEE.GET_DATE_FORMAT(CS01.CRDAT))
+	             AND ZWEEK = WEEK(SAPHEE.GET_DATE_FORMAT(CS01.CRDAT))) AS WEEKGUBUN
+              ,CS01.CYN
+              ,CS01.CTP
+              ,VALUE(CS01J.PS_PSPID, '') AS PS_PSPID_J
+	  FROM (SELECT MANDT,
+	               QTNUM,
+                   MAX(SEQ) AS SEQ
+	  		  FROM SAPHEE.ZCST001
+	  		 WHERE MANDT = #G_MANDT#
+	  		 GROUP BY MANDT, QTNUM) AS MX01,
+	                                 SAPHEE.ZWBT010 AS WB010,
+	  	                             SAPHEE.ZCST001 AS CS01
+	                                 LEFT OUTER JOIN SAPHEE.ZWBAP01 WB01
+		                                  ON CS01.DOC1 = WB01.DOCNO
+		                                  AND CS01.MANDT = WB01.MANDT
+		                             LEFT OUTER JOIN SAPHEE.ZWBAP01 WB02
+		                                  ON CS01.DOC2 = WB02.DOCNO
+		                                  AND CS01.MANDT = WB02.MANDT
+		                             LEFT OUTER JOIN SAPHEE.ZWBAP01 WB03
+		                                  ON CS01.DOC3 = WB03.DOCNO
+		                                  AND CS01.MANDT = WB03.MANDT
+		                             LEFT OUTER JOIN SAPHEE.ZWBAP01 WB04
+		                                  ON CS01.DOC4 = WB04.DOCNO
+		                                  AND CS01.MANDT = WB04.MANDT
+		                             LEFT OUTER JOIN SAPHEE.ZWBAP01 WB05
+		                                  ON CS01.DOC5 = WB05.DOCNO
+		                                  AND CS01.MANDT = WB05.MANDT
+	   	                             LEFT OUTER JOIN SAPHEE.ZCST121 AS CS121
+	                                      ON CS121.MANDT= CS01.MANDT
+	                                	    AND CS121.CS121_UPN = SUBSTR(CS01.MA_PSPID,1,6)
+	                                      AND CS121.CS121_CST= SUBSTR(CS01.MA_PSPID,7,3)
+	                                      
+                                     LEFT OUTER JOIN SAPHEE.ZCST001J AS CS01J
+ 								       ON CS01.MANDT = CS01J.MANDT
+ 								      AND CS01.QTNUM = CS01J.QTNUM
+ 								      AND CS01.SEQ   = CS01J.SEQ	                                      
+	                                      
+	 WHERE CS01.MANDT = #G_MANDT#
+	       AND CS01.REQKIND IN ('1', '6', '7', 'G', 'S')
+       	   AND CS01.BUSSI IN ('1', '2', '4')
+       	   
+       	   AND MX01.MANDT = CS01.MANDT
+       	   AND MX01.QTNUM = CS01.QTNUM
+       	   AND MX01.SEQ = CS01.SEQ
+	       
+	       AND WB010.MANDT = CS01.MANDT
+           AND WB010.LIFNR = CS01.LIFNR
+           AND CS01.QTNUM &lt;&gt; ''
+		<isNotNull col="ARA">
+		   AND WB010.BSU_ARA = #ARA#
+		</isNotNull>
+		<isNotNull col="BSU">
+   		   AND WB010.LGORT = #BSU#
+		</isNotNull>
+		<isNotNull col="BPM">
+		   AND WB010.BSU_PM = #BPM#
+		</isNotNull>
+       <isNotNull col="TEM">
+		   AND CS01.VKGRP = #TEM#
+	   </isNotNull>
+	   <isNull col="TEM">
+			<isNotNull col="DPT">
+			   AND CS01.VKGRP IN (SELECT CODE2 AS CODE
+                       		   FROM SAPHEE.ZLCODE
+                      		  WHERE MANDT = #G_MANDT#
+                        		AND LANG  = #G_LANG#
+                        		AND CODE1 = 'VKGRP'
+                        		AND DTEXT1 = #DPT#)
+	   		</isNotNull>
+	   </isNull>
+	   <isNotNull col="REQKIND">
+	       AND CS01.REQKIND = #REQKIND#
+	   </isNotNull>
+	   <isNotNull col="JPGBN">
+	       AND CS01.BUSSI = #JPGBN#
+	   </isNotNull>
+	   <isNotNull col="SONO">
+	       AND CS01.VBELN LIKE #SONO#||'%'
+	   </isNotNull>
+	   <isNotNull col="PSPID">
+	       AND CS01.MA_PSPID LIKE #PSPID#||'%'
+	   </isNotNull>
+	   <isNotNull col="QTNO">
+	       AND CS01.QTNUM LIKE #QTNO#||'%'
+	   </isNotNull>
+	   <isNotNull col="CNM">
+	       AND SAPHEE.GET_BOSU_INWON(CS01.MANDT, CS01.CRNAM) LIKE '%' || #CNM# || '%'
+	   </isNotNull>
+	   <isEqual col="GBN" value="1">	<!-- 견적일 -->
+	       AND CS01.CRDAT BETWEEN #FROM_DT# AND #TO_DT#
+	   </isEqual>
+	   <isEqual col="GBN" value="2">	<!-- 수주예정일 -->
+	       AND CS01.SODAT BETWEEN #FROM_DT# AND #TO_DT#
+	   </isEqual>
+	   <isEqual col="GBN" value="3">	<!-- 수주일(승인일) -->
+	       AND CS01.SOAPDAT BETWEEN #FROM_DT# AND #TO_DT#
+	   </isEqual>
+	   <isEqual col="GBN" value="4">	<!-- 수주변경일(수주변경승인일) -->
+	       AND CS01.SOCHDAT BETWEEN #FROM_DT# AND #TO_DT#
+	   </isEqual>
+	   <isEqual col="GBN" value="5">	<!-- 수주취소일(수주취소승인일) -->
+	       AND CS01.SOCADAT BETWEEN #FROM_DT# AND #TO_DT#
+	   </isEqual>
+	   <isNotNull col="DOC1STAT">
+	       AND CS01.QTNUM LIKE #QTNO#||'%'
+	   </isNotNull>
+	   <isNotNull col="PS_PSPID">
+	       AND CS01.PS_PSPID LIKE #PS_PSPID#||'%'
+	   </isNotNull>
+	   <isNotNull col="STATUS">
+		   <isEqual col="STATUS" value="1">	<!-- 견적저장완료 -->
+		       AND VALUE(WB01.APSTAT, '') = ''
+		   </isEqual>
+		   <isEqual col="STATUS" value="2">	<!-- 견적결재중 -->
+		       AND VALUE(WB01.APSTAT, '') = '1'
+		   </isEqual>
+		   <isEqual col="STATUS" value="3">	<!-- 견적결재반려 -->
+		       AND VALUE(WB01.APSTAT, '') = '2'
+		   </isEqual>
+		   <isEqual col="STATUS" value="4">	<!-- 견적결재완료 -->
+		       AND VALUE(WB01.APSTAT, '') = '3'
+		   </isEqual>
+		   <isEqual col="STATUS" value="5">	<!-- 수주등록완료 -->
+		       AND VALUE(WB01.APSTAT, '') = '6'
+		   </isEqual>
+		   <isEqual col="STATUS" value="6">	<!-- 수주결재중 -->
+		       AND VALUE(WB02.APSTAT, '') IN('1', '3', '4')
+		   </isEqual>
+		   <isEqual col="STATUS" value="7">	<!-- 수주결재반려 -->
+		       AND VALUE(WB02.APSTAT, '') IN('2', '5')
+		   </isEqual>
+		   <isEqual col="STATUS" value="8">	<!-- 수주결재완료 -->
+		       AND VALUE(WB02.APSTAT, '') = '6'
+		   </isEqual>
+		   <isEqual col="STATUS" value="10"> <!-- 청구전송완료 -->
+		       AND LENGTH(PS_PSPID) > 0
+		   </isEqual>
+		   <isEqual col="STATUS" value="11"> <!-- 재청구결재중 -->
+		       AND VALUE(WB03.APSTAT, '') IN ('1', '3', '4')
+		   </isEqual>
+		   <isEqual col="STATUS" value="12"> <!-- 재청구결재반려 -->
+		       AND VALUE(WB03.APSTAT, '') IN ('2', '5')
+		   </isEqual>
+		   <isEqual col="STATUS" value="13"> <!-- 재청구결재완료 -->
+		       AND VALUE(WB03.APSTAT, '') = '6'
+		   </isEqual>
+		   <isEqual col="STATUS" value="14"> <!-- 수주변경결재중 -->
+		       AND VALUE(WB04.APSTAT, '') IN ('1', '3', '4')
+		   </isEqual>
+		   <isEqual col="STATUS" value="15"> <!-- 수주변경결재반려 -->
+		       AND VALUE(WB04.APSTAT, '') IN ('2', '5')
+		   </isEqual>
+		   <isEqual col="STATUS" value="16"> <!-- 수주변경결재완료 -->
+		       AND VALUE(WB04.APSTAT, '') = '6'
+		   </isEqual>
+		   <isEqual col="STATUS" value="17"> <!-- 수주취소결재중 -->
+		       AND VALUE(WB05.APSTAT, '') IN ('1', '3', '4')
+		   </isEqual>
+		   <isEqual col="STATUS" value="18"> <!-- 수주취소결재반려 -->
+		       AND VALUE(WB05.APSTAT, '') IN ('2', '5')
+		   </isEqual>
+		   <isEqual col="STATUS" value="19"> <!-- 수주취소결재완료 -->
+		       AND VALUE(WB05.APSTAT, '') = '6'
+		   </isEqual>
+	   </isNotNull>
+		 <isEqual col="ENDYN" value="N">	 <!-- 견적종료여부 -->
+		       AND CS01.ENDYN = ''
+		 </isEqual>
+		 
+		<isNotNull col="JKUNNR">
+	       AND CS01.KUNNR = #JKUNNR#
+	   	</isNotNull>
+		 
+	ORDER BY QTNUM DESC
+	FOR FETCH ONLY
+	WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list_master">
+	</output>
+</query>

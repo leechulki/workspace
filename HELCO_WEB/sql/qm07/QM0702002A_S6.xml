@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT  ''       AS FLAG
+             ,''       AS FLAG2
+             ,'N'       AS FLAG3
+             ,T.GJAHR   ,T.DEPT, T.ITEM_GR AS  ITEM 
+             ,T2.ITEMNM  , T2.PLANYM ,T.RSLTYM ,T.WAERK  ,REPLACE(T2.STYM, '000000', '') AS STYM
+             , SUM(T.BFAMT) AS BFAMT , SUM(T.AFAMT) AS AFAMT  ,SUM(T.QNTY) AS QNTY
+             , T2.GUBUN ,  B.SGBN , B.BIGO , B.KGBN               	 
+             ,SUM(T.SVAMT) AS SVAMT , SUM(T.RSLTAMT) AS RSLTAMT ,SUM(T.PLANAMT) AS PLANAMT  
+             ,T2.TEAMNM AS TEAMNM  ,T2.MAN  ,T2.MAN2 ,T2.MAN3  ,T2.ITEMPT ,T2.ITEM_MTR ,T2.ITEM_PR ,T2.ITEM_CH                    ,T.GUBUN2
+					 
+FROM 
+(
+  SELECT
+          A.MANDT AS MANDT 
+        ,A.DEPT   AS DEPT
+        ,A.GJAHR  AS GJAHR
+        ,A.ITEM   AS ITEM
+        ,VALUE(B.RSLTYM,  #RSLTYM#) AS RSLTYM
+        ,CASE WHEN VALUE(B.WAERK, A.WAERK) IN ('KRW', 'JPY') THEN B.BFAMT * 100 ELSE B.BFAMT END AS BFAMT
+        ,CASE WHEN VALUE(B.WAERK, A.WAERK) IN ('KRW', 'JPY') THEN B.AFAMT * 100 ELSE B.AFAMT END AS AFAMT
+        ,VALUE(B.WAERK, A.WAERK)  AS WAERK
+        ,B.QNTY   AS QNTY
+        ,CASE WHEN VALUE(B.WAERK, A.WAERK) IN ('KRW', 'JPY') THEN B.SVAMT * 100   ELSE B.SVAMT   END AS SVAMT
+        ,CASE WHEN VALUE(B.WAERK, A.WAERK) IN ('KRW', 'JPY') THEN B.RSLTAMT * 100 ELSE B.RSLTAMT END AS RSLTAMT
+        ,B.SGBN   AS SGBN
+        ,B.BIGO   AS BIGO
+        ,B.KGBN   AS KGBN
+        ,(SELECT CASE WHEN WAERK IN ('KRW', 'JPY') THEN PLANAMT * 100 ELSE PLANAMT END
+            FROM SAPHEE.ZQMT072
+           WHERE MANDT = A.MANDT AND DEPT = A.DEPT AND GJAHR = A.GJAHR
+             AND ITEM  = A.ITEM  AND PLANYM =  #RSLTYM# ) AS PLANAMT
+        ,CASE WHEN LENGTH(A.ITEM_GR) > 1 THEN A.ITEM_GR ELSE A.ITEM END AS ITEM_GR
+        , A.GUBUN2 AS GUBUN2
+FROM    SAPHEE.ZQMT071 AS A
+        LEFT OUTER JOIN SAPHEE.ZQMT076 B
+        	  ON B.MANDT = A.MANDT AND B.DEPT   = A.DEPT AND B.GJAHR = A.GJAHR
+        	 AND B.ITEM  = A.ITEM  AND B.RSLTYM =  #RSLTYM#
+WHERE   A.MANDT = #G_MANDT#
+AND     A.DEPT  =  #DEPT#
+AND     A.GJAHR =#GJAHR#
+AND    (REPLACE(A.STYM, '000000', '') = '' OR A.STYM > SUBSTR(CAST(HEX(DATE(SUBSTR( #RSLTYM#, 1, 4)||'-'||SUBSTR( #RSLTYM#, 5, 2)||'-'||'01') - 12 MONTHS) AS VARCHAR(8)), 1, 6) )
+
+)AS T
+LEFT OUTER JOIN SAPHEE.ZQMT071 AS T2
+  ON T.MANDT = T2.MANDT
+ AND T.DEPT = T2.DEPT
+ AND T.GJAHR = T2.GJAHR
+ AND T.ITEM_GR = T2.ITEM
+ 
+ LEFT OUTER JOIN SAPHEE.ZQMT076  AS B
+    ON B.MANDT = T.MANDT AND B.DEPT   = T.DEPT AND B.GJAHR = T.GJAHR
+   AND T.ITEM_GR  = B.ITEM  AND B.RSLTYM =  #RSLTYM#
+WHERE T.MANDT = #G_MANDT#
+GROUP BY T.GJAHR,T.DEPT,T.ITEM_GR   ,T2.ITEMNM  , T2.PLANYM ,T.RSLTYM ,T.WAERK , T2.GUBUN , T2.STYM   ,T2.TEAMNM  ,T2.MAN  ,T2.MAN2 ,T2.MAN3  ,T2.ITEMPT ,T2.ITEM_MTR ,T2.ITEM_PR ,T2.ITEM_CH  , B.SGBN , B.BIGO , B.KGBN  ,T.GUBUN2
+
+ORDER BY T2.GUBUN ,T.ITEM_GR 
+
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

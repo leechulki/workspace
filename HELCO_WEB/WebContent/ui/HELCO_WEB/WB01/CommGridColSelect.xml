@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="493" Id="MM0102001B" Left="8" OnLoadCompleted="fn_OnLoadCompleted" PidAttrib="7" Title="Select&#32;display&#32;colums" Top="8" Ver="1.0" Width="260" WorkArea="true">
+		<Grid AutoFit="TRUE" AutoFitEndLine="Hide" BkColor2="default" BoldHead="true" Border="Flat" Bottom="485" Editable="TRUE" Enable="true" EndLineColor="default" HeadBorder="Flat" HeadHeight="20" Height="441" Id="grd_col" InputPanel="FALSE" Left="8" LineColor="user20" LineType="ExHORZ" MinWidth="100" Right="252" RowHeight="20" Style="sty_grid" TabOrder="1" TabStop="true" Top="44" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="244">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col width="179"/>
+						<col width="60"/>
+					</columns>
+					<head>
+						<cell align="center" col="0" display="text" font="굴림,9" text="컬럼명"/>
+						<cell align="center" col="1" display="text" font="굴림,9" text="표시"/>
+					</head>
+					<body>
+						<cell bkcolor2="user22" col="0" colid="COL_NAME" display="text"/>
+						<cell bkcolor2="user22" col="1" colid="CHK" display="checkbox" edit="expr:decode(getColumn(currow,&#32;&apos;FIX_YN&apos;),&#32;&apos;1&apos;,&#32;&apos;none&apos;,&#32;&apos;checkbox&apos;)"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Image FillType="STRETCH" Height="36" Id="Image0" ImageID="popup_title_back" TabOrder="2" Width="260"></Image>
+		<Static Color="user5" Font="굴림,10,Bold" Height="20" Id="Static0" Left="28" TabOrder="4" Text="select&#32;display&#32;colums" Top="8" VAlign="Middle" Width="176"></Static>
+		<Image Height="36" Id="Image1" ImageID="form_bl_title_main" Left="8" TabOrder="3" Width="15"></Image>
+		<Image Cursor="HAND" Font="돋움,9,Bold" Height="20" Id="img_close" Left="233" OnClick="img_close_OnClick" Static="FALSE" TabOrder="5" Text="X" Top="8" Transparent="TRUE" Width="20"></Image>
+	</Form>
+	<Script><![CDATA[﻿﻿﻿﻿﻿﻿/*
+ ******************************************************************************************
+ * 기      능   : 그리드 상에 표시할 컬럼 정보 선택 
+ * 작  성  자   : 
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) 
+{
+	if ( !isExistVar("fa_gridName") ) 
+	{
+		return;
+	}
+
+	var isExist = gfn_findObj("_ds_col", parent);
+	var dsObj = null;
+	var grdObj = object(fa_gridName);
+	
+	// 기존 자료 삭제
+	var isForceMake = fa_isMake;
+	if ( isForceMake == "Y" ) 
+	{
+		if ( isExist ) 
+		{
+			for( var i = 0; i < _ds_col.rowCount(); i++) 
+			{
+				if ( _ds_col.getColumn(i, "CHK") == "0" ) 
+				{
+					grd_col_OnCellClick(grd_col,i,1);
+				}
+			}
+			destroy("_ds_col");
+			isExist = false;
+		}
+	}
+	
+	if ( isExist == false ) 
+	{
+		// 기존에 이미 존재 
+		// 존재하지 않음. 
+		var colNm = ["COL_ID", "COL_NAME", "FIX_YN", "CHK", "ORG_W", "GRD_NM"];
+		var colTypeNm = ["STRING", "STRING", "STRING", "STRING", "STRING", "STRING"];
+		var nColSize = [100, 100, 1, 1, 10, 100];
+		dsObj = gfn_createDs("_ds_col", colNm, colTypeNm, nColSize);
+		
+		// dataset 생성 
+		for( var i = 0; i < 5000; i++) {}
+		
+		var cnt = 0;
+		
+		for( var i = 0; i < grdObj.GetColCount(); i++ ) 
+		{
+			var colNm = grdObj.getCellText("head", -1, i);//GetCellProp("head", i, "text");
+			// head명 없는것 및 checkbox로 되어 있는 것 삭제 
+			if ( length( colNm ) == 0 || grdObj.getCellProp("head", i, "display") == "checkbox") 
+			{
+				cnt++;
+				continue;
+			}
+			// 이단그리드중 하단은 제외
+			var w = grdObj.GetColProp(cnt, "width");
+			if ( toNumber( w ) <= 0 )
+			{
+				cnt++;
+				continue;
+			}
+
+			colNm = replace(replace(colNm, CONST_ASC_MARK, ""), CONST_DESC_MARK, "");			
+			var fixYn = grdObj.GetColProp(cnt, "fix");
+			
+			var nRow = dsObj.AddRow();	
+			dsObj.setColumn(nRow, "COL_ID", cnt + "" );
+			dsObj.setColumn(nRow, "COL_NAME", replace( colNm, chr(10), "" ) );
+			dsObj.setColumn(nRow, "FIX_YN", iif(fixYn, '1', '0') );
+			dsObj.setColumn(nRow, "ORG_W", w );
+			dsObj.setColumn(nRow, "GRD_NM", fa_gridName );
+			
+			if ( toNumber( w ) > 0 ) 
+			{
+				dsObj.setColumn(nRow, "CHK", "1" );
+			} 
+			else 
+			{
+				dsObj.setColumn(nRow, "CHK", "0" );
+			}
+			
+			var colCnt = toNumber(grdObj.getCellProp("head", i, "colspan"));
+			if( colCnt > 1 ) 
+			{
+				var str = cnt + "";
+				var wStr = w + "";
+				for ( var a = 1; a < colCnt; a++) 
+				{
+					str += "," + (cnt + a); 
+					wStr += "," + (grdObj.GetColProp((cnt+a), "width"));
+				}
+				dsObj.setColumn(nRow, "ORG_W", wStr );
+				dsObj.setColumn(nRow, "COL_ID", str );
+			}
+			
+			cnt+=colCnt;
+		}
+		dsObj.onColumnChanged = "_fn_ds_col_OnColumnChanged";
+	}
+
+	_ds_col.row = 0;
+	grd_col.BindDataset = "_ds_col";
+}
+
+/**
+*	창 닫기 
+**/
+function img_close_OnClick(obj,nX,nY)
+{
+	close();
+}
+/**
+*	그리드에서 선택 시 
+*
+function grd_col_OnCellClick(obj,nRow,nCell,nX,nY,nPivotIndex)
+{
+	if ( nCell != 1 ) {
+		return;
+	}
+	
+	if (_ds_col.getColumn(nRow, "FIX_YN") == "1") {
+		return;
+	}
+	
+	var grdObj = object(_ds_col.getcolumn(nRow, "GRD_NM"));
+
+	var arr = split( _ds_col.getColumn(nRow, "COL_ID"), ",", true);
+	var wArr = split( _ds_col.getColumn(nRow, "ORG_W"), ",", true);
+	var isShow = _ds_col.getColumn(nRow, "CHK");
+	for( var i = 0; i < arr.length(); i++) {
+		if ( isShow == false ) {
+			// 보여주기 
+			grdObj.setColProp( toNumber(arr[i]), "width", toNumber(wArr[i]));
+		} else {
+			grdObj.setColProp(toNumber(arr[i]), "width", 0);
+		}	
+	}
+}
+*/]]></Script>
+</Window>

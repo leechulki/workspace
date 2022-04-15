@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="144" Id="PS9602006A" Left="8" OnLoadCompleted="PS9602006A_OnLoadCompleted" PidAttrib="7" Title="Copy&#32;Tools" Top="8" Ver="1.0" Width="348" WorkArea="true">
+		<Shape BKColor="user12" Bottom="91" Height="26" Id="Shape0" Left="10" LineColor="user13" Right="338" TabOrder="4" Top="65" Type="Rectangle" Width="328"></Shape>
+		<Shape BKColor="user12" Bottom="66" Height="26" Id="Shape1" Left="10" LineColor="user13" Right="338" TabOrder="1" Top="40" Type="Rectangle" Width="328"></Shape>
+		<Static Align="Right" Height="24" Id="Static4" Left="11" Style="sty_lb_form_basic" TabOrder="2" Text="복사할&#32;번호&#32;" Top="41" VAlign="Middle" Width="112"></Static>
+		<Edit Border="Flat" Height="20" Id="ed_from" Left="125" LeftMargin="4" RightMargin="4" Style="sty_ipt_form" TabOrder="3" Top="43" Width="210"></Edit>
+		<Static Align="Right" Height="24" Id="Static0" Left="11" Style="sty_lb_form_basic" TabOrder="5" Text="붙여넣기&#32;할&#32;번호&#32;" Top="66" VAlign="Middle" Width="112"></Static>
+		<Edit Border="Flat" Height="20" Id="ed_to" Left="125" LeftMargin="4" RightMargin="4" Style="sty_ipt_form" TabOrder="6" Top="68" Width="210"></Edit>
+		<Static Border="None" Color="user7" Font="굴림,9" Height="20" Id="Static16" Left="13" TabOrder="7" Text="붙여넣기&#32;할&#32;번호를&#32;입력하세요." Top="96" VAlign="Middle" Width="322"></Static>
+		<Static Border="None" Color="user7" Font="굴림,9" Height="20" Id="Static1" Left="13" TabOrder="8" Text="(예)&#32;2,&#32;4&#32;또는&#32;2-10" Top="116" VAlign="Middle" Width="322"></Static>
+		<Div Height="32" Id="div_btn" TabOrder="9" Url="WB01::CommBtnForm.xml" Width="346">
+			<Contents></Contents>
+		</Div>
+	</Form>
+	<Script><![CDATA[
+﻿﻿﻿﻿﻿﻿﻿﻿/*
+ ******************************************************************************************
+ * 기      능   : copy tool 
+				  이전 화면에서 tGrid , arrCols 정보를 받아 해당 그리드의 특정 로우의 특정 컬럼을 복사한다.
+				  ex) tGrid - "grdList" , arrCols - "COL1=COL1,COL2=COL2"
+ * 작  성  자   : 
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+#include "LIB::commons.js";	// 공통 스크립트 
+#include "LIB::utility.js";	// 다중 선택 
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function PS9602006A_OnLoadCompleted(obj)
+{
+	// Form 로드 이벤트 맨 첫줄에 기술 
+	gfn_initForm();
+}
+/********************************************************************************
+* 기      능   : 닫기  
+********************************************************************************/
+function fn_close(){
+	close();
+}
+
+/********************************************************************************
+* 기      능   : 복사 75
+********************************************************************************/
+function fn_copy(obj)
+{
+	var targetGrid = object(tGrid);
+	var fromRow = ed_from.Text;
+	var toRow = ed_to.Text;
+	var toRows;
+	
+	if(gfn_isNull(ed_from, true, "복사 할 번호")) return;
+	if(gfn_isNull(ed_to, true, "붙여넣기 할 번호")) return;
+	if(!isDigit(fromRow)) {
+		gfn_showMsg('CW00130');
+		return;
+	}
+	
+	var	arrTo = split(toRow, ',');	
+	
+	for(var i=0; i<length(arrTo); i++){
+		toRows = trim(arrTo[i]);
+		
+		if(toRows=='') continue;
+		
+		if(isDigit(toRows)){			
+			if(fromRow == toRows){
+				gfn_showMsg('CW00129');
+				// alert("복사 할 번호와 붙여넣기 할 번호는 달라야 합니다.");
+				return;
+			}
+			fn_copyRow(targetGrid, toNumber(fromRow)-1, toNumber(toRows)-1);		
+		
+		} else {
+			if(IndexOf(toRows, "-")!=-1){
+				var toList = split(toRows, '-');
+				
+				if(length(toList)<2){
+					if(!isDigit(toRows)){
+						gfn_showMsg('CW00130');
+						// alert("[ , ], [ - ] 제외한 특수문자가 있거나 문장형식이 올바르지 않습니다.");
+						return;
+					}					
+				}
+				if(length(toList)>2) {
+					gfn_showMsg('CW00131');
+					// alert("[ - ] 또는 [ , ] 는 연속해서 사용할 수 없습니다.");
+					return;
+				} 
+				
+				var tomin = toList[0];
+				var tomax = toList[1];
+				
+				if(!isDigit(tomin) || !isDigit(tomax)){
+					gfn_showMsg('CW00130');
+					// alert("[ , ], [ - ] 제외한 특수문자가 있거나 문장형식이 올바르지 않습니다.");
+					return;
+				}
+				if(toNumber(tomin) > toNumber(tomax)){
+					gfn_showMsg('CW00128');
+					// alert("시작줄은 완료줄보다 작아야 합니다.");
+					return;
+				}
+				if(fromRow==tomin || fromRow==tomax){
+					gfn_showMsg('CW00129');
+					// alert("복사 할 번호와 붙여넣기 할 번호는 달라야 합니다.");
+					return;
+				}
+					
+				fn_copyRow(targetGrid, toNumber(fromRow)-1, toNumber(tomin)-1, toNumber(tomax)-1);
+				
+			} else {
+				gfn_showMsg('CW00130');
+				// alert("[ , ], [ - ] 제외한 특수문자가 있거나 문장형식이 올바르지 않습니다.");
+				return;
+			}
+		
+		}		
+		
+	}
+		
+}
+
+function fn_copyRow(gridObj, frRow, toRow0, toRow1){	
+	var dsObj = object(gridObj.bindDataset);
+	
+	gridObj.Redraw = false;
+	
+	if(isEvent == null)
+	{
+		dsObj.fireEvent = false;
+	}
+	
+	if(toRow1==null){		
+		dsObj.copyRow(toRow0, dsObj, frRow, arrCols);
+		
+	} else {
+		for(var i=toRow0; i<=toRow1; i++){
+			dsObj.copyRow(i, dsObj, frRow, arrCols);
+		}	
+	}
+
+	dsObj.fireEvent = true;	
+	gridObj.Redraw = true;
+}
+]]></Script>
+</Window>

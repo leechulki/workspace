@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT '' AS CHK, '등록' AS GUBUN,A.LIFNR , A.PERNO, A.TEMNO AS TMCD , A.NAMEE,
+             CASE WHEN A.POSIT = 'X' THEN '팀장' ELSE '사원' END POSIT ,   
+             CASE WHEN B.TUIP_CHKA = 'X' OR B.TUIP_CHKB = 'X' THEN 'Y'  ELSE 'N' END  AS INPUT ,   CAST(#INP_DT2# AS CHAR(8)) AS CDATE, CAST(#INP_DT# AS CHAR(8)) AS PDATE,
+             B.TUIP_CHKA,B.TUIP_CHKB
+FROM SAPHEE.ZPST0001 AS A
+  LEFT OUTER JOIN SAPHEE.ZPSTW0301 AS B
+    ON A.MANDT = B.MANDT 
+  AND A.LIFNR = B.LIFNR
+  AND A.PERNO = B.PERNO
+  AND A.TEMNO = B.TMCD
+  AND B.INP_DT = #INP_DT#
+WHERE A.MANDT= #G_MANDT#
+      AND A.LIFNR =  #LIFNR#
+      AND A.TEMNO =  #TMCD#
+      AND (A.POSIE  = 'X' OR A.POSIT = 'X')
+      AND A.GUBUN IN ('01','02')
+      AND A.TYPE = '1'  AND A.DIRECT = 'X'
+      AND A.ACTSS NOT IN ('00', '15', '16')
+      AND A.GBN = 'A'   
+   --   AND A.RETIF <> 'X'
+     AND (A.RETID = '' OR A.RETID = '00000000' OR A.RETID >= #INP_DT#)
+     AND NOT EXISTS ( SELECT *
+                         FROM SAPHEE.ZPSTW0301 AS ST2
+               INNER JOIN SAPHEE.ZPST0138 AS PS
+                  ON ST2.MANDT = PS.MANDT
+                AND ST2.LIFNR = PS.LIFNR
+                AND ST2.PERNO = PS.PERNO
+                 AND ST2.INP_DT =  #INP_DT#
+            WHERE ST2.MANDT = A.MANDT
+                    AND ST2.LIFNR = A.LIFNR
+                    AND PS.PERKEY  = A.PERKEY 
+                    AND  PS.RETIF <> 'X'  AND PS.TYPE = '1'  AND PS.DIRECT = 'X'
+                    AND PS.GBN = 'A')
+
+
+
+ UNION ALL
+
+SELECT '' AS CHK,  '대기' AS GUBUN, T.LIFNR , T.PERNO, T.TMCD ,  T.NAMEE,
+                CASE WHEN P1.POSIT = 'X' THEN '팀장' ELSE '사원' END POSIT ,  
+               CASE WHEN B.TUIP_CHKA = 'X' OR B.TUIP_CHKB = 'X' THEN 'Y'  ELSE 'N' END  AS INPUT ,CAST(#INP_DT2# AS CHAR(8)) AS CDATE, HEX(CURRENT DATE) AS PDATE,
+               B.TUIP_CHKA,B.TUIP_CHKB
+FROM 
+(SELECT  P1.MANDT, P1.LIFNR , P1.PERNO, P1.TEMNO AS TMCD , P1.NAMEE
+FROM SAPHEE.ZPST0138 AS P1
+WHERE P1.MANDT = #G_MANDT#
+  AND (SELECT CASE WHEN COUNT(P.MANDT) = 0 THEN 'B' 
+            ELSE CASE WHEN (SELECT COUNT(*) FROM SAPHEE.ZPST0143 P2 WHERE P2.MANDT = P1.MANDT AND P2.LIFNR = P1.LIFNR AND P2.PERNO = P1.PERNO AND P2.SIGN > '') = 0 THEN 'A' 
+                      WHEN (SELECT COUNT(*) FROM SAPHEE.ZPST0143 P2 WHERE P2.MANDT = P1.MANDT AND P2.LIFNR = P1.LIFNR AND P2.PERNO = P1.PERNO AND P2.SIGN = '반송') > 0 OR (SELECT COUNT(*) FROM SAPHEE.ZPST0143 P2 WHERE P2.MANDT = P1.MANDT AND P2.LIFNR = P1.LIFNR AND P2.PERNO = P1.PERNO AND P2.SIGN > '') = COUNT(P.MANDT) THEN 'D'				
+                 ELSE 'C' END 
+            END CNT 
+     FROM SAPHEE.ZPST0143 AS P WHERE P.MANDT = P1.MANDT AND P.LIFNR = P1.LIFNR AND P.PERNO = P1.PERNO 
+    ) IN ('A' , 'C')
+ AND (SELECT CASE WHEN COUNT(P.MANDT) = 0 THEN 'B' 
+            ELSE CASE WHEN (SELECT COUNT(*) FROM SAPHEE.ZPST0143 P2 WHERE P2.MANDT = P1.MANDT AND P2.LIFNR = P1.LIFNR AND P2.PERNO = P1.PERNO AND P2.SIGN > '') = 0 THEN 'A' 
+                      WHEN (SELECT COUNT(*) FROM SAPHEE.ZPST0143 P2 WHERE P2.MANDT = P1.MANDT AND P2.LIFNR = P1.LIFNR AND P2.PERNO = P1.PERNO AND P2.SIGN = '반송') > 0 OR (SELECT COUNT(*) FROM SAPHEE.ZPST0143 P2 WHERE P2.MANDT = P1.MANDT AND P2.LIFNR = P1.LIFNR AND P2.PERNO = P1.PERNO AND P2.SIGN > '') = COUNT(P.MANDT) THEN 'D'				
+                 ELSE 'C' END 
+            END CNT 
+     FROM SAPHEE.ZPST0143 AS P WHERE P.MANDT = P1.MANDT AND P.LIFNR = P1.LIFNR AND P.PERNO = P1.PERNO 
+    ) <> 'D'
+      AND P1.STATS = 'B'
+      AND  P1.LIFNR =   #LIFNR#
+      AND  P1.TEMNO =  #TMCD#
+      AND ( P1.POSIE  = 'X' OR  P1.POSIT = 'X')
+      AND  P1.GUBUN IN ('01','02')
+      AND  P1.TYPE = '1'  AND  P1.DIRECT = 'X'
+      AND  P1.ACTSS NOT IN ('00', '15', '16')   
+      AND  P1.RETIF <> 'X'
+	  
+	  UNION ALL
+	  
+SELECT  B.MANDT, B.LIFNR ,B.PERNO, B.TMCD , B.NAMEE
+FROM SAPHEE.ZPSTW0301 AS B
+WHERE B.MANDT = #G_MANDT#
+      AND  B.LIFNR =   #LIFNR#
+      AND  B.TMCD =  #TMCD#
+      AND B.INP_DT = #INP_DT#
+      AND SUBSTR(B.PERNO,1,1) = 'P'
+	 ) AS T
+	 
+	  LEFT OUTER JOIN SAPHEE.ZPST0138 AS P1
+        ON P1.MANDT = T.MANDT 
+      AND P1.LIFNR = T.LIFNR
+      AND P1.PERNO = T.PERNO
+      AND P1.TEMNO = T.TMCD
+	  
+    LEFT OUTER JOIN SAPHEE.ZPSTW0301 AS B
+      ON T.MANDT = B.MANDT 
+    AND T.LIFNR = B.LIFNR
+    AND T.PERNO = B.PERNO
+   AND T.TMCD = B.TMCD
+   AND B.INP_DT = #INP_DT#
+   
+WHERE T.MANDT = #G_MANDT#
+      AND  T.LIFNR =   #LIFNR#
+      AND  T.TMCD =  #TMCD#
+	
+	 
+  GROUP BY  T.MANDT, T.LIFNR , T.PERNO, T.TMCD ,P1.POSIT ,B.TUIP_CHKA,B.TUIP_CHKB,B.INP_DT,T.NAMEE
+
+
+FOR FETCH ONLY ]]></statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

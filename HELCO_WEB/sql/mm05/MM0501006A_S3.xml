@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[일일배차계획-프로젝트 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+WITH TMP AS (
+SELECT
+ LE002.MANDT  AS MANDT
+,LE002.ZKNUM  AS ZKNUM
+,LE002.ZKNUM2 AS ZKNUM2
+,LE002.PSPID  AS PSPID
+,LE002.POST1  AS POST1
+,LE002.ZTEXT  AS ZTEXT
+,LE002.BEZEI  AS BEZEI
+,LE002.ERDAT  AS ERDAT
+,LE002.ERZET  AS ERZET
+,LE002.DPTEN  AS DPTEN
+,LE002.UPTEN  AS UPTEN
+,LE002.AEDAT  AS AEDAT
+,LE002.UZEIT  AS UZEIT
+,SUBSTR(CASE WHEN LE002.ZTON1  > 0 THEN ',1T-'       || TRIM(CHAR(LE002.ZTON1 )) ELSE '' END ||
+        CASE WHEN LE002.ZTON2  > 0 THEN ',2.5T-'     || TRIM(CHAR(LE002.ZTON2 )) ELSE '' END ||
+        CASE WHEN LE002.ZTON3  > 0 THEN ',3.5T-'     || TRIM(CHAR(LE002.ZTON3 )) ELSE '' END ||
+        CASE WHEN LE002.ZTON4  > 0 THEN ',5T-'       || TRIM(CHAR(LE002.ZTON4 )) ELSE '' END ||
+        CASE WHEN LE002.ZTON5  > 0 THEN ',8T-'       || TRIM(CHAR(LE002.ZTON5 )) ELSE '' END ||
+        CASE WHEN LE002.ZTON6  > 0 THEN ',11T-'      || TRIM(CHAR(LE002.ZTON6 )) ELSE '' END ||
+        CASE WHEN LE002.ZTON7  > 0 THEN ',18T-'      || TRIM(CHAR(LE002.ZTON7 )) ELSE '' END ||
+        CASE WHEN LE002.ZTON8  > 0 THEN ',25T-'      || TRIM(CHAR(LE002.ZTON8 )) ELSE '' END ||
+        CASE WHEN LE002.ZTON9  > 0 THEN ',Trailer-'  || TRIM(CHAR(LE002.ZTON9 )) ELSE '' END ||
+        CASE WHEN LE002.ZTON10 > 0 THEN ',택배-' || TRIM(CHAR(LE002.ZTON10)) ELSE '' END ||
+        CASE WHEN LE002.ZTON11 > 0 THEN ',Trailer(20)-' || TRIM(CHAR(LE002.ZTON11)) ELSE '' END ||
+        CASE WHEN LE002.ZTON12 > 0 THEN ',Trailer(40)-' || TRIM(CHAR(LE002.ZTON12)) ELSE '' END ||
+        CASE WHEN LE002.ZTON13 > 0 THEN ',Trailer(20)round-' || TRIM(CHAR(LE002.ZTON13)) ELSE '' END ||
+        CASE WHEN LE002.ZTON15 > 0 THEN ',셔틀-' || TRIM(CHAR(LE002.ZTON15)) ELSE '' END ||
+        CASE WHEN LE002.ZTON14 > 0 THEN ',Trailer(40)round-' || TRIM(CHAR(LE002.ZTON14)) ELSE '' END,2) AS ZTON
+,LE002.ZLZONE           AS ZLZONE
+,VALUE(TZONT.VTEXT, '') AS ZLZONE_NM
+,LE002.ZTYPE            AS ZTYPE
+,CASE LE002.ZTYPE WHEN '11' THEN '천안->현장'
+                  WHEN '12' THEN '업체->현장'
+                  WHEN '13' THEN '업체->천안'
+                  WHEN '14' THEN '현장->천안'
+                  WHEN '15' THEN '이천->천안' ELSE '' END AS ZTYPE_NM
+,LE002.ZCHAN                AS ZCHAN
+,CASE LE002.ZCHAN WHEN '1'  THEN '현장문제'
+                  WHEN '2'  THEN '폭설,폭우'
+                  WHEN '3'  THEN '운송사 차량수배 불가'
+                  WHEN '4'  THEN '골조지연'
+                  WHEN '5'  THEN '기타'       ELSE '' END AS ZCHAN_NM
+,VALUE(LE002.NAMET,     '') AS NAMET
+,VALUE(LE002.MOB_NUMBER,'') AS MOB_NUMBER
+,VALUE(LE002.TRAID,     '') AS TRAID
+,LE002.POSID                AS POSID
+,MAST2.TEMNO                AS ZZTEMNO
+,MAST2.NAMET                AS ZZTEAMJ
+,SAPHEE.GET_TELE_FORMAT(VALUE(PS011.CELLP,     '')) AS CELLP
+,MAST2.TEMNO2               AS ZZTEMNO2
+,MAST2.NAMET2               AS ZZTEAMJ2
+,SAPHEE.GET_TELE_FORMAT(VALUE((
+				SELECT
+				CELLP
+				FROM SAPHEE.ZPST0001  AS PS001 
+				WHERE PS001.MANDT  = MAST2.MANDT
+			    AND PS001.LIFNR  = MAST2.LIFNR
+			    AND PS001.TEMNO  = MAST2.TEMNO2
+			    AND PS001.POSIT  = 'X'
+			  FETCH FIRST 1 ROWS ONLY  
+			 ),     '')) AS CELLP2
+,SAPHEE.GET_LE_HOGI(LE002.MANDT,LE002.ZKNUM,LE002.ZKNUM2) AS HOGI
+,MAST2.ZSPEC1
+,MAST2.ZSPEC2
+,SAPHEE.GET_LE_SPEC(LE002.MANDT,LE002.ZKNUM,LE002.ZKNUM2) AS SPEC
+,VALUE(MA01.ZZACTSS, '') AS ZZACTSS
+,GUBN AS GUBN
+, VALUE(L22.SMDATE1, '')  AS SMDATE1 -- 배차 SMS전송일
+, VALUE(L22.SMDATE2, '')  AS SMDATE2 -- 차량 SMS 전송일
+, MA01.ZQNTY AS ZQNTY
+, SAPHEE.GET_CURRDATA(L09.WAERK,L09.ZKZWI) AS ZKZWI
+
+FROM (
+
+      SELECT
+       T2.MANDT        AS MANDT
+      ,T2.ZKNUM        AS ZKNUM
+      ,T2.ZKNUM2       AS ZKNUM2
+      ,MAX(T3.PSPID )  AS PSPID
+      ,MAX(T3.POST1 )  AS POST1
+      ,MAX(T2.ZTEXT )  AS ZTEXT
+      ,MAX(T2.BEZEI )  AS BEZEI
+      ,MAX(T2.ERDAT )  AS ERDAT
+      ,MAX(T2.ERZET )  AS ERZET
+      ,MAX(T2.DPTEN )  AS DPTEN
+      ,MAX(T2.UPTEN )  AS UPTEN
+      ,MAX(T2.ZTON1 )  AS ZTON1
+      ,MAX(T2.ZTON2 )  AS ZTON2
+      ,MAX(T2.ZTON3 )  AS ZTON3
+      ,MAX(T2.ZTON4 )  AS ZTON4
+      ,MAX(T2.ZTON5 )  AS ZTON5
+      ,MAX(T2.ZTON6 )  AS ZTON6
+      ,MAX(T2.ZTON7 )  AS ZTON7
+      ,MAX(T2.ZTON8 )  AS ZTON8
+      ,MAX(T2.ZTON9 )  AS ZTON9
+      ,MAX(T2.ZTON10)  AS ZTON10
+      ,MAX(T2.ZTON11)  AS ZTON11
+      ,MAX(T2.ZTON12)  AS ZTON12
+      ,MAX(T2.ZTON13)  AS ZTON13
+      ,MAX(T2.ZTON14)  AS ZTON14
+      ,MAX(T2.ZTON15)  AS ZTON15
+      ,MAX(T3.ZLZONE)  AS ZLZONE
+      ,MAX(T2.ZTYPE )  AS ZTYPE
+      ,MAX(T2.ZCHAN )  AS ZCHAN
+      ,MIN(T4.POSID)   AS POSID
+      ,'2'   AS GUBN
+      ,MAX(T2.NAMET) AS NAMET
+      ,MAX(T2.MOB_NUMBER) AS MOB_NUMBER
+      ,MAX(T2.TRAID) AS TRAID
+      ,MAX(T2.AEDAT) AS AEDAT
+      ,MAX(T2.UZEIT) AS UZEIT
+      FROM SAPHEE.ZLET002 AS T2
+           INNER JOIN SAPHEE.ZLET003 AS T3 ON  T2.MANDT  = T3.MANDT
+                                           AND T2.ZKNUM  = T3.ZKNUM
+                                           AND T2.ZKNUM2 = T3.ZKNUM2
+           INNER JOIN SAPHEE.ZLET004 AS T4 ON  T3.MANDT  = T4.MANDT
+                                           AND T3.VBELN  = T4.VBELN
+<isEqual col="GBN" value="E">
+                                           AND T4.ZZTEMNO= ''        -- 설치 협력사만 적용
+</isEqual>
+      WHERE T2.MANDT =  #G_MANDT#
+--        AND T2.ZKNUM LIKE '_%'
+        AND T3.PSPID LIKE  #PJT#||'%'
+        AND T2.ZCANC &lt;&gt; 'X'
+<isNotNull col="ZFULLSET">
+        AND T2.ZFULLSET = #ZFULLSET#
+</isNotNull>
+
+<isEqual col="ZTON3" value="1">
+        AND T2.ZTON3 = 0
+</isEqual>
+
+      GROUP BY T2.MANDT,T2.ZKNUM,T2.ZKNUM2
+
+      UNION
+
+      SELECT
+       T6.MANDT   AS MANDT
+      ,T6.ZKNUM   AS ZKNUM
+      ,T6.ZKNUM2  AS ZKNUM2
+      ,MAX(T7.PSPID )  AS PSPID
+      ,MAX(T7.POST1 )  AS POST1
+      ,MAX(T6.ZTEXT )  AS ZTEXT
+      ,MAX(T6.BEZEI )  AS BEZEI
+      ,MAX(T6.ERDAT )  AS ERDAT
+      ,MAX(T6.ERZET )  AS ERZET
+      ,MAX(T6.DPTEN )  AS DPTEN
+      ,MAX(T6.UPTEN )  AS UPTEN
+      ,MAX(T6.ZTON1 )  AS ZTON1
+      ,MAX(T6.ZTON2 )  AS ZTON2
+      ,MAX(T6.ZTON3 )  AS ZTON3
+      ,MAX(T6.ZTON4 )  AS ZTON4
+      ,MAX(T6.ZTON5 )  AS ZTON5
+      ,MAX(T6.ZTON6 )  AS ZTON6
+      ,MAX(T6.ZTON7 )  AS ZTON7
+      ,MAX(T6.ZTON8 )  AS ZTON8
+      ,MAX(T6.ZTON9 )  AS ZTON9
+      ,MAX(T6.ZTON10)  AS ZTON10
+      ,MAX(T6.ZTON11)  AS ZTON11
+      ,MAX(T6.ZTON12)  AS ZTON12
+      ,MAX(T6.ZTON13)  AS ZTON13
+      ,MAX(T6.ZTON14)  AS ZTON14
+      ,MAX(T6.ZTON15)  AS ZTON15
+      ,MAX(T7.ZLZONE)  AS ZLZONE
+      ,MAX(T6.ZTYPE )  AS ZTYPE
+      ,''              AS ZCHAN
+      ,MIN(T7.POSID)   AS POSID
+      ,'6'   AS GUBN
+      ,MAX(T6.NAMET) AS NAMET
+      ,MAX(T6.MOB_NUMBER) AS MOB_NUMBER
+      ,MAX(T6.TRAID) AS TRAID
+      ,MAX(T6.AEDAT) AS AEDAT
+      ,MAX(T6.UZEIT) AS UZEIT
+      FROM SAPHEE.ZLET006 AS T6
+           INNER JOIN SAPHEE.ZLET007 AS T7 ON  T6.MANDT  = T7.MANDT
+                                           AND T6.ZKNUM  = T7.ZKNUM
+                                           AND T6.ZKNUM2 = T7.ZKNUM2
+      WHERE T6.MANDT =  #G_MANDT#
+--        AND T6.ZKNUM LIKE '_%'
+        AND T7.PSPID LIKE  #PJT#||'%'
+        AND T6.ZCANC &lt;&gt; 'X'
+
+<isNotNull col="ZFULLSET">
+        AND T6.ZFULLSET = #ZFULLSET#
+</isNotNull>
+
+<isEqual col="ZTON3" value="1">
+        AND T6.ZTON3 = 0
+</isEqual>
+
+      GROUP BY T6.MANDT,T6.ZKNUM,T6.ZKNUM2
+
+      ) AS LE002
+
+--      LEFT OUTER JOIN SAPHEE.ZLET009   AS LE009 ON  LE009.MANDT  = LE002.MANDT
+--                                                AND LE009.ZKNUM  = LE002.ZKNUM
+--                                                AND LE009.ZKNUM2 = LE002.ZKNUM2
+--                                            AND LE009.PSPID  = LE002.PSPID
+      LEFT OUTER JOIN SAPHEE.TZONT     AS TZONT ON  TZONT.MANDT  = LE002.MANDT
+                                                AND TZONT.SPRAS  = '3'
+                                                AND TZONT.LAND1  = 'KR'
+                                                AND TZONT.ZONE1  = LE002.ZLZONE
+      LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MAST2 ON  MAST2.MANDT  = LE002.MANDT
+                                                AND MAST2.POSID  = COALESCE(CASE WHEN SUBSTR(LE002.POSID,1,2)='QM' THEN SUBSTR(LE002.POSID,3,6)
+                                                                                             WHEN SUBSTR(LE002.POSID,1,1)='Q'  THEN SUBSTR(LE002.POSID,2,6) 
+                                                                                             WHEN SUBSTR(LE002.POSID,1,1)='V'  THEN SUBSTR(LE002.POSID,2,6) ELSE SUBSTR(LE002.POSID,1,6) END,'')
+                                                AND MAST2.POSID_1= COALESCE(CASE WHEN SUBSTR(LE002.POSID,1,2)='QM' THEN SUBSTR(LE002.POSID,3,9)
+                                                                                             WHEN SUBSTR(LE002.POSID,1,1)='Q'  THEN SUBSTR(LE002.POSID,2,9) 
+                                                                                             WHEN SUBSTR(LE002.POSID,1,1)='V'  THEN SUBSTR(LE002.POSID,2,9) ELSE SUBSTR(LE002.POSID,1,9) END,'')
+      LEFT OUTER JOIN SAPHEE.ZPST0011  AS PS011 ON  PS011.MANDT  = MAST2.MANDT
+                                                AND PS011.TEMNO  = MAST2.TEMNO
+                                                AND PS011.RETIF  = ''
+      LEFT OUTER JOIN SAPHEE.ZMASTER01 AS MA01 ON MA01.MANDT= LE002.MANDT
+	                                             AND MA01.POSID = LE002.PSPID
+      LEFT OUTER JOIN SAPHEE.ZLET022 AS L22 ON L22.MANDT= LE002.MANDT
+	                                             AND L22.ZKNUM = LE002.ZKNUM
+	                                             AND L22.ZKNUM2 = LE002.ZKNUM2
+	    LEFT OUTER JOIN SAPHEE.ZLET009 AS L09 ON L09.MANDT = LE002.MANDT
+	                                         AND L09.ZKNUM = LE002.ZKNUM
+	                                         AND L09.ZKNUM2 = LE002.ZKNUM2
+
+WHERE 1=1
+
+<isEqual col="HOGI" value="1">
+        AND MA01.ZQNTY &lt; '03'
+</isEqual>
+
+<isEqual col="HOGI" value="2">
+        AND MA01.ZQNTY > '02'
+</isEqual>
+
+<isEqual col="HOGI" value="3">
+        AND MA01.ZQNTY = '01'
+</isEqual>
+   --AND (LE002.ZTON1+LE002.ZTON2+LE002.ZTON3+LE002.ZTON4+LE002.ZTON5+LE002.ZTON6+LE002.ZTON7+LE002.ZTON8+LE002.ZTON9+LE002.ZTON10) > 0
+)
+
+
+SELECT 
+ '' AS FLAG
+, '0' AS CHECK
+, T1.MANDT
+, T1.ZKNUM
+, T1.ZKNUM2
+, CASE WHEN T1.ZKNUM2 > '' THEN T2.PSPID ELSE T1.PSPID END AS PSPID2
+, T1.PSPID
+, CASE WHEN VBAK.VIPTP = 'X' THEN '[VIP]'||T1.POST1 ELSE T1.POST1 END POST1 
+, T1.ZTEXT
+, T1. BEZEI
+, T1.ERDAT
+, T1.ERZET
+, T1.DPTEN
+, T1.UPTEN
+, T1.AEDAT
+, T1.UZEIT
+, T1.ZTON
+, T1.ZLZONE
+, T1.ZLZONE_NM
+, T1.ZTYPE
+, T1.ZTYPE_NM
+, T1.ZCHAN
+, T1.ZCHAN_NM
+, T1.NAMET
+, T1.MOB_NUMBER
+, T1.TRAID
+, T1.POSID
+, T1.ZZTEMNO
+, T1.ZZTEAMJ
+, T1.CELLP
+, T1.ZZTEMNO2
+, T1.ZZTEAMJ2
+, T1.CELLP2
+, T1.HOGI
+, T1.ZSPEC1
+, T1.ZSPEC2
+, T1.SPEC
+, T1.ZZACTSS
+, T1.GUBN
+, SAPHEE.GET_LE_MSG1(T1.PSPID,T1.POST1,T1.ZTEXT, T1.ZTON,T1.DPTEN,T1.UPTEN) AS MSG
+, SAPHEE.GET_LE_MSG2(T1.PSPID,T1.ZTON,T1.TRAID,T1.NAMET,SUBSTR(T1.MOB_NUMBER,1,13),T1.DPTEN,T1.UPTEN) AS MSG1
+, T1.SMDATE1
+, T1.SMDATE2
+, T1.ZQNTY
+, T1.ZKZWI
+FROM TMP T1
+LEFT OUTER JOIN TMP T2 ON  T2.MANDT = T1.MANDT
+AND T2.ZKNUM = T1.ZKNUM
+AND T2.ZKNUM2 = '' 
+LEFT OUTER JOIN SAPHEE.VBAK AS VBAK ON T1.MANDT = VBAK.MANDT AND T1.PSPID = VBAK.ZZPJT_ID 
+WHERE 1=1
+
+ORDER BY ERDAT, ERZET, PSPID2, ZKNUM ,ZKNUM2
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="PJT" size="255" type="VARCHAR" description="" /> 
+		<col name="GBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="BEZEI" size="60" type="VARCHAR" description="" /> 
+		<col name="CELLP" size="30" type="VARCHAR" description="" /> 
+		<col name="DPTEN" size="24" type="VARCHAR" description="" /> 
+		<col name="ERDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="ERZET" size="18" type="VARCHAR" description="" /> 
+		<col name="HOGI" size="1000" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="MOB_NUMBER" size="30" type="VARCHAR" description="" /> 
+		<col name="NAMET" size="105" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POST1" size="120" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="72" type="VARCHAR" description="" /> 
+		<col name="TRAID" size="60" type="VARCHAR" description="" /> 
+		<col name="UPTEN" size="18" type="VARCHAR" description="" /> 
+		<col name="ZCHAN" size="120" type="VARCHAR" description="" /> 
+		<col name="ZCHAN_NM" size="29" type="VARCHAR" description="" /> 
+		<col name="ZKNUM" size="33" type="VARCHAR" description="" /> 
+		<col name="ZKNUM2" size="6" type="VARCHAR" description="" /> 
+		<col name="ZLZONE" size="30" type="VARCHAR" description="" /> 
+		<col name="ZLZONE_NM" size="60" type="VARCHAR" description="" /> 
+		<col name="ZSPEC1" size="15" type="VARCHAR" description="" /> 
+		<col name="ZSPEC2" size="75" type="VARCHAR" description="" /> 
+		<col name="ZTEXT" size="120" type="VARCHAR" description="" /> 
+		<col name="ZTON" size="118" type="VARCHAR" description="" /> 
+		<col name="ZTYPE" size="6" type="VARCHAR" description="" /> 
+		<col name="ZTYPE_NM" size="14" type="VARCHAR" description="" /> 
+		<col name="ZZTEAMJ" size="60" type="VARCHAR" description="" /> 
+		<col name="ZZTEMNO" size="18" type="VARCHAR" description="" /> 
+	</output>
+</query>

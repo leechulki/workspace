@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT   
+        FLAG
+       ,ROWNUM
+       ,POSID
+       ,POSID_1
+       ,YYYYMM
+       ,ZSITE_NM
+       ,ZZACTSS
+       ,LIFNR
+       ,XVALUE
+       ,BIGO
+       ,CASE WHEN SEP = 0 THEN RTEXT
+             WHEN SEP > 0 THEN SUBSTR(RTEXT,1,SEP-1)
+        END VALUE
+       ,NAME1
+       ,ADDR
+       ,REP
+       ,CTEXT2
+FROM (   
+       SELECT  'I' AS FLAG
+              ,ROWNUMBER() OVER(PARTITION BY A.ZZACTSS) AS ROWNUM
+              ,A.POSID
+              ,B.POSID_1
+              ,CAST(#YYYYMM# AS CHAR(10)) AS YYYYMM
+              ,A.ZSITE_NM
+              ,A.ZZACTSS
+              ,B.LIFNR AS LIFNR
+              ,'' AS XVALUE
+              ,'' AS BIGO
+              ,SUBSTR(B.ZSPEC2,LOCATE('-',SUBSTR(B.ZSPEC2, LOCATE( '-', B.ZSPEC2 )+1)) + LOCATE( '-', B.ZSPEC2 ) +1) RTEXT
+              ,LOCATE('/',SUBSTR(B.ZSPEC2,LOCATE('-',SUBSTR(B.ZSPEC2, LOCATE( '-', B.ZSPEC2 )+1)) + LOCATE( '-', B.ZSPEC2 ) +1)) SEP
+              ,MM.NAME1
+              ,TRIM(MM.MCOD3)||TRIM(MM.STRAS) AS ADDR
+              ,MM.J_1KFREPRE AS REP
+              ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE AS M WHERE M.MANDT = MM.MANDT AND CODE1 = 'PS003' AND M.LANG = #G_LANG# AND M.CODE2 = (SELECT ZZACTSS FROM SAPHEE.ZWBT010 AS W WHERE W.MANDT = MM.MANDT AND LIFNR = MM.LIFNR)) AS CTEXT2
+       FROM SAPHEE.ZMASTER01 AS A, SAPHEE.ZMASTER02 AS B
+            LEFT OUTER JOIN SAPHEE.ZMMT012 AS MM
+            ON B.MANDT = MM.MANDT AND B.LIFNR = MM.LIFNR
+       WHERE A.MANDT = #G_MANDT#
+       AND B.POSID = #PSPID#
+       AND B.MANDT = A.MANDT
+       AND B.POSID = A.POSID
+       AND B.LIFNR = #LIFNR#
+       AND B.POSID_1 LIKE '______L%'
+       ORDER BY A.ZZACTSS,A.POSID,B.POSID_1
+) T
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

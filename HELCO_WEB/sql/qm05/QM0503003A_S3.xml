@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+	WITH TEMP AS (
+			 SELECT CS107.CS107_NTC_QC
+			      , CASE WHEN CS107.CS107_NTC_QC = '1' THEN 1
+			             ELSE 0
+			             END AS NTC_CNT
+			      
+			  FROM SAPHEE.ZCST101 CS101 LEFT OUTER JOIN SAPHEE.ZCST111 CS111
+			                                      	   ON CS101.MANDT = CS111.MANDT
+			                                      	  AND CS101.CS101_PJT = CS111.PJT
+			                                      	  AND CS101.CS101_HNO = CS111.HNO	  
+			                            
+			                                  
+			                            LEFT OUTER JOIN (SELECT  MANDT,CS108_PJT,CS108_HNO
+			                                             		     ,CASE WHEN MAX(CS108_SCT) = 'Y' THEN 'Y' ELSE '' END CS108_SCT	
+			                                                     ,MIN(CASE WHEN CS108_JYD IS NULL THEN '' ELSE CS108_JYD END)	 AS CS108_JYD
+			                                                     ,MAX(CS108_QIC) AS CS108_QIC
+			                                                     ,MAX(CS108_QII) AS CS108_QII
+			                                                     ,MAX(CS108_TXT_QC) AS CS108_TXT_QC
+			                                                     --,MAX(CS108_NTC_QC) AS CS108_NTC_QC
+			                                                     ,'' AS CS108_NTC_QC
+			                                                     ,MAX(CS108_JCD) AS CS108_JCD
+			                                                     ,MAX(CS108_JCR) AS CS108_JCR
+			                                                     ,MAX(CS108_RSN_QC) AS CS108_RSN_QC
+				                                              FROM SAPHEE.ZCST108
+				                                             WHERE MANDT = #G_MANDT#
+				                                             GROUP BY MANDT,CS108_PJT,CS108_HNO	
+				                                            ) CS108
+			                                      	   ON CS101.MANDT = CS108.MANDT
+			                                      	  AND CS101.CS101_PJT = CS108.CS108_PJT
+			                                      	  AND CS101.CS101_HNO = CS108.CS108_HNO            	  
+			                                      	  
+			                            LEFT OUTER JOIN (
+			                                             SELECT
+			                                                    A.PSPID,
+			                                                    A.HOGI,
+			                                                    A.PAPRID,
+			                                                    A.PAPRIDTX,
+			                                                    A.SEQ
+			                                               FROM
+			                                                    (
+			                                                     SELECT
+			                                                            PSPID,
+			                                                            HOGI,
+			                                                            SUBSTR(PAPRID,2) PAPRID,
+			                                                            PAPRIDTX,
+			                                                            SEQ,
+			                                                            ROW_NUMBER() OVER(PARTITION BY PSPID, HOGI ORDER BY PSPID, HOGI, SEQ DESC) RNO
+			                                                       FROM 
+			                                                            SAPHEE.ZQMT019
+			                                                      WHERE 
+			                                                            MANDT = #G_MANDT#
+			                                                        AND WERKS = '1000'
+			                                                        AND ART = '8960'
+			                                                        AND PAPRID > ''
+			                                                        AND SEQ = '01'
+			                                                                                         ) A
+			                                              WHERE
+			                                                    A.RNO = 1
+			                                            ) A ON A.PSPID = CS101.CS101_PJT
+			                                               AND A.HOGI = CS101.CS101_PJT || CS101.CS101_HNO
+			                                               
+																				LEFT OUTER JOIN SAPHEE.ZCST107 CS107 
+																				        ON CS107.MANDT = CS101.MANDT
+																				       AND CS107.CS107_PJT = CS101.CS101_PJT
+																				       AND CS107.CS107_HNO = CS101.CS101_HNO
+																				
+																				LEFT OUTER JOIN SAPHEE.ZMASTER02 M02
+																				        ON M02.MANDT = CS101.MANDT 
+																				       AND M02.POSID = CS101.CS101_PJT 
+																				       AND M02.POSID_1 = CS101.CS101_PJT||CS101.CS101_HNO					       
+																				
+																				LEFT OUTER JOIN SAPHEE.ZWBT010 WB010
+																				        ON WB010.MANDT = CS101.MANDT 
+																				       AND WB010.LGORT = CS101.CS101_BSU
+																				
+																				LEFT OUTER JOIN SAPHEE.ZLCODE AS ZC01
+																				        ON ZC01.MANDT = CS101.MANDT
+																				       AND ZC01.CODE1 = 'CS204'
+																				       AND ZC01.CODE2 = CS107.CS107_RSN_QC
+																				       AND ZC01.LANG = 'ko'
+			
+																				LEFT OUTER JOIN SAPHEE.ZCST106 CS106 
+																				        ON CS106.MANDT = CS101.MANDT
+																				       AND CS106.CS106_QMC = CS108.CS108_QIC
+								
+					
+			 WHERE CS101.MANDT = #G_MANDT#
+			 	AND CS101.CS101_PJT NOT LIKE 'M%' -- M프로젝트 제외
+			    AND CS101.CS101_PST = 'A6'
+				AND CS107.CS107_NTC_QC <![CDATA[<>]]> '' AND CS107.CS107_NTC_QC IS NOT NULL
+			    AND CS108.CS108_QIC NOT IN ('0000', '0001')
+			    <isEqual col="EL_TYPE" value="A">
+			    AND M02.ZZGUBUN IN ('10', '13')
+			    </isEqual>
+			    <isEqual col="EL_TYPE" value="B">
+			    AND M02.ZZGUBUN IN ('11', '12', '14')
+			    </isEqual>
+			     <isNotNull col="PSPID">
+			     AND CS101.CS101_PJT = #PSPID#
+			     </isNotNull>
+		   	     <isNotNull col="FR_DATE">
+			     AND CS107.CS107_QJD BETWEEN #FR_DATE# AND #TO_DATE#
+			     </isNotNull>
+			     <isNotNull col="ZZACTSS">
+			     AND M02.ZZACTSS = #ZZACTSS#
+			     </isNotNull>
+			     <isNotNull col="LIFNR">
+			     AND M02.LIFNR = #LIFNR#
+			     </isNotNull>
+			     <isNotNull col="TMCD">
+			     AND M02.TEMNO2 = #TMCD#
+			     </isNotNull>
+
+			    --AND CS107.CS107_PST BETWEEN 'C0' AND 'C5' -- 설치
+			 )
+			 ,
+			 TEMP2 AS
+			 (
+			 	SELECT COUNT(1) AS CNT
+			        FROM SAPHEE.ZMASTER02 AS A
+			       INNER JOIN SAPHEE.ZMASTER01 AS B
+			          ON A.POSID = B.POSID
+			       WHERE A.PRART IN ('01', '11')
+			         AND A.TXT04 <![CDATA[<>]]> 'C'  --취소는 제거
+			         AND A.ZZJUNGO = 'X'
+			       <isEqual col="EL_TYPE" value="A">
+				   AND A.ZZGUBUN IN ('10', '13')
+				   </isEqual>
+				   <isEqual col="EL_TYPE" value="B">
+				   AND A.ZZGUBUN IN ('11', '12', '14')
+				   </isEqual>
+			       <isNotNull col="PSPID">
+				   AND A.POSID = #PSPID#
+				   </isNotNull>
+			   	   <isNotNull col="FR_DATE">
+				   AND A.ZBOSUOUT BETWEEN #FR_DATE# AND #TO_DATE#
+				   </isNotNull>
+				   <isNotNull col="ZZACTSS">
+				   AND A.ZZACTSS = #ZZACTSS#
+				   </isNotNull>
+				   <isNotNull col="LIFNR">
+				   AND A.LIFNR = #LIFNR#
+				   </isNotNull>
+				   <isNotNull col="TMCD">
+				   AND A.TEMNO2 = #TMCD#
+				   </isNotNull>
+
+			 )
+			 
+			 
+			 SELECT COUNT(1) AS CNT_1
+			      , VALUE(SUM(T.NTC_CNT),0) AS CNT_2
+			      , VALUE((SELECT CNT
+			          FROM TEMP2
+			        ),0) AS CNT_0
+			      , 0 AS CNT_3
+			   FROM TEMP T
+			 WITH UR
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list_3">
+	</output>
+</query>

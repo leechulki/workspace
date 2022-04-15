@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT T1.MAKE_MM,
+             T1.PSPID,
+             T1.BSTNK,
+ 	         T1.CONTENT  ,
+	        T1.NETWR, 
+	        T1.PLAN,
+	        T1.ERNAMNM,
+           (CASE  WHEN T1.MR_DEPARTMENT = 'B1' THEN '영업 1부'         
+			           WHEN T1.MR_DEPARTMENT = 'B2' THEN '영업 2부'         
+					   WHEN T1.MR_DEPARTMENT = 'B3' THEN 'M.P영업부'        
+					   WHEN T1.MR_DEPARTMENT = 'B4' THEN '영업 3부'         
+					   WHEN T1.MR_DEPARTMENT = 'B5' THEN '해외영업 1부'     
+					   WHEN T1.MR_DEPARTMENT = 'B6' THEN '해외영업 2부'     
+					   WHEN T1.MR_DEPARTMENT = 'B7' THEN '해외기술영업팀'   
+					   WHEN T1.MR_DEPARTMENT = 'B8' THEN '기술영업부'       
+					   WHEN T1.MR_DEPARTMENT = 'C1' THEN '설계부'           
+					   WHEN T1.MR_DEPARTMENT = 'CA' THEN 'S/S 영업부'       
+					   WHEN T1.MR_DEPARTMENT = 'CB' THEN 'S/S 개발부'       
+					   WHEN T1.MR_DEPARTMENT = 'CC' THEN 'S/S 설치부'       
+					   WHEN T1.MR_DEPARTMENT = 'CD' THEN 'S/S 서비스팀'     
+					   WHEN T1.MR_DEPARTMENT = 'CE' THEN 'S/S 사업관리'     
+					   WHEN T1.MR_DEPARTMENT = 'E1' THEN '설치 1부'         
+					   WHEN T1.MR_DEPARTMENT = 'E2' THEN '설치관리부'       
+					   WHEN T1.MR_DEPARTMENT = 'E3' THEN '서비스관리부'     
+					   WHEN T1.MR_DEPARTMENT = 'E4' THEN '설치 2부'         
+					   WHEN T1.MR_DEPARTMENT = 'E5' THEN '고객지원부1부'    
+					   WHEN T1.MR_DEPARTMENT = 'E6' THEN '리모델링영업부'   
+					   WHEN T1.MR_DEPARTMENT = 'E7' THEN 'MP설치부'         
+					   WHEN T1.MR_DEPARTMENT = 'E9' THEN '서비스마케팅부'   
+					   WHEN T1.MR_DEPARTMENT = 'EA' THEN '고객지원2부'      
+					   WHEN T1.MR_DEPARTMENT = 'F7' THEN '효율개선부'       
+					   WHEN T1.MR_DEPARTMENT = 'H4' THEN 'Special TFT'      
+					   WHEN T1.MR_DEPARTMENT = 'B100' THEN '영업1부'        
+					   WHEN T1.MR_DEPARTMENT = 'B200' THEN '영업2부'        
+					   WHEN T1.MR_DEPARTMENT = 'B300' THEN 'M.P영업부'      
+					   WHEN T1.MR_DEPARTMENT = 'B400' THEN '영업3부'        
+					   WHEN T1.MR_DEPARTMENT = 'ZZ11' THEN 'S/S SE부'       
+					   WHEN T1.MR_DEPARTMENT = 'ZZ12' THEN 'S/S 기술부'     
+					   WHEN T1.MR_DEPARTMENT = 'ZZ13' THEN 'S/S 서비스팀'   
+					   WHEN T1.MR_DEPARTMENT = 'ZZ14' THEN 'S/S 사업관리'   
+					   WHEN T1.MR_DEPARTMENT = 'E600' THEN '리모델링영업부' 
+					   WHEN T1.MR_DEPARTMENT = 'C600' THEN 'S/S 영업부(물류)'
+					   WHEN T1.MR_DEPARTMENT = 'C700' THEN 'S/S 영업부(주차)'
+					   WHEN T1.MR_DEPARTMENT = 'C600' THEN 'S/S 영업부(PSD)'
+					   ELSE ''   END) AS MR_DEPARTMENT,
+			          T1.ACTION,
+			          T1.TYPE,
+			          T1.VKBUR,
+			          T1.VKGRP,
+                                                    T1.VKBURNM
+	
+
+FROM
+(SELECT A.MAKE_MM,
+              A.PSPID,
+             (SELECT B.BSTNK  FROM SAPHEE.VBAK AS B   WHERE  A.MANDT = B.MANDT  AND A.PSPID   = B.ZZPJT_ID) BSTNK,
+              B.CONTENT ,
+  SAPHEE.GET_CURRENCY2(CAST(A.WAERK AS VARCHAR(15) ), CAST(B.NETWR  AS DECIMAL(13, 2) ) ) AS NETWR,
+	       '사전계획' AS PLAN,
+		      A.TYPE,
+	          A.ACTION,
+	          VALUE((SELECT ST.USERNAME FROM SAPHEE.ZUSERF AS ST 
+                           WHERE ST.MANDT = A.MANDT AND ST.USERNUMB = A.ERNAM), '') AS ERNAMNM,
+               A.MR_DPT1 AS MR_DEPARTMENT,
+	 C.VKBUR,
+	 C.VKGRP,
+               (SELECT ST.BEZEI FROM SAPHEE.TVKBT AS ST 
+                  WHERE ST.MANDT = C.MANDT AND ST.SPRAS = '3' AND ST.VKBUR = C.VKBUR) AS VKBURNM
+			 
+
+			 
+FROM SAPHEE.ZSDTW004 AS A
+INNER JOIN SAPHEE.ZSDTW005 AS B
+            ON  A.MANDT = B.MANDT
+		  AND A.PSPID = B.PSPID
+INNER JOIN SAPHEE.VBAK AS C
+            ON A.MANDT = C.MANDT
+           AND A.PSPID   = C.ZZPJT_ID
+
+WHERE A.MANDT = #G_MANDT#
+ AND A.MAKE_MM BETWEEN SUBSTR(#MAKF_DT#,1,6) AND SUBSTR(#MAKT_DT#,1,6)    
+   <isNotNull col="VKBUR">
+       AND C.VKBUR = #VKBUR#
+    </isNotNull>
+
+    <isNotNull col="VKGRP">
+       AND C.VKGRP = #VKGRP#
+    </isNotNull>
+
+) T1	</statement>
+	<input default-name="ds_cond_p">
+	</input>
+	<output default-name="ds_list_p">
+	</output>
+</query>

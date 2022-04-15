@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[PS1601011A_S6]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>1</result-count>
+    <statement>
+  SELECT 
+       A.MANDT                            
+       ,A.TOT_YYYY                         
+       ,A.GUBUN1                           
+       ,A.GUBUN2                            
+       ,A.SCR_GUBUN                       
+       ,A.TEAMNO 
+       ,(SELECT N.DTEXT4 FROM SAPHEE.ZLCODE N WHERE N.MANDT = A.MANDT AND N.CODE1 = 'PS003' AND N.LANG = 'ko' AND N.CODE2 = A.ZZACTSS) AS TEMNM
+       ,A.ZZACTSS                
+       , (SELECT MM028.CTEXT2 FROM SAPHEE.ZLCODE MM028 WHERE MM028.MANDT = A.MANDT AND MM028.CODE1 = 'PS003' AND MM028.LANG = 'ko' AND MM028.CODE2 = A.ZZACTSS) AS ZZACTSS_NM
+       ,A.LIFNO
+       ,(SELECT DISTINCT NN.NAME1 FROM SAPHEE.ZPST0034 NN WHERE NN.MANDT = A.MANDT   AND NN.LIFNR = A.LIFNO  AND NN.GBN = 'A' AND (SO = 'X' OR SO3 = 'X')) AS LIFNRNM                    
+       ,A.TEMNO   
+       , B.NAMET AS NAMET2
+       ,A.QC_RT
+       ,A.QC_POINT
+       ,A.JQPR_CNT
+       ,A.JQPR_POINT
+       ,A.AVG_PER_CNT
+       ,A.AVG_PER_POINT
+       ,A.INP_RT
+       ,A.INP_POINT
+       ,A.PER_INST_CNT
+       ,A.PER_INST_POINT
+       ,A.SAF_ACCT_CNT
+       ,A.SAF_ACCT_POINT
+       ,A.EVAL_IMNO_CNT
+       ,A.EVAL_IMNO_POINT
+       ,A.PER_PER_CNT
+       ,A.PER_PER_POINT
+       ,A.MINWON_CNT
+       ,A.MINWON_POINT
+     --  ,(TEAM_MANG_POINT + BRCH_MANG_POINT + DRCT_POINT ) AS COLL_POINT
+     --      , CASE WHEN QC_POINT IS NULL THEN 0 ELSE QC_POINT END
+     --     +CASE WHEN JQPR_POINT IS NULL THEN 0 ELSE JQPR_POINT END
+     --     +CASE WHEN AVG_PER_POINT IS NULL THEN 0 ELSE AVG_PER_POINT END
+     --     +CASE WHEN INP_POINT IS NULL THEN 0 ELSE INP_POINT END
+     --     +CASE WHEN PER_INST_POINT IS NULL THEN 0 ELSE PER_INST_POINT END
+     --     +CASE WHEN SAF_ACCT_POINT IS NULL THEN 0 ELSE SAF_ACCT_POINT END
+     --     +CASE WHEN EVAL_IMNO_POINT IS NULL THEN 0 ELSE EVAL_IMNO_POINT END
+    --      +CASE WHEN PER_PER_POINT IS NULL THEN 0 ELSE PER_PER_POINT END
+     --     +CASE WHEN MINWON_POINT IS NULL THEN 0 ELSE MINWON_POINT END
+     --     +TEAM_MANG_POINT + BRCH_MANG_POINT + DRCT_POINT
+     --     AS TOT_POINT
+        ,A.TOT_POINT + A.TEAM_MANG_POINT + A.BRCH_MANG_POINT AS TOT_POINT
+       ,(A.TEAM_MANG_POINT + A.BRCH_MANG_POINT ) AS COLL_POINT
+       , RANK() OVER( ORDER BY SUM( A.TOT_POINT + A.TEAM_MANG_POINT + A.BRCH_MANG_POINT   ) OVER (PARTITION BY A.LIFNO,A.TEMNO  ORDER BY A.LIFNO,A.TEMNO  ) DESC) AS RANKING
+FROM SAPHEE.ZPSTW1701T   A       
+LEFT OUTER JOIN SAPHEE.ZPST0002 AS B ON A.MANDT = B.MANDT AND A.TEMNO = B.TEMNO 
+INNER JOIN  
+     (
+     SELECT MANDT, LIFNR, TEMNO, POSIT, NAMET 
+       FROM SAPHEE.ZPST0001 
+      WHERE MANDT = #G_MANDT# 
+      AND POSIT = 'X' AND GBN = 'A' AND TYPE = '1' 
+   --   AND RETIF   <![CDATA[  <> ]]>  'X'  
+      GROUP BY MANDT, LIFNR, TEMNO, POSIT, NAMET
+     ) AS J ON J.MANDT = A.MANDT
+        AND J.LIFNR = A.LIFNO
+        AND J.TEMNO = A.TEMNO
+LEFT OUTER JOIN SAPHEE.ZPST0034 AS C
+             ON C.MANDT = A.MANDT
+            AND C.LIFNR = A.LIFNO
+            AND C.GBN   = 'A'
+WHERE  A.TOT_YYYY = #YEARF# AND A.GUBUN1 = #BANGI# AND A.SCR_GUBUN = #SCR_GUBUN#
+AND C.SO5 <![CDATA[<>]]> 'X'
+AND (A.TEMNO IS NOT NULL OR A.TEMNO != '')  
+           <isNotNull col="ZTEMNO">
+           AND A.TEMNO = #ZTEMNO#
+           </isNotNull>
+           <isNotNull col="ZZLIFNR">
+           AND A.LIFNO = #ZZLIFNR#      
+           </isNotNull>  
+          <isNotNull col="TEMNO">
+             AND TEAMNO = #TEMNO# 
+          </isNotNull>
+          <isNotNull col="ZZACTSS">
+            AND A.ZZACTSS = #ZZACTSS#
+          </isNotNull>
+          <isNotNull col="CHK_GBN">
+             AND A.GUBUN2 = #CHK_GBN#
+          </isNotNull>
+          
+FOR FETCH ONLY
+WITH UR     
+
+   </statement>
+    <input default-name="ds_cond">
+    </input>
+
+    <output default-name="ds_list1">
+    </output>
+
+</query>

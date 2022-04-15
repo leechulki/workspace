@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT 
+       A.POSID,
+       A.MATNR,
+       A.MAKTX,
+       CASE WHEN A.MENGE > 0 THEN A.MENGE
+            ELSE (SELECT SUM(Z.MENGE)
+                    FROM SAPHEE.ZPPT004 Z
+                   WHERE Z.MANDT = '183'
+                     AND Z.WOKNUM = A.POSID
+                     AND Z.IDNRK = A.MATNR
+                 )
+       END MENGE,
+       CASE WHEN A.MEINS > '' THEN A.MEINS
+            ELSE (SELECT MAX(Z.MEINS)
+                    FROM SAPHEE.ZPPT004 Z
+                   WHERE Z.MANDT = '183'
+                     AND Z.WOKNUM = A.POSID
+                     AND Z.IDNRK = A.MATNR
+                 )
+       END MEINS,
+       A.NETWR,
+       A.CHDATE,
+       A.CYCLE,
+       A.CYYMM YDATE
+  FROM 
+       (
+        SELECT 
+               A.POSID,
+               A.MATNR,
+               VALUE(C.MAKTX,'') MAKTX,
+               VALUE(C.SAMT1,0)*100 NETWR,
+               VALUE(E.MENGE,0) MENGE,
+               VALUE(E.MEINS,'') MEINS,
+               A.CHDATE,
+               B.CYCLE,
+               REPLACE(CHAR(DATE(SAPHEE.GET_DATE_FORMAT(A.CHDATE))+INT(B.CYCLE) MONTH),'-','') AS CYYMM,
+               ROW_NUMBER() OVER(PARTITION BY A.POSID, A.MATNR ORDER BY A.POSID, A.MATNR, VALUE(E.BUDAT3,'00000000') DESC) ROWN
+          FROM 
+               SAPHEE.ZMMT095 A INNER JOIN SAPHEE.ZMMT077 B
+                                        ON A.MANDT = B.MANDT
+                                       AND A.MAT_CODE = B.MAT_CODE
+                                LEFT OUTER JOIN SAPHEE.ZMMT011 C
+                                             ON A.MANDT = C.MANDT
+                                            AND A.MATNR = C.MATNR
+                                LEFT OUTER JOIN SAPHEE.ZMMT031 D			      							                         
+                                             ON A.MANDT = D.MANDT
+                                            AND A.POSID = D.POSID
+                                            AND A.MATNR = D.MATNR
+                                LEFT OUTER JOIN SAPHEE.ZMMT001 E
+                                             ON D.MANDT = E.MANDT
+                                            AND D.REQNR = E.REQNR
+                                            AND D.REQITEM = E.REQITEM
+                                            AND A.CHDATE = E.BUDAT3
+                                            AND E.DEL_DATE = '00000000'
+         WHERE SUBSTR(A.POSID,1,6) = #PSPID#
+       ) A         
+ WHERE A.CYYMM BETWEEN #GIJUN_S#||'01' AND #GIJUN_E#||'31'
+   AND (A.ROWN = 1 OR A.MENGE > 0)
+  WITH UR
+	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

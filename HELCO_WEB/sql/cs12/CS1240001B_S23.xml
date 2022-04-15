@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	<![CDATA[
+	SELECT  A.CS310_GNO
+      , A.CS310_SIR
+      , A.SJT
+      , A.GMT
+      , A.GM2
+      , A.COST
+      , A.COST2 AS COS2
+      , A.TAMT
+      , ROUND(COST / TAMT * 100,1) AS RAT
+      , ROUND(COST2 / TAMT * 100,1) AS RA2
+      , ROUND(COST / TAMT * 100,1) - ROUND(COST2 / TAMT * 100,1) AS PER
+
+  FROM (
+         SELECT  A.CS310_GNO
+               , A.CS310_SIR
+               , A.SJT
+               , A.GMT
+               , A.GM2
+               , (A.COS1+A.GMT) AS COST
+               , (A.COS2+A.GM2) AS COST2
+               , (A.TAMT+A.CS313_AMT) AS TAMT
+         
+          FROM (
+                  SELECT  CS310.CS310_GNO 
+                        , CS310.CS310_SIR
+                        , COSTS.SJT
+                        , CS310.GBU
+                        , CS310.AMT
+                        , CS310.TAMT
+                        , CS313_AMT
+                        , (CS310.COS1+COSTS.SJT) AS COS1
+                        , (CS310.COS2+COSTS.SJT) AS COS2  
+                        , (CS310.COS1+COSTS.SJT) * CS604_US / 100 AS GMT
+                        , (CS310.COS2+COSTS.SJT) * CS604_US / 100 AS GM2 
+                        , CASE WHEN CS310.GBU = 'A' THEN CS310.CS310_INC WHEN CS310.GBU = 'B' THEN CS310.AMT * CS310.CS310_INC ELSE 0 END INC
+                   
+                    FROM (      
+                           SELECT 
+                                   A.CS310_GNO
+                                 , A.CS310_SIR
+                                 , A.CS310_NMT
+                                 , A.CS310_JMT
+                                 , A.CS310_JM2
+                                 , A.CS310_KMT
+                                 , A.CS310_HMT
+                                 , A.CS310_DMT
+                                 , A.CS310_CMT
+                                 , A.CS310_INC
+                                 ,(A.CS310_NMT+A.CS310_JMT+A.CS310_KMT+A.CS310_HMT+A.CS310_DMT+A.CS310_CMT) AS COS1
+                                 ,(A.CS310_NMT+A.CS310_JM2+A.CS310_KMT+A.CS310_HMT+A.CS310_DMT+A.CS310_CMT) AS COS2
+                                 , CAST(#GBU# AS VARCHAR(1)) AS GBU
+                                 , CAST(#AMT# AS INTEGER) AS AMT
+                                 , CAST(#TAMT# AS INTEGER) TAMT
+                            
+                             FROM SAPHEE.ZCST310 A
+                           
+                            WHERE A.MANDT = #G_MANDT#
+                              AND CS310_GNO = #ETN#
+                              AND CS310_SIR = #SIR#
+                     
+                         ) CS310  LEFT OUTER JOIN (
+                                                     SELECT 
+                                                             CS313.CS313_TEM
+                                                           , CS313.CS313_RDT
+                                                           , CS313.CS313_SEQ
+                                                           , CS313.CS313_SIR 
+                                                           , SUM(CS313.CS313_AMT*UMS) AS CS313_AMT
+                                                           , SUM(CS313.SJT)*UMS AS SJT
+                                                           
+                                                     FROM (
+                                                            SELECT 
+                                                                    A.CS313_TEM
+                                                                  , A.CS313_RDT
+                                                                  , A.CS313_SEQ
+                                                                  , A.CS313_SIR
+                                                                  , A.CS313_BSU
+                                                                  , A.CS313_TGB
+                                                                  , A.CS313_TMP
+                                                                  , A.CS313_HUR
+                                                                  , A.CS313_RAT
+                                                                  , A.CS313_AMT
+                                                                  , B.M_AMT
+                                                                  , CASE WHEN A.CS313_TGB = '1' AND A.CS313_TMP = 'N' THEN A.CS313_HUR*B.M_AMT*20
+                                                                              WHEN A.CS313_TGB = '1' AND A.CS313_TMP = 'Y' THEN 2700000
+                                                                              WHEN A.CS313_TGB = '3' THEN (A.CS313_AMT * A.CS313_RAT)/100
+                                                                  	 	   ELSE 0 	 	   
+                                                                     END SJT
+                                                                  , SAPHEE.MONTH_BETWEEN(#STD#,#ETD#,2) AS UMS
+                                                                  
+                                                              FROM SAPHEE.ZCST313 A LEFT OUTER JOIN SAPHEE.ZCST500 B 
+                                                                                            ON B.MANDT = A.MANDT 
+                                                                                           AND B.ZYEAR = #ZYEAR# 
+                                                                                           AND B.VKGRP = CS313_TEM
+                                                              
+                                                             WHERE A.MANDT = #G_MANDT#
+                                                               AND CS313_TEM||CS313_RDT||CS313_SEQ = #ETN#
+                                                               AND CS313_SIR = #SIR#
+                                                            
+                                                           
+                                                            ) CS313 
+                                                      
+                                                      
+                                                      GROUP BY CS313_TEM
+                                                              ,CS313_RDT
+                                                              ,CS313_SEQ
+                                                              ,CS313_SIR
+                                                              ,UMS
+                                                            
+                                                    ) COSTS
+                                                 ON 1=1
+                                                AND CS310_GNO = #ETN#
+                                                AND CS310_SIR = #SIR#
+                     
+                                    LEFT OUTER JOIN SAPHEE.ZCST604 T604
+                                                 ON T604.MANDT = #G_MANDT#
+                                                AND T604.CS604_YEAR = #ZYEAR#
+                   ) A
+       ) A
+  
+ 
+
+		WITH UR
+	]]>
+	</statement>
+	<input default-name="ds_cost_sum_i">
+	</input>
+	<output default-name="ds_cost_sum_sj">
+	</output>
+</query>

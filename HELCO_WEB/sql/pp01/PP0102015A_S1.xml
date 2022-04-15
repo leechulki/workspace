@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[상해 SAPRE PART진행현황 - 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+    MANDT
+  , '' AS CHECK
+  , '' AS FLAG
+  , ZSITE_NM    -- PO NO 상해 (현장명)
+  , POSID_1   AS POSID  -- PO 본사(WBS)  
+  , MAKTX AS MAKTX    -- 자재명
+  , INV         -- INVERTER
+--  , CASE WHEN WKDAT > '' AND PKDAT > '' AND SEDAT > '' THEN '●'
+--         WHEN WKDAT > '' THEN '⊙'
+--         WHEN VALUE(ERDAT,'') > '' AND (SPLM = '3' OR SPLM = '') THEN '◎'
+--         WHEN VALUE(ERDAT,'') = '' OR (VALUE(ERDAT,'') > '' AND SPLM &lt;  '3') THEN '○'
+--         ELSE '' END AS GSTAT --공정
+  , CASE WHEN VALUE(SEDAT,'') > '' AND VALUE(MMCNT,0) &gt;= VALUE(PPCNT,0) THEN '●'
+         WHEN VALUE(WKDAT,'') > '' AND VALUE(MMCNT,0) &gt;= VALUE(PPCNT,0) THEN '⊙'
+         WHEN VALUE(ERDAT,'') > '' AND (SPLM = '3' OR SPLM = '') THEN '◎'
+         WHEN VALUE(ERDAT,'') = '' OR (VALUE(ERDAT,'') > '' AND SPLM &lt;  '3') THEN '○'
+         ELSE '' END AS GSTAT --공정
+  , PODATE      -- PO송부일
+  , RSDATE      -- 출하요구일
+  , RECAD_DA      -- 수통승인일
+  , VDATU         --납기일
+  , CASE WHEN VDATU = EDATU THEN '' ELSE EDATU END EDATU         --변경납기일
+  , CASE WHEN SPLM = '1'  THEN '●' 
+             WHEN SPLM = '2' THEN '▲' 
+			 ELSE '■' END DSTAT       -- 설계 진행상태 
+  , VALUE(ERDAT,'') AS ERDAT        -- 설계
+  , CASE WHEN VALUE(MMCNT,0) &gt;= VALUE(PPCNT,0) THEN VALUE(PKDAT,'') ELSE '' END AS PKDAT         -- PACKING
+  , VALUE(MMCNT,0) AS MMCNT
+  , VALUE(MMCNT_A,0) AS MMCNT_A
+  , VALUE(PPCNT,0) AS PPCNT
+  , CASE 
+         WHEN VALUE(MMCNT,0) &lt;&gt; VALUE(MMCNT_A,0) THEN VALUE(SEDAT_A,'')
+         WHEN VALUE(MMCNT,0) = VALUE(MMCNT_A,0) AND VALUE(MMCNT,0) = 1 AND VALUE(PPCNT,0) = 0 THEN ''
+         WHEN VALUE(MMCNT,0) = VALUE(MMCNT_A,0) AND VALUE(MMCNT,0) > VALUE(PPCNT,0) AND VALUE(SEDAT,'') = VALUE(SEDMAX,'') THEN ''
+         WHEN VALUE(MMCNT,0) = VALUE(MMCNT_A,0) AND VALUE(MMCNT,0) > VALUE(PPCNT,0) AND VALUE(SEDAT,'') &lt;&gt; VALUE(SEDMAX,'') THEN VALUE(SEDAT,'')
+         WHEN VALUE(MMCNT,0) &lt;&gt; VALUE(PPCNT,0) AND VALUE(SEDAT,'') > '' THEN VALUE(SEDAT_A,'')
+         WHEN VALUE(SEDAT,'') > '' AND VALUE(SEDAT,'') = VALUE(SEDMAX,'') THEN ''
+         WHEN VALUE(SEDAT,'') > '' AND VALUE(SEDAT,'') &lt;&gt; VALUE(SEDMAX,'') THEN VALUE(SEDAT,'')
+         WHEN VALUE(SEDAT,'') = '' AND VALUE(SEDAT,'') = VALUE(SEDMAX,'') THEN VALUE(SEDAT,'')
+         WHEN VALUE(SEDAT,'') = '' AND VALUE(SEDAT,'') &lt;&gt; VALUE(SEDMAX,'') THEN VALUE(SEDAT,'')
+         ELSE ''
+    END AS SEDMIN
+  , CASE 
+         WHEN VALUE(MMCNT,0) &lt;&gt; VALUE(MMCNT_A,0) THEN ''
+         WHEN VALUE(MMCNT,0) = VALUE(MMCNT_A,0) AND VALUE(MMCNT,0) = 1 AND VALUE(PPCNT,0) = 0 THEN VALUE(SEDMAX,'')
+         WHEN VALUE(MMCNT,0) = VALUE(MMCNT_A,0) AND VALUE(MMCNT,0) > VALUE(PPCNT,0) THEN VALUE(SEDMAX,'')
+         WHEN VALUE(MMCNT,0) &lt;&gt; VALUE(PPCNT,0) AND VALUE(SEDAT,'') > '' THEN ''
+         WHEN VALUE(SEDAT,'') > '' AND VALUE(SEDAT,'') = VALUE(SEDMAX,'') THEN VALUE(SEDMAX,'')
+         WHEN VALUE(SEDAT,'') > '' AND VALUE(SEDAT,'') &lt;&gt; VALUE(SEDMAX,'') THEN VALUE(SEDMAX,'')
+         WHEN VALUE(SEDAT,'') = '' AND VALUE(SEDAT,'') = VALUE(SEDMAX,'') THEN ''
+         WHEN VALUE(SEDAT,'') = '' AND VALUE(SEDAT,'') &lt;&gt; VALUE(SEDMAX,'') THEN ''
+         ELSE ''
+    END AS SEDMAX
+  , ZZSHIP1      -- 출하예정일
+  , VALUE(SEQNO,'')  AS SEQNO       -- 선적차수
+  , VALUE(SDATE,'')  AS SDATE       -- 선적
+  , SPLM          -- 문제 코드 
+  , REMARK      -- 비고
+  , LAND1 AS LAND1   -- 국가
+  , LUD      -- 최종수정일자
+  , LUT      -- 최종수정시간
+FROM (
+
+    SELECT 
+        MA1.MANDT AS MANDT
+      , MA1.ZSITE_NM AS ZSITE_NM
+      , MA2.POSID_1 AS POSID_1
+      , (SELECT VALUE(MAX(M119.MAKTX),'') FROM SAPHEE.ZMMT119 AS M119 WHERE  M119.MANDT= MA2.MANDT AND M119.POSID = MA2.POSID_1) AS MAKTX  -- 자재명
+      , VALUE(M122.INV,'') AS INV
+      , VALUE(M122.PODATE,'') AS PODATE   -- PO 송부일
+      , VALUE(M122.RSDATE,'') AS RSDATE    -- 출하요구일
+      , VBAK.RECAD_DA AS RECAD_DA            -- 수통승인일
+      , VBAK.VDATU AS VDATU                         -- 납기일
+      , (SELECT VBEP.EDATU FROM SAPHEE.VBAP AS VBAP INNER JOIN SAPHEE.VBEP AS VBEP ON VBAP.MANDT = VBEP.MANDT AND VBAP.VBELN = VBEP.VBELN AND VBAP.POSNR = VBEP.POSNR AND VBEP.ETENR = 1
+                          WHERE VBAP.MANDT = MA2.MANDT AND VBAP.HOGI = MA2.POSID_1) AS EDATU
+      , VALUE((SELECT MAX(CRDAT) AS ERDAT  FROM SAPHEE.ZPPT004 AS PP004 WHERE PP004.MANDT = MA2.MANDT
+                                                                          AND PP004.WOKNUM = MA2.POSID_1
+                                                                          AND PP004.PRCTYP = 'A'
+                                                                          AND PP004.BOM_LEVEL = '01'
+     																	GROUP BY MANDT, WOKNUM),'') AS ERDAT -- 설계
+      , (SELECT COUNT(*) FROM SAPHEE.ZMMT120 AS MM120 WHERE MM120.MANDT = MA2.MANDT
+                                                        AND MM120.POSID = MA2.POSID_1) AS MMCNT
+      , (SELECT COUNT(*) FROM SAPHEE.ZMMT120 AS MM120 WHERE MM120.MANDT = MA2.MANDT
+                                                        AND MM120.POSID = MA2.POSID_1
+                                                        AND MM120.SEDAT > '') AS MMCNT_A
+      , (SELECT COUNT(*) FROM SAPHEE.ZMMT119 AS MM119 WHERE MM119.MANDT = MA2.MANDT
+                                                        AND MM119.POSID = MA2.POSID_1) AS PPCNT
+      , (SELECT MAX(VALUE(SEDAT,'')) AS SEDAT FROM SAPHEE.ZMMT120 AS MM120 WHERE MM120.MANDT = MA2.MANDT
+                                                                             AND MM120.POSID = MA2.POSID_1
+     																	 GROUP BY MANDT, POSID) AS SEDMAX  -- 출하일(MAX)
+      , (SELECT MAX(VALUE(PKDAT,'')) AS PKDAT FROM SAPHEE.ZMMT120 AS MM120 WHERE MM120.MANDT = MA2.MANDT
+                                                                             AND MM120.POSID = MA2.POSID_1
+     																	 GROUP BY MANDT, POSID) AS PKDAT  -- PACKING
+      , (SELECT MIN(VALUE(WKDAT,'')) AS WKDAT FROM SAPHEE.ZMMT120 AS MM120 WHERE MM120.MANDT = MA2.MANDT
+                                                                             AND MM120.POSID = MA2.POSID_1
+     																	 GROUP BY MANDT, POSID) AS WKDAT  -- 제작입고일
+      , (SELECT MIN(VALUE(SEDAT,'')) AS SEDAT FROM SAPHEE.ZMMT120 AS MM120 WHERE MM120.MANDT = MA2.MANDT
+                                                                             AND MM120.POSID = MA2.POSID_1
+     																	 GROUP BY MANDT, POSID) AS SEDAT  -- 출하일(MIN)
+      , (SELECT MIN(VALUE(SEDAT,'')) AS SEDAT FROM SAPHEE.ZMMT120 AS MM120 WHERE MM120.MANDT = MA2.MANDT
+                                                                             AND MM120.POSID = MA2.POSID_1
+                                                                             AND MM120.SEDAT > ''
+     																	 GROUP BY MANDT, POSID) AS SEDAT_A  -- 출하일(MIN)
+      , MA2.ZZSHIP1 AS ZZSHIP1                     -- 출하예정일
+      , (SELECT MAX(VALUE(SEQNO,'')) AS SEQNO  FROM SAPHEE.ZMMT121 AS MM121 WHERE MM121.MANDT = MA2.MANDT
+                                                                              AND MM121.POSID = MA2.POSID_1
+     																	 GROUP BY MANDT, POSID) AS SEQNO      -- 선적차수
+      , (SELECT MAX(VALUE(SDATE,'')) AS SEDAT  FROM SAPHEE.ZMMT121 AS MM121 WHERE MM121.MANDT = MA2.MANDT
+                                                                              AND MM121.POSID = MA2.POSID_1
+     																	 GROUP BY MANDT, POSID) AS SDATE      -- 선적일
+      , VALUE((SELECT CASE WHEN MIN(VALUE(M118.EDATE,'')) = '' THEN '1' 
+                                           WHEN MIN(VALUE(M118.EDATE,'')) > '' AND MIN(DGBN) &lt;&gt; '1' THEN '2'  
+    	                             ELSE '3' END AS SPLM 
+	       FROM SAPHEE.ZMMT118 AS M118 
+                    WHERE  M118.MANDT= MA2.MANDT
+	       AND M118.POSID = MA2.POSID_1
+	       AND M118.RDATE > ''
+	      GROUP BY M118.MANDT, M118.POSID),'') AS SPLM 
+      , VALUE(M122.REMARK, '') AS REMARK
+      , PA.LAND1 AS LAND1
+      , VALUE(M122.UDATE, '') AS LUD
+      , VALUE(M122.UTIME, '') AS LUT
+     FROM SAPHEE.VBAK AS VBAK
+
+       LEFT OUTER JOIN SAPHEE.ZMASTER01 AS MA1 ON VBAK.MANDT = MA1.MANDT
+                                              AND VBAK.VBELN = MA1.POSID
+
+       LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MA2 ON MA1.MANDT = MA2.MANDT
+                                              AND MA1.POSID = MA2.POSID  
+
+       LEFT OUTER JOIN SAPHEE.ZMMT119 AS M119 ON MA1.MANDT = M119.MANDT
+                                              AND MA1.POSID = M119.POSID                       
+
+       LEFT OUTER JOIN SAPHEE.ZMMT122 AS M122 ON MA1.MANDT = M122.MANDT
+                                              AND MA2.POSID_1 = M122.POSID     
+
+       INNER JOIN  SAPHEE.VBPA AS PA ON VBAK.MANDT = PA.MANDT
+                            AND VBAK.VBELN = PA.VBELN
+                            AND PA.POSNR = '000000' 
+                            AND PA.PARVW = 'WE'
+
+    WHERE MA1.MANDT= #G_MANDT#
+<isNotNull col="POSID">
+        AND VBAK.VBELN = #POSID#
+</isNotNull>
+<isNull col="POSID">
+        AND VBAK.RECAD_DA BETWEEN #RECAD_FM# AND #RECAD_TO#
+</isNull>
+        
+        AND MA1.POSID LIKE 'C%'
+ ) AS T WHERE 1=1 -- RN = 1	
+
+<isEqual col="GUBN" value="1">
+    AND (VALUE(ERDAT,'') = '' OR (VALUE(ERDAT,'') > '' AND VALUE(SPLM,'') > '' AND VALUE(SPLM,'') &lt;  '3'))
+</isEqual>
+<isEqual col="GUBN" value="2">
+    AND VALUE(WKDAT,'') = '' AND VALUE(SEDAT,'') = ''
+</isEqual>
+<isEqual col="GUBN" value="3">
+    AND VALUE(SEDAT,'') = ''
+</isEqual>
+<isNotNull col="LAND1">
+       AND LAND1 = #LAND1#
+</isNotNull>
+ORDER BY RECAD_DA ASC WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="RECAD_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="RECAD_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="GUBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="DSTAT" size="3" type="VARCHAR" description="" /> 
+		<col name="ERDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="GSTAT" size="3" type="VARCHAR" description="" /> 
+		<col name="INV" size="9" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="MATNR_NM" size="120" type="VARCHAR" description="" /> 
+		<col name="PKDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="PODATE" size="24" type="VARCHAR" description="" /> 
+		<col name="POSID_1" size="72" type="VARCHAR" description="" /> 
+		<col name="RECAD_DA" size="24" type="VARCHAR" description="" /> 
+		<col name="RSDATE" size="24" type="VARCHAR" description="" /> 
+		<col name="SDATE" size="24" type="VARCHAR" description="" /> 
+		<col name="SPLM" size="1" type="VARCHAR" description="" /> 
+		<col name="VDATU" size="24" type="VARCHAR" description="" /> 
+		<col name="ZSITE_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="ZZSHIP1" size="24" type="VARCHAR" description="" /> 
+	</output>
+</query>

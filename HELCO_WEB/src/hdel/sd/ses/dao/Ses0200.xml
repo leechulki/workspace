@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.ses.dao.Ses0200D"> 
+
+	<resultMap id="selectListDetailMap" type="hdel.sd.ses.domain.Ses0200"> 
+	    <result property="mandt" column="MANDT"/>
+	    <result property="qtnum" column="QTNUM"/>
+	    <result property="qtser" column="QTSER"/>
+	    <result property="qtseq" column="QTSEQ"/>
+	    <result property="shangh" column="SHANGH"/>
+	    <result property="matnr" column="MATNR"/>
+	    <result property="spec" column="SPEC"/>
+	    <result property="gtype" column="GTYPE"/>
+	    <result property="type1" column="TYPE1"/>
+	    <result property="zacapa" column="ZACAPA"/>
+	    <result property="type2" column="TYPE2"/>
+	    <result property="type3" column="TYPE3"/>
+	    <result property="znumber" column="ZNUMBER"/>
+	    <result property="zuse" column="ZUSE"/>
+	    <result property="zopn" column="ZOPN"/>
+	    <result property="zlen" column="ZLEN"/>
+	    <result property="zuam" column="ZUAM"/>
+	    <result property="zcost" column="ZCOST"/>
+	    <result property="zeam" column="ZEAM"/>
+	    <result property="shang" column="SHANG"/>
+	    <result property="zrmk" column="ZRMK"/>
+	    <result property="cdate" column="CDATE"/>
+	    <result property="ctime" column="CTIME"/>
+	    <result property="uuser" column="CUSER"/>
+	    <result property="udate" column="UDATE"/>
+	    <result property="utime" column="UTIME"/>
+	    <result property="uuser" column="UUSER"/>
+	    <result property="name1" column="NAME1"/>
+	    <result property="gsnam" column="GSNAM"/>
+	    <result property="qtgbn" column="QTGBN"/>
+	    <result property="zprgflg" column="ZPRGFLG"/>
+	    <result property="region" column="REGION" />
+	    <result property="dsetup" column="DSETUP" />
+	    <result property="fcdate" column="FCDATE" />
+	    <result property="eldelvno" column="EL_DELVNO" />
+	    <result property="vkbur" column="VKBUR" />
+	    <result property="vkgrp" column="VKGRP" />
+	</resultMap>
+	
+	<select id="selectListDetail" parameterType="hdel.sd.ses.domain.Ses0200ParamVO" resultMap="selectListDetailMap">
+		SELECT A.MANDT           -- 클라이언트
+		        , A.QTNUM           -- 견적번호
+		        , A.QTSER             -- 견적차수
+		        , A.QTSEQ            -- 견적일련번호
+		        , A.SHANGH          -- 국내/상해구분
+		        , A.MATNR            -- 자재번호
+		        , A.SPEC               -- 스펙
+		        , A.GTYPE              -- 기종
+		        , A.TYPE1              -- 타입1
+		        , A.ZACAPA			   -- 용량
+		        , A.TYPE2              -- 타입2
+		        , A.TYPE3              -- 타입3
+		        , case substr(A.matnr,1,1) when 'T' then 0  when 'Y' then 0 else a.znumber end as ZNUMBER         -- 대수
+		        , A.ZUSE               -- 용도/각도
+		        , A.ZOPN              -- 열림
+		        , A.ZLEN               -- 정지층수/RISE/길이
+		        , A.ZUAM              -- 단가s
+		        , A.ZCOST             -- 원가
+		        , A.ZEAM              -- 견적가
+		        , A.SHANG            -- 시행율
+		        , A.ZRMK              -- 비고
+				, A.CDATE             -- 입력일
+				, A.CTIME              -- 입력시각
+				, A.CUSER              -- 입력자
+				, A.UDATE             -- 변경일
+				, A.UTIME             -- 변경시각
+				, A.UUSER             -- 변경자
+				, B.ZESTDAT           -- 입찰 예정일
+				, C.NAME1             -- 영업담당자
+				, B.GSNAM             -- 현장명
+---- 2017.01.16 List field 추가 by mj.Shin Start
+				, b.qtdat			  -- 견적일자 
+				, b.vbeln			  -- 프로젝트번호 
+				, VALUE(t48.el_bmdl, '') AS type4 -- 특성값(표준의장)
+---- 2017.01.16 List field 추가 by mj.Shin End
+                , B.QTGBN             -- 견적구분
+                , B.ZPRGFLG			  -- 견적상태	
+                , B.ZDEV			  -- 시행사
+                , B.ZGNM			  -- 발주처
+                , zregn3.ATWTB AS region	  	  -- 운송지역 ---- 2020.07.27 List field 추가 by eunha
+                , t48.el_dsetup as dsetup		  -- 설치업체
+			    , t48.EL_DELVNO AS EL_DELVNO      -- 승강기번호 21.08.03 추가
+			    , B.CDATE AS FCDATE                        -- 최초견적일자 21.08.03 추가
+			    , B.VKBUR			  -- 부서
+			    , B.VKGRP			  -- 팀
+		FROM SAPHEE.ZSDT1047 A JOIN SAPHEE.ZSDT1046 B 
+		         ON A.MANDT = B.MANDT 
+				AND A.QTNUM = B.QTNUM
+				AND A.QTSER = B.QTSER -- 견적 Detail
+			   JOIN SAPHEE.KNA1 AS C 
+			     ON B.MANDT = C.MANDT AND B.ZKUNNR = C.KUNNR
+---- 2020.07.27 List field 추가 by eunha Start
+	   LEFT OUTER JOIN TABLE (
+	   	(SELECT	D.CLASS	AS CLASS1
+			 ,I.ATKLA
+			 ,I.ATNAM
+			 ,C.ATBEZ
+			 ,VALUE(E.ATINN,'') ATINN
+			 ,VALUE(E.ATZHL,'') ATZHL
+			 ,CASE E.ATWRT
+					WHEN '' THEN CHAR(INTEGER(VALUE(E.ATFLV,0)))
+								   ELSE E.ATWRT END AS ATWRT
+			 ,VALUE(F.ATWTB, CHAR(INTEGER(VALUE(E.ATFLV,0)))) AS ATWTB
+			 ,I.ATSON
+		  FROM	SAPHEE.KSML AS H
+			INNER JOIN			SAPHEE.CABN AS I	ON H.MANDT = I.MANDT	AND H.IMERK = I.ATINN
+			LEFT OUTER JOIN	SAPHEE.CABNT AS C	ON I.MANDT = C.MANDT	AND I.ATINN = C.ATINN	AND C.SPRAS = '3'
+			INNER JOIN			SAPHEE.KLAH AS D	ON H.MANDT = D.MANDT	AND H.CLINT = D.CLINT
+			LEFT OUTER JOIN	SAPHEE.CAWN AS E	ON I.MANDT = E.MANDT	AND I.ATINN = E.ATINN	
+			LEFT OUTER JOIN   SAPHEE.CAWNT AS F	ON H.MANDT = F.MANDT AND E.ATINN = F.ATINN AND E.ATZHL = F.ATZHL AND F.SPRAS = '3'
+			LEFT OUTER JOIN     SAPHEE.ZSDT1072 AS G ON I.MANDT = G.MANDT AND I.ATNAM = G.ATNAM AND E.ATWRT = G.ATWRT
+		 WHERE	H.MANDT	= '183'
+		   AND	H.KLART	= '300'
+		   AND	D.CLASS	= 'ELV_01'
+		   AND	I.ATKLA	= 'EL_BASIC'
+		   AND	I.ATNAM	= 'EL_ADTA'
+		   AND  G.ATWRT IS NULL)
+	   ) zregn3
+	   	ON B.region = zregn3.ATWRT
+---- 2020.07.27 List field 추가 by eunha End
+---- 2017.01.16 List field (표준의장) 추가 by mj.Shin Start
+		LEFT OUTER JOIN TABLE (
+			SELECT mandt, qtnum, qtser, qtseq,
+				max(CASE WHEN prh = 'EL_BMDL' THEN prd end) AS EL_BMDL,
+				max(CASE WHEN prh = 'EL_DSETUP' THEN prd end) AS EL_DSETUP,
+				max(CASE WHEN prh = 'EL_DELVNO' THEN prd end) AS EL_DELVNO
+			FROM saphee.zsdt1048
+			WHERE mandt = #{mandt}
+			AND prh in ('EL_BMDL', 'EL_DSETUP', 'EL_DELVNO')
+			GROUP BY mandt, qtnum, qtser, qtseq
+		) t48
+			     ON a.mandt = t48.mandt
+			    AND a.qtnum = t48.qtnum
+			    AND a.qtser = t48.qtser
+				AND a.qtseq = t48.qtseq						
+---- 2017.01.16 List field (표준의장) 추가 by mj.Shin End 	
+
+	    WHERE B.MANDT	= #{mandt}
+		AND A.QTSER = ( SELECT MAX(QTSER) FROM SAPHEE.ZSDT1046 WHERE MANDT = '183' AND QTNUM = B.QTNUM )
+		<if test="qtnum !=null and qtnum !=''">  AND B.QTNUM = #{qtnum} </if>
+		<if test="qtser !=null and qtser !=''">  AND B.QTSER = #{qtser} </if>
+	    <if test="frqtdat !=null and frqtdat !=''"> AND B.QTDAT BETWEEN #{frqtdat} AND #{toqtdat} </if>
+	    <if test="frzestdat !=null and frzestdat !=''"> AND B.ZESTDAT BETWEEN #{frzestdat} AND #{tozestdat} </if>
+		<if test="vkbur !=null and vkbur !=''"> AND B.VKBUR = #{vkbur} </if>
+		<if test="vkgrp !=null and vkgrp !=''">  AND B.VKGRP = #{vkgrp} </if>
+		<if test="zkunnr !=null and zkunnr !=''">  AND B.ZKUNNR = #{zkunnr} </if>
+		<if test="zprgflg !=null and zprgflg !=''">  AND B.ZPRGFLG = #{zprgflg} </if>
+		<if test="gsnam !=null and gsnam !=''">  AND B.GSNAM LIKE '%'||#{gsnam}||'%' </if>
+		<if test="region !=null and region !=''">  AND B.REGION LIKE '%'||#{region}||'%' </if>
+        <if test="frfcdate !=null and frfcdate !=''">  AND B.CDATE BETWEEN #{frfcdate} AND #{tofcdate} </if>
+		AND NOT EXISTS (SELECT MANDT FROM SAPHEE.ZSDT1164 WHERE MANDT = B.MANDT AND SML_QTNUM = B.QTNUM AND SML_QTSER = B.QTSER ) /* 모의견적 제외 추가 21.06.21 */ 
+		WITH UR
+	</select>
+
+</mapper>  

@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[사무소별 입고/미입고 조회-detail]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+      '' AS CHECK
+		, MM001.MANDT AS MANDT
+		, MM001.REQNR AS REQNR
+		, (SELECT MAX(M31.REQNO) FROM SAPHEE.ZMMT031 AS M31
+								WHERE M31.MANDT = #G_MANDT#
+								AND M31.REQNR = MM001.REQNR) AS REQNO
+		, MM001.REQITEM AS REQITEM
+		, MM001.REQKIND AS REQKIND
+                            , MM001.REQDATE AS REQDATE
+		, SAPHEE.GET_VENDER_NAME(MM001.MANDT, MM001.LGORT) AS LGORT1
+		,  CASE WHEN VALUE(QM.JQPRNO,'') = '' THEN MM001.POSID ELSE QM.JQPRNO END AS POSID
+		, MM001.MATNR AS MATNR
+		, MM001.MAKTX AS MAKTX
+		, MM001.BWTAR AS BWTAR
+		, MM001.MTART AS MTART
+		, MM001.MENGE AS MENGE
+		, MM001.MEINS AS MEINS
+		, MM001.RDATE AS RDATE		
+		, SAPHEE.GET_ZERODATE(MM001.YDATE) AS YDATE		
+		, SAPHEE.GET_ZERODATE(MM001.BUDAT) AS BUDAT		
+		, MM001.CHAR1 AS CHAR1
+		, MM001.SERIO AS SERIO
+                            , VALUE((SELECT CS121_SPT
+                                             FROM SAPHEE.ZCST121
+                                            WHERE MANDT = MM001.MANDT
+                                                AND CS121_UPN = SUBSTR(MM001.POSID,1,6)
+                                                AND CS121_CST = ''),'')  AS SPT
+                           , CASE WHEN YDATE > BUDAT THEN (CASE WHEN BUDAT = '00000000' THEN YDATE ELSE BUDAT END ) ELSE (CASE WHEN YDATE = '00000000' THEN BUDAT ELSE YDATE END ) END AS BUDAT2
+                           , MA.LABOR AS LABOR
+                           , (SELECT MAX(CRT_DTE)  FROM SAPHEE.ZLET037 WHERE MANDT = '183' AND REQNR = MM001.REQNR AND REQITEM = MM001.REQITEM) AS QR_DATE
+	 FROM SAPHEE.ZMMT001 AS MM001
+	LEFT OUTER JOIN SAPHEE.ZQMT007 AS QM ON MM001.MANDT = QM.MANDT
+	               AND MM001.REQNR = QM.REQNR
+	               AND QM.JQPRNUM LIKE '_%'
+	LEFT OUTER JOIN SAPHEE.MARA AS MA ON MM001.MANDT = MA.MANDT
+	               AND MM001.MATNR = MA.MATNR
+	 WHERE MM001.MANDT = #G_MANDT#
+	
+	       	<!-- 국내/해외 분리 -->
+	   --AND MM001.LGORT BETWEEN'9000' AND '9500'
+	   AND ( MM001.LGORT BETWEEN'9000' AND '9500' OR MM001.LGORT LIKE '98%' ) --서비스자회사  관련
+	       	<!-- 국내/해외 분리 -->
+	   
+	 <isNotNull col="REQNO">
+	    AND MM001.REQNR = ( SELECT MAX(REQNR) FROM SAPHEE.ZMMT031 
+	                 WHERE MANDT = #G_MANDT# 
+	                  AND REQNO = #REQNO# GROUP BY REQNR )
+	 </isNotNull>
+
+	 <isNull col="REQNO">
+	    AND MM001.REQNR LIKE '_%'
+	 </isNull>
+
+	 <isNotNull col="MATNR">
+	    AND MM001.MATNR LIKE  '%'||#MATNR#||'%'
+	 </isNotNull>
+
+	 <isNotNull col="BWTAR">
+	    AND MM001.BWTAR =  #BWTAR#
+	 </isNotNull>
+	 
+	<isEqual col="GUBN01" value="1">
+	    AND ( MM001.YDATE BETWEEN #BUDAT_FM# AND #BUDAT_TO# OR 
+                           MM001.BUDAT BETWEEN #BUDAT_FM# AND #BUDAT_TO# )
+	</isEqual>
+
+	<isEqual col="GUBN01" value="2">
+	    AND MM001.REQDATE BETWEEN #BUDAT_FM# AND #BUDAT_TO# 
+	    AND SAPHEE.GET_ZERODATE(MM001.YDATE) = ''
+	    AND SAPHEE.GET_ZERODATE(MM001.BUDAT) = ''
+	</isEqual>
+	
+	 <isNotNull col="REQKIND">
+	    AND MM001.REQKIND =  #REQKIND#
+	 </isNotNull>
+
+	 <isNotNull col="PJT">
+	    AND MM001.POSID LIKE '%'||#PJT#||'%'
+	 </isNotNull>
+
+	 <isNotNull col="POSID">
+	    AND (MM001.REQNR,MM001.REQITEM) IN (
+                              SELECT REQNR,REQITEM 
+                                 FROM SAPHEE.ZMMT031 
+                               WHERE MANDT = #G_MANDT# AND POSID LIKE '%'||#POSID#||'%')
+	 </isNotNull>
+
+	<isEqual col="GBN" value="A">
+	   AND MM001.LGORT = #G_VEND_CODE_R#
+	</isEqual>
+	<isEqual col="GBN" value="B">
+	   AND MM001.LGORT = #CB3#
+	</isEqual>
+	<isEqual col="GBN" value="C">
+	   AND MM001.LGORT IN (SELECT LGORT FROM SAPHEE.ZMMT005 
+	                      WHERE MANDT = #G_MANDT# 
+	                      AND PERNR = #CB2#)
+	</isEqual>
+	<isEqual col="GBN" value="D">
+	   AND MM001.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+		                      WHERE B010.MANDT = MM005.MANDT
+		                      AND B010.LIFNR = MM005.LIFNR
+                                                  AND B010.MANDT= #G_MANDT# 
+		                      AND B010.VKGRP= #CB2#)
+	</isEqual>
+	<isEqual col="GBN" value="E">
+	   AND MM001.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+		                      WHERE B010.MANDT = MM005.MANDT
+		                      AND B010.LIFNR = MM005.LIFNR
+                                                  AND B010.MANDT= #G_MANDT# 
+		                      AND B010.VKGRP= #CB2#)
+	</isEqual>
+
+        --===============================
+        <isEqual col="GBN" value="F">
+           AND MM001.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+                                WHERE B010.MANDT = MM005.MANDT
+                                  AND B010.LIFNR = MM005.LIFNR
+                                  AND B010.MANDT= #G_MANDT# 
+                                  AND SUBSTR(B010.VKGRP,1,2) = SUBSTR(#CB2#,1,2) )
+        </isEqual>
+        <isEqual col="GBN" value="G">
+           AND MM001.LGORT IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+                                WHERE B010.MANDT = MM005.MANDT
+                                  AND B010.LIFNR = MM005.LIFNR
+                                  AND B010.MANDT= #G_MANDT# 
+                                  AND B010.VKGRP= #CB3#)
+        </isEqual>
+        --===============================
+
+	 <isNotNull col="LABOR">
+	    AND MA.LABOR = #LABOR#
+	 </isNotNull>
+	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="REQNO" size="255" type="VARCHAR" description="" /> 
+		<col name="RECE_F" size="255" type="VARCHAR" description="" /> 
+		<col name="G_VEND_CODE" size="255" type="VARCHAR" description="" /> 
+		<col name="CB3" size="255" type="VARCHAR" description="" /> 
+		<col name="CB2" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="255" type="VARCHAR" description="" /> 
+		<col name="BUDAT5_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="BUDAT5_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="BWTAR" size="255" type="VARCHAR" description="" /> 
+		<col name="BUDAT4_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="BUDAT4_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="REQKIND" size="255" type="VARCHAR" description="" /> 
+		<col name="PJT" size="255" type="VARCHAR" description="" /> 
+		<col name="STATE" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="BANNAB" size="255" type="VARCHAR" description="" /> 
+		<col name="GBN" size="255" type="VARCHAR" description="" /> 
+		<col name="STPO" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="BANFN" size="30" type="VARCHAR" description="" /> 
+		<col name="BANNAB" size="1" type="VARCHAR" description="" /> 
+		<col name="BNFPO" size="15" type="VARCHAR" description="" /> 
+		<col name="BUDAT" size="8" type="VARCHAR" description="" /> 
+		<col name="BUDAT3" size="8" type="VARCHAR" description="" /> 
+		<col name="BUDAT4" size="8" type="VARCHAR" description="" /> 
+		<col name="BUDAT5" size="8" type="VARCHAR" description="" /> 
+		<col name="BUDAT6" size="8" type="VARCHAR" description="" /> 
+		<col name="BUSSI" size="3" type="VARCHAR" description="" /> 
+		<col name="BWTAR" size="30" type="VARCHAR" description="" /> 
+		<col name="CHAR1" size="300" type="VARCHAR" description="" /> 
+		<col name="DEL_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="DEL_TIME" size="8" type="VARCHAR" description="" /> 
+		<col name="EBELN" size="30" type="VARCHAR" description="" /> 
+		<col name="LGORT" size="12" type="VARCHAR" description="" /> 
+		<col name="LGORT1" size="100" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="100" type="VARCHAR" description="" /> 
+		<col name="MAKTX" size="120" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MBLNR" size="30" type="VARCHAR" description="" /> 
+		<col name="MBLNR2" size="30" type="VARCHAR" description="" /> 
+		<col name="MBLNR3" size="30" type="VARCHAR" description="" /> 
+		<col name="MBLNR4" size="30" type="VARCHAR" description="" /> 
+		<col name="MBLNR5" size="30" type="VARCHAR" description="" /> 
+		<col name="MBLNR6" size="30" type="VARCHAR" description="" /> 
+		<col name="MBLNR7" size="30" type="VARCHAR" description="" /> 
+		<col name="MBLNR8" size="30" type="VARCHAR" description="" /> 
+		<col name="MBLNR9" size="30" type="VARCHAR" description="" /> 
+		<col name="MEINS" size="9" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="15" type="NUMERIC" description="" /> 
+		<col name="MMPR_DEL" size="3" type="VARCHAR" description="" /> 
+		<col name="MMPR_REL" size="3" type="VARCHAR" description="" /> 
+		<col name="MTART" size="12" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POSID2" size="72" type="VARCHAR" description="" /> 
+		<col name="POSID7" size="72" type="VARCHAR" description="" /> 
+		<col name="PRICE" size="3" type="VARCHAR" description="" /> 
+		<col name="PRLAB1" size="33" type="NUMERIC" description="" /> 
+		<col name="PRLAB2" size="33" type="NUMERIC" description="" /> 
+		<col name="PS_PSP_PNR" size="72" type="VARCHAR" description="" /> 
+		<col name="RDATE" size="24" type="VARCHAR" description="" /> 
+		<col name="RECE_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="RECE_F" size="3" type="VARCHAR" description="" /> 
+		<col name="RECE_TIME" size="8" type="VARCHAR" description="" /> 
+		<col name="REQDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="REQITEM" size="15" type="VARCHAR" description="" /> 
+		<col name="REQKIND" size="3" type="VARCHAR" description="" /> 
+		<col name="REQKIND2" size="3" type="VARCHAR" description="" /> 
+		<col name="REQNR" size="30" type="VARCHAR" description="" /> 
+		<col name="SERIO" size="150" type="VARCHAR" description="" /> 
+		<col name="STATE" size="3" type="VARCHAR" description="" /> 
+		<col name="YDATE" size="8" type="VARCHAR" description="" /> 
+	</output>
+</query>

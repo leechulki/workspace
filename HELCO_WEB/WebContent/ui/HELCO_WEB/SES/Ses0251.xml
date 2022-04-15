@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="768" Id="Ses0030" Left="8" OnLoadCompleted="fn_OnLoadCompleted" OnUnloadCompleted="fn_OnUnloadCompleted" PidAttrib="7" Title="사양비교검색&#32;팝업" Top="8" Ver="1.0" Width="1024" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_error">
+				<Contents>
+					<colinfo id="IDX" size="256" type="STRING"/>
+					<colinfo id="ERRMSG" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_cond">
+				<Contents>
+					<colinfo id="ordno" size="256" summ="default" type="STRING"/>
+					<colinfo id="ordseq" size="256" summ="default" type="INT"/>
+					<colinfo id="orditem" size="256" summ="default" type="INT"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_order">
+				<Contents>
+					<colinfo id="ordno" size="256" summ="default" type="STRING"/>
+					<colinfo id="ordseq" size="256" summ="default" type="INT"/>
+					<colinfo id="orditem" size="256" summ="default" type="INT"/>
+					<colinfo id="atnam" size="256" summ="default" type="STRING"/>
+					<colinfo id="atbez" size="256" summ="default" type="STRING"/>
+					<colinfo id="atwrt" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_list">
+				<Contents>
+					<colinfo id="diff" size="256" summ="default" type="INT"/>
+					<colinfo id="atnam" size="256" summ="default" type="STRING"/>
+					<colinfo id="atbez" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Grid AreaSelect="TRUE" AutoEnter="TRUE" AutoFitEndLine="Hide" BkColor2="default" BoldHead="true" Border="Flat" Bottom="760" ColSelect="TRUE" ColSizing="TRUE" Editable="TRUE" Enable="true" EndLineColor="default" HeadBorder="Flat" HeadHeight="25" Height="680" Id="grd_list" InputPanel="FALSE" LineColor="user20" LineType="ExHORZ" OnHeadClick="grd_list_OnHeadClick" Right="1024" RowHeight="20" Style="sty_grid" TabOrder="1" TabStop="true" Top="80" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="1024">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col width="30"/>
+						<col width="82"/>
+						<col width="82"/>
+						<col width="164"/>
+					</columns>
+					<head>
+						<cell col="0" color="user21" display="text" text="No"/>
+						<cell col="1" color="user21" display="text" text="차이"/>
+						<cell col="2" color="user21" display="text" text="특성코드"/>
+						<cell col="3" color="user21" display="text" text="특성명"/>
+					</head>
+					<body>
+						<cell col="0" display="text" expr="currow+1"/>
+						<cell col="1" colid="diff" display="text"/>
+						<cell align="center" bkcolor2="user22" col="2" colid="atnam" display="text"/>
+						<cell align="left" bkcolor2="user22" col="3" colid="atbez" display="text"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Checkbox Height="21" Id="chk_same" Left="8" OnClick="chk_same_OnClick" TabOrder="2" Text="동일" Top="48" Width="49"></Checkbox>
+		<Checkbox Height="21" Id="chk_diff" Left="72" OnClick="chk_diff_OnClick" TabOrder="3" Text="차이" Top="48" Width="49"></Checkbox>
+		<Div Height="36" Id="div_btn" TabOrder="4" Text="Div0" Url="WB01::CommBtnForm.xml" Width="1024">
+			<Contents></Contents>
+		</Div>
+	</Form>
+	<Script><![CDATA[/*
+ ******************************************************************************************
+ * 기      능   : 
+ * 작  성  자   : 
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+#include "LIB::tit_comm_0001.js";
+#include "LIB::common.js";
+#include "LIB::nsfRequest.js";
+#include "LIB::common_hdel.js";
+#include "LIB::common_sd.js";
+
+var F_FRM_TITLE = "사양비교";
+
+function fn_OnLoadCompleted(obj) {
+	gfn_initForm(false);	// Form 로드 이벤트 맨 첫줄에 기술 
+	fn_init_form(); 	// 폼 초기화
+	div_btn.fn_loadUseBtn("45", F_FRM_TITLE, "", "");
+}
+
+function fn_OnUnloadCompleted(obj) {
+	return gfn_isFormUnload(obj);
+}
+
+function fn_init_form() {
+	ds_cond.copy(parent.ds_itf);
+	grd_list.BindDataset = '';
+	nsfRequest("query", "ses0250/searchCharacteristics", "ds_cond=ds_cond ds_list=ds_order", "ds_order=ds_list ds_error=ds_error", "", "fn_afterQuery");
+	fn_createWait("",this);
+}
+
+function fn_close() {
+	close();
+}
+
+function fn_excel() {
+	gfn_exportExcel(grd_list, F_FRM_TITLE);
+}
+
+function fn_completeInit(sCode, sDsObj, sCodeType) {
+}
+
+function fn_afterQuery(svcId, errCode, errMsg) {
+	for(var i=0; i<ds_cond.GetRowCount(); i++) {
+		Destroy('lds_comp');
+		Create("dataset", 'lds_comp');
+		ds_order.Filter(
+			'ordno == '+quote(ds_cond.GetColumn(i, 'ordno'))
+			+' &&ordseq == '+quote(ds_cond.GetColumn(i, 'ordseq'))
+			+' &&orditem == '+quote(ds_cond.GetColumn(i, 'orditem'))
+		);
+		lds_comp.CopyF(ds_order);
+		var colName = 'col'+i;
+		var prevcolName = 'col'+ (i-1);
+		ds_list.AddColumn(colName);
+		for(var j=0; j<lds_comp.GetRowCount(); j++) {
+			var idxFound = ds_list.SearchRow('atnam=='+quote(lds_comp.GetColumn(j, 'atnam')));
+			if(idxFound < 0) {
+				ds_list.AddRow();
+				idxFound = ds_list.GetRowCount() - 1;
+				lds_comp.SetColumn(idxFound, 'diff', false);
+			}
+			ds_list.SetColumn(idxFound, 'atnam', lds_comp.GetColumn(j, 'atnam'));
+			ds_list.SetColumn(idxFound, 'atbez', lds_comp.GetColumn(j, 'atbez'));
+			ds_list.SetColumn(idxFound, colName, lds_comp.GetColumn(j, 'atwrt'));
+		}
+	}
+	for(var i=0; i<ds_list.GetRowCount(); i++) {
+		for(var j=1; j<ds_cond.GetRowCount(); j++) {
+			if(trim(ds_list.GetColumn(i, 'col'+(j-1))) <> trim(ds_list.GetColumn(i, 'col'+j))) {
+				ds_list.SetColumn(i, 'diff', true);
+			}
+		}
+	}
+
+	var cellTxt;
+	var startIdx = 3;
+	
+	var colContents =
+		'<columns>'
+			+'<col width="30"/>'
+			+'<col width="82"/>'
+			+'<col width="164"/>';
+	for(var i=0; i<ds_cond.GetRowCount(); i++) {
+		colContents = colContents
+			+ '<col width="120"/>';
+	}
+	colContents = colContents
+		+ '</columns>';
+
+	var headContents =
+		'<head>'
+			+ '<cell col="0" color="user21" display="text" text="No"/>'
+			+ '<cell col="1" color="user21" display="text" text="특성코드"/>'
+			+ '<cell col="2" color="user21" display="text" text="특성명"/>';
+	for(var i=0; i<ds_cond.GetRowCount(); i++) {
+		var ordseq=ds_cond.GetColumn(i, 'ordseq');
+		var orditem=ds_cond.GetColumn(i, 'orditem');
+		headContents = headContents
+			+ '<cell col="'+(startIdx+i)+'" color="user21" display="text" text="'
+			+ds_cond.GetColumn(i, 'ordno')+'-'+ds_cond.GetColumn(i, 'ordseq')+'-'+ds_cond.GetColumn(i, 'orditem')
+			+'"/>';
+	}
+	headContents = headContents
+		+ '</head>';
+
+	var bodyContents =
+		'<body>'
+			+ '<cell'
+				+' bkcolor="'+"expr:iif(diff=true,'user37','default')"
+				+'" bkcolor2="'+"expr:iif(diff=true,'user37','default')"
+				+'" col="0" display="text" expr="currow+1"/>'
+			+ '<cell'
+				+' bkcolor="'+"expr:iif(diff=true,'user37','default')"
+				+'" bkcolor2="'+"expr:iif(diff=true,'user37','default')"
+				+'" col="1" colid="atnam" display="text"/>'
+			+ '<cell'
+				+' bkcolor="'+"expr:iif(diff=true,'user37','default')"
+				+'" bkcolor2="'+"expr:iif(diff=true,'user37','default')"
+				+'" col="2" colid="atbez" display="text"/>';
+
+	for(var i=0; i<ds_cond.GetRowCount(); i++) {
+		bodyContents = bodyContents
+			+ '<cell'
+				+' bkcolor="'+"expr:iif(diff=true,'user37','default')"
+				+'" bkcolor2="'+"expr:iif(diff=true,'user37','default')"
+				+'" col="'+(startIdx+i)+'" colid="col'+i+'" display="text"/>';
+	}
+	bodyContents = bodyContents
+		+ '</body>';
+
+	grd_list.Contents = 
+		'<format id="Default">'
+		+ colContents + headContents + bodyContents
+		+ '</format>';
+
+	grd_list.BindDataset = 'ds_list';
+
+	fn_destroyWait();
+}
+function grd_list_OnHeadClick(obj,nCell,nX,nY,nPivotIndex) {
+	gfn_sortGrid(obj, nCell);
+}
+function chk_same_OnClick(obj,strValue) {
+	setCompFilter();
+}
+function chk_diff_OnClick(obj,strValue) {
+	setCompFilter();
+}
+function setCompFilter() {
+	var strFilter='';
+
+	ds_list.UnFilter();
+	if(chk_same.Value == true && chk_diff.Value == true) {
+		strFilter='';
+	} else if(chk_same.Value == true) {
+		strFilter = 'diff == null';
+	} else if(chk_diff.Value == true) {
+		strFilter = 'diff == 1';
+	} else {
+		strFilter = 'false';
+	}
+
+	ds_list.Filter(strFilter);
+}]]></Script>
+</Window>

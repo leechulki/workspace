@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT A.POSID AS PSPID 
+             ,A.ZSITE_NM
+             ,V.RECAD_DA
+             
+             ,(CASE WHEN VALUE(MIN(Z.STATE) , '')&lt;&gt; 'Y' THEN 'NO' ELSE 'YES' END)  AS BALJAU 
+             ,(SELECT CASE WHEN COUNT(*) > 0 THEN '첨부'  ELSE '미첨부'  END
+			       FROM SAPHEE.ZCMFL001 AS X
+				 WHERE X.MANDT = #G_MANDT#
+				     AND X.GBN = 'J1'
+					 AND X.PSPID = A.POSID)  AS FILE
+
+            
+FROM SAPHEE.ZMASTER01 AS A
+          INNER JOIN SAPHEE.VBAK AS V
+	        ON A.MANDT = V.MANDT
+                     AND A.POSID = V.ZZPJT_ID
+          
+           INNER JOIN (SELECT   T1.MANDT, T1.PSPID,  MIN(VALUE(T2.STATE, ''))   AS STATE
+	                 FROM (				
+	                             SELECT X1.MANDT, X1.POSID AS PSPID, X1.POSID_1 AS POSID, 
+                                                        MAX(VALUE(X2.CHGNO, '') ) AS CHGNO 
+                                           FROM SAPHEE.ZMASTER01 AS X3
+		                        INNER JOIN SAPHEE.ZMASTER02 AS X1
+			               ON X3.MANDT = X1.MANDT
+			              AND X3.POSID = X1.POSID				
+			        
+                                                     LEFT OUTER JOIN SAPHEE.ZPST0100 AS X2
+		                            ON X1.MANDT = X2.MANDT
+		                           AND X1.POSID = X2.PSPID
+		                           AND X1.POSID_1 = X2.POSID
+		
+                                             WHERE X1.MANDT = #G_MANDT#
+	                                   AND X1.TXT04 &lt;&gt; 'C'
+	                                   AND X1.ZZGUBUN IN ('10', '11', '12', '13', '14', '20')
+		                     AND X3.PRCMT = 'Y'             		                                                 
+	
+                                                <isNotNull col="PSPID">
+                                                 AND X3.POSID = #PSPID#         				
+                                                </isNotNull>                                                                                   				
+                                             GROUP BY X1.MANDT, X1.POSID, X1.POSID_1	 
+	                             ) AS T1	
+					
+                                    LEFT OUTER JOIN SAPHEE.ZPST0113 AS T2
+		           ON T1.MANDT = T2.MANDT
+		          AND T2.CNF_GBN = 'A'
+		          AND T1.PSPID = T2.PSPID
+		          AND T1.POSID = T2.POSID
+		          AND T1.CHGNO = T2.CHGNO
+		          AND T2.GUBUN = '5'
+		          AND T2.STATE = 'Y'
+                            GROUP BY T1.MANDT, T1.PSPID 				               
+		 ) AS Z
+		  
+           ON A.MANDT = Z.MANDT
+         AND A.POSID = Z.PSPID
+                      
+
+
+WHERE A.MANDT=  #G_MANDT#
+     <isNotNull col="PSPID">
+      AND A.POSID = #PSPID#
+      </isNotNull>
+      AND A.PRCMT = 'Y'
+      AND NOT EXISTS (SELECT *
+                                     FROM SAPHEE.ZPSTW1601 AS KK
+                                    WHERE KK.MANDT = A.MANDT
+                                         AND KK.PSPID = A.POSID)
+
+       GROUP BY  A.POSID ,A.ZSITE_NM, V.RECAD_DA
+  FOR FETCH ONLY 
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

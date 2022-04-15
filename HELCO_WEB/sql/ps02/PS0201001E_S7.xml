@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+
+-- 호기구분 신규/리모델링/ES
+
+
+-- 현장규모 기준
+
+SELECT T1.POSID AS PSPID
+     , T1.POSID_1 AS POSID
+     , (
+     		SELECT X.LEAD_TIME
+     		  FROM SAPHEE.ZPST0048 AS X
+     		 WHERE X.MANDT = T1.MANDT
+     		   AND X.GBN   = T1.GBN
+     		   AND X.MAG   = T1.MAG
+     		 FETCH FIRST 1 ROWS ONLY
+     		 WITH UR
+       ) AS LEAD_TIME
+      --, (
+      --		SELECT X.REQ_DATE2
+      --		  FROM SAPHEE.ZPST0200 AS X
+      --		 WHERE X.MANDT = T1.MANDT
+      --		   AND X.PSPID = T1.POSID
+      --		   AND X.POSID = T1.POSID_1
+      --		   AND X.CHK_KIND = 'A'
+      --		   AND X.CHASU    = (
+      --		   						SELECT MAX(X2.CHASU)
+      --		   						  FROM SAPHEE.ZPST0200 AS X2
+      --		   						 WHERE X2.MANDT = X.MANDT
+      --		   						   AND X2.PSPID = X.PSPID
+      --		   						   AND X2.POSID = X.POSID
+      --		   						   AND X2.CHK_KIND = X.CHK_KIND
+      --		   					)
+      --     FETCH FIRST 1 ROWS ONLY WITH UR
+      --  ) AS REQ_DATE2
+      --, (
+      --		SELECT X.PACFDT
+      --		  FROM SAPHEE.ZQMT019 AS X
+      --		 WHERE X.MANDT = T1.MANDT
+      --		   AND X.WERKS = '1000'
+      --		   AND X.PSPID = T1.POSID
+      --		   AND X.HOGI  = T1.POSID_1
+      --		   AND X.ART   = '8960'
+      --		   AND X.SEQ   = (
+      --		   					SELECT MAX(X2.SEQ)
+      --		   					  FROM SAPHEE.ZQMT019 AS X2
+      --		   					 WHERE X2.MANDT = X.MANDT
+      --		   					   AND X2.WERKS = X.WERKS
+      --		   					   AND X2.PSPID = X.PSPID
+      --		   					   AND X2.HOGI  = X.HOGI
+      --		   					   AND X2.ART   = X.ART
+      --		   				 )
+      --		   FETCH FIRST 1 ROWS ONLY WITH UR
+      --  ) AS PACFDT
+  FROM
+	(
+		SELECT M02.MANDT
+		     , M02.POSID
+		     , M02.POSID_1
+		     , CASE WHEN INT(M01.ZQNTY) >= 3
+		            THEN 'N'
+		            ELSE 'S'
+		            END AS MAG
+		     , CASE WHEN SUBSTR(M02.POSID_1,1,1) = 'N'
+		            THEN 'B'
+		            WHEN SUBSTR(M02.POSID_1,7,1) = 'S' OR SUBSTR(M02.POSID_1,7,1) = 'W'
+		            THEN 'C'
+		            ELSE 'A'
+		            END AS GBN
+		  FROM SAPHEE.ZMASTER02 AS M02
+		  INNER JOIN SAPHEE.ZMASTER01 AS M01
+		          ON M01.MANDT = M02.MANDT
+		         AND M01.POSID = M02.POSID
+		 WHERE M02.MANDT = #G_MANDT#
+		   AND M02.POSID = #PSPID#
+		   <isNotNull col="POSID">
+		   AND M02.POSID_1 = #POSID#
+		   </isNotNull>
+		   
+
+    ) AS T1
+
+ ORDER BY T1.POSID_1
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond"></input>
+	<output default-name="ds_leadtime"></output>
+</query>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[예산그룹 3레벨 콤보코드 조회]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+WITH TREE_DATA(LEVEL, MANDT, BDGR_NAME, BGCL, BDGT, BDGT_GRUP, ESCS_CODE, BGCL_DTIL, BGIT_CODE, BDGT_NUMB, BDGT_UPNB, BDGR_CDSQ, USE_YN) AS
+    (
+    SELECT 1 AS LEVEL, MANDT, BDGR_NAME, BGCL, BDGT, BDGT_GRUP, ESCS_CODE, BGCL_DTIL, BGIT_CODE, BDGT_NUMB, BDGT_UPNB, BDGR_CDSQ, USE_YN
+    FROM   SAPHEE.ZFST0101
+    WHERE  MANDT = #G_MANDT#
+      AND  BDGT_UPNB = ''
+      AND  BGCL_DTIL = '000000000000'
+      AND  USE_YN = 'Y'
+    UNION ALL
+    SELECT TREE_DATA.LEVEL + 1 LEVEL, A.MANDT, A.BDGR_NAME, A.BGCL, A.BDGT, A.BDGT_GRUP, A.ESCS_CODE, A.BGCL_DTIL, A.BGIT_CODE, A.BDGT_NUMB, A.BDGT_UPNB, A.BDGR_CDSQ, A.USE_YN
+    FROM   SAPHEE.ZFST0101 AS A, TREE_DATA
+    WHERE  TREE_DATA.BDGT_NUMB = A.BDGT_UPNB
+    )
+SELECT
+       TREE_DATA.LEVEL AS LEVEL
+      ,CASE WHEN TREE_DATA.LEVEL = 1 THEN
+          SUBSTR(TREE_DATA.ESCS_CODE,1,3)
+       WHEN TREE_DATA.LEVEL = 2 THEN
+          SUBSTR(TREE_DATA.ESCS_CODE,1,6)
+       WHEN TREE_DATA.LEVEL = 3 THEN
+          SUBSTR(TREE_DATA.ESCS_CODE,1,9)
+       ELSE
+           ''
+       END AS CODE
+      ,TREE_DATA.BDGR_NAME AS CODE_NAME
+FROM  TREE_DATA
+WHERE  TREE_DATA.LEVEL &lt; 4
+ORDER BY TREE_DATA.BDGR_CDSQ
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+        <col name="MANDT" size="9" type="VARCHAR" description="클라이언트" />
+        <col name="BGCL" size="30" type="VARCHAR" description="예산구분" />
+        <col name="BGIT_CODE" size="63" type="VARCHAR" description="예산항목코드" />
+        <col name="ESCS_CODE" size="27" type="VARCHAR" description="시행예산항목코드" />
+    </input>
+    <output default-name="ds_combo_c01">
+    </output>
+</query>

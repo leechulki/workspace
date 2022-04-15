@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.POSID AS PSPID,
+       HEX(CURRENT DATE) AS EXPLO,
+	   ( SELECT SAPHEE.FILLINZERO(INT(VALUE(MAX(SEQNO),'0'))+1,3) AS SEQNO
+           FROM SAPHEE.ZPST0019 AS X
+          WHERE X.MANDT = #G_MANDT#
+            AND X.PSPID = #PSPID#     ) AS SEQNO,
+       ( SELECT X.USERNAME FROM SAPHEE.ZUSERF AS X WHERE X.MANDT = #G_MANDT# AND X.USERNUMB = #G_USER_ID# ) AS EXPLM , 
+      'A' AS GBN,
+      0 AS FRAME_AFQ,
+      VALUE((
+      			SELECT X.FRAME_DATE
+      		      FROM SAPHEE.ZPST0019 X
+      		     WHERE X.MANDT = #G_MANDT#
+      		       AND X.PSPID = #PSPID#
+      		       AND X.DEL <> 'X'
+      		       AND X.CDATE = B.MAX_CDATE
+      		     ORDER BY X.SEQNO DESC
+      		     FETCH FIRST 1 ROWS ONLY
+      		),'') AS FRAME_DATE,
+      VALUE((
+      			SELECT X.MATNR_DATE
+      		      FROM SAPHEE.ZPST0019 X
+      		     WHERE X.MANDT = #G_MANDT#
+      		       AND X.PSPID = #PSPID#
+      		       AND X.DEL <> 'X'
+      		       AND X.CDATE = C.MAX_CDATE
+      		     ORDER BY X.SEQNO DESC
+      		     FETCH FIRST 1 ROWS ONLY
+      		),'') AS MATNR_DATE,
+      VALUE((SELECT MAX(X.REQ_DAT) FROM SAPHEE.ZPSTHOOKM AS X WHERE A.MANDT = A.MANDT AND X.PSPID = A.POSID),'') AS HOOK_DATE,
+      '' AS CONSULT,
+      '' AS FNAME,
+      '' AS FPATH,
+      '' AS FNAME_APP,
+      '' AS FSIZE,
+     -- MASTER02B.VALUE AS AFQ,
+      ( SELECT INT(P.ZSPEC11)
+         FROM SAPHEE.ZMASTER02 AS P
+         WHERE P.MANDT = A.MANDT
+           AND P.POSID = A.POSID
+         ORDER BY P.POSID_1
+     FETCH FIRST 1 ROWS ONLY
+       ) AS AFQ , 
+      '' AS BIGO,
+      '' AS CDATE,
+      '' AS CID,
+      '' AS CNAME,
+      0 AS F_CNT,
+      '' AFQ_INDC,
+      (
+      		select distinct knvk.name1 as NAMET
+                             from saphee.vbak as vbak
+                             inner join saphee.vbpa as vbpa
+                                on vbak.mandt = vbpa.mandt
+                              and vbak.vbeln = vbpa.vbeln
+                              and vbpa.posnr = '000000'
+                              and vbpa.parvw = 'WE'
+                            inner join saphee.knvk as knvk
+                               on vbpa.mandt = knvk.mandt
+                             and vbpa.kunnr = knvk.kunnr
+              inner join saphee.kna1 as kna1
+                                on vbpa.mandt = kna1.mandt
+                              and vbpa.kunnr = kna1.kunnr
+                          where vbak.mandt = #G_MANDT#
+                             and vbak.zzpjt_id = #PSPID#
+                            fetch first 1 rows only
+      		
+      ) AS CONSULTER1,
+      'EL' AS GBN_ELES
+      
+FROM SAPHEE.ZMASTER01 AS A
+    LEFT OUTER JOIN (
+    					SELECT P.MANDT
+    					     , P.PSPID
+    					     , MAX(P.CDATE) AS MAX_CDATE
+    					     --, P.FRAME_DATE
+    					  FROM SAPHEE.ZPST0019 P
+    					 WHERE P.MANDT = #G_MANDT#
+    					   AND P.PSPID = #PSPID#
+    					   AND P.DEL <> 'X'
+    					   AND (P.FRAME_DATE <> '' AND P.FRAME_DATE <> '00000000' AND P.FRAME_DATE IS NOT NULL)
+    					 GROUP BY P.MANDT, P.PSPID
+    				) B 
+      ON A.MANDT = B.MANDT 
+     AND A.POSID = B.PSPID 
+     LEFT OUTER JOIN (
+    					SELECT P.MANDT
+    					     , P.PSPID
+    					     , MAX(P.CDATE) AS MAX_CDATE
+    					     --, P.MATNR_DATE
+    					  FROM SAPHEE.ZPST0019 P
+    					 WHERE P.MANDT = #G_MANDT#
+    					   AND P.PSPID = #PSPID#
+    					   AND P.DEL <> 'X'
+    					   AND (P.MATNR_DATE <> '' AND P.MATNR_DATE <> '00000000' AND P.MATNR_DATE IS NOT NULL)
+    					 GROUP BY P.MANDT, P.PSPID
+    				) C 
+      ON A.MANDT = C.MANDT 
+     AND A.POSID = C.PSPID
+     
+
+WHERE A.MANDT = #G_MANDT#
+AND A.POSID = #PSPID#
+
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_master">
+	</output>
+</query>

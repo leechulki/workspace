@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>update</type>
+	<description><![CDATA[이관]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>	
+	<![CDATA[
+	MERGE INTO  SAPHEE.ZCST950N AS A
+ 	USING (
+ 	       SELECT BSU
+               ,SUM(CASE WHEN A.GND = 'B' THEN A.CNT ELSE 0 END) CTQ
+               ,SUM(CASE WHEN A.GND = 'D' THEN A.CNT ELSE 0 END) RTQ
+               ,SUM(CASE WHEN A.GND NOT IN ('D', 'B') THEN A.CNT ELSE 0 END) MTQ
+               ,SUM(CASE WHEN A.CNT > 0 THEN A.CNT ELSE 0 END) TTQ
+	       FROM (
+             
+                SELECT
+                       A.BSU_ARA ARA,
+                       A.LGORT BSU,
+                       VALUE(C.GND,B.GND) GND,
+                       ( SUM(VALUE(C.CNT02,0)) - SUM(VALUE(B.CNT02,0))) CNT
+                  FROM
+                       (
+                        SELECT  MANDT, BSU_ARA ,VKGRP, LGORT , 'A' GND
+                          FROM SAPHEE.ZWBT010
+                         WHERE MANDT = #G_MANDT#
+
+                         UNION ALL
+
+                        SELECT  MANDT, BSU_ARA ,VKGRP, LGORT , 'B' GND
+                          FROM SAPHEE.ZWBT010
+                         WHERE MANDT = #G_MANDT#
+
+                         UNION ALL
+
+                        SELECT  MANDT, BSU_ARA ,VKGRP, LGORT , 'C' GND
+                          FROM SAPHEE.ZWBT010
+                         WHERE MANDT = #G_MANDT#
+
+                         UNION ALL
+
+                        SELECT  MANDT, BSU_ARA ,VKGRP, LGORT , 'D' GND
+                          FROM SAPHEE.ZWBT010
+                         WHERE MANDT = #G_MANDT#
+
+                         UNION ALL
+
+                        SELECT  MANDT, BSU_ARA ,VKGRP, LGORT , 'Z' GND
+                          FROM SAPHEE.ZWBT010
+                         WHERE MANDT = #G_MANDT#
+
+                       )  A
+                              LEFT OUTER JOIN (
+                                               SELECT
+                                                       A.CS157_GHB
+                                                      ,A.CS157_CHB
+                                                      ,A.CS157_GND GND
+                                                      ,COUNT(*) CNT02
+                                                 FROM
+                                                      SAPHEE.ZCST157 A LEFT OUTER JOIN SAPHEE.ZCST126 B
+                                                                               ON A.MANDT = B.MANDT
+                                                                              AND A.CS157_UPN = B.CS126_UPN
+                                                                              AND A.CS157_CST = B.CS126_CST
+                                                                              AND A.CS157_PJT = B.CS126_PJT
+                                                                              AND A.CS157_HNO = B.CS126_HNO
+                                                                              AND A.CS157_SEQ = B.CS126_SEQ
+                                                                              AND A.CS157_GND = B.CS126_GND
+
+                                                                       LEFT OUTER JOIN SAPHEE.ZCST111 C
+                                                                               ON A.MANDT = C.MANDT
+                                                                              AND A.CS157_PJT = C.PJT
+                                                                              AND A.CS157_HNO = C.HNO
+                                                WHERE
+                                                      A.MANDT = #G_MANDT#
+                                                  AND SUBSTR(A.CS157_HNO,1,1) IN ('L','S','W','C')
+                                                  AND VALUE(B.CS126_SLA,'N') = 'N'
+                                                  AND A.CS157_FYN = ''
+                                                  AND A.CS157_IKD BETWEEN SUBSTR(#GDATE#,1,4)||'0101' AND #GDATE#
+                                                  AND C.EXC = ''
+                                               GROUP BY
+                                                       A.CS157_GHB, A.CS157_CHB, A.CS157_GND
+                                              ) B ON A.LGORT = B.CS157_CHB
+                                                 AND A.GND = B.GND
+                              LEFT OUTER JOIN (
+                                               SELECT
+                                                       A.CS157_GHA
+                                                      ,A.CS157_CHA
+                                                      ,A.CS157_GND GND
+                                                      ,COUNT(*) CNT02
+                                                 FROM
+                                                      SAPHEE.ZCST157 A LEFT OUTER JOIN SAPHEE.ZCST126 B
+                                                                               ON A.MANDT = B.MANDT
+                                                                              AND A.CS157_UPN = B.CS126_UPN
+                                                                              AND A.CS157_CST = B.CS126_CST
+                                                                              AND A.CS157_PJT = B.CS126_PJT
+                                                                              AND A.CS157_HNO = B.CS126_HNO
+                                                                              AND A.CS157_SEQ = B.CS126_SEQ
+                                                                              AND A.CS157_GND = B.CS126_GND
+
+                                                                       LEFT OUTER JOIN SAPHEE.ZCST111 C
+                                                                               ON A.MANDT = C.MANDT
+                                                                              AND A.CS157_PJT = C.PJT
+                                                                              AND A.CS157_HNO = C.HNO
+                                                WHERE
+                                                      A.MANDT = #G_MANDT#
+                                                  AND SUBSTR(A.CS157_HNO,1,1) IN ('L','S','W','C')
+                                                  AND VALUE(B.CS126_SLA,'N') = 'N'
+                                                  AND A.CS157_FYN = ''
+                                                  AND A.CS157_IKD BETWEEN SUBSTR(#GDATE#,1,4)||'0101' AND #GDATE#
+                                                  AND C.EXC = ''
+                                               GROUP BY
+                                                       A.CS157_GHA, A.CS157_CHA,A.CS157_GND
+                                              ) C ON A.LGORT = C.CS157_CHA
+                                                 AND A.GND = C.GND
+                WHERE
+                      A.MANDT = #G_MANDT#
+                  AND A.LGORT > ''
+                  AND A.VKGRP > ''
+
+                GROUP BY A.BSU_ARA, A.LGORT, C.GND, B.GND
+              ) AS A
+           
+         GROUP BY BSU
+         
+        ) AS B  
+           ON A.BSU = B.BSU
+          AND A.YYYYMM = #YYYYMM#
+          AND A.MANDT = #G_MANDT#
+	
+	WHEN MATCHED
+	THEN
+	
+	UPDATE 	
+     SET 
+          CTQ = B.CTQ
+         ,RTQ = B.RTQ
+         ,MTQ = B.MTQ
+         ,TTQ = B.TTQ 
+	
+]]>
+	</statement>	
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="_none">	
+	</output>
+	</query>

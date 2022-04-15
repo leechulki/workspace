@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[시행예산 수주번호 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT  A.MANDT
+       ,A.OCNT_NUMB -- 수주번호
+       ,A.EBDG_MGSQ -- 예산차수
+       ,B.PSPID     -- 프로젝트번호
+       ,B.KUNNR     -- 납품처
+       ,C.NAME1 KUNNR_NAME -- 납품처명
+       ,B.BSTNK -- 현장명
+       ,B.ORDR_TYPE -- 오더유형
+       ,(SELECT CODE_NAME FROM SAPHEE.ZFST0100 WHERE MANDT = A.MANDT AND CODE_GROP = 'A03' AND CODE = B.ORDR_TYPE) AS ORDR_TYPE_NAME
+       ,A.ESMT_TAMT -- 계약금액
+       ,A.EBDG_TAMT -- 시행예산
+       ,CASE   WHEN    AP.APPR_STAT NOT IN ('040', '390')
+             THEN    CASE WHEN AP.ADIT_STAT NOT IN ('040', '250', '290') THEN (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = A.MANDT AND USERNUMB = AP.DRAF ) ELSE (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = A.MANDT AND USERNUMB = AP.ADIT ) END
+             ELSE    (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = A.MANDT AND USERNUMB = AP.APPR ) END AS ADIT_NAME -- 결재자명
+       ,AU.CODE_NAME AS APPR_STAT_NAME -- 결재상태명
+       ,A.EBDG_MGST
+       ,(SELECT CODE_NAME FROM  SAPHEE.ZFST0100 WHERE MANDT = A.MANDT AND CODE_GROP = 'A02' AND CODE = A.EBDG_MGST) AS EBDG_MGST_NAME
+       ,A.WRIT_DATE
+FROM   TABLE (
+       SELECT MANDT
+             ,OCNT_NUMB
+             ,MAX(EBDG_MGSQ) AS EBDG_MGSQ
+       FROM   SAPHEE.ZFST0301
+       WHERE  MANDT = #G_MANDT#
+<isNotNull col="WRIT_DATE_FROM">
+              AND  WRIT_DATE BETWEEN #WRIT_DATE_FROM# AND #WRIT_DATE_TO#
+</isNotNull>
+<isNotNull col="OCNT_NUMB">
+              AND  OCNT_NUMB LIKE '%'||#OCNT_NUMB#||'%'
+</isNotNull>
+<isNotNull col="EBDG_MGST">
+              AND  EBDG_MGST = #EBDG_MGST#
+</isNotNull>
+       GROUP BY MANDT
+               ,OCNT_NUMB
+       ) AS X
+       INNER JOIN SAPHEE.ZFST0301 AS A ON X.MANDT = A.MANDT AND X.OCNT_NUMB = A.OCNT_NUMB AND X.EBDG_MGSQ = A.EBDG_MGSQ
+       INNER JOIN SAPHEE.ZFST0304 AS B ON X.MANDT = B.MANDT AND X.OCNT_NUMB = B.OCNT_NUMB
+       LEFT OUTER JOIN SAPHEE.KNA1 AS C
+       ON   B.MANDT = C.MANDT
+       AND  B.KUNNR = C.KUNNR
+       AND  C.KTOKD IN ( 'Z001', 'Z002', 'Z004' )
+       LEFT JOIN SAPHEE.ZFST0103 AP ON (A.MANDT = AP.MANDT AND AP.ADOC_CLAS = 'OB' AND A.OCNT_NUMB = AP.ADOC_NUMB AND A.EBDG_MGSQ = AP.ADOC_NTIM )
+       LEFT JOIN SAPHEE.ZFST0100 AU ON (AU.MANDT = AP.MANDT AND AU.CODE_GROP = 'A01'
+                                     AND  AU.CODE = CASE  WHEN    AP.APPR_STAT NOT IN ('040', '390')
+                                                          THEN    CASE WHEN AP.ADIT_STAT NOT IN ('040', '250', '290') THEN AP.DRAF_STAT ELSE AP.ADIT_STAT END
+                                                     ELSE    AP.APPR_STAT END )
+WHERE A.MANDT = #G_MANDT#
+<isNotNull col="PSPID">
+              AND  B.PSPID LIKE '%'||#PSPID#||'%'
+</isNotNull>
+<isNotNull col="BSTNK">
+              AND  B.BSTNK LIKE '%'||#BSTNK#||'%'
+</isNotNull>
+<isNotNull col="ORDR_TYPE">
+              AND  B.ORDR_TYPE = #ORDR_TYPE#
+</isNotNull>
+<isNotNull col="KUNNR">
+              AND  B.KUNNR = #KUNNR#
+</isNotNull>
+ORDER BY A.OCNT_NUMB DESC, A.EBDG_MGSQ DESC
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_zfst0301_list">
+    </output>
+</query>

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+	SELECT A.MANDT,
+	       A.REQNO AS QTNUM,
+	       A.LGORT,
+	       SAPHEE.GET_VENDER_NAME(A.MANDT, A.LGORT) AS LGORTNM,
+	       CASE WHEN LENGTH(A.UPN) > 5 THEN A.UPN ELSE CS001.MA_PSPID END AS UPN,
+	       A.POSID,
+	       A.POSID2,
+	       CASE WHEN LENGTH(A.POSID) > 5 THEN CS101.CS101_HNA ELSE A.POSID END AS HNA,
+	       A.REQDATE,
+	       A.BUSSI,
+	       A.REQKIND,
+	       A.MATNR,
+	       CASE WHEN VALUE(A.QTNUM, '') > '' THEN CS002.MAKTX
+	           ELSE MM011.MAKTX
+	       END AS MAKTX,
+	       MM011.MEINS,
+	       A.MENGE,
+	--       CASE WHEN VALUE(A.QTNUM, '') > '' THEN CS002.AMOUNT * 100 / A.MENGE
+	--           ELSE DECODE(SUBSTR(A.BWTAR, 2), 'A', MM011.SAMT1 * 100, 'B', INT(MM011.SAMT1 * 100 * 0.4))
+	--       END AS NETPR,
+	--       CASE WHEN VALUE(A.QTNUM, '') > '' THEN CS002.AMOUNT * 100
+	--           ELSE A.MENGE * DECODE(SUBSTR(A.BWTAR, 2), 'A', MM011.SAMT1 * 100, 'B', INT(MM011.SAMT1 * 100 * 0.4))
+	--       END AS NETWR,
+	--       CASE WHEN VALUE(A.QTNUM, '') > '' THEN CS002.AMOUNT * 100
+	--           ELSE A.MENGE * DECODE(SUBSTR(A.BWTAR, 2), 'A', MM011.SAMT1 * 100, 'B', INT(MM011.SAMT1 * 100 * 0.4))
+	--       END AS AMOUNT,
+	      CASE WHEN VALUE(A.QTNUM, '') > '' THEN CS002.AMOUNT * 100 / CS002.MENGE
+	           ELSE DECODE(SUBSTR(A.BWTAR, 2), 'A', MM011.SAMT1 * 100, 'B', INT(MM011.SAMT1 * 100 * 0.4))
+	       END AS NETPR,
+	       CASE WHEN VALUE(A.QTNUM, '') > '' THEN CS002.NETPR * 100 * A.MENGE
+	           ELSE A.MENGE * DECODE(SUBSTR(A.BWTAR, 2), 'A', MM011.SAMT1 * 100, 'B', INT(MM011.SAMT1 * 100 * 0.4))
+	       END AS NETWR,
+	       CASE WHEN VALUE(A.QTNUM, '') > '' THEN CS002.NETPR * 100 * A.MENGE
+	           ELSE A.MENGE * DECODE(SUBSTR(A.BWTAR, 2), 'A', MM011.SAMT1 * 100, 'B', INT(MM011.SAMT1 * 100 * 0.4))
+	       END AS AMOUNT,	       
+	       CASE WHEN A.REQKIND IN ('9','H') THEN 'FM' ELSE '부품' END AS RGBNNM
+	  FROM SAPHEE.ZMMT031 A
+	   LEFT OUTER JOIN SAPHEE.ZCST001 AS CS001
+	       ON A.MANDT = CS001.MANDT
+	       AND A.QTNUM = CS001.QTNUM
+	       AND A.SEQ = CS001.SEQ
+	   LEFT OUTER JOIN SAPHEE.ZCST002 AS CS002
+	       ON A.MANDT = CS002.MANDT
+	       AND A.QTNUM = CS002.QTNUM
+	       AND A.SEQ = CS002.SEQ
+	       AND A.SEQNO = CS002.SEQNO
+	   LEFT OUTER JOIN SAPHEE.ZMMT011 AS MM011
+	       ON A.MANDT= MM011.MANDT
+	       AND A.MATNR = MM011.MATNR
+	       AND A.MTART = MM011.MTART
+	   LEFT OUTER JOIN SAPHEE.ZCST101 AS CS101
+	       ON A.MANDT = CS101.MANDT
+	       AND SUBSTR(A.POSID, 1, 6) = CS101.CS101_PJT
+	       AND SUBSTR(A.POSID, 7) = CS101_HNO	       
+	 WHERE A.MANDT = #G_MANDT#
+	       AND REQNO = #REQNO#
+       FOR FETCH ONLY
+      WITH UR	       
+]]></statement>
+	<input default-name="ds_report_cond">
+	</input>
+	<output default-name="ds_list_parts">
+	</output>
+</query>

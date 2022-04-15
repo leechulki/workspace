@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+
+SELECT A.UPN
+      ,A.CST
+      ,A.CDT
+      ,A.STD 
+      ,A.ETD
+	   -- ,VALUE(MAX(CHK_UMS),0) AS CHK_UMS
+	  ,VALUE(MAX(CHK_UMS_2),0)             AS CHK_UMS
+	  ,SAPHEE.MONTH_BETWEEN(A.STD,A.ETD,2) AS ESEQ1_UMS
+	  ,VALUE(MAX(MINUS_UMS),0)             AS MINUS_UMS
+
+FROM (
+
+SELECT A.UPN
+      ,A.CST
+      ,A.CDT
+      ,A.STD
+      ,A.ETD
+	  ,VALUE(SUM(CS126.CS126_UMS),0) AS CHK_UMS
+	  -- 2019.04.25 유상계약견적 개월수 생성시 오류로 인한 수정 시작
+      ,VALUE( SUM(CASE WHEN SUBSTR(HEX(CURRENT DATE), 1, 4) > SUBSTR(CS126.CS126_UGS, 1, 4) THEN SAPHEE.MONTH_BETWEEN(SUBSTR(HEX(CURRENT DATE), 1, 4) || '0101',CS126.CS126_UMR,2)  
+                       WHEN CS126.CS126_UMR > CS126.CS126_UGS THEN SAPHEE.MONTH_BETWEEN(CS126.CS126_UGS,CS126.CS126_UMR,2)  
+                       ELSE CS126.CS126_UMS END
+                 )
+            ,0
+            ) AS CHK_UMS_2
+      -- 2019.04.25 유상계약견적 개월수 생성시 오류로 인한 수정 종료
+      , CASE WHEN MAX(CS126M.CS126_CHA) != '' AND MAX(CS126M.CS126_USD) <> MAX(CS126M.CS126_UMR) 
+             THEN SAPHEE.MONTH_BETWEEN(MAX(CS126M.CS126_UGS),MAX(CS126M.CS126_UMR),2)- SAPHEE.MONTH_BETWEEN(MAX(CS126M.CS126_UGS),MAX(CS126M.CS126_UMRO),2) 
+         			   ELSE 0 END   AS MINUS_UMS 
+         			   
+ FROM (
+  
+
+                   --견적정보
+                        SELECT
+                               CS302.MANDT MANDT
+                             , CS122.CS122_UPN UPN
+                             , CS122.CS122_CST CST
+                             , CS302.CS302_PJT PJT --프로젝트번호
+                             , CS302.CS302_HNO HNO --호기
+                             , CS301.CS301_PST --견적상태
+                             , VALUE(H.APSTAT,'') APSTAT --결재상태
+                             , CS301.CS301_TEM || '-' || CS301.CS301_RDT || '-' || CS301.CS301_SEQ ETN --견적번호
+                             , CS301.CS301_SIR SIR --견적차수
+                             , CS301.CS301_TEM TEM --팀코드
+                             , CS301.CS301_CPD CPD --계약상품(A:FM B:POG)
+                             , CS301.CS301_PRD PRD --점검주기(A:매월, B:격월, C:분기) => HRTS 점검주기 01, 02, 03
+                             , CS301.CS301_CDT CDT --계약예정일 => 계약개시일
+                             , CS301.CS301_STD STD --계약시작일 => 유상계약개시일
+                             , CS301.CS301_ETD ETD --계약종료일 => 계약개시일
+                        --     , CS301.CS301_STD RGS --계약시작일(전체계약) => 실계약개시일
+                             , CS301.CS301_CDT RGS --계약시작일(전체계약) => 실계약개시일    // 계약예정일로 변경  무상기간을 포함해야한다.
+                             , CS301.CS301_ETD RMR --계약종료일(전체계약) => 실계약만기일
+                             , CS301.CS301_PNT --인원수
+                             , CS301.CS301_SAJ --상주금액
+                             , CS301_GIS GIS --기성비지급율
+                             , CS301.CS301_GBN --견적구분(주차 : '2', 승강기 : '1')
+                             , CS301.CS301_BSU --업체코드
+                             , CS301.CS301_GBU --직영구분(A:직영, B:협력사)
+                             --, CS302.CS302_UPN UPN --통합프로젝트번호 /*견적의 통합프로젝트는 현시점과 다들 수 있음*/
+                             , CS301.CS301_RM1||CS301.CS301_RM2 RMK
+                             , CS302.CS302_FMT  FMT  --FM보수료(직영)
+                             , CS302.CS302_FMBT FMBT --FM보수료(협력사)
+                             , CS302.CS302_PMT  PMT  --POG보수료(직영)
+                             , CS302.CS302_PMBT PMBT --POG보수료(협력사)
+                             , CS302.CS302_HMT HMT --HRTS단가
+                             , CS302.CS302_DMT DMT --DI-PBX단가
+                             , CS302.CS302_FMG FMG --FM구분
+                             , CS302.CS302_POG POG --POG구분
+                             , CS302.CS302_HGB HGB --HRTS구분
+                             , CS302.CS302_DGB DGB --DI-PBX구분
+                             , CS302.CS302_GBN GBN --계약구분(A:신규 / B:재계약)
+                             , CS302.CS302_HWR HWR --HRTS회선종류 (A:유선 / B:무선)
+                             , CS302.CS302_DND DND --DI-PBX 종류 (A:Mini-PBX / B:Di-PBX2 / C:Hybrid-PBX)
+                             , (SELECT MAX(CS624_SEQ2) FROM SAPHEE.ZCST624 WHERE CS624_TEM = CS301.CS301_TEM AND CS624_RDT = CS301.CS301_RDT AND CS624_SEQ = CS301.CS301_SEQ AND CS624_SIR = CS301.CS301_SIR) AS CS624_SEQ2 --최종계약차수
+                             , DECODE(CS301.CS301_BDGBN,'X','1','') AS BDGBN
+                          FROM SAPHEE.ZCST301 CS301 --정기보수견적헤더
+                                    INNER JOIN SAPHEE.ZCST624 CS624 -- 기간별견적금액
+                                            ON CS624.MANDT = CS301.MANDT
+                                           AND CS624.CS624_TEM = CS301.CS301_TEM
+                                           AND CS624.CS624_RDT = CS301.CS301_RDT
+                                           AND CS624.CS624_SEQ = CS301.CS301_SEQ
+                                           AND CS624.CS624_SIR = CS301.CS301_SIR
+                                           AND CS624.CS624_SEQ2 = 1 --계약년차                                      
+                                    LEFT OUTER JOIN SAPHEE.ZWBAP01 H
+                                            ON H.MANDT = CS301.MANDT
+                                           AND H.DOCNO = CS301.CS301_DOC
+                                           AND H.DOCKIND IN ('3','21')
+                             , SAPHEE.ZCST302 CS302 --정기보수견적디테일
+                             , SAPHEE.ZCST122 CS122 --통합프로젝트 호기정보
+                         WHERE CS301.MANDT = #G_MANDT#
+                           AND CS301.CS301_TEM = CS302.CS302_TEM
+                           AND CS301.CS301_RDT = CS302.CS302_RDT
+                           AND CS301.CS301_SEQ = CS302.CS302_SEQ
+                           AND CS301.CS301_SIR = CS302.CS302_SIR
+                           AND CS301.CS301_TEM = #TEM# --견적번호(팀코드)
+                           AND CS301.CS301_RDT = #RDT# --견적번호(견적작성일)
+                           AND CS301.CS301_SEQ = #SEQ# --견적번호(순번)
+                           AND CS301.CS301_SIR = #SIR# --견적차수(차수)
+                           AND CS301.CS301_DEL = 'N'   --삭제여부
+                    --       AND CS301.CS301_BDGBN = 'X' --분담이행방식만 
+                           AND CS302.MANDT = CS122.MANDT
+                           AND CS122.CS122_UPN = #UPN#
+                           AND CS122.CS122_CST = #CST#
+                           AND CS302.CS302_PJT = CS122.CS122_PJT
+                           AND CS302.CS302_HNO = CS122.CS122_HNO
+                           AND CS301.CS301_PST = 'A6'  --승인
+                           AND H.APSTAT = '6' --수신결재완료           
+
+      ) AS A    LEFT OUTER JOIN SAPHEE.ZCST126 AS CS126
+                             ON CS126.MANDT = #G_MANDT#
+                            AND CS126.CS126_DDT = ''
+                            AND CS126.CS126_PST = 'A6'
+                            AND CS126.CS126_PJT = A.PJT
+                            AND CS126.CS126_HNO = A.HNO
+                            AND CS126.CS126_GND = 'D'
+                            AND SUBSTR(CS126.CS126_UGS,1,4) = SUBSTR(A.CDT,1,4) -- 2019.04.25 수주개월수 체크시 에러나는 내용이 있어 원복. Han J.H
+                            --AND CS126.CS126_UGS >= A.CDT -- 2019.01.07 계약연차별상세 조회 시 단일연차로 조회되는 에러 해결. Han J.H
+                
+                LEFT OUTER JOIN SAPHEE.ZCST126 AS CS126M
+                             ON CS126M.MANDT = #G_MANDT#
+                            AND CS126M.CS126_DDT = ''
+                            AND CS126M.CS126_PST = 'A6'
+                            AND CS126M.CS126_PJT = A.PJT
+                            AND CS126M.CS126_HNO = A.HNO
+                            AND CS126M.CS126_GND = 'D'
+                            AND SUBSTR(CS126M.CS126_USD,1,4) < SUBSTR(A.CDT,1,4)
+                            AND SUBSTR(CS126M.CS126_ADT,1,4) < SUBSTR(A.CDT,1,4)
+                            AND SUBSTR(CS126M.CS126_UGS,1,4) < SUBSTR(A.CDT,1,4)
+                            AND SUBSTR(CS126M.CS126_UMR,1,4) = SUBSTR(A.CDT,1,4)
+ GROUP BY A.UPN
+      ,A.CST
+      ,A.CDT
+      ,A.STD
+      ,A.ETD
+      ,CS126.CS126_PJT
+      ,CS126.CS126_HNO
+
+) AS A
+ GROUP BY A.UPN
+      ,A.CST
+      ,A.CDT
+      ,A.STD
+      ,A.ETD
+
+WITH UR
+]]>
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_chkUms">
+	</output>
+</query>

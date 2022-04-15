@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+       /*	기존방식	*/
+       --CASE WHEN MAX(A.CNT1) = 0 THEN 0 ELSE ROUND((MAX(A.AMT1) / MAX(A.CNT1)),0) END AVR1,
+       --CASE WHEN MAX(A.CNT2) = 0 THEN 0 ELSE ROUND((MAX(A.AMT2) / MAX(A.CNT2)),0) END AVR2,
+       --CASE WHEN MAX(A.CNT3) = 0 THEN 0 ELSE ROUND((MAX(A.AMT3) / MAX(A.CNT3)),0) END AVR3,
+       --CASE WHEN MAX(A.CNT4) = 0 THEN 0 ELSE ROUND((MAX(A.AMT4) / MAX(A.CNT4)),0) END LAS
+       /*	종전보수료 대비 증감율로 표현 2015.01.08	*/
+       /*   견적금액이 0일때 나누기 에러 발생하여 예외처리 시작 2019.07.16 */
+       --CASE WHEN MAX(A.CNT1) = 0 THEN 0 ELSE ROUND(100 - (DOUBLE(MAX(A.AMT4)) / MAX(A.AMT1)*100),2) END AVR1,
+       --CASE WHEN MAX(A.CNT2) = 0 THEN 0 ELSE ROUND(100 - (DOUBLE(MAX(A.AMT4)) / MAX(A.AMT2)*100),2) END AVR2,
+       --CASE WHEN MAX(A.CNT3) = 0 THEN 0 ELSE ROUND(100 - (DOUBLE(MAX(A.AMT4)) / MAX(A.AMT3)*100),2) END AVR3,
+       --MAX(A.AMT4) LAS
+       /*   견적금액이 0일때 나누기 에러 발생하여 예외처리 종료 2019.07.16 */
+       CASE 
+	   		WHEN MAX(A.CNT1) = 0 THEN 0
+			WHEN MAX(A.AMT1) = 0 THEN 0 -- 2019.07.16 금액이 0이면 예외처리
+			ELSE ROUND(100 - (DOUBLE(MAX(A.AMT4)) / MAX(A.AMT1)*100),2) 
+			END AVR1,
+       CASE 
+	   		WHEN MAX(A.CNT2) = 0 THEN 0
+			WHEN MAX(A.AMT2) = 0 THEN 0 -- 2019.07.16 금액이 0이면 예외처리 
+			ELSE ROUND(100 - (DOUBLE(MAX(A.AMT4)) / MAX(A.AMT2)*100),2) 
+			END AVR2,
+       CASE 
+	   		WHEN MAX(A.CNT3) = 0 THEN 0
+			WHEN MAX(A.AMT3) = 0 THEN 0 -- 2019.07.16 금액이 0이면 예외처리 
+			ELSE ROUND(100 - (DOUBLE(MAX(A.AMT4)) / MAX(A.AMT3)*100),2) 
+			END AVR3,
+	   MAX(A.AMT4) LAS       
+  FROM
+       (
+        SELECT
+               CASE
+                    WHEN A.CS301_SIR = '01' AND A.CS301_CPD = 'A' THEN SUM(B.CS302_FMT) + SUM(B.CS302_FMBT)
+                    WHEN A.CS301_SIR = '01' AND A.CS301_CPD = 'B' THEN SUM(B.CS302_PMT) + SUM(B.CS302_PMBT)
+                    ELSE 0
+               END AMT1,
+               CASE WHEN A.CS301_SIR = '01' THEN COUNT(*) ELSE 0 END CNT1,
+               CASE
+                    WHEN A.CS301_SIR = '02' AND A.CS301_CPD = 'A' THEN SUM(B.CS302_FMT) + SUM(B.CS302_FMBT)
+                    WHEN A.CS301_SIR = '02' AND A.CS301_CPD = 'B' THEN SUM(B.CS302_PMT) + SUM(B.CS302_PMBT)
+                    ELSE 0
+               END AMT2,
+               CASE WHEN A.CS301_SIR = '02' THEN COUNT(*) ELSE 0 END CNT2,
+               CASE
+                    WHEN A.CS301_SIR = '03' AND A.CS301_CPD = 'A' THEN SUM(B.CS302_FMT) + SUM(B.CS302_FMBT)
+                    WHEN A.CS301_SIR = '03' AND A.CS301_CPD = 'B' THEN SUM(B.CS302_PMT) + SUM(B.CS302_PMBT)
+                    ELSE 0
+               END AMT3,
+               CASE WHEN A.CS301_SIR = '03' THEN COUNT(*) ELSE 0 END CNT3,
+               0 AMT4,
+               0 CNT4
+          FROM
+               SAPHEE.ZCST301 A,
+               SAPHEE.ZCST302 B
+         WHERE
+               A.MANDT = #G_MANDT#
+           AND A.MANDT = B.MANDT
+           AND A.CS301_TEM = B.CS302_TEM
+           AND A.CS301_RDT = B.CS302_RDT
+           AND A.CS301_SEQ = B.CS302_SEQ
+           AND A.CS301_SIR = B.CS302_SIR
+           AND A.CS301_PST = 'A3'
+           AND A.CS301_TEM = #TEM#
+           AND A.CS301_RDT = #RDT#
+           AND A.CS301_SEQ = #SEQ#
+           AND A.CS301_SIR <= '03'
+        GROUP BY
+               A.CS301_SIR,
+               A.CS301_CPD
+
+        UNION ALL
+
+        SELECT
+               0 AMT1,
+               0 CNT1,
+               0 AMT2,
+               0 CNT2,
+               0 AMT3,
+               0 CNT3,
+               SUM(A.AMT) AMT4,
+               COUNT(*) CNT4
+          FROM
+               (
+                SELECT
+                       A.CS126_PJT PJT,
+                       A.CS126_HNO HNO,
+                       A.CS126_AMT + VALUE(A.CS126_AMBT,0) AMT,
+                       ROW_NUMBER() OVER(PARTITION BY A.CS126_PJT, A.CS126_HNO ORDER BY A.CS126_USD DESC) RNO
+                  FROM
+                       SAPHEE.ZCST126 A,
+                       SAPHEE.ZCST301 B,
+                       SAPHEE.ZCST302 C
+                 WHERE
+                       A.MANDT = #G_MANDT#
+                   AND B.MANDT = C.MANDT
+                   AND B.CS301_TEM = C.CS302_TEM
+                   AND B.CS301_RDT = C.CS302_RDT
+                   AND B.CS301_SEQ = C.CS302_SEQ
+                   AND B.CS301_SIR = C.CS302_SIR
+                   AND A.MANDT = C.MANDT
+                   AND A.CS126_PJT = C.CS302_PJT
+                   AND A.CS126_HNO = C.CS302_HNO
+                   AND B.CS301_PST = 'A3'
+                   AND A.CS126_DDT = ''
+                   AND A.CS126_PST = 'A6'
+                   AND A.CS126_USD < B.CS301_CDT
+                   AND B.CS301_TEM = #TEM#
+                   AND B.CS301_RDT = #RDT#
+                   AND B.CS301_SEQ = #SEQ#
+                   AND B.CS301_SIR = #SIR#
+               ) A
+         WHERE
+               A.RNO = 1
+       ) A
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_his">
+	</output>
+</query>

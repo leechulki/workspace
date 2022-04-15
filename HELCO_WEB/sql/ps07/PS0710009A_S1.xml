@@ -1,0 +1,536 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	
+		WITH TEMP AS (
+			SELECT T.PSPID
+			     , T.POSID
+			     , T.CHK_KIND
+			     , T.CHASU
+			     , T.REQ_GBN
+			     , VALUE(T.CDATE, '00000000') AS CDATE -- 신청일
+			     , (CASE WHEN T.REQ_GBN = '2' -- 승인
+			             THEN T.CFM_DATE
+			             ELSE '00000000'-- 미신청 OR 신청
+			             END) AS CFM_DATE -- 승인일
+			     , VALUE((
+			     		SELECT VALUE(DECODE(X.KETF1_DATE,'','00000000',X.KETF1_DATE),'00000000') AS KETF1_DATE
+			     		  FROM SAPHEE.ZPST0203 X
+			     		 WHERE X.MANDT = #G_MANDT#
+			     		   AND X.PSPID = T.PSPID
+			     		   AND X.POSID = T.POSID
+			     		   AND X.CHK_KIND = T.CHK_KIND
+			     		   AND X.CHASU = T.CHASU
+			       ),'00000000') AS KETF_DATE -- KETF접수일
+			     , (CASE WHEN T.CHK_KIND = 'A' OR T.CHK_KIND = 'B' OR T.CHK_KIND = 'F' OR T.CHK_KIND = 'G' OR T.CHK_KIND = 'D' -- 완성, 완성재검
+			             THEN VALUE(DECODE(T.RCPT_DATE_01,'','00000000',T.RCPT_DATE_01), '00000000')
+			             WHEN T.CHK_KIND = 'C' OR T.CHK_KIND = 'E' OR T.CHK_KIND = 'H' OR T.CHK_KIND = 'I' -- 수시, 수시재검, 수시교체
+			             THEN VALUE(DECODE(T.RCPT_DATE_02,'','00000000',T.RCPT_DATE_02), '00000000')
+			             ELSE '00000000'
+			             END) AS RCPT_DATE -- 민원24접수일
+			     , (CASE WHEN T.CHK_KIND = 'A' OR T.CHK_KIND = 'B' OR T.CHK_KIND = 'F' OR T.CHK_KIND = 'G' OR T.CHK_KIND = 'D'
+			             THEN VALUE(DECODE(T.FIN_DATE_01,'','00000000',T.FIN_DATE_01), '00000000')
+			             WHEN T.CHK_KIND = 'C' OR T.CHK_KIND = 'E' OR T.CHK_KIND = 'H' OR T.CHK_KIND = 'I'
+			             THEN VALUE(DECODE(T.FIN_DATE_02,'','00000000',T.FIN_DATE_02), '00000000')
+			             ELSE '00000000'
+			             END) AS FIN_DATE -- 수검일
+			     , T.TEXT30
+			     , T.ZSITE_NM
+			     , T.POSID_DONG
+			     , T.ZZACTSS
+			     , T.STATE
+			     , T.APPLS
+			     , T.ZSPEC1
+			     , T.ZSPEC2
+			     , T.ISREMD
+			     , T.AUSE
+			     , T.REQ_USER_NM
+			     , T.SAFE_STUS
+			     , T.SAFE_CUST_NO
+			     , T.F_DATE
+			     , T.T_DATE
+				 , T.BIGO_1
+				 , (
+				 		CASE WHEN T.CHK_KIND = 'A' OR T.CHK_KIND = 'B' OR T.CHK_KIND = 'F' OR T.CHK_KIND = 'G' OR T.CHK_KIND = 'D'
+			                 THEN T.BIGO_2
+			                 WHEN T.CHK_KIND = 'C' OR T.CHK_KIND = 'E' OR T.CHK_KIND = 'H' OR T.CHK_KIND = 'I'
+			                 THEN VALUE(T.FIN_DATE_02, '00000000')
+			                 ELSE T.BIGO_3
+			                  END
+				   ) AS BIGO_2
+				 , (
+				 		SELECT X.BIGO
+			     		  FROM SAPHEE.ZPST0203 X
+			     		 WHERE X.MANDT = #G_MANDT#
+			     		   AND X.PSPID = T.PSPID
+			     		   AND X.POSID = T.POSID
+			     		   AND X.CHK_KIND = T.CHK_KIND
+			     		   AND X.CHASU = T.CHASU
+				   ) AS BIGO_4
+				  , T.DDAY
+				  , T.ZMAN
+				  , T.ZMAN_NM
+				  , T.DEPT_N
+				  , T.NAMET
+				  , T.LIFNR_NM
+				  , T.PERNO_CD
+				  , T.ZMMAN
+				  , T.REQ_DATE
+				  , T.REQ_DATE2
+				  , (CASE WHEN T.NETWR > 0  
+	                      THEN  rtrim(CHAR(INT(ROUND(DEC(  FLOAT(T.HWBAS)  /  FLOAT(T.NETWR) , 10 ,3),  2) * 100))) || '%'  ELSE '' 
+	                      END) AS COLLECT_BILL -- 수금율
+				   , T.SD_DEPT_NM
+				   , T.VKGRP
+				   , T.EL_ASTDA
+
+			  FROM (
+			  			SELECT  M1.POSID AS PSPID -- 프로젝트
+						       ,M2.POSID_1 AS POSID -- 호기
+						       ,P1.CHK_KIND
+						       ,P1.CHASU
+						       ,P1.CDATE
+						       ,M1.ZSITE_NM -- 프로젝트명
+						       ,G.TEXT30 -- 사무소명
+						       ,M2.ZSPEC1
+						       ,M2.ZSPEC2
+						       ,M2.LIFNR
+						       ,M12.NAME1
+						       ,M2.NAMET
+						       ,M2.TEMNO2 AS PERNO
+						       ,M2.NAMET2
+						       ,M2.ZZACTSS
+						       ,M2.ZZJUNGO
+						       ,M2.POSID_OLD ZZHOGIT
+						       ,M2.POSID_DONG -- 동
+						       ,M2.ZZCOMP2
+							   ,DECODE(P1.CDATE,NULL,LEFT(M2.ZSPEC2,2),P1.AUSE) AS AUSE
+							   ,M2.ZZCHAKG
+							   ,M1.ISREMD
+							   ,M1.ZMAN
+							   ,M1.ZMAN_NM
+							   ,(CASE WHEN TRIM(T1.STATE) = '3' THEN 'Y' ELSE 'N' END ) AS STATE
+							   ,VALUE(T1.APPLS,'00000000') AS APPLS
+							   ,P1.REQ_USER_NM
+							   ,P1.CFM_DATE
+							   ,P1.REQ_GBN
+							   ,P2.RCPT_DATE AS RCPT_DATE_01
+							   ,P3.RCPT_DATE AS RCPT_DATE_02
+							   ,P2.FIN_DATE AS FIN_DATE_01
+							   ,P3.FIN_DATE AS FIN_DATE_02
+							   ,VALUE(H.STATUS,'')  AS SAFE_STUS
+							   ,VALUE(H.CUST_NO,'') AS SAFE_CUST_NO
+							   ,VALUE(H.F_DATE,'00000000') AS F_DATE
+							   ,VALUE(H.T_DATE,'00000000') AS T_DATE
+							   ,P1.BIGO       AS BIGO_1  -- 신청,승인 비고
+							   ,P2.INSP_BIGO  AS BIGO_2  -- 접수,수검 비고(완성)
+							   ,P3.INSP_BIGO  AS BIGO_3  -- 접수,수검 비고(수시)
+							   , CASE WHEN VALUE(TRIM(H.F_DATE),'00000000') > '00000000'
+                                      THEN TIMESTAMPDIFF( '16', CHAR(TIMESTAMP(TRIM(H.F_DATE)||'000000') - TIMESTAMP(HEX(CURRENT DATE)||'000000')))
+                                      WHEN VALUE(TRIM(P1.REQ_DATE2),'00000000') > '00000000'
+                          	          THEN TIMESTAMPDIFF( '16', CHAR(TIMESTAMP(TRIM(P1.REQ_DATE2)||'000000') - TIMESTAMP(HEX(CURRENT DATE)||'000000')))
+                          	          ELSE 0
+                          	          END AS DDAY
+							   ,VALUE( (SELECT X.ACTSS_NM 
+							              FROM SAPHEE.ZPST0000 AS X
+				                         WHERE X.MANDT = M2.MANDT
+				                           AND X.ACTSS = M2.ZZACTSS), '') AS DEPT_N --보내는 사람 부서
+				               , P1.NAME1 AS LIFNR_NM
+				               , P1.PERNO AS PERNO_CD
+				               , (
+										 	  SELECT KNA1.NAME1
+												FROM SAPHEE.VBAK AS VBAK
+												  INNER JOIN SAPHEE.VBPA AS VBPA 
+												      ON VBAK.MANDT=VBPA.MANDT 
+												       AND VBAK.VBELN=VBPA.VBELN 
+												       AND VBPA.POSNR='000000' 
+												       AND VBPA.PARVW='Z2'
+												LEFT OUTER JOIN SAPHEE.ZSDT0149 AS Z149 
+												       ON VBPA.MANDT=Z149.MANDT 
+												        AND VBPA.KUNNR=Z149.DEALER
+												     AND Z149.SDFIELD = (CASE VBAK.SPART WHEN '20' THEN 'PRK' ELSE (CASE SUBSTR(VBAK.AUART,1,2) WHEN 'ZN' THEN 'REM' ELSE 'NI' END)   END)
+												LEFT OUTER JOIN SAPHEE.KNA1 AS KNA1 
+												      ON Z149.MANDT=KNA1.MANDT 
+												    AND Z149.MANAGER=KNA1.KUNNR
+												LEFT OUTER JOIN SAPHEE.ZUSERF AS ZUSERF 
+												       ON KNA1.MANDT=ZUSERF.MANDT 
+												        AND KNA1.KUNNR='H'||ZUSERF.USERNUMB
+												
+												WHERE VBAK.MANDT    = #G_MANDT#
+												  AND VBAK.ZZPJT_ID = M1.POSID
+												FETCH FIRST 1 ROWS ONLY
+												WITH UR
+								 ) AS ZMMAN
+
+							   , P1.REQ_DATE
+							   , P1.REQ_DATE2
+							   ,VALUE((SELECT SUM(X.HWBAS)
+						                 FROM SAPHEE.ZSDT0029 AS X
+							 		    WHERE X.MANDT = F.MANDT    
+							 		      AND X.KIDNO = F.ZZPJT_ID   
+							 		      AND X.ZCANYM = '000000'), 0) AS HWBAS  -- 수금액  
+							   
+							   , F.NETWR
+							   , PR.ZZBEFOR
+							   , '' AS SD_DEPT_NM
+							   , '' AS VKGRP
+							   , (SELECT SD.VALUE 
+							        FROM SAPHEE.ZSDT0005 AS SD 
+                                   WHERE M2.MANDT = SD.MANDT  
+                                     AND M2.POSID = SUBSTR(SD.HOGI,1,6)   
+                                     AND M2.POSID_1 = SD.HOGI
+	                                 AND SD.CHARACTERISTIC = 'EL_ASTDA'
+                                     AND SD.SEQ =  ( SELECT MAX( Z.SEQ )
+		                                               FROM SAPHEE.ZSDT0005 AS Z
+		                                              WHERE Z.MANDT = SD.MANDT
+		                                                AND Z.HOGI =SD.HOGI
+													    AND Z.CHARACTERISTIC = SD.CHARACTERISTIC )) AS EL_ASTDA
+							   -- , SD_INFO.BEZEI AS SD_DEPT_NM
+							   -- , SD_INFO.VKGRP AS VKGRP
+								 FROM SAPHEE.ZMASTER02 M2 
+								        LEFT OUTER JOIN SAPHEE.ZMMT012 M12
+								          ON M2.MANDT = M12.MANDT 
+								         AND M2.LIFNR = M12.LIFNR
+								        LEFT OUTER JOIN SAPHEE.ZPST0200 P1 -- 완성/수시검사 신청 승인
+								          ON M2.MANDT = P1.MANDT
+								         AND M2.POSID = P1.PSPID
+								         AND M2.POSID_1 = P1.POSID
+								         <isEqual col="CHK_KIND" value="A">
+								         AND P1.CHK_KIND IN ('A','B','F','G','D')
+								         </isEqual>
+								         <isEqual col="CHK_KIND" value="C">
+								         AND P1.CHK_KIND IN ('C','E','H','I')
+								         </isEqual>
+										 LEFT OUTER JOIN SAPHEE.ZMMT012 M12_1
+								          ON P1.MANDT     = M12_1.MANDT 
+								         AND P1.CHK_LIFNR = M12_1.LIFNR
+								        LEFT OUTER JOIN SAPHEE.ZPST0201 P2 -- 완성,완성재검 접수 수검
+								          ON P1.MANDT    = P2.MANDT
+								         AND P1.PSPID    = P2.PSPID
+								         AND P1.POSID    = P2.POSID
+										 AND P1.CHK_KIND = P2.CHK_KIND
+										 AND P1.CHASU    = P2.CHASU
+								         
+								        LEFT OUTER JOIN SAPHEE.ZPST0202 P3 -- 수시,수시재검,수시교체 접수 수검
+								          ON P1.MANDT   = P3.MANDT
+								         AND P1.PSPID   = P3.PSPID
+								         AND P1.POSID   = P3.POSID
+										 AND P1.CHK_KIND = P3.CHK_KIND
+										 AND P1.CHASU    = P3.CHASU
+								         
+								        LEFT OUTER JOIN SAPHEE.J_1AACTT AS G
+										  ON M2.MANDT = G.MANDT
+									     AND G.SPRAS = '3'     	  
+										 AND M2.ZZACTSS = G.J_1AACT
+										LEFT OUTER JOIN SAPHEE.ZPST0023 T1
+										  ON M2.MANDT   = T1.MANDT 
+										 AND M2.POSID   = T1.PSPID 
+										 AND M2.POSID_1 = T1.POSID 
+										 AND T1.ZTYPE = '2'
+										LEFT OUTER JOIN SAPHEE.ZPSTSITURM81 H
+									      ON P1.MANDT    = H.MANDT 
+									     AND P1.PSPID    = H.PSPID 
+									     AND P1.POSID    = H.POSID 
+									     AND P1.CHK_KIND = H.CHK_KIND 
+									     AND P1.CHASU    = H.CHASU
+		
+								     , SAPHEE.ZMASTER01 M1
+								     	     LEFT OUTER JOIN SAPHEE.VBAK AS F
+      										         ON M1.MANDT = F.MANDT     
+      										        AND M1.POSID = F.ZZPJT_ID
+      										 LEFT OUTER JOIN SAPHEE.PRPS AS PR
+        											 ON M1.MANDT = PR.MANDT	  
+        											AND M1.POSID = PR.POSID
+        								--	 LEFT OUTER JOIN (
+										--				   		SELECT A.MANDT
+										--				   		     , A.ZZPJT_ID
+										--				   		     , A.VKGRP
+										--				   		     , A.VBELN
+										--				   		     , X.BEZEI
+										--				   		  FROM SAPHEE.VBAK AS A
+										--				   		   INNER JOIN SAPHEE.VBPA AS B
+										--				   		           ON A.MANDT = B.MANDT
+										--				   		          AND A.VBELN = B.VBELN
+										--				   		          AND B.PARVW = 'RG'
+										--				   		   INNER JOIN SAPHEE.KNA1 AS C
+										--				   		           ON B.MANDT = C.MANDT
+										--				   		          AND B.KUNNR = C.KUNNR
+										--				   		          
+										--				   		   LEFT OUTER JOIN SAPHEE.TVGRT AS X
+										--					   		       ON A.MANDT = X.MANDT
+										--					   		      AND A.VKGRP = X.VKGRP
+										--					   		      AND X.SPRAS = '3'       
+										--				     ) AS SD_INFO
+										--				   ON M1.MANDT = #G_MANDT#
+										--				  AND M1.MANDT = SD_INFO.MANDT
+										--				  AND M1.POSID = SD_INFO.ZZPJT_ID
+										--				  
+										--				  <isNotNull col="PSPID">
+										--				  AND M1.POSID = #PSPID#
+										--				  </isNotNull>
+											-- LEFT OUTER JOIN (
+											--			   		SELECT A.MANDT
+											--			   		     , A.ZZPJT_ID
+											--			   		     , A.VKGRP
+											--			   		     , A.VBELN
+											--			   		     , L.NAME1
+											--			   		  FROM SAPHEE.VBAK AS A
+											--			   		   INNER JOIN SAPHEE.VBPA AS B
+											--			   		           ON A.MANDT = B.MANDT
+											--			   		          AND A.VBELN = B.VBELN
+											--					   INNER JOIN SAPHEE.LFA1 AS L
+											--		    	               ON B.MANDT = L.MANDT
+											--		    	              AND B.LIFNR = L.LIFNR
+											--		    	     		  AND B.PARVW = 'Z1'     
+											--			     ) AS SD_INFO2
+											--			   ON M1.MANDT = #G_MANDT#
+											--			  AND M1.MANDT = SD_INFO2.MANDT
+											--			  AND M1.POSID = SD_INFO2.ZZPJT_ID
+											--			  AND M1.POSID = #PSPID#
+
+														   		   
+
+								WHERE M2.MANDT = #G_MANDT#
+								  <isNotNull col="PSPID">
+								  AND M2.POSID = #PSPID#
+								  </isNotNull>
+								  <isNotNull col="VKGRP">
+								  AND SD_INFO.VKGRP = #VKGRP#
+								  </isNotNull>
+								<isNull col="PSPID">
+									<isEqual col="RD_CHK" value="B">
+										<isNotNull col="FR_DATE">
+											AND M2.ZZCHAKD BETWEEN #FR_DATE# AND #TO_DATE#
+										</isNotNull>	
+									</isEqual>
+									<isEqual col="RD_CHK" value="A">
+										  	AND M2.TXT04 &lt;&gt; 'C'
+										  	AND M2.ZZCHAKG = 'X'    
+										    AND (M2.ZBOSUOUT = '' OR M2.ZBOSUOUT = '00000000')
+										    AND NOT EXISTS (SELECT *
+										                      FROM SAPHEE.ZPST0098 AS X
+										                     WHERE X.MANDT = M2.MANDT
+										                       AND X.PSPID = M2.POSID
+										                       AND X.POSID = M2.POSID_1
+										                       AND X.APPL_DAT &lt;= '99990101' )
+									  </isEqual>
+								</isNull>
+								  <isNotNull col="ZZACTSS">
+							      AND   M2.ZZACTSS = #ZZACTSS#
+							      </isNotNull>
+							      <isNotNull col="ZZPMNUM">
+								  AND   M2.TEMNO = #ZZPMNUM#
+								  </isNotNull>
+								  <isNotNull col="CODE2">
+								  AND M12_1.NAME1 LIKE '%'||#CODE2#||'%'	  
+								  </isNotNull>
+								  <isNotNull col="LIFNR">
+								  AND P1.LIFNR = #LIFNR#
+								  </isNotNull>
+								  <isNotNull col="SMAN">
+								  AND M1.ZMAN = #SMAN#
+								  </isNotNull>
+								  <isNotNull col="VKGRP">
+								  AND SD_INFO.VKGRP = #VKGRP#
+								  </isNotNull>
+								  <isNotNull col="CUST_NO">
+								  AND H.CUST_NO LIKE '%'||#CUST_NO#||'%'
+								  </isNotNull>
+								  
+								  AND M2.MANDT = M1.MANDT
+								  AND M2.POSID = M1.POSID
+								  AND (M2.POSID_1 LIKE '______L%' OR M2.POSID_1 LIKE '______S%' OR M2.POSID_1 LIKE '______J%' OR M2.POSID_1 LIKE '______W%')
+								  AND M2.TXT30 <![CDATA[<>]]> '취소'
+
+					) AS T
+			
+		
+		)
+		
+			SELECT H.PSPID
+			     , H.POSID
+			     , H.CHK_KIND
+			     , H.CHASU
+			     , H.RANK_1
+			     , H.CDATE
+			     , H.CFM_DATE
+			     , H.KETF_DATE
+			     , H.RCPT_DATE
+			     , H.FIN_DATE
+			     , H.MAIL_INDC
+				 , H.MAIL_CNT
+			     , H.STATUS
+			     , H.BIGO
+			     , H.TEXT30
+				 , H.ZSITE_NM
+				 , H.ZZACTSS
+				 , H.POSID_DONG
+				 , H.STATE
+				 , H.APPLS
+				 , H.ZSPEC1
+				 , H.ZSPEC2
+				 , H.ISREMD
+				 , H.AUSE
+		         , H.REQ_USER_NM
+				 , H.SAFE_STUS
+				 , H.SAFE_CUST_NO
+				 , H.F_DATE
+				 , H.T_DATE
+				 , H.DDAY
+				 , H.ZMAN
+				 , H.ZMAN_NM
+				 , H.DEPT_N
+				 , H.APPLY_HIS -- 신청이력
+				 , H.NAMET
+				 , H.LIFNR_NM
+				 , H.PERNO_CD
+				 , H.ZMMAN
+				 , H.REQ_DATE
+				 , H.REQ_DATE2
+				 , H.COLLECT_BILL
+				 , H.SD_DEPT_NM
+				 , H.VKGRP
+				 , H.EL_ASTDA
+			FROM (
+						SELECT K.PSPID
+						     , K.POSID
+						     , K.CHK_KIND
+						     , K.CHASU
+						     , RANK() OVER(PARTITION BY K.POSID ORDER BY K.PSPID, K.POSID, K.CDATE DESC) AS RANK_1
+						     , K.CDATE
+						     , K.CFM_DATE
+						     , K.KETF_DATE
+						     , K.RCPT_DATE
+						     , K.FIN_DATE
+						     , K.MAIL_INDC
+							 , K.MAIL_CNT
+						     , K.STATUS
+						     , K.BIGO
+						     , K.TEXT30
+							 , K.ZSITE_NM
+							 , K.POSID_DONG
+							 , K.ZZACTSS
+							 , K.STATE
+							 , K.APPLS
+							 , K.ZSPEC1
+							 , K.ZSPEC2
+							 , K.ISREMD
+							 , K.AUSE
+					         , K.REQ_USER_NM
+							 , K.SAFE_STUS
+							 , K.SAFE_CUST_NO
+							 , K.F_DATE
+							 , K.T_DATE
+							 , K.DDAY
+							 , K.ZMAN
+							 , K.ZMAN_NM
+							 , K.DEPT_N
+							 , K.APPLY_HIS -- 신청이력
+							 , K.NAMET
+							 , K.LIFNR_NM
+				  			 , K.PERNO_CD
+				  			 , K.ZMMAN
+							 , K.REQ_DATE
+							 , K.REQ_DATE2
+							 , K.COLLECT_BILL
+							 , K.SD_DEPT_NM
+							 , K.VKGRP
+							 , K.EL_ASTDA
+						 FROM 
+						 (
+							 	SELECT M.PSPID
+								     , M.POSID
+								     , M.CHK_KIND
+								     , M.CHASU
+								     , M.CDATE
+								     , M.CFM_DATE
+								     , M.KETF_DATE
+								     , M.RCPT_DATE
+								     , M.FIN_DATE
+								     , '발송' AS MAIL_INDC
+									 ,   (SELECT COUNT(1)
+											FROM SAPHEE.ZPST1118
+										   WHERE MANDT = #G_MANDT#
+											 AND GBN = 'M'
+											 AND CLSS = 'PS0710001A'
+											 AND PSPID = M.PSPID) AS MAIL_CNT
+								     , CASE WHEN M.CDATE = '00000000'-- ZPST0200에 데이터가 없으면.(CDATE = '00000000') : 신청 전
+								            THEN 'A'
+								            WHEN M.FIN_DATE <![CDATA[<>]]> '00000000' -- 완성검사 수검현황 (ZPST0201 수검일 존재) : 수검
+								            THEN 'F'
+								            WHEN M.RCPT_DATE <![CDATA[<>]]> '00000000'-- 완성검사 접수현황 (ZPST0201 접수일 존재, 수검일 없는) : 접수
+								            THEN 'E'
+								            WHEN M.KETF_DATE <![CDATA[<>]]> '00000000'-- 기술서류 ZPST0201, ZPST0202에 RCPT_DATE가 비어있고, KETF_DATE가 존재할 경우 : 기술서류
+								            THEN 'D'
+								            WHEN M.REQ_GBN = '2' -- 완성검사 승인 ZPST0200에 REQ_GBN = '2', ZPST0201에 RCPT_DATE가 비어있고, KETF_DATE = '00000000'
+								            THEN 'C'
+								            WHEN M.REQ_GBN = '1'-- 완성검사 신청 (ZPST0200에 REQ_GBN = '1', ZPST0201에 RCPT_DATE가 비어있고, KETF_DATE = '00000000')
+								            THEN 'B'
+								            END AS STATUS
+								      , CASE WHEN M.CDATE = '00000000'-- ZPST0200에 데이터가 없으면.(CDATE = '00000000') : 신청 전
+								            THEN ''
+								            WHEN M.FIN_DATE <![CDATA[<>]]> '00000000' -- 완성검사 수검현황 (ZPST0201 수검일 존재) : 수검
+								            THEN M.BIGO_2
+								            WHEN M.RCPT_DATE <![CDATA[<>]]> '00000000'-- 완성검사 접수현황 (ZPST0201 접수일 존재, 수검일 없는) : 접수
+								            THEN M.BIGO_2
+								            WHEN M.KETF_DATE <![CDATA[<>]]> '00000000'-- 기술서류 ZPST0201, ZPST0202에 RCPT_DATE가 비어있고, KETF_DATE가 존재할 경우 : 기술서류
+								            THEN M.BIGO_4
+								            WHEN M.REQ_GBN = '2' -- 완성검사 승인 ZPST0200에 REQ_GBN = '2', ZPST0201에 RCPT_DATE가 비어있고, KETF_DATE = '00000000'
+								            THEN M.BIGO_1
+								            WHEN M.REQ_GBN = '1'-- 완성검사 신청 (ZPST0200에 REQ_GBN = '1', ZPST0201에 RCPT_DATE가 비어있고, KETF_DATE = '00000000')
+								            THEN M.BIGO_1
+								            END AS BIGO
+								      , M.TEXT30
+									  , M.ZSITE_NM
+									  , M.POSID_DONG
+									  , M.ZZACTSS
+									  , M.STATE
+									  , M.APPLS
+									  , M.ZSPEC1
+									  , M.ZSPEC2
+									  , M.ISREMD
+									  , M.AUSE
+							          , M.REQ_USER_NM
+									  , M.SAFE_STUS
+									  , M.SAFE_CUST_NO
+									  , M.F_DATE
+									  , M.T_DATE
+									  , M.DDAY
+									  , M.ZMAN
+									  , M.ZMAN_NM
+									  , M.DEPT_N
+									  , CASE WHEN M.CDATE = '00000000'
+									         THEN ''
+									         ELSE '보기'
+									         END AS APPLY_HIS -- 신청이력
+									  , M.NAMET
+									  , M.LIFNR_NM
+				 					  , M.PERNO_CD
+				 					  , M.ZMMAN
+									  , M.REQ_DATE
+									  , M.REQ_DATE2
+									  , M.COLLECT_BILL
+									  , M.SD_DEPT_NM
+				   					  , M.VKGRP
+				   					  , M.EL_ASTDA
+								  FROM TEMP AS M
+							 ) AS K
+							WHERE 1=1
+							<isNotEqual col="STATUS" value="ALL">
+							AND K.STATUS = #STATUS#
+							</isNotEqual>
+				 ) AS H
+				WHERE H.RANK_1 = '1'
+				ORDER BY H.ZZACTSS, H.PSPID, H.POSID
+				WITH UR
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+
+		SELECT RANK() OVER (ORDER BY SUM_IMPRO DESC) AS RANK_10
+		     , TBL.LCD
+		     , TBL.MCD
+		     , TBL.SCD
+		     , TBL.EL_TYPE
+		     , TBL.VER
+		     , TBL.ORD
+		     , TBL.CNT AS DAESU
+		     , TBL.SUM_IMPRO
+		     , DECODE(TBL.CNT, 0, 0, ROUND(( DECIMAL(TBL.SUM_IMPRO,15,2) / DECIMAL(TBL.CNT,15,2) ),3) * 100) AS PER
+			 , TBL.GBN_1
+			 , TBL.GBN_2
+			 , TBL.DESCR
+		  FROM
+		  (
+		  		SELECT TMP.LCD
+				     , TMP.MCD
+				     , TMP.SCD
+				     , TMP.EL_TYPE
+				     , TMP.VER
+				     , TMP.ORD
+				     , COUNT(1) AS CNT
+				     , SUM(TMP.IMPRO_CNT) AS SUM_IMPRO
+				     , (
+						     		SELECT X.DESCR
+						     		  FROM SAPHEE.ZQMT054 X
+						     		 WHERE X.MANDT = TMP.MANDT
+						     		   AND X.LCD   = TMP.LCD
+						     		   AND X.MCD   = '00'
+						     		   AND X.SCD   = '00'
+						     		   AND X.VER   = TMP.VER
+						     		   AND X.EL_TYPE = TMP.EL_TYPE
+						     		 FETCH FIRST 1 ROW ONLY
+				       ) AS GBN_1
+				     , (
+				     		SELECT X.DESCR
+				     		  FROM SAPHEE.ZQMT054 X
+				     		 WHERE X.MANDT = TMP.MANDT
+				     		   AND X.LCD   = TMP.LCD
+				     		   AND X.MCD   = TMP.MCD
+				     		   AND X.SCD   = '00'
+				     		   AND X.VER   = TMP.VER
+				     		   AND X.EL_TYPE = TMP.EL_TYPE
+				     		 FETCH FIRST 1 ROW ONLY
+				       ) AS GBN_2
+					, TMP.DESCR
+				  FROM
+				  (
+						SELECT M.MANDT
+						     , M.LCD
+						     , M.MCD
+						     , M.SCD
+						     , M.EL_TYPE
+						     , M.DESCR
+						     , M.VER
+						     , M.ORD
+						     , (CASE WHEN D.IMPRO = 'Y'
+						            THEN 1
+						            ELSE 0
+						            END) AS IMPRO_CNT
+								    
+								  FROM SAPHEE.ZQMT054 M
+								       INNER JOIN (
+								       					SELECT X1.MANDT
+								       					     , X1.POSID
+								       					     , X1.EL_TYPE
+								       					     , X1.VER
+								       					     , X2.LCD
+								       					     , X2.MCD
+								       					     , X2.SCD
+								       					     , X2.IMPRO
+								       					     , X2.MOD
+								       					     , X2.INPUT_VAL
+								       					     , X2.PASSYN
+								       					  FROM SAPHEE.ZQMT055 X1
+								       					 INNER JOIN SAPHEE.ZQMT056 X2
+								       					         ON X1.MANDT = X2.MANDT
+								       					        AND X1.POSID = X2.POSID
+								       					        AND X1.EL_TYPE = X2.EL_TYPE
+								       					
+								                  ) AS D
+								                ON M.MANDT  = D.MANDT
+								              AND M.EL_TYPE = D.EL_TYPE
+								              AND M.VER = D.VER
+								              AND M.LCD = D.LCD
+								              AND M.MCD = D.MCD
+								              AND M.SCD = D.SCD
+									   LEFT OUTER JOIN SAPHEE.ZMASTER01 M1
+								                    ON D.MANDT = M1.MANDT
+								                   AND SUBSTR(D.POSID,1,6) = M1.POSID
+								       LEFT OUTER JOIN SAPHEE.ZMASTER02 M2
+								                    ON D.MANDT = M2.MANDT
+								                   AND SUBSTR(D.POSID,1,6) = M2.POSID
+								                   AND D.POSID = M2.POSID_1
+									   LEFT OUTER JOIN SAPHEE.ZQMT019 Q1
+									                ON D.MANDT = Q1.MANDT
+									               AND SUBSTR(D.POSID,1,6) = Q1.PSPID 
+									               AND D.POSID = Q1.HOGI
+									               AND Q1.WERKS = '1000'
+									               AND Q1.ART = '8960'
+									               AND Q1.SEQ = '01'
+						
+									   LEFT OUTER JOIN SAPHEE.ZQMT019 Q2
+									                ON D.MANDT = Q2.MANDT
+									               AND SUBSTR(D.POSID,1,6) = Q2.PSPID 
+												   AND D.POSID = Q2.HOGI
+												   AND Q2.WERKS = '1000'
+									               AND Q2.ART = '8960'
+									               AND Q2.SEQ = '04'
+						
+									   LEFT OUTER JOIN SAPHEE.J_1AACTT AS J
+										            ON  M2.MANDT = J.MANDT
+										           AND J.SPRAS    = '3'
+										           AND M2.ZZACTSS = J.J_1AACT
+								 WHERE M.MANDT = #G_MANDT#
+								   <isEqual col="EL_TYPE" value="A">
+								   AND M.EL_TYPE = 'EL'
+								   AND M2.ZZGUBUN IN ('10', '13')
+								   </isEqual>
+								   <isEqual col="EL_TYPE" value="B">
+								   AND M.EL_TYPE = 'ES'
+								   AND M2.ZZGUBUN IN ('11', '12', '14')
+								   </isEqual>
+					       		   <isNotNull col="PSPID">
+								   AND SUBSTR(D.POSID,1,6) = #PSPID#
+								   </isNotNull>
+						   		   <isNotNull col="FR_DATE">
+								   AND Q1.PAPRDT BETWEEN #FR_DATE# AND #TO_DATE#
+								   </isNotNull>
+								   <isNotNull col="ZZACTSS">
+								   AND M2.ZZACTSS = #ZZACTSS#
+								   </isNotNull>
+								   <isNotNull col="LIFNR">
+								   AND M2.LIFNR = #LIFNR#
+								   </isNotNull>
+								   <isNotNull col="TMCD">
+								   AND M2.TEMNO2 = #TMCD#
+								   </isNotNull>
+
+								    AND NOT EXISTS (
+								   						SELECT POSID
+								   						  FROM SAPHEE.ZQMT056 X
+								   						 WHERE X.MANDT = D.MANDT
+								   						   AND X.POSID = D.POSID
+								   						   AND X.EL_TYPE = D.EL_TYPE
+								   						   AND X.LCD     = D.LCD
+								   						   AND X.MCD     = D.MCD
+								   						   AND X.SCD     = D.SCD
+								   						   AND X.EL_TYPE = 'ES'
+								   						   AND X.LCD     = '06'
+								   						   AND X.MCD     = '01'
+								   						   AND X.SCD     = '18'
+								                  )
+								  AND NOT EXISTS (
+								   						SELECT POSID
+								   						  FROM SAPHEE.ZQMT056 X
+								   						 WHERE X.MANDT = D.MANDT
+								   						   AND X.POSID = D.POSID
+								   						   AND X.EL_TYPE = D.EL_TYPE
+								   						   AND X.LCD     = D.LCD
+								   						   AND X.MCD     = D.MCD
+								   						   AND X.SCD     = D.SCD
+								   						   AND X.EL_TYPE = 'EL'
+								   						   AND X.LCD     = '04'
+								   						   AND X.MCD     = '16'
+								   						   AND X.SCD NOT IN ('01')
+								                  )
+								  AND NOT EXISTS (
+								   						SELECT POSID
+								   						  FROM SAPHEE.ZQMT056 X
+								   						 WHERE X.MANDT = D.MANDT
+								   						   AND X.POSID = D.POSID
+								   						   AND X.EL_TYPE = D.EL_TYPE
+								   						   AND X.LCD     = D.LCD
+								   						   AND X.MCD     = D.MCD
+								   						   AND X.SCD     = D.SCD
+								   						   AND X.EL_TYPE = 'EL'
+								   						   AND X.LCD     = '09'
+								   						   AND X.MCD     = '09'
+								   						   AND X.SCD NOT IN ('01')
+								                  )
+								  AND NOT EXISTS (
+								   						SELECT POSID
+								   						  FROM SAPHEE.ZQMT056 X
+								   						 WHERE X.MANDT = D.MANDT
+								   						   AND X.POSID = D.POSID
+								   						   AND X.EL_TYPE = D.EL_TYPE
+								   						   AND X.LCD     = D.LCD
+								   						   AND X.MCD     = D.MCD
+								   						   AND X.SCD     = D.SCD
+								   						   AND X.EL_TYPE = 'EL'
+								   						   AND X.LCD     = '11'
+								   						   AND X.MCD     = '26'
+								   						   AND X.SCD NOT IN ('01')
+								                  )    
+								   
+								   
+					) TMP
+					WHERE 1=1
+					GROUP BY  TMP.MANDT
+						     , TMP.LCD
+						     , TMP.MCD
+						     , TMP.SCD
+						     , TMP.EL_TYPE
+						     , TMP.DESCR
+						     , TMP.VER
+						     , TMP.ORD
+		  ) AS TBL
+		  
+		
+				     
+		    ORDER BY RANK_10
+		FETCH FIRST 10 ROW ONLY
+		WITH UR
+
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list_5">
+	</output>
+</query>

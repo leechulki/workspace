@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[MMPR 승인내역 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+ SELECT
+    '' AS CHECK
+	, '' AS FLAG
+	, M3.RECE_F AS RECE_F /* 진행상태 */
+	, CASE 
+		   WHEN M3.REQKIND IN ('1','7','S','2','3','4','9','A','H') AND VALUE(M3.APSTAT,'0') = '0' THEN '01' -- 기안미진행  
+		   WHEN M3.REQKIND IN ('1','7','S','2','3','4','9','A','H') AND VALUE(M3.APSTAT,'0') = '1' THEN '02' -- 기안진행중  
+		   WHEN M3.REQKIND IN ('1','7','S','2','3','4','9','A','H') AND VALUE(M3.APSTAT,'0') = '2' THEN '03' -- 기안반송    
+		   WHEN M3.REQKIND IN ('1','7','S','2','3','4','9','A','H') AND VALUE(M3.APSTAT,'0') = '3' THEN '04' -- 기안결재완료
+		   WHEN M3.REQKIND IN ('1','7','S','2','3','4','9','A','H') AND VALUE(M3.APSTAT,'0') = '4' THEN '05' -- 수신진행중  
+		   WHEN M3.REQKIND IN ('1','7','S','2','3','4','9','A','H') AND VALUE(M3.APSTAT,'0') = '5' THEN '06' -- 수신반송    
+		   WHEN M3.REQKIND IN ('1','7','S','2','3','4','9','A','H') AND VALUE(M3.APSTAT,'0') = '6' THEN '07' -- 수신결재완료
+		   ELSE '99'
+ 	END AS WBAP_PST /* 결재진행상태 */
+	, (SELECT APIRUM FROM SAPHEE.ZWBAP02 WHERE MANDT = #G_MANDT# AND DOCNO = M3.DOCNO AND APPGUBN = 'S' AND SEQNO = M3.MAX_SEQNO) AS MAX_APIRUM /* 최종결재자 */
+	, '' AS L_FNAM /* 첨부문서 */
+	, M3.FNAM AS FNAM	
+	, M3.REQNO AS REQNO	 /* 문서번호 */
+	, M3.JQPRNUM AS JQPRNUM /* MMPR NO */				
+	, CASE WHEN VALUE(M3.NCOST,'') > 0 THEN 'Y' ELSE 'N' END AS NCOST_YN /* 노무비 */
+	, SAPHEE.CODE_CONV(M3.MANDT, 'VKGRP', M3.VKGRP2) AS VKGRP /* 지사 */
+	, (SELECT SAPHEE.CODE_CONV(WB010.MANDT, 'VKGRP', WB010.VKGRP) AS VKGRP /* 지사 */
+	     FROM SAPHEE.ZWBT010 AS WB010 
+        WHERE WB010.MANDT = M3.MANDT
+          AND WB010.LGORT = M3.LGORT 
+        FETCH FIRST 1 ROW ONLY ) ||'-'|| M3.LGORT1 
+      AS LGORT1 /* 보수협력사 */
+	, M3.PS_PSPID AS PS_PSPID /* Proj.번호 */
+	, CASE WHEN LENGTH(M3.UPN) > 6
+	       THEN (SELECT CS121_NAM FROM SAPHEE.ZCST121 WHERE MANDT = #G_MANDT# AND CS121_UPN = SUBSTR(M3.UPN,1,6) AND CS121_CST = SUBSTR(M3.UPN,7,3))
+	       ELSE (SELECT CS121_SPT FROM SAPHEE.ZCST121 WHERE MANDT = #G_MANDT# AND CS121_UPN = SUBSTR(M3.POSID,1,6) AND CS121_CST = '')
+	  END AS SPT /* 현장명 */
+	, M3.REQDATE AS REQDATE /* 작성일자 */
+	, M3.BUSSI AS BUSSI /* 사업부 */
+	, M3.REQKIND AS REQKIND /* 청구종류 */
+	, M3.NETWR AS NETWR /* 판매가 */
+	, M3.JQPRNO AS JQPRNO/* MMPR 관리번호 */
+	, M3.APNAM_N AS APNAM_N /* 승인자 */
+	, SAPHEE.GET_ZERODATE(M3.APDAT) AS APDAT /* 승인일 */
+	, M3.JOBKIND AS JOBKIND /* 업무구분 */	
+	, SAPHEE.GET_ZERODATE(M3.CST016_APDAT) AS CST016_APDAT /* 업무지정일 */
+	, (SELECT APDATE FROM SAPHEE.ZWBAP02 WHERE MANDT = #G_MANDT# AND DOCNO = M3.DOCNO AND APPGUBN = 'S' AND SEQNO = M3.MAX_SEQNO) AS MAX_APDATE /* 최종결재일 */	
+	, M3.RDATE AS RDATE /* 납기일자 */
+FROM (
+ SELECT 
+	   	MM031.MANDT AS MANDT 
+		, MM031.RECE_F AS RECE_F
+		, ( SELECT MAX(SEQNO) FROM SAPHEE.ZWBAP02 WHERE MANDT = #G_MANDT# AND DOCNO = AP01.DOCNO AND APPGUBN = 'S') AS MAX_SEQNO /* 최종결재자 시퀀스 */		
+		, REQNO AS REQNO
+		, VALUE(MM031.JQPRNUM,'') AS JQPRNUM		
+		, MM031.NCOST AS NCOST
+		, WB010.VKGRP AS VKGRP2		
+		, MM031.LGORT AS LGORT
+		, SAPHEE.GET_VENDER_NAME(MM031.MANDT, MM031.LGORT) AS LGORT1
+		, CASE WHEN CS001.PS_PSPID IS NULL OR CS001.PS_PSPID = '' THEN (CASE WHEN MM031.REQKIND IN ('2','3','4') THEN SUBSTR(MM031.POSID2,1,6) ELSE  SUBSTR(MM031.POSID,1,6) END)
+	           ELSE CS001.PS_PSPID  END AS PS_PSPID
+		, CASE WHEN LENGTH(MM031.UPN) > 5 THEN MM031.UPN ELSE CS001.MA_PSPID END AS UPN
+		, MM031.POSID AS POSID
+		, MM031.REQDATE AS REQDATE
+		, MM031.BUSSI AS BUSSI		
+		, MM031.REQKIND AS REQKIND
+		, CASE WHEN VALUE(MM031.QTNUM,'') > '' THEN DECODE(CS001.SUM_STD, 0, CS001.NETWR * 100, CS001.SUM_STD*100) ELSE MM031.NETWR END AS NETWR --20150212 최인식GJ요청으로 신규건은 SUM_STD로 보여주도록 변경
+		, ( SELECT QM007.JQPRNO 
+			  	FROM SAPHEE.ZQMT007 QM007 
+				WHERE QM007.MANDT = MM031.MANDT 
+			    AND QM007.JQPRNUM = MM031.JQPRNUM 
+		   ) AS JQPRNO
+		, VALUE(APUSER.USERNAME,'') AS APNAM_N  -- 승인자명
+		, MM031.APDAT AS APDAT				   
+		, MM031.JOBKIND AS JOBKIND
+		, MM031.CST016_APDAT AS CST016_APDAT		
+	    , MM031.RDATE AS RDATE
+		, MM031.APNAM AS APNAM		
+		, AP01.DOCNO  AS DOCNO
+		, AP01.APSTAT AS APSTAT
+		, AP01.FNAM AS FNAM		
+	FROM (
+			SELECT
+				  A.MANDT AS MANDT 
+				, A.REQNO AS REQNO
+				, CASE WHEN A.REQNO = MAX(A.REQNR) THEN '' ELSE MAX(A.REQNR) END AS REQNR
+				, SAPHEE.GET_VENDER_NAME(A.MANDT, MAX(A.LGORT)) AS LGORT1
+				, MAX(A.LGORT) AS LGORT
+				, MAX(A.UPN) AS UPN
+				, MAX(A.POSID) AS POSID
+				, MAX(A.POSID2) AS POSID2
+				, MAX(A.REQDATE) AS REQDATE
+				, MAX(A.BUSSI) AS BUSSI
+				, CASE WHEN (MIN(A.REQKIND) &lt;&gt; MAX(A.REQKIND)  AND MAX(A.REQKIND) = '6') THEN MIN(A.REQKIND) ELSE MAX(A.REQKIND) END  AS REQKIND
+				, MIN(A.RECE_F) AS RECE_F
+				, MAX(A.QTNUM) AS QTNUM
+				, CASE WHEN MAX(VALUE(A.QTNUM,'')) > '' THEN 0 ELSE SAPHEE.GET_CURRDATA('KRW', SUM( A.MENGE * (CASE WHEN SUBSTR(A.BWTAR,2) = 'A' THEN MM011.SAMT1 WHEN SUBSTR(A.BWTAR,2) = 'B' THEN INT(MM011.SAMT1 * 0.4)  END))) END AS NETWR
+				, MAX(A.JQPRNUM) AS JQPRNUM
+				, MAX(A.MMPR_DEL) AS MMPR_DEL
+				, MAX(A.CREID) AS CREID
+				, MAX(A.ACNAM) AS ACNAM
+				, MAX(A.ACDAT) AS ACDAT
+				, MAX(A.SENDAT) AS SENDAT
+				, MAX(A.SENID) AS SENID
+				, MAX(A.MATNR) AS MATNR
+				, MAX(A.APNAM) AS APNAM
+				, MAX(A.APDAT) AS APDAT
+				, MAX(A.SEQ)   AS SEQ
+				, MAX(A.RDATE) AS RDATE
+				, MAX(MC.WEBAZ) AS WEBAZ
+				, MAX(CST016.BIGO) AS REDATE /* 수신결제일자 */
+				, MAX(CST016.APDAT) AS CST016_APDAT /* 업무구분지정일자 */
+				, MAX(CST016.JOBKIND) AS JOBKIND /* 업무구분 */
+				, MAX(CST016.NCOST) AS NCOST /* 노무비 */				
+			 FROM SAPHEE.ZMMT031 A 
+	              LEFT OUTER JOIN SAPHEE.ZMMT011 AS MM011 ON A.MANDT= MM011.MANDT 
+	                          AND A.MATNR = MM011.MATNR 
+	                          AND A.MTART = MM011.MTART
+	              LEFT OUTER JOIN SAPHEE.MARC AS MC	ON A.MANDT = MC.MANDT 
+	                          AND A.MATNR = MC.MATNR
+	                          AND MC.WERKS = '2000'	     
+	              LEFT OUTER JOIN SAPHEE.ZWBT010 AS WB010 ON A.MANDT = WB010.MANDT
+	                          AND WB010.LGORT = A.LGORT
+	              LEFT OUTER JOIN SAPHEE.ZCST016 AS CST016 ON A.MANDT = CST016.MANDT
+	                          AND CST016.REQNO = A.REQNO							   		            
+			 WHERE A.MANDT = #G_MANDT#
+			   --AND A.LGORT BETWEEN '9000' AND '9500'
+			   AND ( A.LGORT BETWEEN '9000' AND '9500' OR A.LGORT LIKE '98%' ) --서비스자회사  관련
+			   
+			<isNotNull col="REQNO">
+	           AND A.REQNO = #REQNO#
+			</isNotNull>
+			<isNotNull col="JQPRNUM">
+	           AND A.JQPRNUM = #JQPRNUM#
+			</isNotNull>
+			
+			<isNotNull col="REDAT_FM">
+	           AND CST016.BIGO BETWEEN #REDAT_FM# AND #REDAT_TO# -- 수신결제기간
+			</isNotNull>			
+			   
+			<isNotNull col="APDAT_FM">
+	           AND A.APDAT BETWEEN #APDAT_FM# AND #APDAT_TO# -- 승인기간
+			</isNotNull>
+			
+			<isNotNull col="APDAT016_FM">
+	           AND CST016.APDAT BETWEEN #APDAT016_FM# AND #APDAT016_TO# -- 업무구분지정기간
+			</isNotNull>			
+						    
+			<isNotNull col="JOBKIND">
+				AND CST016.JOBKIND = #JOBKIND# -- 업무구분
+			</isNotNull>
+			
+			<isNotNull col="REQKIND">
+	           AND A.REQKIND = #REQKIND#
+			</isNotNull>
+			
+			<isNotNull col="REQNR">
+	           AND A.REQNR = #REQNR#
+			</isNotNull>
+			
+<!-- 			<isNotNull col="RECE_F"> -->
+<!-- 	           AND A.RECE_F = #RECE_F# -->
+<!-- 			</isNotNull> -->
+			
+			<isNotNull col="ARA">
+	           AND WB010.LGORT IN (SELECT LGORT FROM SAPHEE.ZMMT005 AS MM005
+			                      WHERE MM005.MANDT = #G_MANDT# 
+			                      AND MM005.REGKZ = #ARA#)
+			</isNotNull>
+			
+			<isNotNull col="BSU">
+	           AND WB010.LGORT = #BSU#
+			</isNotNull>
+			
+			<isNotNull col="BPM">
+	           AND WB010.BSU_PM = #BPM#
+			</isNotNull>
+			
+			<isNotNull col="TEM">
+	           AND WB010.VKGRP = #TEM#
+			</isNotNull>
+			
+			<isNull col="TEM">
+			  <isNotNull col="DPT">
+	           AND WB010.VKGRP IN (SELECT CODE2 AS CODE
+                       		   FROM SAPHEE.ZLCODE
+                      		  WHERE MANDT = #G_MANDT#
+                        		AND LANG  = #G_LANG#
+                        		AND CODE1 = 'VKGRP'
+                        		AND DTEXT1 = #DPT#)
+	   		  </isNotNull>
+			</isNull>
+			
+			<isNotNull col="POSID">
+	           AND A.POSID LIKE #POSID#||'%'
+			</isNotNull>
+				
+			<isNotNull col="MATNR">
+	           AND A.MATNR LIKE #MATNR# ||'%'
+			</isNotNull>
+			
+			<isNotNull col="QTNUM">
+	           AND A.QTNUM LIKE #QTNUM# ||'%'
+			</isNotNull>
+			                              
+			<isNotNull col="CNM">
+	           AND SAPHEE.GET_BOSU_INWON(A.MANDT, A.CREID) LIKE '%' || #CNM# || '%'
+			</isNotNull>
+			
+			<isNotNull col="UPN">
+	           AND A.UPN LIKE #UPN# || '%'
+			</isNotNull>
+			
+			<isNotNull col="BUSSI">
+	           AND A.BUSSI = #BUSSI#
+			</isNotNull>			
+			   
+			   --AND A.RECE_F NOT IN ('4', '5', '6') -- 서비스 심다영 SW 요청. 작성삭제 및 접수삭제 그리고 승인삭제를 목록에서 표출되지 않도록 처리. 2019.02.25 Han J.H
+			GROUP BY A.MANDT,A.REQNO ) AS MM031
+	 	LEFT OUTER JOIN SAPHEE.ZCST001 AS CS001 ON MM031.MANDT= CS001.MANDT
+	 	            AND MM031.QTNUM = CS001.QTNUM
+	 	            AND MM031.SEQ = CS001.SEQ 
+		LEFT OUTER JOIN SAPHEE.ZMMT124 AS MM124 ON CS001.MANDT = MM124.MANDT
+	 	            AND CS001.QTNUM = MM124.BOMNUM
+	 	LEFT OUTER JOIN SAPHEE.ZUSERF AS USER ON MM031.MANDT= USER.MANDT
+	 	            AND MM031.CREID = USER.USERNUMB
+	 	LEFT OUTER JOIN SAPHEE.ZUSERF AS ACUSER ON MM031.MANDT= ACUSER.MANDT
+	 	            AND MM031.ACNAM = ACUSER.USERNUMB
+	 	LEFT OUTER JOIN SAPHEE.ZUSERF AS APUSER ON MM031.MANDT= APUSER.MANDT
+	 	            AND MM031.APNAM = APUSER.USERNUMB
+		LEFT OUTER JOIN SAPHEE.ZLCODE AS CD ON CD.MANDT = MM031.MANDT
+	 	            AND CD.CODE1 = 'VKGRP'
+	 	            AND CD.CODE2 = CS001.VKGRP
+		LEFT OUTER JOIN SAPHEE.ZWBAP01 AS AP01 ON MM031.MANDT= AP01.MANDT
+	 	            AND AP01.DOCNO = ( 
+	 	                              CASE WHEN MM031.REQKIND IN ('1','S','7') THEN CS001.DOC2
+	 	            	                   WHEN MM031.REQKIND IN ('2','3','4') THEN ( CASE WHEN MM031.QTNUM > '' THEN MM031.QTNUM ELSE MM031.JQPRNUM END) 
+	 	            	              ELSE MM031.REQNO END )
+		LEFT OUTER JOIN SAPHEE.ZWBT010 AS WB010 ON MM031.MANDT = WB010.MANDT
+	 	            AND MM031.LGORT = WB010.LGORT
+	WHERE 1 = 1
+	<isNotNull col="PS_PSPID">
+	   AND CS001.PS_PSPID LIKE #PS_PSPID# ||'%'
+	</isNotNull>	 
+) AS M3
+LEFT OUTER JOIN SAPHEE.ZMMT173 AS MM173 ON M3.MANDT = MM173.MANDT 
+                                       AND M3.REQNO = MM173.REQNO
+WHERE 1=1
+	<isNotNull col="WBAP_PST">
+	  AND ((CASE 
+	             WHEN M3.REQKIND IN ('1','7','S','2','3','4','9','A','H') AND VALUE(M3.APSTAT,'0') = '0' THEN '01' -- 기안미진행
+	             WHEN M3.REQKIND IN ('1','7','S','2','3','4','9','A','H') AND VALUE(M3.APSTAT,'0') = '1' THEN '02' -- 기안진행중
+	             WHEN M3.REQKIND IN ('1','7','S','2','3','4','9','A','H') AND VALUE(M3.APSTAT,'0') = '2' THEN '03' -- 기안반송
+	             WHEN M3.REQKIND IN ('1','7','S','2','3','4','9','A','H') AND VALUE(M3.APSTAT,'0') = '3' THEN '04' -- 기안결재완료
+	             WHEN M3.REQKIND IN ('1','7','S','2','3','4','9','A','H') AND VALUE(M3.APSTAT,'0') = '4' THEN '05' -- 수신진행중
+	             WHEN M3.REQKIND IN ('1','7','S','2','3','4','9','A','H') AND VALUE(M3.APSTAT,'0') = '5' THEN '06' -- 수신반송
+	             WHEN M3.REQKIND IN ('1','7','S','2','3','4','9','A','H') AND VALUE(M3.APSTAT,'0') = '6' THEN '07' -- 수신결재완료
+	             ELSE CAST(#WBAP_PST# AS VARCHAR(2))
+	        END) = #WBAP_PST#
+	       OR
+	       (M3.REQKIND IN ('1','5','6','7','B','C','D','E','F','G','S')))
+	</isNotNull>
+	
+	<isNotNull col="PRINT">
+	  <isEqual col="PRINT" value="Y"> 
+	   AND VALUE(SUBSTR(M3.ERDAT,9,1),'') = 'Y'
+	   </isEqual>
+	   <isEqual col="PRINT" value="N"> 
+	   AND (VALUE(SUBSTR(M3.ERDAT,9,1),'') = 'N' OR VALUE(SUBSTR(M3.ERDAT,9,1),'') = '')
+	   </isEqual>
+	</isNotNull>
+
+   FOR FETCH ONLY
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="REQDATE_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="REQDATE_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="REQKIND" size="255" type="VARCHAR" description="" /> 
+		<col name="RECE_F" size="255" type="VARCHAR" description="" /> 
+		<col name="G_VEND_CODE" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="G_USER_ID" size="255" type="VARCHAR" description="" /> 
+		<col name="CB3" size="255" type="VARCHAR" description="" /> 
+		<col name="CB2" size="255" type="VARCHAR" description="" /> 
+		<col name="PS_PSPID" size="255" type="VARCHAR" description="" /> 
+		<col name="GBN" size="255" type="VARCHAR" description="" />
+		<col name="JOBKIND" size="255" type="VARCHAR" description="" />
+		<col name="JQPRNUM" size="255" type="VARCHAR" description="" />
+		<col name="REDAT_FM" size="255" type="VARCHAR" description="" />
+		<col name="REDAT_TO" size="255" type="VARCHAR" description="" />
+		<col name="APDAT016_FM" size="255" type="VARCHAR" description="" />
+		<col name="APDAT016_TO" size="255" type="VARCHAR" description="" />
+	</input>
+	<output default-name="ds_mm031">
+		<col name="ACDAT" size="8" type="VARCHAR" description="" /> 
+		<col name="ACNAM" size="36" type="VARCHAR" description="" /> 
+		<col name="AMOUNT" size="22" type="NUMERIC" description="" /> 
+		<col name="BILDAT2" size="24" type="VARCHAR" description="" /> 
+		<col name="BUSSI" size="3" type="VARCHAR" description="" /> 
+		<col name="CHECK" size="0" type="VARCHAR" description="" /> 
+		<col name="CREID" size="36" type="VARCHAR" description="" /> 
+		<col name="CREID_N" size="90" type="VARCHAR" description="" /> 
+		<col name="ERDAT" size="8" type="VARCHAR" description="" /> 
+		<col name="FLAG" size="0" type="VARCHAR" description="" /> 
+		<col name="GBN" size="0" type="VARCHAR" description="" /> 
+		<col name="JQPRNO" size="60" type="VARCHAR" description="" /> 
+		<col name="JQPRNUM" size="30" type="VARCHAR" description="" /> 
+		<col name="LGORT" size="12" type="VARCHAR" description="" /> 
+		<col name="LGORT1" size="100" type="VARCHAR" description="" /> 
+		<col name="MESGDESC" size="0" type="VARCHAR" description="" /> 
+		<col name="MMPR_DEL" size="3" type="VARCHAR" description="" /> 
+		<col name="NETWR" size="22" type="NUMERIC" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="PRINT" size="1" type="VARCHAR" description="" /> 
+		<col name="PS_PSPID" size="54" type="VARCHAR" description="" /> 
+		<col name="QTNUM" size="45" type="VARCHAR" description="" /> 
+		<col name="RECE_F" size="3" type="VARCHAR" description="" /> 
+		<col name="REQDATE" size="24" type="VARCHAR" description="" /> 
+		<col name="REQKIND" size="3" type="VARCHAR" description="" /> 
+		<col name="REQNO" size="30" type="VARCHAR" description="" /> 
+		<col name="REQNR" size="30" type="VARCHAR" description="" /> 
+		<col name="SENDAT" size="8" type="VARCHAR" description="" /> 
+		<col name="SENID" size="36" type="VARCHAR" description="" /> 
+		<col name="SPT" size="150" type="VARCHAR" description="" />
+		<col name="JOBKIND" size="255" type="VARCHAR" description="" /> 
+	</output>
+</query>

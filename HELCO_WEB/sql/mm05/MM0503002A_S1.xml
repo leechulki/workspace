@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[출하일정 대비 미출하현황]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+ PJ.PSPID
+,PJ.POST1						-- 현장명
+,PS.POSID						-- 호기번호
+,CASE WHEN MA.EXTWG2 = '' THEN 'BOX24' ELSE MA.EXTWG2 END AS EXTWG -- 박스번호
+-- CASE WHEN MA.EXTWG='' THEN 'BOX33' ELSE MA.EXTWG END AS EXTWG
+,RE.MATNR					   -- 자재번호
+,MA.MATNR_NM				-- 자재명
+,MA.SPEC						-- SPEC
+,MA.ZSIZE						-- SIZE
+--,MA.BLOCK_NO
+--,RE.LGORT
+,SAPHEE.GET_BOM_MENGE(RE.MANDT,PS.POSID,RE.MATNR) AS X1       -- BOM수량
+,CASE WHEN MC.SBDKZ='2' OR MA.MTART&lt;&gt;'ROH' THEN 0 ELSE VALUE((
+    SELECT
+    SUM(MENGE) AS MENGE
+    FROM SAPHEE.ZMMT013 AS MM13
+    WHERE MM13.MANDT = RE.MANDT
+      AND MM13.POSID = P1.POSID
+      AND MM13.MATNR = RE.MATNR
+      AND MM13.DDATE = '00000000'
+ ),0) END AS X2                                                                                                    -- 발주수량
+,CASE WHEN MC.SBDKZ='2' OR MA.MTART&lt;&gt;'ROH' THEN 0 ELSE VALUE((
+    SELECT
+    SUM(MENGE - B_MENGE) AS MENGE
+    FROM SAPHEE.ZMMT017 AS MM17
+    WHERE MM17.MANDT    = RE.MANDT
+      AND MM17.POSID    = P1.POSID
+      AND MM17.MATNR    = RE.MATNR
+			AND MM17.DEL_DATE = '00000000'
+      AND DDATE         = '00000000'
+      AND PRO_F         = '4' 
+ ),0) END AS X3                                                                            -- 입고수량
+,RE.ERFMG						-- 소요량
+--,RE.MEINS
+,RE.ENMNG						-- 기불출량
+,RE.ERFMG - RE.ENMNG AS SU01				-- 미불출량
+,CASE WHEN MC.SBDKZ='2'     THEN
+         VALUE((               
+                SELECT 
+                LABST 
+                FROM SAPHEE.MARD AS MD 
+                WHERE MD.MANDT = MC.MANDT
+                  AND MD.MATNR = MC.MATNR
+                  AND MD.WERKS = MC.WERKS
+                  AND MD.LGORT = RE.LGORT
+               ),0.000)
+      ELSE
+         VALUE((                
+                SELECT 
+                SUM(PRLAB) 
+                FROM SAPHEE.MSPR AS MD 
+                WHERE MD.MANDT = MC.MANDT
+                  AND MD.MATNR = MC.MATNR
+                  AND MD.WERKS = MC.WERKS
+                  AND MD.CHARG = ''
+                  AND MD.SOBKZ = 'Q'
+                  AND MD.PSPNR = HI.POSNR 
+                ),0.000)
+      END  AS JEAGO							-- 재고
+,CASE WHEN MC.SBDKZ='2' THEN 'STOCK' ELSE '' END AS SBDKZ		-- 재고유형
+,CASE WHEN MC.SBDKZ='2'     THEN ''
+      ELSE
+         VALUE((                
+                SELECT 
+                MAX(LFGJA || '.' ||LFMON) 
+                FROM SAPHEE.MSPR AS MD 
+                WHERE MD.MANDT = MC.MANDT
+                  AND MD.MATNR = MC.MATNR
+                  AND MD.WERKS = MC.WERKS
+                  AND MD.CHARG = ''
+                  AND MD.SOBKZ = 'Q'
+                  AND MD.PSPNR = HI.POSNR
+                ),'')      
+      END AS JEAGO_YM
+,CASE CASE WHEN M6.BOXNO IS NULL THEN '1' ELSE SUBSTR(M6.BLOCK,1,1) END 
+      WHEN '1' THEN PS.ZZPRO01
+      WHEN '2' THEN CASE WHEN PS.ZZPRO02='00000000' THEN PS.ZZPRO01 ELSE PS.ZZPRO02 END 
+      WHEN '3' THEN CASE WHEN PS.ZZPRO03='00000000' THEN PS.ZZPRO01 ELSE PS.ZZPRO03 END
+      WHEN '4' THEN CASE WHEN PS.ZZPRO04='00000000' THEN PS.ZZPRO01 ELSE PS.ZZPRO04 END
+      WHEN '5' THEN CASE WHEN PS.ZZPRO05='00000000' THEN PS.ZZPRO01 ELSE PS.ZZPRO05 END
+      WHEN '6' THEN CASE WHEN PS.ZZPRO06='00000000' THEN PS.ZZPRO01 ELSE PS.ZZPRO06 END    
+      ELSE PS.ZZPRO01 END AS BDTER		-- 출하요구일
+--,MC.EKGRP				-- 발주담당자
+,VALUE((
+        
+        SELECT 
+        T2.EKTEL 
+        FROM SAPHEE.T024 AS T2 
+        WHERE T2.MANDT=RE.MANDT 
+          AND T2.EKGRP=MC.EKGRP
+          
+      ),'') AS EKGRP_NM -- 발주담당자명
+,MA.C_GROUP AS C_GROUP     -- 관리담당자자명
+,RE.MATKL			-- 자재그룹
+,VALUE(L7.ZKNUM ,'') AS ZKNUM
+,VALUE(L7.ZKNUM2,'') AS ZKNUM2
+,CASE WHEN L7.ZSTAT3='X' THEN '출고전기'
+      WHEN L7.ZSTAT2='X' THEN '납품문서'
+      WHEN L7.ZSTAT1='X' THEN '운송계획' ELSE '' END AS ZSTAT
+,RE.RSNUM
+,RE.RSPOS
+--,VALUE((
+--
+--        SELECT
+--        NETPR*100
+--        FROM SAPHEE.EINE AS EE
+--             INNER JOIN SAPHEE.EINA AS EA ON  EA.MANDT=EE.MANDT
+--                                          AND EA.INFNR=EE.INFNR
+--        WHERE EA.MANDT = RE.MANDT
+--          AND EA.MATNR = RE.MATNR
+--        FETCH FIRST 1 ROWS ONLY   
+--        
+--      ),0) AS NETPR     -- 자재단가
+,
+'신박스' AS BOXCK
+-- VALUE((SELECT 
+--        CASE WHEN MAX(M085A.BOX_CK) = '24' THEN '신박스' ELSE '구박스' END
+--          FROM SAPHEE.ZMMT085 AS M085A
+--         WHERE M085A.MANDT = RE.MANDT
+--             AND M085A.POSID = P1.POSID),'') AS BOXCK
+, P34.PPIDAT AS PPIDAT
+FROM SAPHEE.PRPS AS PS
+      INNER JOIN SAPHEE.ZPPT034 AS P34 ON P34.MANDT = PS.MANDT
+                                     AND P34.POSID = PS.POSID
+     INNER JOIN SAPHEE.PROJ   AS PJ ON  PJ.MANDT = PS.MANDT
+                                    AND PJ.PSPID = SUBSTR(PS.POSID,1,6)
+     INNER JOIN SAPHEE.PRHI   AS HI ON  HI.MANDT = PS.MANDT
+                                    AND HI.UP    = PS.PSPNR
+                                    AND HI.PSPHI = PS.PSPHI
+     INNER JOIN SAPHEE.AUFK   AS FK ON  FK.MANDT = HI.MANDT
+                                    AND FK.PSPEL = HI.POSNR
+     INNER JOIN SAPHEE.RESB   AS RE ON  RE.MANDT = FK.MANDT
+                                    AND RE.AUFNR = FK.AUFNR
+     INNER JOIN SAPHEE.MARA   AS MA ON  MA.MANDT = RE.MANDT
+                                    AND MA.MATNR = RE.MATNR
+     INNER JOIN SAPHEE.MARC   AS MC ON  MC.MANDT = RE.MANDT
+                                    AND MC.MATNR = RE.MATNR
+                                    AND MC.WERKS = '1000'
+     INNER JOIN SAPHEE.PRPS   AS P1 ON  P1.MANDT = HI.MANDT 
+                                    AND P1.PSPNR = HI.POSNR  
+     LEFT OUTER JOIN SAPHEE.ZMMT026 AS M6 ON  M6.MANDT = MA.MANDT
+                                          AND M6.BOXNO = MA.EXTWG
+     LEFT OUTER JOIN SAPHEE.ZLET017 AS L7 ON  L7.MANDT = RE.MANDT
+                                          AND L7.RSNUM = RE.RSNUM
+                                          AND L7.RSPOS = RE.RSPOS
+                                          AND L7.ZCANC = ''
+    
+<isNotNull col="SQLSTR">
+      #SQLSTR+#
+</isNotNull>
+
+ORDER BY PS.POSID, EXTWG, RE.MATNR 
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="SQLSTR" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="BDTER" size="24" type="VARCHAR" description="" /> 
+		<col name="EKGRP" size="9" type="VARCHAR" description="" /> 
+		<col name="EKGRP_NM" size="36" type="VARCHAR" description="" /> 
+		<col name="ENMNG" size="15" type="NUMERIC" description="" /> 
+		<col name="ERFMG" size="15" type="NUMERIC" description="" /> 
+		<col name="JEAGO" size="33" type="NUMERIC" description="" /> 
+		<col name="MATKL" size="27" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MATNR_NM" size="120" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POST1" size="120" type="VARCHAR" description="" /> 
+		<col name="SBDKZ" size="3" type="VARCHAR" description="" /> 
+		<col name="SPEC" size="180" type="VARCHAR" description="" /> 
+		<col name="SU01" size="16" type="NUMERIC" description="" /> 
+		<col name="ZSIZE" size="180" type="VARCHAR" description="" /> 
+		<col name="X1" size="15" type="NUMERIC" description="" /> 
+		<col name="X2" size="15" type="NUMERIC" description="" /> 
+		<col name="X3" size="15" type="NUMERIC" description="" /> 
+	</output>
+</query>

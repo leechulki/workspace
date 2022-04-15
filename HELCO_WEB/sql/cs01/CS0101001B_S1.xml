@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[mmpr 조회 master]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT  DISTINCT
+	  MM007A.ATYPE AS ATYPE
+	, MM007A.BELNR AS BELNR
+	, MM007A.BUDDT AS BUDDT
+	, MM007A.BUKRS AS BUKRS
+	, MM007A.CAUSECAT AS CAUSECAT
+	, MM007A.CAUSECOD AS CAUSECOD
+	, MM007A.CAUSEGRP AS CAUSEGRP
+	, MM007A.CAUSETXT AS CAUSETXT
+	, MM007A.CELLP AS CELLP
+	, MM007A.CLODT AS CLODT
+	, MM007A.CLOID AS CLOID
+	, SAPHEE.GET_ZERODATE(MM007A.CREDT) AS CREDT
+	, MM007A.CREID AS CREID
+	, MM007A.CREKTL AS CREKTL
+	, MM007A.CRENM AS CRENM
+	, MM007A.FIXREQID AS FIXREQID
+	, MM007A.GJAHR AS GJAHR
+	, MM007A.GUBUN AS GUBUN
+	, MM007A.HOGI AS HOGI
+	--, MM007A.IMPETC AS IMPETC
+	, MM007A.IMPKTL AS IMPKTL
+	, MM007A.IMPLFN AS IMPLFN
+	, MM007A.IMPUCD AS IMPUCD
+	, MM007A.INSTIME AS INSTIME
+	, MM007A.IWBTR AS IWBTR
+	, MM007A.JQPRNO AS JQPRNO
+	, MM007A.JQPRNUM AS JQPRNUM
+              , (SELECT DISTINCT MM012A.NAME1
+                FROM SAPHEE.ZMMT012 MM012A
+                 WHERE MM012A.MANDT = MM007A.MANDT
+                 AND MM012A.LIFNR = MM007A.LIFNR   ) AS LIFNR
+	, MM007A.MMPR_DEL AS MMPR_DEL
+	, MM007A.MWSKZ AS MWSKZ
+	, MM007A.NAMET AS NAMET
+	, MM007A.OCCDT AS OCCDT
+	, MM007A.OWBTR AS OWBTR
+	, MM007A.PHENOCAT AS PHENOCAT
+	, MM007A.PHENOCOD AS PHENOCOD
+	, MM007A.PHENOGRP AS PHENOGRP
+	, MM007A.PHENOTXT AS PHENOTXT
+	, MM007A.POST1 AS POST1
+	, MM007A.PRCTR AS PRCTR
+	, MM007A.PRODID AS PRODID
+	, MM007A.PSPID AS PSPID
+	, MM007A.RECE_F AS RECE_F
+	, SAPHEE.GET_ZERODATE(MM007A.REGDT) AS REGDT
+	, MM007A.REGID AS REGID
+	, MM007A.REJTXT AS REJTXT
+	, MM007A.REQNR AS REQNR
+	, MM007A.SPEC AS SPEC
+	, MM007A.STATUS AS STATUS
+	, MM007A.TEMNO AS TEMNO
+	, MM007A.WAERS AS WAERS
+	, MM007A.WERKS AS WERKS
+	
+	--, SAPHEE.GET_ZERODATE(MM007A.WORKDT) AS WORKDT   
+	, SAPHEE.GET_ZERODATE(  CASE VALUE(MAST01.HB_STN,'')  WHEN '5' THEN VALUE(MAST01.HB_TO,'00000000') --WORKDT(작업일을  하자보증만료일 로 변경)
+                                                        ELSE VALUE(MAST02.HB_TO,'00000000')
+                            END) WORKDT                                      
+	
+	, MM007A.XMWST AS XMWST
+	, SAPHEE.GET_ZERODATE(MM007A.ZBEPJEO) AS ZBEPJEO
+	, SAPHEE.GET_ZERODATE(MM007A.ZBOSUIN) AS ZBOSUIN
+	, SAPHEE.GET_ZERODATE(MM007A.ZOIPSU) AS ZOIPSU
+	, SAPHEE.GET_CURRENCY2(MM007A.WAERS, MM007A.MATCOST) AS MATCOST   -- 자재비추가 HSS
+	, (SELECT CTEXT2 FROM SAPHEE.ZLCODE AS M28
+                    WHERE M28.MANDT = MM007A.MANDT
+                      AND M28.LANG = #G_LANG# 
+                     AND M28.CODE1 = '3' AND M28.CODE2 = MM031.REQKIND) AS REQKIND
+	, MM031.REQNO AS REQNO
+	, VALUE(AP01.APSTAT,'0') AS APSTAT
+	, VALUE(AP01.CRDPT1,'') AS CRDPT1
+	, VALUE(AP01.REDPT1,'') AS REDPT1
+	, CAST(VALUE(AP02.APDESC,'') AS VARCHAR(256)) AS APDESC
+	, CST016.WRBTR AS WRBTR
+	, SAPHEE.GET_CURRENCY2('KRW', CST016.NCOST) AS NCOST -- 노무비추가
+	, CST016.IMPKTL AS IMPKTL1
+	, CST016.IMPKTL2 AS IMPKTL2
+	, CST016.IMPKTL3 AS IMPKTL3
+	, CST016.IMPKTL_P AS IMPKTL_P
+	, CST016.IMPKTL2_P AS IMPKTL2_P
+	, CST016.IMPKTL3_P AS IMPKTL3_P
+	, CST016.IMPETC AS IMPETC
+	, 'IMPGUBN' AS IMPGUBN
+	, 'JOBKIND' AS JOBKIND
+	, MM031.REQKIND AS REQKIND_CD -- 2020.08.27 청구종류 코드값 추가 Han J.H
+ FROM SAPHEE.ZQMT007 AS MM007A
+ LEFT OUTER JOIN SAPHEE.ZMMT031 AS MM031 ON MM007A.MANDT = MM031.MANDT
+    AND MM007A.JQPRNUM = MM031.JQPRNUM
+ LEFT OUTER JOIN SAPHEE.ZWBAP01 AS AP01 ON MM007A.MANDT= AP01.MANDT
+   AND MM007A.JQPRNUM = AP01.DOCNO
+   AND AP01.DOCKIND = '1'
+ LEFT OUTER JOIN SAPHEE.ZWBAP02 AS AP02 ON MM007A.MANDT= AP02.MANDT
+   AND MM007A.JQPRNUM = AP02.DOCNO
+   AND AP02.APPGUBN = 'S'
+   AND AP02.SEQNO = '1'
+ LEFT OUTER JOIN SAPHEE.ZCST016 AS CST016 ON MM007A.MANDT = CST016.MANDT
+   AND MM007A.JQPRNUM = CST016.JQPRNUM    
+   
+ --하자보증 만료일 가져오기 위함  
+ LEFT OUTER JOIN SAPHEE.ZMASTER01 AS MAST01
+   ON MM007A.MANDT = MAST01.MANDT
+  AND MM007A.PSPID = MAST01.POSID
+ LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MAST02
+   ON MM007A.MANDT = MAST02.MANDT
+  AND MM007A.PSPID = MAST02.POSID
+  AND MM007A.HOGI  = MAST02.POSID_1
+  
+   
+ WHERE MM007A.MANDT = #G_MANDT#
+    AND MM007A.JQPRNUM= #JQPRNUM#
+  WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="JQPRNUM" size="30" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_qm007">
+		<col name="ATYPE" size="15" type="VARCHAR" description="" /> 
+		<col name="BELNR" size="30" type="VARCHAR" description="" /> 
+		<col name="BUDDT" size="24" type="VARCHAR" description="" /> 
+		<col name="BUKRS" size="12" type="VARCHAR" description="" /> 
+		<col name="CAUSECAT" size="3" type="VARCHAR" description="" /> 
+		<col name="CAUSECOD" size="12" type="VARCHAR" description="" /> 
+		<col name="CAUSEGRP" size="24" type="VARCHAR" description="" /> 
+		<col name="CAUSETXT" size="120" type="VARCHAR" description="" /> 
+		<col name="CELLP" size="48" type="VARCHAR" description="" /> 
+		<col name="CLODT" size="24" type="VARCHAR" description="" /> 
+		<col name="CLOID" size="30" type="VARCHAR" description="" /> 
+		<col name="CREDT" size="8" type="VARCHAR" description="" /> 
+		<col name="CREID" size="36" type="VARCHAR" description="" /> 
+		<col name="CREKTL" size="30" type="VARCHAR" description="" /> 
+		<col name="CRENM" size="60" type="VARCHAR" description="" /> 
+		<col name="FIXREQID" size="30" type="VARCHAR" description="" /> 
+		<col name="GJAHR" size="12" type="VARCHAR" description="" /> 
+		<col name="GUBUN" size="3" type="VARCHAR" description="" /> 
+		<col name="HOGI" size="72" type="VARCHAR" description="" /> 
+		<col name="IMPETC" size="72" type="VARCHAR" description="" /> 
+		<col name="IMPKTL" size="72" type="VARCHAR" description="" /> 
+		<col name="IMPLFN" size="30" type="VARCHAR" description="" /> 
+		<col name="IMPUCD" size="3" type="VARCHAR" description="" /> 
+		<col name="INSTIME" size="11" type="INTEGER" description="" /> 
+		<col name="IWBTR" size="15" type="DECIMAL" description="" /> 
+		<col name="JQPRNO" size="60" type="VARCHAR" description="" /> 
+		<col name="JQPRNUM" size="30" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="105" type="VARCHAR" description="" /> 
+		<col name="MMPR_DEL" size="3" type="VARCHAR" description="" /> 
+		<col name="MWSKZ" size="6" type="VARCHAR" description="" /> 
+		<col name="NAMET" size="60" type="VARCHAR" description="" /> 
+		<col name="OCCDT" size="24" type="VARCHAR" description="" /> 
+		<col name="OWBTR" size="15" type="DECIMAL" description="" /> 
+		<col name="PHENOCAT" size="3" type="VARCHAR" description="" /> 
+		<col name="PHENOCOD" size="12" type="VARCHAR" description="" /> 
+		<col name="PHENOGRP" size="24" type="VARCHAR" description="" /> 
+		<col name="PHENOTXT" size="120" type="VARCHAR" description="" /> 
+		<col name="POST1" size="120" type="VARCHAR" description="" /> 
+		<col name="PRCTR" size="30" type="VARCHAR" description="" /> 
+		<col name="PRODID" size="30" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="72" type="VARCHAR" description="" /> 
+		<col name="RECE_F" size="3" type="VARCHAR" description="" /> 
+		<col name="REGDT" size="8" type="VARCHAR" description="" /> 
+		<col name="REGID" size="30" type="VARCHAR" description="" /> 
+		<col name="REJTXT" size="120" type="VARCHAR" description="" /> 
+		<col name="REQNR" size="30" type="VARCHAR" description="" /> 
+		<col name="SPEC" size="90" type="VARCHAR" description="" /> 
+		<col name="STATUS" size="3" type="VARCHAR" description="" /> 
+		<col name="TEMNO" size="18" type="VARCHAR" description="" /> 
+		<col name="WAERS" size="15" type="VARCHAR" description="" /> 
+		<col name="WERKS" size="12" type="VARCHAR" description="" /> 
+		<col name="WORKDT" size="8" type="VARCHAR" description="" /> 
+		<col name="XMWST" size="3" type="VARCHAR" description="" /> 
+		<col name="ZBEPJEO" size="8" type="VARCHAR" description="" /> 
+		<col name="ZBOSUIN" size="8" type="VARCHAR" description="" /> 
+		<col name="ZOIPSU" size="8" type="VARCHAR" description="" /> 
+		<col name="REQKIND" size="60" type="VARCHAR" description="" /> 
+		<col name="REQNO" size="30" type="VARCHAR" description="" />		
+		<col name="WBRTR" size="15" type="VARCHAR" description="" />
+		<col name="NCOST" size="15" type="VARCHAR" description="" />
+		<col name="IMPKTL1" size="256" type="VARCHAR" description="" />
+		<col name="IMPKTL2" size="256" type="VARCHAR" description="" />
+		<col name="IMPKTL3" size="256" type="VARCHAR" description="" />
+		<col name="IMPKTL_P" size="256" type="VARCHAR" description="" />
+		<col name="IMPKTL_2P" size="256" type="VARCHAR" description="" />
+		<col name="IMPKTL_3P" size="256" type="VARCHAR" description="" />
+		<col name="IMPGUBN" size="256" type="VARCHAR" description="" />
+		<col name="JOBKIND" size="256" type="VARCHAR" description="" />
+	</output>
+</query>

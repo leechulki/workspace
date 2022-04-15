@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[품목표 List _ BLOCK 선택]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+ PP004.WOKNUM AS HOGIN
+,PP004.MATNR  AS MATNR
+,PP004.IDNRK  AS IDNRK
+,MS001.ZSITE_NM AS SITE_NM
+,MS001.KUNNR_NM
+,MS002.ZSPEC1 AS SPEC1
+,MS002.ZSPEC2 AS SPEC2
+,MM011.MAKTX  AS MAKTX
+,CASE WHEN MM011.MATNR_NM='' THEN MM011.MAKTX ELSE  MM011.MATNR_NM END AS MATNR_NM
+,MM011.MTART   AS MTART
+,MM011.SPEC   AS SPEC
+,MM011.ZSIZE  AS SIZE
+,MM011.EXTWG  AS EXTWG
+,MM011.EXTWG2 AS EXTWG2
+, VALUE((SELECT CASE WHEN M085A.BOX_CK = '24' THEN '신박스' ELSE '구박스' END
+                 FROM SAPHEE.ZMMT085 AS M085A
+               WHERE M085A.MANDT = PP004.MANDT
+                   AND M085A.POSID2 = PP004.WOKNUM),'구박스') AS BOXCK
+,PP004.MENGE  AS MENGE
+,PP004.MEINS  AS MEINS
+,PP004.DZEINR AS DZEINR
+,PP004.MATKL  AS MATKL
+,PP004.UPMATKL  AS UPMATKL
+,PP004.VERSION AS VERSION
+,PP004.BOM_LEVEL AS BOM_LEVEL
+,PP004.CRUSER AS CRUSER
+,PP004.CRDAT  AS CRDAT
+,PP004.CRTIM  AS CRTIM
+,PP004.PART   AS PART
+,CASE WHEN PP004.PART=11 THEN '기계-구조물'
+      WHEN PP004.PART=12 THEN '기계-의장'
+      WHEN PP004.PART=21 THEN '전기-CP'
+      WHEN PP004.PART=22 THEN '전기-의장'
+      WHEN PP004.PART=23 THEN '전기-CABLE'
+      WHEN PP004.PART=50 THEN '주차'
+      WHEN PP004.PART=60 THEN 'E/S,M/W'
+      WHEN PP004.PART=70 THEN '물류' ELSE '' END AS PART_NM
+,PP008.TEXT AS TEXT
+,'0' AS NUM
+,PP004.ITEM_SEQ  AS ITEM_SEQ
+,CASE PP004.PRCTYP WHEN 'C' THEN '변경' WHEN 'D' THEN '삭제' WHEN 'N' THEN '추가' ELSE '' END AS PRCTYP
+<isNotNull col="DPT">
+  ,CASE WHEN MM011.MTART = 'ROH' THEN 
+      (SELECT VALUE(MM013.LNAME, '') 
+	     FROM SAPHEE.ZMMT013 MM013 
+	   WHERE MM013.MANDT = PP004.MANDT
+	      --AND MM013.POSID=PP004.WOKNUM|| '-P'
+	      AND MM013.POSID = (CASE WHEN SUBSTR(PP004.WOKNUM,7,2) IN ('NS','NB','NC') THEN PP004.WOKNUM ELSE PP004.WOKNUM  || '-P' END)
+          AND MM013.MATNR=PP004.IDNRK
+          AND MM013.DDATE IN ('00000000','')
+		  ORDER BY SDATE DESC
+		  FETCH FIRST 1 ROW ONLY)  ELSE '' END AS LNAME
+  ,CASE WHEN MM011.MTART = 'ROH' THEN 
+      (SELECT VALUE(MM013.LIFNR, '') 
+	     FROM SAPHEE.ZMMT013 MM013 
+	   WHERE MM013.MANDT = PP004.MANDT
+	      AND MM013.POSID = (CASE WHEN SUBSTR(PP004.WOKNUM,7,2) IN ('NS','NB','NC') THEN PP004.WOKNUM ELSE PP004.WOKNUM  || '-P' END)
+          AND MM013.MATNR=PP004.IDNRK
+          AND MM013.DDATE IN ('00000000','')
+		  ORDER BY SDATE DESC
+		  FETCH FIRST 1 ROW ONLY)  ELSE '' END AS LIFNR
+</isNotNull>
+<isNull col="DPT">
+,'' AS LNAME
+,'' AS LIFNR
+</isNull>
+FROM (
+
+      SELECT
+       MANDT
+      ,CRDAT
+      ,SEQNO
+      ,WOKNUM
+      ,MATNR
+      ,IDNRK
+      ,ITEM_SEQ
+      ,MENGE
+      ,MEINS
+      ,MATKL
+      ,UPMATKL
+      ,DZEINR
+      ,PRCTYP
+      ,VERSION
+      ,BOM_LEVEL
+      ,CRUSER
+      ,CRTIM
+      ,ROW_NUMBER() OVER(PARTITION BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,MATKL ORDER BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,CRDAT DESC,SEQNO DESC) AS ROWNO
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,6)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,6) ELSE SUBSTR(WOKNUM,1,6) END AS POSID
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,9)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,9) ELSE SUBSTR(WOKNUM,1,9) END AS POSID_1
+      ,CASE WHEN ZPART='M'             THEN 11
+            WHEN ZPART='C'             THEN 12
+            WHEN ZPART='1'             THEN 21
+            WHEN ZPART='2'             THEN 22
+            WHEN ZPART='3'             THEN 23
+            WHEN SUBSTR(MATKL,2,1)='5' THEN 50
+            WHEN SUBSTR(MATKL,2,1)='6' THEN 60
+            WHEN SUBSTR(MATKL,2,1)='7' THEN 70
+            WHEN SUBSTR(MATKL,2,1)='1' THEN 11
+            WHEN SUBSTR(MATKL,2,1)='2' THEN 21
+            WHEN SUBSTR(MATKL,2,1)='3' THEN 12 ELSE 90 END AS PART
+      FROM SAPHEE.ZPPT004
+      WHERE MANDT = #G_MANDT#
+        AND WOKNUM LIKE #HOGIN#||'%' 
+        AND LENGTH(CAST(#HOGIN# AS VARCHAR(15))) &gt;= 6
+<isNotNull col="BLOCK">
+       AND MATKL LIKE #BLOCK#||'%' 
+</isNotNull>
+<isNotNull col="MATNR">
+       AND IDNRK LIKE #MATNR#||'%' 
+</isNotNull>
+       AND BOM_LEVEL = '01'
+
+    ) AS PP004
+    LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MS002 ON  MS002.MANDT   = PP004.MANDT 
+                                              AND MS002.POSID   = PP004.POSID 
+                                              AND MS002.POSID_1 = PP004.POSID_1
+    LEFT OUTER JOIN SAPHEE.ZMMT011   AS MM011 ON  MM011.MANDT   = PP004.MANDT 
+                                              AND MM011.MATNR   = PP004.IDNRK
+    LEFT OUTER JOIN SAPHEE.ZPPT008   AS PP008 ON  PP008.MANDT   = PP004.MANDT
+                                              AND PP004.CRDAT   = PP008.CRDAT 
+                                              AND PP004.SEQNO   = PP008.SEQNO 
+                                              AND PP004.WOKNUM  = PP008.WOKNUM
+                                              AND PP004.MATNR   = PP008.MATNR 
+                                              AND PP004.IDNRK   = PP008.IDNRK
+                                              AND PP004.ITEM_SEQ= PP008.ITEM_SEQ
+                                              AND PP004.MATKL= PP008.MATKL                                             
+                                              AND PP008.SPEC_TYP &lt;&gt; '3'
+    LEFT OUTER JOIN SAPHEE.ZMASTER01 AS MS001 ON  PP004.MANDT   = MS001.MANDT 
+                                              AND PP004.POSID   = MS001.POSID 
+    LEFT OUTER JOIN SAPHEE.ZMMT013   AS MM013 ON MM013.MANDT=PP004.MANDT 
+                                             AND MM013.POSID=PP004.WOKNUM|| '-P'
+                                             AND MM013.MATNR=PP004.IDNRK
+
+WHERE ROWNO = 1
+  AND PRCTYP &lt;&gt; 'D'    -- 최종상태가 삭제(D)는 제외
+<isNotNull col="PART">
+      #PART+#
+</isNotNull>
+<isNotNull col="BOXNO">
+  AND MM011.EXTWG LIKE #BOXNO# || '%'
+</isNotNull>
+<isNotNull col="BGROUP">
+      #BGROUP+#
+</isNotNull>
+ORDER BY PP004.WOKNUM,PP004.PART,SUBSTR(PP004.MATKL,2),PP004.BOM_LEVEL,PP004.IDNRK,PP004.ITEM_SEQ,PP004.MATKL,PP008.SPEC_TYP,PP008.SERIAL
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

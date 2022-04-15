@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT T.*
+    FROM (	          
+				SELECT  (SURVEYGBN || TRIM(TO_CHAR( INTEGER(SURVEYID), '00000')) || '000' || '000' ) AS IDX
+				             ,('[' || SURVEYNM || ']') AS NM			 
+							 ,1 AS LEVEL
+							 ,SURVEYGBN, SURVEYID, 0 AS QUESTNO, 0 AS QUESTSEQ
+							 ,'' AS MANY, '' AS TYPE
+                             ,CAST('' AS VARCHAR(3000) ) AS ANSWER
+				    FROM SAPHEE.ZPSTSRYM 
+				 WHERE MANDT = #G_MANDT#    AND SURVEYGBN = #SURVEYGBN#  AND SURVEYID = #SURVEYID#
+				
+				UNION ALL
+				
+				SELECT 	 (SURVEYGBN || TRIM(TO_CHAR( INTEGER(SURVEYID), '00000')) || TRIM(TO_CHAR(QUESTNO, '000')) || '000' ) AS IDX
+				              ,'▶' || LPAD(QUESTNO, 6, ' ') || '. ' || QUESTNM AS NM			
+							  ,2 AS LEVEL   
+							 ,SURVEYGBN, SURVEYID, QUESTNO, 0 AS QUESTSEQ			  
+							 ,MANY, TYPE
+							 ,CAST('' AS VARCHAR(3000) ) AS ANSWER
+					 FROM SAPHEE.ZPSTSRYD 
+				  WHERE MANDT = #G_MANDT#    AND SURVEYGBN = #SURVEYGBN#  AND SURVEYID = #SURVEYID#
+					   
+				UNION ALL	   
+					   
+				SELECT 	 (A.SURVEYGBN || TRIM(TO_CHAR( INTEGER(A.SURVEYID), '00000')) || TRIM(TO_CHAR(A.QUESTNO, '000')) || TRIM(TO_CHAR(A.QUESTSEQ, '000')) ) AS IDX  
+					          ,'-' || LPAD(A.QUESTSEQ, 11, ' ') || ')  ' || A.QUESTNM AS NM  
+							  ,3 AS LEVEL
+							 ,A.SURVEYGBN, A.SURVEYID, A.QUESTNO, A.QUESTSEQ
+							 ,B.MANY, B.TYPE
+							 ,CAST('' AS VARCHAR(3000) ) AS ANSWER
+					FROM SAPHEE.ZPSTSRYQ AS A
+				    INNER JOIN SAPHEE.ZPSTSRYD AS B 
+					     ON A.MANDT = B.MANDT AND A.SURVEYGBN = B.SURVEYGBN  AND A.SURVEYID = B.SURVEYID AND A.QUESTNO = B.QUESTNO
+
+
+				  WHERE A.MANDT = #G_MANDT#   AND A.SURVEYGBN = #SURVEYGBN#  AND A.SURVEYID = #SURVEYID#
+	   
+	           )  T
+			   
+
+ORDER BY T.IDX
+
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond2">
+	</input>
+	<output default-name="ds_list_detail">
+	</output>
+</query>

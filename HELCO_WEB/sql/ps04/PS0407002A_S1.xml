@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT   '' AS FLAG
+	,CHAR(ROWNUMBER() OVER(PARTITION BY W.ZZACTSS)) AS ROWNUM
+              ,PS.LIFNR              
+              ,PS.PSPID
+              ,CASE WHEN TRIM(PS.POSID) = '' THEN PS.PSPID ELSE PS.POSID END AS POSID
+              ,PS.YYYYMM
+              ,PS.ZSITE_NM
+              ,PS.ZQNTY
+              --,PS.ZZACTSS
+              --,(SELECT X.ZZACTSS FROM SAPHEE.ZMASTER02 AS X WHERE X.MANDT = PS.MANDT AND X.POSID = PS.PSPID AND X.POSID_1 = PS.POSID) AS ZZACTSS
+              ,W.ZZACTSS
+
+              --,(SELECT CTEXT2 FROM SAPHEE.ZLCODE AS M WHERE M.MANDT = PS.MANDT AND CODE1 = 'PS003' AND M.LANG = #G_LANG# AND M.CODE2 = PS.ZZACTSS) AS ZZACTSS_NM
+              --,(SELECT X.TEXT30 FROM SAPHEE.ZMASTER02 AS X WHERE X.MANDT = PS.MANDT AND X.POSID = PS.PSPID AND X.POSID_1 = PS.POSID) AS ZZACTSS_NM
+              ,W.TEXT30 AS ZZACTSS_NM
+
+              ,PS.VALUE
+              ,PS.XVALUE
+              ,PS.BIGO
+              ,PS.CDATE
+              ,MM.NAME1
+              ,TRIM(MM.MCOD3)||TRIM(MM.STRAS) AS ADDR
+              ,MM.J_1KFREPRE AS REP
+              ,(SELECT CTEXT2 
+                   FROM SAPHEE.ZLCODE AS M 
+                 WHERE M.MANDT = MM.MANDT AND CODE1 = 'PS003' AND M.LANG = #G_LANG# 
+                     AND M.CODE2 = (SELECT ZZACTSS 
+                                                  FROM SAPHEE.ZWBT010 AS W 
+                                                WHERE W.MANDT = MM.MANDT AND LIFNR = MM.LIFNR)  ) AS CTEXT2
+    
+              ,PS.STATE
+              ,PS.LIFNR_F
+              ,(SELECT X.NAME1 FROM SAPHEE.LFA1 AS X WHERE X.MANDT = PS.MANDT AND X.LIFNR = PS.LIFNR_F) AS LIFNR_FNM
+              ,PS.TAXDATE
+              ,PS.BELNR              
+              ,(PS.WRBTR * 100) AS WRBTR
+              ,PS.WAERS
+              ,PS.ZSPEC2
+              ,PS.ENAME
+              ,PS.EDATE
+              ,W.SY_STAT
+              ,VALUE((SELECT X.BIGO 
+                              FROM SAPHEE.ZPST0100 AS X
+                            WHERE X.MANDT = PS.MANDT
+                                 AND X.PSPID = PS.PSPID
+                                 AND X.POSID = PS.POSID
+                             ORDER BY X.CHGNO DESC
+                             FETCH FIRST 1 ROWS ONLY), '' ) AS BIGO2
+             , CASE WHEN X.CHARACTERISTIC = 'EL_EHM' AND X.VALUE = 'CEMEN' THEN 'Y' ELSE 'N' END CHK
+             ,(SELECT  VALUE  FROM SAPHEE.ZSDT0005 AS Z WHERE W.MANDT = Z.MANDT  AND W.POSID_1 = Z.HOGI AND Z.CHARACTERISTIC =  'EL_FDHWP'     AND Z.SEQ = ( SELECT MAX(F.SEQ)
+                                 FROM SAPHEE.ZSDT0005 AS F
+                              WHERE Z.MANDT = F.MANDT  AND X.HOGI = F.HOGI
+                                   AND Z.CHARACTERISTIC = F.CHARACTERISTIC)) AS CHK2
+				  
+
+
+  FROM SAPHEE.ZPSTW0133 AS PS
+   LEFT OUTER JOIN SAPHEE.ZMMT012 AS MM
+      ON PS.MANDT = MM.MANDT
+     AND PS.LIFNR = MM.LIFNR 
+   LEFT OUTER JOIN SAPHEE.ZMASTER02 AS W
+      ON PS.MANDT = W.MANDT
+    AND PS.PSPID = W.POSID
+    AND PS.POSID = W.POSID_1
+  LEFT OUTER JOIN SAPHEE.ZSDT0005 AS X
+     ON  X.MANDT = W.MANDT   AND  X.HOGI = W.POSID_1
+
+ WHERE PS.MANDT = #G_MANDT#
+     AND PS.LIFNR = #LIFNR#
+     AND PS.YYYYMM = #YYYYMM#
+	  AND X.CHARACTERISTIC = 'EL_EHM' 
+      AND X.SEQ = ( SELECT MAX(D.SEQ)
+                                 FROM SAPHEE.ZSDT0005 AS D
+                              WHERE X.MANDT = D.MANDT  AND X.HOGI = D.HOGI
+                                   AND X.CHARACTERISTIC = D.CHARACTERISTIC)
+   <isNotNull col="ZZACTSS">
+  AND W.ZZACTSS = #ZZACTSS#
+  </isNotNull>   							   
+ORDER BY W.ZZACTSS, PS.PSPID, PS.POSID
+
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="YYYYMM" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="VALUE" size="11" type="NUMERIC" description="" /> 
+		<col name="ZQNTY" size="11" type="NUMERIC" description="" /> 
+		<col name="ZSITE_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="ZZACTSS" size="9" type="VARCHAR" description="" /> 
+	</output>
+</query>

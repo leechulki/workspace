@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+        ZMA01.POSID
+       ,CS121A.CS121_ZIB AS ZIB
+       ,CS121A.CS121_P1B AS P1B
+       ,CS121A.CS121_P2B AS P2B
+       ,CS121A.CS121_DZIB AS DZIB /* 세금계산서수주처-우편번호(도로명) */
+       ,CS121A.CS121_DP1B AS DP1B /* 세금계산서수주처-우편번호(도로명) */
+       ,CS121A.CS121_DP2B AS DP2B /* 세금계산서수주처-우편번호(도로명) */    
+       ,CS121A.CS121_NZIB AS NZIB 
+        
+       ,CS121A.CS121_P1B||CS121A.CS121_P2B ADDR
+       ,CS404_GNO GNO
+       ,FI1071.BANKL
+        ,FI1071.KUNNR
+       ,CS121A.CS121_GSH KUNNR_NM
+	     ,CASE WHEN FI1071.AUART = 'ZR11' THEN '월정보수료'
+             WHEN FI1071.AUART = 'ZR12' THEN '부품판매대금'
+             WHEN FI1071.AUART = 'ZR13' THEN '수리공사대금'
+             ELSE ''
+        END AS TITLE2
+       ,W.ADDR2
+       --,W.TEL
+       ,W.FAX
+       --,W.SGUSR
+       ,W.ARA_TEXT
+       ,SAPHEE.LAST_DAY(CURRENT DATE) DUEDATE
+       ,CS121A.EPNAME EPNAME
+       ,0 MI_SU_F
+       ,'' TITLE    ,FI1071.BANKVN
+       ,FI1071.AUART
+       ,'' SEAL
+       ,'' S004
+       ,'' RECEV_NM
+  
+
+  FROM (SELECT 
+               A.CS404_PNO 
+              ,A.CS404_SEQ
+              ,A.CS404_UPN
+              ,A.CS404_GNO
+              ,A.AUART
+              ,SUBSTR(B.BNAME,7,3) AS CST
+              
+          FROM SAPHEE.ZCST404 AS A  INNER JOIN SAPHEE.VBAK AS B 
+                                            ON B.MANDT = A.MANDT 
+                                           AND A.CS404_GNO = B.ZZPJT_ID
+         
+         WHERE A.MANDT = #G_MANDT#
+         
+           AND A.CS404_UPN = #UPN#
+           AND A.KUNNR = #KUNNR#
+           AND A.CS404_SEQ = #SEQ#
+         
+         ORDER BY CS404_PNO DESC
+         FETCH FIRST 1 ROWS ONLY
+                      ) CS404 
+                              LEFT OUTER JOIN SAPHEE.ZMASTER01 ZMA01 
+                                      ON ZMA01.MANDT = #G_MANDT#
+                                     AND ZMA01.POSID = #UPN#               
+                      
+                              LEFT OUTER JOIN SAPHEE.ZFIT1071 FI1071
+                                     ON FI1071.MANDT = #G_MANDT#
+                                    AND FI1071.PSPID = #UPN#
+                                    AND FI1071.KUNNR = #KUNNR#
+                                    AND FI1071.AUART = CS404.AUART
+                                    AND FI1071.SSGBN = '2'
+                                    AND FI1071.BANKL = '011'
+                             
+                              LEFT OUTER JOIN
+                                            (
+                                             SELECT DTEXT2 ADDR2
+                                                   ,CASE WHEN CODE2  &lt; 'E55' THEN '02-3670-0960'
+                                                         ELSE DTEXT3 
+                                                    END    TEL
+                                                   ,DTEXT4 FAX
+                                                   ,DTEXT5 SGUSR
+                                                   ,CODE2  VKGRP
+			                                             ,CASE WHEN CODE2  &lt; 'E55' THEN CTEXT2||'지사'
+                                                         ELSE CTEXT2
+                                                    END  ARA_TEXT
+                                               FROM SAPHEE.ZLCODE A
+                                              WHERE A.MANDT = #G_MANDT#
+                                                AND A.CODE1 = 'CS181'
+                                             ) W 
+                                      ON W.VKGRP = #VKGRP#
+                                      
+                              LEFT OUTER JOIN SAPHEE.ZCST121 CS121A
+                                     ON CS121A.MANDT = #G_MANDT#
+                                    AND CS121A.CS121_UPN = CS404.CS404_UPN
+                                    AND CS121A.CS121_CST = CS404.CST
+                                    AND CS121A.KUNNR = #KUNNR#
+                                    
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_data">
+	</output>
+</query>

@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  '' AS CHK
+       ,'' AS FLAG
+       ,A.MANDT
+       ,A.PSPID
+       ,A.POST1
+       ,A.POSID
+       ,VALUE(M2.TEXT30,'') AS TEXT30
+       ,VALUE(M2.ZSPEC1,'') AS SPEC1
+       ,VALUE(M2.ZSPEC2,'') AS SPEC2
+       ,A.BLOCK
+       ,A.BDTER
+       , EXTWG2  AS EXTWG
+       , '24' AS BOX_CK
+       ,A.MATNR
+       ,A.MATNR_NM
+       ,A.ERFMG
+       ,A.ERFME
+       ,A.ENMNG
+       ,A.JEAGO
+       ,VALUE(M3.LIFNR,'')    AS KUNNR        -- 납품업체
+       ,VALUE(M3.LNAME,'')    AS NAME1       -- 납품업체명
+       ,SUBSTR(A.GUBUN,2 ,10) AS EBELN -- 구매번호
+       ,SUBSTR(A.GUBUN,12)    AS EBELP -- 구매품번
+       ,SUBSTR(A.RSNUM,1 ,10) AS RSNUM -- 예약번호
+       ,SUBSTR(A.RSNUM,11)    AS RSPOS -- 예약품번
+       ,'' AS ZKNUM
+       ,'' AS ZKNUM2
+       ,M1.KUNWE              AS KUNWE        -- 납품처
+       ,CASE WHEN SUBSTR(A.POSID,7,2) = 'NC' THEN M1.LZONE 
+                  ELSE KN.LZONE END     AS ZLZONE       -- 도착지
+       ,M2.TEMNO2             AS ZZTEMNO      -- 설치팀
+       ,M2.NAMET2             AS ZZTEAMJ      -- 설치팀명
+       ,TZ.VTEXT              AS ZLZONE_NM    -- 도착지명
+       , '' AS MATKL
+
+FROM (
+       SELECT
+	   MANDT
+	  ,PSPID
+	  ,POST1
+	  ,POSID
+	  ,EXTWG
+	  ,MATNR
+	  ,MAX(MATNR_NM) AS MATNR_NM
+	  ,MAX(EXTWG2)    AS EXTWG2
+	  ,SUM(ERFMG)    AS ERFMG
+                ,MAX(ERFME) AS ERFME
+	  ,MAX(ENMNG)    AS ENMNG
+	  ,MAX(SU01)     AS SU01
+	  ,MAX(JEAGO)    AS JEAGO
+	  ,MAX(BLOCK)    AS BLOCK
+	  ,MAX(BDTER)    AS BDTER
+	  ,MAX(EKGRP)    AS EKGRP
+	  ,MAX(MATKL)    AS MATKL
+	  ,MIN(RSNUM)    AS RSNUM
+	  ,MAX(GUBUN)    AS GUBUN
+       FROM (
+              SELECT
+                      PS.MANDT
+                     ,PS.POSID
+                     ,PJ.PSPID
+                     ,PJ.POST1
+                     ,RE.MATNR
+                     ,RE.ERFMG
+                     ,RE.ERFME
+                     ,RE.ENMNG
+                     ,RE.ERFMG - RE.ENMNG AS SU01
+                     ,RE.MATKL
+                     ,RE.RSNUM || RE.RSPOS AS RSNUM
+                     ,CASE WHEN MC.SBDKZ='2' THEN
+                                VALUE((
+                                        SELECT
+                                               LABST
+                                        FROM  SAPHEE.MARD AS MD
+                                        WHERE MD.MANDT = MC.MANDT
+                                          AND MD.MATNR = MC.MATNR
+                                          AND MD.WERKS = MC.WERKS
+                                          AND MD.LGORT = RE.LGORT
+                                    ),0.000)
+                           ELSE
+                                VALUE((
+                                        SELECT
+                                               SUM(PRLAB)
+                                        FROM SAPHEE.MSPR AS MD
+                                        WHERE MD.MANDT = MC.MANDT
+                                          AND MD.MATNR = MC.MATNR
+                                          AND MD.WERKS = MC.WERKS
+                                          AND MD.CHARG = ''
+                                          AND MD.SOBKZ = 'Q'
+                                          AND MD.PSPNR = HI.POSNR
+                                          
+                                     ),0.000)
+                           END  AS JEAGO
+                     ,MA.EXTWG2
+                     ,CASE WHEN MA.EXTWG='' THEN 'BOX33' ELSE MA.EXTWG END AS EXTWG
+                     ,MA.MATNR_NM
+                     ,CASE WHEN M6.BOXNO IS NULL THEN '기계실' ELSE SUBSTR(BLOCK,2) END AS BLOCK
+                     ,CASE CASE WHEN M6.BOXNO IS NULL THEN '1' ELSE SUBSTR(M6.BLOCK,1,1) END
+                           WHEN '1' THEN PS.ZZPRO01
+                           WHEN '2' THEN CASE WHEN PS.ZZPRO02='00000000' THEN PS.ZZPRO01 ELSE PS.ZZPRO02 END
+                           WHEN '3' THEN CASE WHEN PS.ZZPRO03='00000000' THEN PS.ZZPRO01 ELSE PS.ZZPRO03 END
+                           WHEN '4' THEN CASE WHEN PS.ZZPRO04='00000000' THEN PS.ZZPRO01 ELSE PS.ZZPRO04 END
+                           WHEN '5' THEN CASE WHEN PS.ZZPRO05='00000000' THEN PS.ZZPRO01 ELSE PS.ZZPRO05 END
+                           WHEN '6' THEN CASE WHEN PS.ZZPRO06='00000000' THEN PS.ZZPRO01 ELSE PS.ZZPRO06 END
+                           ELSE PS.ZZPRO01 END AS BDTER
+                     ,MC.EKGRP
+                     ,VALUE((
+                              SELECT
+                     		EP.ELIKZ || EP.EBELN ||  EP.EBELP
+                     		  FROM SAPHEE.EKKN AS EK
+                     			  ,SAPHEE.EKPO AS EP
+                     		  WHERE EP.MANDT    = EK.MANDT
+                              AND EP.EBELN      = EK.EBELN
+                     		  AND EP.EBELP      = EK.EBELP
+                     		  AND EP.MANDT      = FK.MANDT
+                              AND EK.PS_PSP_PNR = FK.PSPEL
+                     		  AND EP.MATNR      = RE.MATNR
+                     		  AND EP.LOEKZ      = ''
+			  AND EP.ELIKZ = ''
+                     		  FETCH FIRST 1 ROWS ONLY
+                           ), ' ') AS GUBUN
+			FROM SAPHEE.PRPS AS PS
+				INNER JOIN SAPHEE.PROJ   AS PJ ON  PJ.MANDT = PS.MANDT
+				                                AND PJ.PSPID = PS.POSID
+				 INNER JOIN SAPHEE.PRHI   AS HI ON  HI.MANDT = PS.MANDT
+				                                AND HI.POSNR    = PS.PSPNR
+				                                AND HI.PSPHI = PS.PSPHI
+				 INNER JOIN SAPHEE.AUFK   AS FK ON  FK.MANDT = HI.MANDT
+				                                AND FK.PSPEL = HI.POSNR
+				 INNER JOIN SAPHEE.RESB   AS RE ON  RE.MANDT = FK.MANDT
+				                                AND RE.AUFNR = FK.AUFNR
+				 INNER JOIN SAPHEE.MARA   AS MA ON  RE.MANDT = MA.MANDT
+				                                AND RE.MATNR = MA.MATNR
+                                                         INNER JOIN SAPHEE.ZMMT026_1 AS M6 ON M6.MANDT = MA.MANDT
+                                                                                                                   AND M6.BOXNO = MA.EXTWG2
+                     		--	 INNER JOIN SAPHEE.ZMMT026 AS M6 ON  M6.MANDT = MA.MANDT
+			--	                                 AND M6.BOXNO = MA.EXTWG
+				 INNER JOIN SAPHEE.MARC   AS MC ON  MC.MANDT = MA.MANDT
+				                                AND MC.MATNR = MA.MATNR
+				                                AND MC.WERKS = '1000'
+				 LEFT OUTER JOIN SAPHEE.ZLET017 AS L7 ON  L7.MANDT = RE.MANDT
+			                                      AND L7.RSNUM = RE.RSNUM
+	    		                                      AND L7.RSPOS = RE.RSPOS
+			                                      AND L7.ZCANC = ''
+				WHERE PS.MANDT =#G_MANDT#
+				-- 프로젝트
+				AND PS.POSID LIKE #PSPID#||'%'
+				AND PS.STUFE = 1
+				AND RE.MANDT = #G_MANDT#
+				-- 자재번호
+				AND RE.MATNR LIKE #MATNR#||'%'
+				AND RE.BWART = '281'
+				AND RE.WERKS = '1000'
+				AND RE.KZEAR = ''
+				AND RE.XLOEK = ''
+				AND RE.XWAOK = 'X'
+				AND RE.BAUGR = ''
+				--AND MA.MANDT = #G_MANDT#
+				--AND MA.MATNR LIKE '_%'				
+				-- BOX
+<isNull col="BOX">
+				AND MA.EXTWG2 IN ('BOX11','BOX14','BOX15','BOX17')
+</isNull>
+
+
+
+				--AND L7.MANDT IS NULL
+                                                        AND VALUE(L7.MANDT,'') = ''
+       )
+       AS A
+       WHERE 1=1
+       AND GUBUN LIKE ' %'
+       GROUP BY MANDT,PSPID,POST1,POSID,EXTWG,MATNR
+
+) AS A
+
+INNER JOIN SAPHEE.ZMMT013 AS M3 ON  M3.MANDT = A.MANDT
+                                AND M3.EBELN = SUBSTR(A.GUBUN,2 ,10)
+                                AND M3.EBELP = SUBSTR(A.GUBUN,12)
+
+LEFT OUTER JOIN SAPHEE.ZLET007   AS L7 ON  L7.MANDT   = A.MANDT
+                                       AND L7.POSID   = A.POSID
+                                       AND L7.MATNR   = A.MATNR
+                                       AND L7.ZCANC   = ''
+INNER JOIN SAPHEE.ZMASTER02 AS M2 ON  M2.MANDT   = A.MANDT
+                                       AND M2.POSID   = A.PSPID
+                                       AND M2.POSID_1 = A.POSID
+INNER JOIN SAPHEE.ZMASTER01 AS M1 ON  M1.MANDT   = A.MANDT
+                                       AND M1.POSID   = A.PSPID
+INNER JOIN SAPHEE.KNA1      AS KN ON  KN.MANDT   = M1.MANDT
+                                       AND KN.KUNNR   = M1.KUNWE
+INNER JOIN SAPHEE.TZONT     AS TZ ON  TZ.MANDT   = KN.MANDT
+                                       AND TZ.SPRAS   = '3'
+                                       AND TZ.LAND1   = 'KR'
+                                       AND TZ.ZONE1   = KN.LZONE
+
+WHERE 1=1
+    --AND L7.MANDT IS NULL
+    AND VALUE(L7.MANDT,'') = ''
+-- 납품업체
+
+<isNotNull col="LIFNR">
+      AND M3.LIFNR = #LIFNR#
+</isNotNull>
+
+ORDER BY A.PSPID, A.EXTWG, A.MATNR 
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="255" type="VARCHAR" description="" /> 
+		<col name="BOX" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="BDTER" size="24" type="VARCHAR" description="" /> 
+		<col name="BLOCK" size="120" type="VARCHAR" description="" /> 
+		<col name="BOX_CK" size="2" type="VARCHAR" description="" /> 
+		<col name="CHK" size="0" type="VARCHAR" description="" /> 
+		<col name="EBELN" size="10" type="VARCHAR" description="" /> 
+		<col name="EBELP" size="48" type="VARCHAR" description="" /> 
+		<col name="ENMNG" size="15" type="NUMERIC" description="" /> 
+		<col name="ERFME" size="9" type="VARCHAR" description="" /> 
+		<col name="ERFMG" size="33" type="NUMERIC" description="" /> 
+		<col name="EXTWG" size="15" type="VARCHAR" description="" /> 
+		<col name="FLAG" size="0" type="VARCHAR" description="" /> 
+		<col name="JEAGO" size="33" type="NUMERIC" description="" /> 
+		<col name="KUNNR" size="30" type="VARCHAR" description="" /> 
+		<col name="KUNWE" size="30" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="MATKL" size="27" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MATNR_NM" size="120" type="VARCHAR" description="" /> 
+		<col name="NAME1" size="105" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POST1" size="120" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="72" type="VARCHAR" description="" /> 
+		<col name="RSNUM" size="10" type="VARCHAR" description="" /> 
+		<col name="RSPOS" size="42" type="VARCHAR" description="" /> 
+		<col name="SPEC1" size="15" type="VARCHAR" description="" /> 
+		<col name="SPEC2" size="75" type="VARCHAR" description="" /> 
+		<col name="TEXT30" size="90" type="VARCHAR" description="" /> 
+		<col name="ZKNUM" size="0" type="VARCHAR" description="" /> 
+		<col name="ZKNUM2" size="0" type="VARCHAR" description="" /> 
+		<col name="ZLZONE" size="30" type="VARCHAR" description="" /> 
+		<col name="ZLZONE_NM" size="60" type="VARCHAR" description="" /> 
+		<col name="ZSTAT" size="1" type="VARCHAR" description="" /> 
+		<col name="ZZTEAMJ" size="60" type="VARCHAR" description="" /> 
+		<col name="ZZTEMNO" size="18" type="VARCHAR" description="" /> 
+	</output>
+</query>

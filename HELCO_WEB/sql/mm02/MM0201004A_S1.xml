@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[DI-PBX 구매요청 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+	--20190410 제니퍼 SQL 부하로 인한 수정 LCH
+SELECT 
+     '' AS CHECK 
+    , EB.MANDT AS MANDT
+    , VALUE(PR.POSID,'') AS POSID
+    , VALUE(MA.ZSITE_NM,'') AS ZSITE_NM
+    , EB.MATNR AS MATNR
+    , EB.WERKS AS WERKS
+    , EB.TXZ01 AS TXZ01
+    , EB.MENGE AS MENGE
+    , M13.EBELN AS EBELN
+    , M13.EBELP AS EBELP
+    , EB.BADAT AS BADAT
+    , VALUE(M13.LNAME,'') AS LNAME
+    , SAPHEE.GET_ZERODATE(VALUE(M13.SDATE,'')) AS SDATE
+    , SAPHEE.GET_ZERODATE(VALUE(M17.BUDAT,'')) AS BUDAT
+    , CASE WHEN EB.WERKS &lt;&gt; '2000'  THEN (CASE WHEN  M13.EBELN IS NULL AND SAPHEE.GET_JAJEA_POOMOK(EB.MANDT, PR.POSID,EB.MATNR) = 'E' THEN '' ELSE SAPHEE.GET_JAJEA_POOMOK(EB.MANDT, PR.POSID,EB.MATNR) END) ELSE '' END   AS BIGO
+  --   ,'N' AS BIGO
+    , CAST(MA.ZQNTY AS INT) AS ZQNTY
+    , VALUE(MA.ZCITY_NM,'') AS ZCITY_NM
+    , SAPHEE.GET_ZERODATE(VALUE(M25.SHIPDAT5,'')) AS SHIPDAT
+    , VALUE(M12.TELF1,'') AS TELF1
+    , VALUE(M12.TELFX,'') AS TELFX
+    , VALUE(M13.UDATE,'') AS UDATE  
+    , VALUE(M13.LGORT,'') AS LGORT  
+FROM SAPHEE.EBAN AS EB 
+    LEFT OUTER JOIN SAPHEE.EBKN AS EK ON EK.MANDT= EB.MANDT 
+                                                              AND EK.BANFN = EB.BANFN 
+                                                              AND EK.BNFPO = EB.BNFPO
+    LEFT OUTER JOIN SAPHEE.PRPS AS PR ON PR.MANDT= EK.MANDT 
+                                                              AND PR.PSPNR = EK.PS_PSP_PNR
+    LEFT OUTER JOIN SAPHEE.ZMASTER01 AS MA ON MA.MANDT= PR.MANDT 
+                                                                        AND MA.POSID = SUBSTR(PR.POSID,1,6)
+    LEFT OUTER JOIN SAPHEE.ZMMT013 AS M13 ON M13.MANDT=EB.MANDT 
+                                                                      AND M13.EBELN = EB.EBELN 
+                                                                    AND M13.EBELP = EB.EBELP
+    LEFT OUTER JOIN SAPHEE.ZMMT017 AS M17 ON M13.MANDT=M17.MANDT 
+                                                                      AND M13.EBELN = M17.EBELN 
+                                                                    AND M13.EBELP = M17.EBELP
+    LEFT OUTER JOIN SAPHEE.ZMMT025 AS M25 ON  PR.MANDT = M25.MANDT
+                                                            AND SUBSTR(PR.POSID,1,9) = M25.POSID
+                                                            AND M25.PSTYPE = '02'
+    LEFT OUTER JOIN SAPHEE.ZMMT012 AS M12 ON M13.MANDT= M12.MANDT
+                                                            AND M13.LIFNR = M12.LIFNR
+  WHERE EB.MANDT= #G_MANDT#
+     AND (EB.EKGRP BETWEEN '108' AND '109' AND M13.EXTWG = 'BOX20')
+--     AND EB.EKGRP = '109'
+<isNotEqual col="DATEGUBN" value="N">
+     AND EB.BADAT BETWEEN #BADAT_FM# AND #BADAT_TO#
+</isNotEqual>
+
+     AND EB.WERKS = '1000'
+     AND (PR.posid  like '%-P' or PR.posid like '%NS%' or  PR.posid like '%NB%' or PR.posid like '%NC%' or PR.posid  like 'V%' or PR.posid  like 'Q%')
+     
+<isGreaterThan col="POSID" value="0">
+     AND PR.POSID LIKE  #POSID#||'%'
+</isGreaterThan>
+
+<isNotNull col="MATNR">
+     AND EB.MATNR LIKE  #MATNR#||'%'
+</isNotNull>
+
+<isNotNull col="LIFNR">
+     AND M13.LIFNR =  #LIFNR#
+</isNotNull>
+
+<isNotNull col="ZCITY">
+     AND MA.ZCITY =  #ZCITY#
+</isNotNull>
+
+     AND M13.STATE &lt; '3'
+<isEqual col="BUDAT" value="1">
+     AND VALUE(M17.BUDAT,'') > ''
+</isEqual>
+<isEqual col="BUDAT" value="2">
+     AND VALUE(M17.BUDAT,'') = ''
+</isEqual>
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="BADAT_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="BADAT_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="MPOSID" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="ZCITY" size="255" type="VARCHAR" description="" /> 
+		<col name="BUDAT" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="BADAT" size="24" type="VARCHAR" description="" /> 
+		<col name="EBELN" size="30" type="VARCHAR" description="" /> 
+		<col name="EBELP" size="15" type="VARCHAR" description="" /> 
+		<col name="LNAME" size="105" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="15" type="NUMERIC" description="" /> 
+		<col name="POSID" size="9" type="VARCHAR" description="" /> 
+		<col name="TXZ01" size="120" type="VARCHAR" description="" /> 
+		<col name="WERKS" size="12" type="VARCHAR" description="" /> 
+		<col name="ZSITE_NM" size="105" type="VARCHAR" description="" /> 
+	</output>
+</query>

@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+WITH TEMP AS (
+		SELECT P.PSPID
+		      , P.CID
+		      , MAX(M01.ZSITE_NM) AS ZSITE_NM
+		      , MAX(M01.NAMET) AS NAMET
+		      , MAX(M01.NAMET2) AS NAMET2
+		      , MAX(M01.ZZACTSS) AS ZZACTSS
+		      , (CASE WHEN MAX(M01.ZZACTSS) = '21' OR MAX(M01.ZZACTSS) = '10' OR MAX(M01.ZZACTSS) = '08' -- 강북, 인천, 강원
+		             THEN '1'
+		             WHEN MAX(M01.ZZACTSS) = '02' OR MAX(M01.ZZACTSS) = '19' OR MAX(M01.ZZACTSS) = '20'  -- 강남, 강서, 중부
+		             THEN '2'
+		             WHEN MAX(M01.ZZACTSS) = '06' OR MAX(M01.ZZACTSS) = '05' OR MAX(M01.ZZACTSS) = '07' OR MAX(M01.ZZACTSS) = '12' -- 대전, 광주, 전주, 제주
+		             THEN '3'
+		             WHEN MAX(M01.ZZACTSS) = '03' OR MAX(M01.ZZACTSS) = '04' OR MAX(M01.ZZACTSS) = '11' OR MAX(M01.ZZACTSS) = '09' -- 부산, 대구, 경남, 울산
+		             THEN '4'
+		             WHEN MAX(M01.ZZACTSS) = '13' OR MAX(M01.ZZACTSS) = '01' -- E/S, 직영
+		             THEN '5'
+		             ELSE '6' -- 리모델링
+		             END) AS GRUP
+		      , CASE WHEN MAX(M01.ZZACTSS) = '21'
+		      		 THEN '01'
+		      		 WHEN MAX(M01.ZZACTSS) = '10'
+		      		 THEN '02'
+		      		 WHEN MAX(M01.ZZACTSS) = '08'
+		      		 THEN '03'
+		      		 WHEN MAX(M01.ZZACTSS) = '02'
+		      		 THEN '01'
+		      		 WHEN MAX(M01.ZZACTSS) = '19'
+		      		 THEN '02'
+		      		 WHEN MAX(M01.ZZACTSS) = '20'
+		      		 THEN '03'
+		      		 WHEN MAX(M01.ZZACTSS) = '06'
+		      		 THEN '01'
+		      		 WHEN MAX(M01.ZZACTSS) = '05'
+		      		 THEN '02'
+		      		 WHEN MAX(M01.ZZACTSS) = '07'
+		      		 THEN '03'
+		      		 WHEN MAX(M01.ZZACTSS) = '12'
+		      		 THEN '04'
+		      		 WHEN MAX(M01.ZZACTSS) = '03'
+		      		 THEN '01'
+		      		 WHEN MAX(M01.ZZACTSS) = '04'
+		      		 THEN '02'
+		      		 WHEN MAX(M01.ZZACTSS) = '11'
+		      		 THEN '03'
+		      		 WHEN MAX(M01.ZZACTSS) = '09'
+		      		 THEN '04'
+		      		 WHEN MAX(M01.ZZACTSS) = '13'
+		      		 THEN '01'
+		      		 WHEN MAX(M01.ZZACTSS) = '01'
+		      		 THEN '02'
+		      		 ELSE '01'
+		      		 END AS SORT
+		      , MAX(G.TEXT30) AS TEXT30
+		      --, T08.CHAAD_DA AS RECAD_DA
+			  , (
+		      		SELECT X.RECAD_DA
+		      		  FROM SAPHEE.VBAK X
+		      		 WHERE X.MANDT    = P.MANDT
+		      		   AND X.ZZPJT_ID = P.PSPID
+		      		 FETCH FIRST 1 ROW ONLY
+		        	 WITH UR
+		       ) AS RECAD_DA
+		       , MAX(P.EXPLO) AS EXPLO
+			   , DECODE(VALUE(MIN(M02.ZZSHIP1),'00000000'),'','00000000',MIN(M02.ZZSHIP1)) AS ZZSHIP1
+			   , DECODE(VALUE(MIN(M02.ZZDAT01),'00000000'),'','00000000',MIN(M02.ZZDAT01)) AS ZZDAT01
+			   , DECODE(VALUE(MIN(M02.ZZCHAKD),'00000000'),'','00000000',MIN(M02.ZZCHAKD)) AS ZZCHAKD
+				 , VALUE((
+		       		SELECT COUNT(1)
+						  FROM (
+								SELECT X1.PSPID
+					  		 	  FROM SAPHEE.ZPST0019 AS X1
+					  			 WHERE X1.MANDT = #G_MANDT#
+					  			   AND X1.GBN = 'A'
+								MINUS
+								(
+									SELECT X1.PSPID
+						  		 	  FROM SAPHEE.ZPST0019 AS X1
+						  			 WHERE X1.MANDT = #G_MANDT#
+						  			   AND X1.GBN = 'B'
+									UNION
+									SELECT X2.PSPID
+									  FROM SAPHEE.ZPSTPM01 AS X2
+									 WHERE X2.MANDT = #G_MANDT#
+									   AND X2.INPT = 'B'
+								)
+								
+							   ) AS T
+					    WHERE T.PSPID = P.PSPID
+					    WITH UR
+		          	), 0) AS PHONE_CNT -- 현장답사(전화)
+				 , VALUE((
+		       		SELECT COUNT(1)
+						  FROM (
+								SELECT X1.PSPID
+					  		 	  FROM SAPHEE.ZPST0019 AS X1
+					  			 WHERE X1.MANDT = #G_MANDT#
+					  			   AND X1.GBN = 'B'
+								UNION
+								SELECT X2.PSPID
+								  FROM SAPHEE.ZPSTPM01 AS X2
+								 WHERE X2.MANDT = #G_MANDT#
+								   AND X2.INPT = 'B'
+							   ) AS T
+					    WHERE T.PSPID = P.PSPID
+					    WITH UR
+		          	), 0) AS VISIT_CNT
+		         , VALUE((
+		       		SELECT COUNT(1)
+						  FROM (
+								SELECT X1.PSPID
+					  		 	  FROM SAPHEE.ZPST0019 AS X1
+					  			 WHERE X1.MANDT = #G_MANDT#
+					  			   AND X1.GBN NOT IN ('A','B')
+					  			   AND X1.GBN != ''
+					  			   AND X1.GBN IS NOT NULL
+								MINUS
+								(
+									SELECT X1.PSPID
+						  		 	  FROM SAPHEE.ZPST0019 AS X1
+						  			 WHERE X1.MANDT = #G_MANDT#
+						  			   AND X1.GBN = 'B'
+									UNION
+									SELECT X2.PSPID
+									  FROM SAPHEE.ZPSTPM01 AS X2
+									 WHERE X2.MANDT = #G_MANDT#
+									   AND X2.INPT = 'B'
+								)
+							   ) AS T
+					    WHERE T.PSPID = P.PSPID
+					    WITH UR
+		          	), 0) AS GITA_CNT	-- 현장답사(기타)
+				 , VALUE(DECODE(T08.KWMENGT,'',0,T08.KWMENGT),0) AS KWMENGT
+
+				 , (
+				  		SELECT COUNT(1)
+				  		  FROM SAPHEE.ZPST11071MB AS X
+				  		 WHERE X.MANDT = P.MANDT
+				  		   AND X.PJT   = P.PSPID
+				  		WITH UR
+				    ) AS MB_CNT
+		  FROM (
+		  			SELECT X1.MANDT
+		  			     , X1.PSPID
+		  			     , X1.EXPLO
+		  			     , X1.GBN
+		  			     , X1.CNAME AS CID
+		  		 	  FROM SAPHEE.ZPST0019 AS X1
+		  			 WHERE X1.MANDT = #G_MANDT#
+		  			   AND X1.GBN IN ('A', 'B', 'C', 'D')
+					 UNION
+					SELECT X2.MANDT
+					     , X2.PSPID
+					     , X2.CDATE AS EXPLO
+					     , X2.INPT AS GBN
+					     , X2.CNAME AS CID
+					  FROM SAPHEE.ZPSTPM01 AS X2
+					 WHERE X2.MANDT = #G_MANDT#
+					   AND X2.INPT = 'B'
+		       ) AS P
+
+		   LEFT OUTER JOIN SAPHEE.ZMASTER02 M02
+		                ON P.MANDT = M02.MANDT
+		               AND P.PSPID = M02.POSID 
+		   LEFT OUTER JOIN SAPHEE.ZMASTER01 M01
+		                ON P.MANDT = M01.MANDT
+		               AND P.PSPID = M01.POSID
+		   LEFT OUTER JOIN SAPHEE.J_1AACTT AS G
+					  ON P.MANDT = G.MANDT
+				     AND G.SPRAS = '3'     	  
+					 AND M01.ZZACTSS = G.J_1AACT
+		   LEFT OUTER JOIN SAPHEE.ZPST0008 T08
+		               ON P.MANDT = T08.MANDT
+		              AND P.PSPID = T08.POSID
+		               
+		 WHERE P.MANDT = #G_MANDT#
+		   AND P.PSPID NOT LIKE 'G%'
+		   AND P.PSPID NOT LIKE 'E%'
+		   AND P.PSPID NOT LIKE 'C%'
+		   AND P.PSPID NOT LIKE 'T%'
+		   AND P.PSPID NOT LIKE 'J%'
+		   AND P.CID != '' AND P.CID IS NOT NULL
+		   AND M02.ZZGUBUN IN ('10', '11', '12', '13', '14', '20')
+   		   AND M02.PRART   IN ('01', '02', '11')
+		   AND M01.ZZACTSS  <![CDATA[<>]]>  ''
+		   --AND T08.CHAAD_DA BETWEEN #FROM_DT# AND #TO_DT# -- 수통접수일
+		GROUP BY P.MANDT, P.PSPID, P.CID, VALUE(DECODE(T08.KWMENGT,'',0,T08.KWMENGT),0), T08.CHAAD_DA
+		   
+		   
+
+		 WITH UR
+	) 
+		
+	
+	
+	SELECT TBL.ZZACTSS
+			 , TBL.TEXT30
+			 , TBL.CID
+			 , TBL.CNAME
+			 , TBL.GRUP
+			 , TBL.SORT
+			 , '1' AS TOTAL
+			 --, SUM(CASE WHEN TBL.RNK_POSID = '1'
+			 --           THEN 1
+			 --           ELSE 0
+			 --           END) AS POSID_CNT -- Project(현장수)
+			 , (
+			 		SELECT COUNT(DISTINCT X.POSID)
+			 		  FROM SAPHEE.ZPST0008 X
+			 		   LEFT OUTER JOIN SAPHEE.ZMASTER02 X1
+			 		                ON X.MANDT = X1.MANDT
+			 		               AND X.POSID = X1.POSID
+			 		   LEFT OUTER JOIN SAPHEE.ZPST0011 X2
+			 		                ON X1.MANDT = X2.MANDT
+			 		               AND X1.TEMNO = X2.TEMNO
+			 		   LEFT OUTER JOIN SAPHEE.VBAK VB
+			 		               ON X.MANDT    = VB.MANDT
+		      		  			  AND X.POSID    = VB.ZZPJT_ID
+			 		 WHERE VB.RECAD_DA BETWEEN #FROM_DT# AND #TO_DT#
+			 		   AND X.ZZACTSS   = TBL.ZZACTSS
+			 		   AND X2.USERNUMB = TBL.CID
+			 		   AND X.POSID NOT LIKE 'G%'
+					   AND X.POSID NOT LIKE 'E%'
+					   AND X.POSID NOT LIKE 'C%'
+					   AND X.POSID NOT LIKE 'T%'
+					   AND X.POSID NOT LIKE 'J%'
+			   )      AS POSID_CNT      
+			            
+
+		     , SUM(CASE WHEN TBL.RNK_POSID = '1'
+		                THEN INTEGER(TBL.KWMENGT)
+		                ELSE 0
+		                END) AS KWMENGT  -- 총 대수
+
+		     , SUM(CASE WHEN TBL.RNK_POSID = '1'
+		                THEN TBL.PHONE_CNT
+		                ELSE 0
+		                END) AS PHONE_CNT -- 현장답사(전화)
+		                       
+		     , SUM(CASE WHEN TBL.RNK_POSID = '1'
+		                THEN TBL.VISIT_CNT
+		                ELSE 0
+		                END) AS VISIT_CNT -- 현장답사(방문)
+		     , SUM(CASE WHEN TBL.RNK_POSID = '1'
+		                THEN TBL.GITA_CNT
+		                ELSE 0
+		                END) AS GITA_CNT   -- 현장답사(기타)
+		     , SUM(CASE WHEN TBL.RNK_POSID = '1'
+		                THEN TBL.TOT_CNT
+		                ELSE 0
+		                END)  AS TOT_CNT    -- 현장답사(전체 횟수)
+		     , SUM(CASE WHEN TBL.RNK_POSID = '1'
+		                THEN TBL.TOT_CNT_7
+		                ELSE 0
+		                END) AS TOT_CNT_7 -- 현장답사(7일전)
+		     
+		  FROM (
+		  
+	  		SELECT T.PSPID
+	  			 , T.CID
+	  			 , VALUE(( SELECT X.USERNAME FROM SAPHEE.ZUSERF AS X WHERE X.MANDT = #G_MANDT#  AND X.USERNUMB = T.CID ), T.CID)  AS  CNAME
+	  		     , T.ZZACTSS
+			     , T.ZSITE_NM
+			     , T.NAMET2
+			     , T.TEXT30
+			     , T.NAMET
+			     --, T.TEMNO
+			     , T.EXPLO
+			     , T.GRUP
+			     , T.SORT
+			     , VALUE((
+		       		SELECT COUNT(DISTINCT X.PSPID)
+		       		  FROM (
+		       		  			SELECT X1.MANDT
+					  			     , X1.PSPID
+					  			     , X1.EXPLO
+					  		 	  FROM SAPHEE.ZPST0019 AS X1
+					  			 WHERE X1.MANDT = #G_MANDT#
+					  			   AND X1.GBN IN ('A', 'B', 'C', 'D')
+								 UNION
+								SELECT X2.MANDT
+								     , X2.PSPID
+								     , X2.CDATE AS EXPLO
+								  FROM SAPHEE.ZPSTPM01 AS X2
+								 WHERE X2.MANDT = #G_MANDT#
+								   AND X2.INPT = 'B'
+		       		  		) AS X
+		       		 WHERE X.MANDT = #G_MANDT#
+		       		   AND X.PSPID = T.PSPID
+		       		   AND X.EXPLO BETWEEN T.RECAD_DA AND SAPHEE.GET_WORKINGDAY(T.RECAD_DA,7)
+
+		          	), 0) AS TOT_CNT_7
+			     , ROW_NUMBER() OVER (PARTITION BY T.PSPID, T.EXPLO, T.CID ORDER BY T.PSPID, T.EXPLO, T.CID) AS RNK_POSID
+				 , T.PHONE_CNT
+				 , T.VISIT_CNT
+				 , T.GITA_CNT
+				 , VALUE(T.PHONE_CNT,0) + VALUE(T.VISIT_CNT,0) + VALUE(T.GITA_CNT,0) AS TOT_CNT -- 현장답사 횟수
+				 , T.KWMENGT
+				 , T.MB_CNT
+
+			  FROM TEMP T
+			 WHERE 1=1
+			   AND T.RECAD_DA BETWEEN #FROM_DT# AND #TO_DT#
+
+				) AS TBL
+	  WHERE 1=1
+	  GROUP BY TBL.ZZACTSS, TBL.TEXT30, TBL.CID, TBL.CNAME, TBL.GRUP, TBL.SORT
+	ORDER BY TBL.GRUP, TBL.SORT, TBL.CNAME
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

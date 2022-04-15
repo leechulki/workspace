@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[PS1505001P_S7]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+SELECT T.CODE
+     , T.CODE_NAME
+     , T.USERMBPN
+     , T.USERBIRTH
+  FROM (
+		SELECT MAX(U.USERNUMB) AS CODE
+		     , MAX(U.USERMBPN) AS USERMBPN --연락처
+		     , U.USERNAME AS CODE_NAME
+		     , U.USERBIRTH
+		  FROM SAPHEE.ZUSERF U--사용자 마스터 테이블
+		  LEFT OUTER JOIN SAPHEE.ZPSTW1904 E--안전교육 이수자 등록 테이블
+		    ON U.MANDT = E.MANDT
+		   AND U.USERNAME = E.NAME1
+		   AND U.USERBIRTH = E.BIRTH
+		  LEFT OUTER JOIN SAPHEE.ZPST0001 A--협력업체 사원정보 테이블
+		    ON U.MANDT = A.MANDT
+		   AND U.USERCODE = A.LIFNR
+		   AND U.USERNAME = A.NAMEE
+		   AND U.USERBIRTH = A.BIRTH
+		 WHERE U.MANDT = #G_MANDT#  
+		   AND U.USERCODE = #LIFNR#
+		   AND E.EDUGBN IN ('1', '3')--고정값(교육구분)
+		   AND E.EDUDAT BETWEEN HEX(CURRENT DATE - 16 MONTH) AND HEX(CURRENT DATE)	-- 원래 8개월, 12개월, 추후 다시 변경.
+		   AND A.RETIF <![CDATA[<>]]> 'X'--고정값(퇴사여부 : 퇴사자 제외)
+		   AND A.POSIC <![CDATA[<>]]> 'X' -- 대표아닌 교육받은 사람만 조회
+		 GROUP BY U.USERNAME, U.USERBIRTH
+		   
+		 UNION ALL
+		 
+		 SELECT DISTINCT U.USERNUMB AS CODE
+		     , U.USERMBPN--연락처
+		     , U.USERNAME AS CODE_NAME
+		     , U.USERBIRTH
+		  FROM SAPHEE.ZUSERF U--사용자 마스터 테이블
+		  LEFT OUTER JOIN SAPHEE.ZPST0001 A--협력업체 사원정보 테이블
+		    ON U.MANDT = A.MANDT
+		   AND U.USERCODE = A.LIFNR
+		   AND U.USERNAME = A.NAMEE
+		   AND U.USERBIRTH = A.BIRTH
+		 WHERE U.MANDT = #G_MANDT#
+		   AND U.USERCODE = #LIFNR#
+		   AND A.RETIF <![CDATA[<>]]> 'X'--고정값(퇴사여부 : 퇴사자 제외)
+		   AND A.POSIC = 'X'
+   
+   	) AS T
+   
+   
+ ORDER BY T.CODE_NAME
+FOR FETCH ONLY WITH UR
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_worker">
+	</output>
+</query>

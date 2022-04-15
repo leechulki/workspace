@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+WITH TEMP AS 
+(
+SELECT   A.MANDT  ,A.POSID AS PSPID   ,A.ZSITE_NM   ,B.POSID_1 AS POSID   ,B.ZSPEC1    ,B.ZSPEC2   ,B.LIFNR
+              ,B.ZZGUBUN
+              ,C.NAME1 AS LIFNR_NM
+              ,VALUE((SELECT   X.EXPLO
+	                FROM SAPHEE.ZPST0019 AS X
+	              WHERE X.MANDT = A.MANDT      AND     X.PSPID = A.POSID
+                            ORDER BY  SEQNO DESC    fetch first 1 rows only  ), '00000000')  AS STON_DATE  --현장답사일 
+
+              ,VALUE((SELECT   X.FRAME_DATE
+	                FROM SAPHEE.ZPST0019 AS X
+	              WHERE X.MANDT = A.MANDT      AND     X.PSPID = A.POSID  AND  X.DEL &lt;&gt; 'X'
+                            ORDER BY  SEQNO DESC    fetch first 1 rows only  ), '00000000')  AS FRAM_DATE	  -- 골조예상완료일
+ 
+
+              ,B.TEMNO	AS PMCD   ,B.NAMET AS PMNM	 ,B.ZZACTSS AS ACTSS   ,B.TEXT30 AS ACTSSNM
+			  ,B.TEMNO2 AS TMCD	  ,B.NAMET2 AS TMNM     ,B.ZZSHIP1   ,B.ZZCOMP2
+        ,DAYS(INSERT(INSERT(B.ZZSHIP1,5,0,'-'),8,0,'-')) - DAYS(INSERT(INSERT(HEX(CURRENT DATE),5,0,'-'),8,0,'-') ) as   EXPIRY_DAY
+			--  ,DATE(INSERT(INSERT(B.ZZSHIP1,5,0,'-'),8,0,'-'))  -  (CURRENT DATE)  as   EXPIRY_DAY
+			  --,(CURRENT DATE) - DATE(INSERT(INSERT(B.ZZSHIP1,5,0,'-'),8,0,'-')) as   EXPIRY_DAY
+			  ,B.ZZINTER   ,D.ZZBEFOR
+              ,VALUE((SELECT X.NAMEE
+		  FROM SAPHEE.ZPST0001 AS X
+		WHERE X.MANDT = E.MANDT  AND  X.LIFNR = E.LIFNR  
+		  AND  X.TEMNO = E.TEMNO
+		   -- AND X.RETIF &lt;&gt; 'X'             
+		  AND  X.DELEF &lt;&gt; 'X'
+		  AND  X.GBN = 'A'
+		   fetch first 1 rows only ), '')  AS LIFT_TMNM
+
+              ,F.NETWR  -- 수주액   
+	,VALUE((SELECT SUM(X.HWBAS)
+	                FROM SAPHEE.ZSDT0029 AS X
+		 WHERE X.MANDT = F.MANDT    AND   X.KIDNO = F.ZZPJT_ID   AND  X.ZCANYM = '000000'), 0) AS HWBAS  -- 수금액  
+
+              --,(CASE WHEN G.UPD IS NULL   THEN  '00000000'   ELSE SUBSTR(G.UPD, 1, 8)  END) AS SURVEY_DAY_O
+              ,VALUE( (CASE WHEN B.ZZGUBUN = '10' OR B.ZZGUBUN = '13' 
+              				THEN (SELECT MAX(X.T_DATE)
+									FROM SAPHEE.ZPST11071MB AS X		  
+			                       WHERE X.MANDT = B.MANDT  AND X.PJT = B.POSID  
+			       					 AND X.HNO = SUBSTR(B.POSID_1, 7, 3) )
+                            WHEN B.ZZGUBUN = '11' OR B.ZZGUBUN = '14' 
+                            THEN (SELECT MAX(X.T_DATE)
+									FROM SAPHEE.ZPST11075MB AS X		  
+								   WHERE X.MANDT = B.MANDT  AND X.PJT = B.POSID  
+									 AND X.HNO = SUBSTR(B.POSID_1, 7, 3) )
+		                    WHEN B.ZZGUBUN = '12'  
+		                    THEN (SELECT MAX(X.T_DATE) FROM SAPHEE.ZPST11076MB  AS X		  
+                                              WHERE X.MANDT = B.MANDT  AND X.PJT = B.POSID  
+                                                AND X.HNO = SUBSTR(B.POSID_1, 7, 3) )			   
+		          			ELSE '00000000' 
+	               			END) , '00000000') AS SURVEY_DAY_O
+			, VALUE( (CASE WHEN B.ZZGUBUN = '10' OR B.ZZGUBUN = '13' 
+              				THEN (SELECT COUNT(1)
+									FROM SAPHEE.ZPST11071M AS X		  
+			                       WHERE X.MANDT = B.MANDT  AND X.PJT = B.POSID  
+			       					 AND X.HNO = SUBSTR(B.POSID_1, 7, 3) )
+                            WHEN B.ZZGUBUN = '11' OR B.ZZGUBUN = '14' 
+                            THEN (SELECT COUNT(1)
+									FROM SAPHEE.ZPST11075M AS X		  
+								   WHERE X.MANDT = B.MANDT  AND X.PJT = B.POSID  
+									 AND X.HNO = SUBSTR(B.POSID_1, 7, 3) )
+		                    WHEN B.ZZGUBUN = '12'  
+		                    THEN (SELECT COUNT(1) FROM SAPHEE.ZPST11076M  AS X		  
+                                              WHERE X.MANDT = B.MANDT  AND X.PJT = B.POSID  
+                                                AND X.HNO = SUBSTR(B.POSID_1, 7, 3) )			   
+		          			ELSE 0
+	               			END) , 0) AS SAVE_INDC
+
+	,VALUE((SELECT   X.REQ_DAT
+	                FROM SAPHEE.ZPSTHOOKD AS X
+	              WHERE X.MANDT = B.MANDT    AND   X.PSPID = B.POSID   AND   X.POSID = B.POSID_1
+                            ORDER BY  X.CHGNO DESC   fetch first 1 rows only  ), '00000000')  AS HOOKDAY
+
+	,VALUE((SELECT   MAX(X.CDATE)
+	                FROM SAPHEE.ZPSTPM01 AS X
+	              WHERE X.MANDT = B.MANDT    AND   X.PSPID = B.POSID   AND   X.POSID = B.POSID_1  AND  X.DEL &lt;&gt; 'X' ), '00000000')  AS HSTRYDAY
+
+              ,VALUE(H.REQ_DAT, '00000000') AS REQ_DAT
+	,VALUE(  (SELECT X.VALUE
+	                   FROM SAPHEE.ZSDT0005 AS X
+	                  WHERE X.MANDT = B.MANDT   AND  X.HOGI = B.POSID_1   AND  X.CHARACTERISTIC = 'EL_FSFG'
+		    ORDER BY X.SEQ DESC
+                                    fetch first 1 rows only ), '') AS H_VALUE
+
+              ,VALUE(I.COMPLT, 'A') AS COMPLT
+              ,VALUE(J.CDATE, '00000000') AS GETOFF_DAT
+
+   FROM SAPHEE.ZMASTER01 AS A
+   INNER JOIN SAPHEE.ZMASTER02 AS B
+        ON A.MANDT = B.MANDT	  AND    A.POSID = B.POSID
+     LEFT OUTER JOIN SAPHEE.LFA1 AS C
+        ON B.MANDT = C.MANDT     AND     B.LIFNR = C.LIFNR
+   INNER JOIN SAPHEE.PRPS AS D
+        ON A.MANDT = D.MANDT	  AND    A.POSID = D.POSID
+     LEFT OUTER JOIN SAPHEE.ZPST0102P AS E
+        ON B.MANDT = E.MANDT     AND    B.POSID = E.PSPID     AND     B.POSID_1 = E.POSID
+   INNER JOIN SAPHEE.VBAK AS F
+        ON A.MANDT = F.MANDT     AND    A.POSID = F.ZZPJT_ID
+
+     --LEFT OUTER JOIN SAPHEE.ZPST11071M AS G
+     --   ON B.MANDT = G.MANDT    AND    B.POSID = G.PJT         AND     B.POSID_1 = G.PJT || G.HNO
+
+    LEFT OUTER JOIN SAPHEE.ZPSTPM03 AS H
+        ON B.MANDT = H.MANDT
+      AND B.POSID = H.PSPID
+      AND B.POSID_1 = H.POSID	
+     LEFT OUTER JOIN SAPHEE.ZPSTPM04 AS I
+        ON B.MANDT = I.MANDT
+      AND B.POSID = I.PSPID
+     -- AND B.POSID_1 = I.POSID
+    LEFT OUTER JOIN SAPHEE.ZPSTPM05 AS J
+       ON B.MANDT = J.MANDT
+       AND B.POSID = J.PSPID
+       AND B.POSID_1 = J.POSID
+
+
+  WHERE B.MANDT = #G_MANDT#
+      AND B.TXT04 &lt;&gt; 'C'
+
+<isNotNull col="DATEF">
+      AND B.ZZSHIP1  BETWEEN  #DATEF# AND #DATET#
+</isNotNull>
+
+<isNotNull col="ZZACTSS">
+   <isEqual col="G_AREA_CODE_E" value="02">
+      AND (B.ZZACTSS  = #ZZACTSS# OR B.ZZACTSS  = '14')
+   </isEqual>
+   <isEqual col="G_AREA_CODE_E" value="21">
+      AND (B.ZZACTSS  = #ZZACTSS# OR B.ZZACTSS  = '14')
+   </isEqual>
+   <isNotEqual col="G_AREA_CODE_E" value="02">
+      AND B.ZZACTSS  = #ZZACTSS#
+   </isNotEqual>       
+</isNotNull>
+
+      AND B.ZZACTSS BETWEEN '01' AND '21'
+
+<isNotNull col="ZZPMNUM">
+      AND B.TEMNO = #ZZPMNUM#
+</isNotNull>
+
+<isNotNull col="PSPID">
+      AND A.POSID = #PSPID#
+</isNotNull>
+
+<isEqual col="GBN2" value="N">
+      AND B.ZZGUBUN IN ('10', '11', '12', '13', '14', '20')		
+</isEqual>
+<isEqual col="GBN2" value="Y">
+      AND B.ZZGUBUN IN ('10', '11', '12', '13', '14', '20','91','92')		
+</isEqual>  
+
+<isNotNull col="ZZLIFNR">
+     AND B.LIFNR = #ZZLIFNR#
+</isNotNull>
+
+--<isEqual col="GBN3" value="1">
+--   AND B.TEMNO &lt;&gt; ''   
+--</isEqual>
+
+--<isEqual col="GBN3" value="2">
+--   AND B.ZZCHAKG &lt;&gt; 'X'    
+--</isEqual>
+
+      AND B.TEMNO &lt;&gt; '' 
+      AND B.ZZCHAKG &lt;&gt; 'X'  
+      AND NOT EXISTS (SELECT *
+                       FROM SAPHEE.ZPST0098 AS X
+                      WHERE X.MANDT = B.MANDT
+                        AND X.PSPID = B.POSID
+                        AND X.POSID = B.POSID_1
+                        AND X.APPL_DAT &lt;= '99990101' )
+      
+
+WITH UR	
+)
+
+
+SELECT  T1.MANDT         ,T1.PSPID             ,T1.ZSITE_NM      ,T1.POSID             ,T1.ZSPEC1       ,T1.ZSPEC2       ,T1.LIFNR
+             ,T1.LIFNR_NM     ,T1.PMCD             ,T1.PMNM           ,T1.ACTSS            ,T1.ACTSSNM    ,T1.TMCD
+             ,T1.TMNM          ,T1.H_VALUE         ,ZZGUBUN
+             
+             ,T1.ZZSHIP1 AS ZZSHIP1_O       
+             ,SUBSTR(T1.ZZSHIP1, 3, 6) AS ZZSHIP1
+             
+             ,T1.ZZCOMP2  AS ZZCOMP2_O
+             ,SUBSTR(T1.ZZCOMP2, 3, 6) AS ZZCOMP2
+             
+             ,T1.EXPIRY_DAY
+             ,(CASE WHEN T1.ZZINTER = '' THEN '입력'  ELSE 'Y' END) AS ZZINTER_CN   ,T1.ZZINTER
+             ,T1.ZZBEFOR
+             ,T1.HWBAS   ,T1.NETWR
+             ,(CASE WHEN T1.ZZBEFOR = 'X' THEN 'Y'  ELSE   (CASE WHEN T1.NETWR > 0  THEN  rtrim(CHAR(INT(ROUND(DEC(  FLOAT(T1.HWBAS)  /  FLOAT(T1.NETWR) , 10 ,3),  2) * 100))) || '%'  ELSE '' END)    END) AS COLLECT_BILL
+             ,LIFT_TMNM  
+
+             ,T1.STON_DATE AS STON_DATE_O
+             ,(CASE WHEN T1.STON_DATE = '00000000' THEN '입력'  ELSE  SUBSTR(T1.STON_DATE, 3, 6)  END) AS STON_DATE
+
+             ,T1.FRAM_DATE AS FRAM_DATE_O
+             ,(CASE WHEN T1.FRAM_DATE = '00000000' THEN '입력'  ELSE  SUBSTR(T1.FRAM_DATE, 3, 6)   END) AS FRAM_DATE
+
+             ,T1.HOOKDAY AS HOOKDAY_O
+             ,(CASE WHEN T1.HOOKDAY = '00000000' THEN '입력'  ELSE  SUBSTR(T1.HOOKDAY, 3, 6)   END) AS HOOKDAY
+
+             ,T1.HSTRYDAY AS HSTRYDAY_O
+             ,(CASE WHEN T1.HSTRYDAY = '00000000' THEN '없음'  ELSE  SUBSTR(T1.HSTRYDAY, 3, 6)  END) AS HSTRYDAY
+             
+             ,T1.SURVEY_DAY_O
+             ,(CASE WHEN T1.SURVEY_DAY_O = '00000000' AND T1.SAVE_INDC = 0  
+                    THEN '입력'
+                    WHEN T1.SURVEY_DAY_O = '00000000' AND T1.SAVE_INDC > 0
+                    THEN '저장'
+                    ELSE SUBSTR(T1.SURVEY_DAY_O, 3, 6)  
+                    END) AS SURVEY_DAY
+
+            ,T1.REQ_DAT AS REQ_DAT_O
+            ,(CASE WHEN T1.REQ_DAT = '00000000' THEN  (CASE WHEN T1.H_VALUE = 'Y' THEN '입력' ELSE  '해당무' END)   ELSE SUBSTR(T1.REQ_DAT, 3, 6)  END ) AS REQ_DAT
+
+            ,T1.COMPLT
+
+            ,T1.GETOFF_DAT AS GETOFF_DAT_O
+            ,(CASE WHEN T1.GETOFF_DAT = '00000000'   THEN  '입력'   ELSE SUBSTR(T1.GETOFF_DAT, 3, 6)  END) AS GETOFF_DAT		
+			, '' AS GATE
+
+   FROM TEMP AS T1 	  
+ WHERE T1.MANDT = #G_MANDT#
+
+<isNotNull col="S_QUERY">
+    #S_QUERY+#
+</isNotNull>
+
+order by T1.ACTSSNM, T1.EXPIRY_DAY, T1.POSID 
+
+
+
+FOR FETCH ONLY WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

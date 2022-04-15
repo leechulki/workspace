@@ -1,0 +1,424 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[출하지시서 출력 자재 LIST조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+WITH LE1 AS (
+ SELECT DISTINCT
+ ZKNUM                                        AS ZKNUM
+, T7.MANDT AS MANDT
+,COALESCE(CASE WHEN SUBSTR(T7.POSID,1,1) IN ('Q','V') OR SUBSTR(T7.POSID,7,1) = 'N' 
+           THEN T7.POSID ELSE SUBSTR(T7.POSID,1,6) END,'')   AS PSPID
+,COALESCE(SUBSTR(T7.EXTWG,4,2),'') AS EXTWG
+,SAPHEE.CONV2BYTE(COALESCE(MAX(T7.BLOCK),''))   AS BLOCK
+--,COALESCE(MAX(T7.MATNR),'')           AS MATNR
+,CASE WHEN T7.BOX_CK = '24' THEN (SELECT EWBEZ FROM SAPHEE.ZMMT008_1 WHERE EXTWG = T7.EXTWG)
+                                                  ELSE (COALESCE(MAX(T7.MATNR),'')) END  AS MATNR
+,COALESCE(MAX(T7.MATKL),'')           AS MATKL
+,''                        AS MATNR_NM
+,'ST'                      AS VRKME
+,COALESCE(SUBSTR(MIN(T7.POSID),7,3),'') AS POSID1
+,1                         AS BMMG
+,1                         AS LFIMG
+,COALESCE(MAX(T7.EBELN),'')                AS EBELN
+,COALESCE(SUBSTR(MIN(T7.POSID),7,3),'') AS POSID2
+,'1'                      AS ORNUM
+,CASE WHEN MAX(T7.NAME1) IS NULL  THEN ''  ELSE MAX(T7.NAME1) END AS NAME1
+
+,CASE WHEN T7.BOX_CK = '24' THEN (CASE WHEN SUM(T7.JEAGO) > 0 AND COALESCE(SUBSTR(T7.EXTWG,4,2),'') IN ('01','02','05','07','08','09','18','19','20','22')
+                                       THEN 1 ELSE 0 END)
+                            ELSE (CASE WHEN SUM(T7.JEAGO) > 0 AND COALESCE(SUBSTR(T7.EXTWG,4,2),'') IN ('01','02','04','09','10','13','14','15','16','18','24','25','27','32','34','35','38','39','40')
+                                       THEN 1 ELSE 0 END)
+                            END AS JEAGO
+
+,VALUE(T7.BOX_CK,'0') AS BOX_CK
+FROM (
+
+		SELECT
+		 TL7.ZKNUM AS ZKNUM
+		,TL7.MANDT AS MANDT
+		,TL7.POSID AS POSID
+		,TL7.BLOCK AS BLOCK
+		,TL7.EXTWG AS EXTWG
+		,TL7.MATNR AS MATNR
+		,TL7.MATKL AS MATKL
+		,TL7.EBELN AS EBELN
+		,TL7.NAME1 AS NAME1
+		,CASE WHEN MC.SBDKZ IS NULL  THEN 0.000
+		      WHEN MC.SBDKZ='2'      THEN
+		         VALUE((
+		
+		                SELECT
+		                LABST
+		                FROM SAPHEE.MARD AS MD
+		                WHERE MD.MANDT=TL7.MANDT
+		                  AND MD.MATNR=TL7.MATNR1
+		                  AND MD.WERKS=MC.WERKS
+		                  AND MD.LGORT=TL7.LGORT2
+		
+		               ),0.000)
+		      ELSE
+		         VALUE((
+		
+		                SELECT
+		                PRLAB
+		                FROM SAPHEE.MSPR AS MD
+		                WHERE MD.MANDT=TL7.MANDT
+		                  AND MD.MATNR=TL7.MATNR1
+		                  AND MD.WERKS=MC.WERKS
+		                  AND MD.LGORT=TL7.LGORT2
+		                  AND MD.CHARG=''
+		                  AND MD.SOBKZ='Q'
+		                  AND MD.PSPNR=(
+		
+		                                 SELECT
+		                                 PSPNR
+		                                 FROM SAPHEE.PRPS AS PR
+		                                 WHERE PR.MANDT = TL7.MANDT
+		                                   AND PR.POSID = TL7.POSID_1
+		                               )
+		
+		                ),0.000) END  AS JEAGO          -- 재고
+                    ,VALUE(TL7.BOX_CK,'0') AS BOX_CK
+			FROM (
+
+				SELECT
+				 T3.ZKNUM AS ZKNUM
+				,T3.MANDT AS MANDT
+				,T4.POSID AS POSID
+				,CASE WHEN COALESCE(T4.BLOCK,'') = '' THEN 'CAGE' ELSE T4.BLOCK END AS BLOCK
+                                                        ,CASE WHEN M085.BOX_CK = '24'  THEN (CASE WHEN COALESCE(MA.EXTWG2,'') = '' THEN 'BOX24' ELSE MA.EXTWG2 END)
+                                       ELSE (CASE WHEN COALESCE(MA.EXTWG,'') = '' THEN 'BOX33' ELSE MA.EXTWG END ) END AS EXTWG
+                                                        ,CASE WHEN M085.BOX_CK = '24' THEN M8_1.EWBEZ ELSE M8.EWBEZ END AS MATNR
+				,T4.MATNR AS MATNR1
+				,T4.MATKL AS MATKL
+				,T4.VBELN AS EBELN
+				,L7.NAME1 AS NAME1
+				,CASE WHEN SUBSTR(T4.POSID,1,1) IN ('Q','F') THEN T4.POSID ELSE TRIM(T4.POSID) || '-P' END AS POSID_1
+				,L7 .LGORT2 AS LGORT2
+        ,VALUE(M085.BOX_CK,'0') AS BOX_CK
+				FROM SAPHEE.ZLET003 AS T3
+				     INNER JOIN SAPHEE.ZLET004 AS T4 ON  T3.MANDT = T4.MANDT
+				                                     AND T3.VBELN = T4.VBELN
+				                                     AND T4.ZCANC = ''
+				     INNER JOIN SAPHEE.ZLET017 AS L7 ON  T4.MANDT = L7.MANDT
+		                                         AND T4.VBELN = L7.ZBELN
+		                                         AND T4.POSNR = L7.ZOSNR
+
+				     LEFT OUTER JOIN SAPHEE.ZMMT008 AS M8 ON T3.MANDT = M8.MANDT
+		                                         AND M8.EXTWG = (CASE WHEN COALESCE(T4.EXTWG,'') = '' THEN 'BOX33' ELSE T4.EXTWG END)
+				     LEFT OUTER JOIN SAPHEE.ZMMT008_1 AS M8_1 ON T3.MANDT = M8_1.MANDT
+		                                         AND M8_1.EXTWG = (CASE WHEN COALESCE(T4.EXTWG,'') = '' THEN 'BOX24' ELSE T4.EXTWG END)
+
+				     LEFT OUTER JOIN SAPHEE.ZMMT011 AS MA ON  T4.MANDT = MA.MANDT
+		                                         AND T4.MATNR = MA.MATNR
+		         LEFT OUTER JOIN SAPHEE.ZMMT085 AS M085 ON M085.MANDT = T4.MANDT AND M085.POSID2 = T4.POSID
+				WHERE T3.MANDT  = #G_MANDT#
+			<isNotNull col="ZKNUM1">
+			               #ZKNUM1+#
+			</isNotNull>
+                                                        AND T3.PSPID LIKE '_%'
+			 		) AS TL7
+       LEFT OUTER JOIN SAPHEE.MARC      AS MC ON  TL7.MANDT = MC.MANDT
+            AND TL7.MATNR1 = MC.MATNR
+            AND MC.WERKS = '1000'
+       WHERE 1 = 1
+ 	
+		UNION
+		
+		SELECT
+		 T7.ZKNUM AS ZKNUM
+		,T7.MANDT AS MANDT
+		,T7.POSID AS POSID
+		,T7.BLOCK AS BLOCK
+--		,CASE WHEN COALESCE(MA.EXTWG,'') = '' THEN 'BOX33' ELSE MA.EXTWG END AS EXTWG
+                            ,CASE WHEN M85.BOX_CK = '24' THEN (CASE WHEN COALESCE(MA.EXTWG2,'') = '' THEN 'BOX24' ELSE MA.EXTWG2 END)
+                                       ELSE (CASE WHEN COALESCE(MA.EXTWG,'') = '' THEN 'BOX33' ELSE MA.EXTWG END ) END AS EXTWG
+
+		,T7.MATNR AS MATNR
+		,T7.MATKL AS MATKL
+		,T7.EBELN AS EBELN
+		,T7.NAME1 AS NAME1
+		,0 AS JEAGO
+    ,VALUE(M85.BOX_CK,'0') AS BOX_CK      
+		FROM SAPHEE.ZLET007 AS T7
+		LEFT OUTER JOIN SAPHEE.ZMMT011 AS MA ON  T7.MANDT = MA.MANDT
+		                              AND T7.MATNR = MA.MATNR
+    LEFT OUTER JOIN SAPHEE.ZMMT085 AS M85 ON M85.MANDT = T7.MANDT AND M85.POSID2 = T7.POSID
+		WHERE T7.MANDT  = #G_MANDT#
+	<isNotNull col="ZKNUM2">
+	               #ZKNUM2+#
+	</isNotNull>
+                            AND T7.PSPID LIKE '_%'
+		AND T7.ZCANC = '' 
+	) AS T7
+              WHERE T7.MANDT = #G_MANDT#
+	GROUP BY T7.ZKNUM,T7.MANDT,T7.EXTWG,T7.POSID, T7.BOX_CK
+
+UNION ALL
+
+
+ SELECT
+  ZKNUM               AS ZKNUM
+, T7.MANDT AS MANDT
+,COALESCE(CASE WHEN SUBSTR(T7.POSID,1,1) IN ('Q','V')
+           THEN T7.POSID ELSE SUBSTR(T7.POSID,1,6) END,'')   AS PSPID
+,COALESCE(SUBSTR(T7.EXTWG,4,2),'') AS EXTWG
+,SAPHEE.CONV2BYTE(COALESCE(T7.BLOCK,'' ))        AS BLOCK
+,COALESCE(T7.MATNR,'') || '-' || LTRIM(SAPHEE.TO_CHAR_DEC(T7.LFIMG,'99999.9'))    AS MATNR
+,T7.MATKL AS MATKL
+,TRIM(COALESCE(MA.MATNR_NM,'')) || ',' || TRIM(COALESCE(MA.SPEC,'')) || ',' || TRIM(COALESCE(MA.ZSIZE,'')) AS MATNR_NM
+,''                   AS VRKME
+,''                   AS POSID1
+,0                    AS BMMG
+,COALESCE(T7.LFIMG,0) AS LFIMG
+,''                   AS EBELN
+,COALESCE(SUBSTR(T7.POSID,7,3),'') AS POSID2
+,'2' AS ORNUM
+,CASE WHEN T7.NAME1 IS NULL  THEN ''  ELSE T7.NAME1 END AS NAME1
+,T7.JEAGO AS JEAGO
+,VALUE(T7.BOX_CK,'0') AS BOX_CK
+FROM (
+
+		SELECT
+		 TL7.ZKNUM AS ZKNUM
+		,TL7.MANDT AS MANDT
+		,TL7.POSID AS POSID
+		,TL7.BLOCK AS BLOCK
+		,TL7.EXTWG AS EXTWG
+		,TL7.MATNR AS MATNR
+		,TL7.MATKL AS MATKL
+		,TL7.LFIMG AS LFIMG
+		,TL7.VRKME AS VRKME
+		,TL7.NAME1 AS NAME1
+		,CASE WHEN MC.SBDKZ IS NULL  THEN 0.000
+		      WHEN MC.SBDKZ='2'      THEN
+		         VALUE((
+		
+		                SELECT
+		                LABST
+		                FROM SAPHEE.MARD AS MD
+		                WHERE MD.MANDT=TL7.MANDT
+		                  AND MD.MATNR=TL7.MATNR
+		                  AND MD.WERKS=MC.WERKS
+		                  AND MD.LGORT=TL7.LGORT2
+		
+		               ),0.000)
+		      ELSE
+		         VALUE((
+		
+		                SELECT
+		                PRLAB
+		                FROM SAPHEE.MSPR AS MD
+		                WHERE MD.MANDT=TL7.MANDT
+		                  AND MD.MATNR=TL7.MATNR
+		                  AND MD.WERKS=MC.WERKS
+		                  AND MD.LGORT=TL7.LGORT2
+		                  AND MD.CHARG=''
+		                  AND MD.SOBKZ='Q'
+		                  AND MD.PSPNR=(
+		
+		                                 SELECT
+		                                 PSPNR
+		                                 FROM SAPHEE.PRPS AS PR
+		                                 WHERE PR.MANDT = TL7.MANDT
+		                                   AND PR.POSID = TL7.POSID_1
+		                               )
+		
+		                ),0.000) END  AS JEAGO          -- 재고
+                     ,VALUE(TL7.BOX_CK,'0') AS BOX_CK		
+		 FROM (     
+				SELECT
+				 T3.ZKNUM AS ZKNUM
+				,T3.MANDT AS MANDT
+				,T4.POSID AS POSID
+				,CASE WHEN COALESCE(T4.BLOCK,'') = '' THEN 'CAGE' ELSE T4.BLOCK END AS BLOCK
+--				,CASE WHEN COALESCE(MA.EXTWG,'') = '' THEN 'BOX33' ELSE MA.EXTWG  END AS EXTWG
+                                                        ,CASE WHEN M85.BOX_CK = '24' THEN (CASE WHEN COALESCE(MA.EXTWG2,'') = '' THEN 'BOX24' ELSE MA.EXTWG2 END)
+                                                                   ELSE (CASE WHEN COALESCE(MA.EXTWG,'') = '' THEN 'BOX33' ELSE MA.EXTWG END ) END AS EXTWG
+
+				,T4.MATNR AS MATNR
+				,T4.MATKL AS MATKL
+				,T4.LFIMG AS LFIMG
+				,T4.VRKME AS VRKME
+				,L7.NAME1 AS NAME1
+		    ,CASE WHEN SUBSTR(T4.POSID,1,1) IN ('Q','F') THEN T4.POSID ELSE TRIM(T4.POSID) || '-P' END AS POSID_1
+				,L7 .LGORT2 AS LGORT2
+        ,VALUE(M85.BOX_CK,'0') AS BOX_CK
+				FROM SAPHEE.ZLET003 AS T3
+				     INNER JOIN SAPHEE.ZLET004 AS T4 ON  T3.MANDT = T4.MANDT
+				                                     AND T3.VBELN = T4.VBELN
+				                                     AND T4.ZCANC = ''
+		         INNER JOIN SAPHEE.ZLET017 AS L7 ON  T4.MANDT = L7.MANDT
+		                                         AND T4.VBELN = L7.ZBELN
+		                                         AND T4.POSNR = L7.ZOSNR
+		    	   LEFT OUTER JOIN SAPHEE.ZMMT011   AS MA ON  T4.MANDT = MA.MANDT
+				                                    AND T4.MATNR = MA.MATNR
+				     LEFT OUTER JOIN SAPHEE.ZMMT085 AS M85 ON M85.MANDT = T4.MANDT AND M85.POSID2 = T4.POSID
+				WHERE T3.MANDT  = #G_MANDT#
+			<isNotNull col="ZKNUM1">
+			               #ZKNUM1+#
+			</isNotNull>
+                                                            AND T3.PSPID LIKE '_%'
+			 		) AS TL7
+       LEFT OUTER JOIN SAPHEE.MARC      AS MC ON  TL7.MANDT = MC.MANDT
+            AND TL7.MATNR = MC.MATNR
+            AND MC.WERKS = '1000'
+       WHERE 1 = 1
+ 	
+		UNION ALL
+		
+		SELECT
+		 T7.ZKNUM AS ZKNUM
+		,T7.MANDT AS MANDT
+		,T7.POSID AS POSID
+		,T7.BLOCK AS BLOCK
+--		,CASE WHEN COALESCE(MA.EXTWG,'') = '' THEN 'BOX33' ELSE MA.EXTWG END AS EXTWG
+                            ,CASE WHEN M85.BOX_CK = '24' THEN (CASE WHEN COALESCE(MA.EXTWG2,'') = '' THEN 'BOX24' ELSE MA.EXTWG2 END)
+                                                                             ELSE (CASE WHEN COALESCE(MA.EXTWG,'') = '' THEN 'BOX33' ELSE MA.EXTWG END ) END AS EXTWG		
+		,T7.MATNR AS MATNR
+		,T7.MATKL AS MATKL
+		,T7.ERFMG AS LFIMG
+		,T7.ERFME AS VRKME
+		,T7.NAME1 AS NAME1
+		,0 AS JEAGO
+    ,VALUE(M85.BOX_CK,'0') AS BOX_CK
+		FROM SAPHEE.ZLET007 AS T7
+		LEFT OUTER JOIN SAPHEE.ZMMT011   AS MA ON  T7.MANDT = MA.MANDT
+		                                    AND T7.MATNR = MA.MATNR
+                             LEFT OUTER JOIN SAPHEE.ZMMT085 AS M85 ON M85.MANDT = T7.MANDT AND M85.POSID2 = T7.POSID                            
+		WHERE T7.MANDT  = #G_MANDT#
+	<isNotNull col="ZKNUM2">
+	               #ZKNUM2+#
+	</isNotNull>
+                            AND T7.PSPID LIKE '_%'
+	 	AND T7.ZCANC = ''
+	) AS T7
+	LEFT OUTER JOIN SAPHEE.ZMMT011   AS MA ON  T7.MANDT = MA.MANDT
+		                                    AND T7.MATNR = MA.MATNR
+  LEFT OUTER JOIN SAPHEE.ZMMT085 AS M85 ON M85.MANDT = T7.MANDT AND M85.POSID2 = T7.POSID                            
+ WHERE  1=1
+    AND ((T7.BOX_CK = '24' AND SUBSTR(T7.EXTWG,4,2) NOT IN ('01','02','05','07','08','09','18','19','20','22'))
+    OR (T7.BOX_CK = '0' AND SUBSTR(T7.EXTWG,4,2) NOT IN ('01','02','04','09','10','13','14','15','16','18','24','25','27','32','34','35','38','39','40')))
+   
+
+-- WHERE  1=1
+--    AND ((T7.BOX_CK = '24' AND SUBSTR(T7.EXTWG,4,2) NOT IN ('03','04','06','10','11','12','13','14','15','16','17','21','23','24'))
+--    OR (T7.BOX_CK = '0' AND SUBSTR(T7.EXTWG,4,2) NOT IN ('01','02','04','09','10','13','14','15','16','18','24','25','27','32','34','35','38','39','40')))
+
+)
+
+SELECT DISTINCT
+  LE1.ZKNUM  AS ZKNUM
+, LE1.PSPID   AS PSPID
+, LE1.EXTWG AS EXTWG
+,CASE WHEN LE1.BOX_CK = '24' THEN (SELECT  BLOCK FROM SAPHEE.ZMMT026_1 WHERE MANDT = '183' AND BOXNO = 'BOX' || LE1.EXTWG)
+                                                ELSE LE1.BLOCK
+                                                 END AS BLOCK
+--, LE1.BLOCK  AS BLOCK
+, CASE WHEN LE1.VRKME = '' AND P4.PRCTYP IN ('C','N') THEN LE1.MATNR ||'*' 
+           ELSE LE1.MATNR END AS MATNR
+, MATNR_NM  AS MATNR_NM
+, VRKME         AS VRKME
+, LE1.POSID1 AS POSID1
+, BMMG         AS BMMG
+, LFIMG             AS LFIMG
+, LE1.EBELN  AS EBELN
+, LE1.POSID2 AS POSID2
+, ORNUM       AS ORNUM
+, LE1.NAME1 AS NAME1
+, LE1.JEAGO AS JEAGO
+, P4.MATKL AS MATKL
+, P4.ITEM_SEQ AS ITEM_SEQ
+,VALUE(LE1.BOX_CK,'0') AS BOX_CK
+FROM LE1
+   LEFT OUTER JOIN SAPHEE.ZPPT004 AS P4 ON P4.MANDT = LE1.MANDT
+    AND P4.WOKNUM = LE1.PSPID || LE1.POSID2
+    AND P4.IDNRK = SUBSTR(LE1.MATNR,1,9)
+<isEqual col="GUBN" value="Y">
+    AND P4.MATKL = LE1.MATKL
+</isEqual>
+    AND P4.PRCTYP &lt;&gt; 'D'
+WHERE 1=1
+
+UNION ALL
+
+SELECT 
+  B3.ZKNUM  AS ZKNUM
+, B3.PSPID   AS PSPID
+, B3.EXTWG AS EXTWG
+, B3.BLOCK  AS BLOCK
+, CASE WHEN B3.PRCTYP IN ('C','N') THEN B3.MATNR || '-' || LTRIM(SAPHEE.TO_CHAR_DEC(B3.LFIMG,'99999.9')) || '*' 
+           ELSE B3.MATNR || '-' || LTRIM(SAPHEE.TO_CHAR_DEC(B3.LFIMG,'99999.9')) END AS MATNR
+, TRIM(COALESCE(MA.MATNR_NM,'')) || ',' || TRIM(COALESCE(MA.SPEC,'')) || ',' || TRIM(COALESCE(MA.ZSIZE,'')) AS MATNR_NM
+, ''               AS VRKME
+, ''  AS POSID1
+, 0                         AS BMMG
+, B3.LFIMG         AS LFIMG
+, ''  AS EBELN
+, B3.POSID2 AS POSID2
+, '2'                AS ORNUM
+, '' AS NAME1
+, 0 AS JEAGO
+, B3.MATKL AS MATKL
+,B3.ITEM_SEQ AS ITEM_SEQ
+,VALUE(B3.BOX_CK,'0') AS BOX_CK 
+FROM  (
+
+	SELECT 
+	  LE1.ZKNUM  AS ZKNUM
+	, LE1.MANDT AS MANDT
+	, LE1.PSPID   AS PSPID
+	, LE1.EXTWG AS EXTWG
+              , '기계실' AS BLOCK
+	, COALESCE( P4.IDNRK,'')   AS MATNR
+	, P4.MENGE         AS LFIMG
+	, LE1.POSID1 AS POSID2
+	, 0 AS JEAGO
+              , P4.PRCTYP AS PRCTYP
+              , P4.MATKL AS MATKL,P4.ITEM_SEQ AS ITEM_SEQ
+  ,VALUE(LE1.BOX_CK,'0') AS BOX_CK              
+	FROM LE1,SAPHEE.ZPPT004 AS P4 
+	
+	WHERE   
+	      LE1.EXTWG = '33'
+		 AND LE1.POSID1 > ''
+		 AND P4.MANDT= LE1.MANDT 
+		 AND P4.WOKNUM = LE1.PSPID || LE1.POSID1
+		 AND P4.MATKL IN ('B195A01','B195A02','B195A03')
+		 AND P4.IDNRK IN ('R76001001','R76001002','R76001003','R76002002','R76002005''R76002006')
+		 AND P4.PRCTYP &lt;&gt; 'D'
+		 ) AS B3
+		LEFT OUTER JOIN SAPHEE.ZMMT011   AS MA ON  B3.MANDT = MA.MANDT
+		                     AND B3.MATNR = MA.MATNR
+		                     
+ ORDER BY ZKNUM,EXTWG,BLOCK,POSID2,ORNUM
+ FOR FETCH ONLY
+ WITH UR	</statement>
+	<input default-name="ds_rcond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="ZKNUM1" size="255" type="VARCHAR" description="" /> 
+		<col name="ZKNUM2" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_rlist">
+		<col name="BLOCK" size="250" type="VARCHAR" description="" /> 
+		<col name="BMMG" size="11" type="NUMERIC" description="" /> 
+		<col name="EBELN" size="30" type="VARCHAR" description="" /> 
+		<col name="EXTWG" size="2" type="VARCHAR" description="" /> 
+		<col name="JEAGO" size="16" type="NUMERIC" description="" /> 
+		<col name="LFIMG" size="16" type="NUMERIC" description="" /> 
+		<col name="MATNR" size="105" type="VARCHAR" description="" /> 
+		<col name="MATNR_NM" size="482" type="VARCHAR" description="" /> 
+		<col name="NAME1" size="105" type="VARCHAR" description="" /> 
+		<col name="ORNUM" size="1" type="VARCHAR" description="" /> 
+		<col name="POSID1" size="3" type="VARCHAR" description="" /> 
+		<col name="POSID2" size="3" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="72" type="VARCHAR" description="" /> 
+		<col name="VRKME" size="2" type="VARCHAR" description="" /> 
+		<col name="ZKNUM" size="36" type="VARCHAR" description="" /> 
+		<col name="BOX_CK" size="6" type="VARCHAR" description="" /> 
+	</output>
+</query>

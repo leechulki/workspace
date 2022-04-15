@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>insert</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+INSERT INTO SAPHEE.ZCST652
+	(MANDT,
+	CS652_YEA,
+	CS652_MON,
+	CS652_PID,
+	CS652_ARA,
+	CS652_ARANM,
+	CS652_TEM,
+	CS652_TEMNM,
+	VKGRP,
+	CS652_POS,
+	CS652_NAM,
+	CS652_GRP,
+	CS652_CNT,
+	CS652_CNM,
+	CS652_SUR,
+	CS652_RID,
+	CS652_DAT,
+	LGORT )
+	
+
+with parent(mandt, pkey, fkey, level) as 
+(select mandt, dept, bumo, 0  from saphee.zhrt011
+   where mandt = #G_MANDT#
+   and dept = 'A0000005'  -- 서비스 사업부 최상위
+   
+    union all
+   
+  select  a.mandt, a.dept, a.bumo, p.level+1
+     from saphee.zhrt011 as a, parent as p
+   where a.mandt = p.mandt and a.dept != p.fkey  and a.bumo = p.pkey 
+ )
+
+SELECT A.MANDT, 
+       #YEAR# AS CS652_YEA, 
+       #MONTH# AS CS652_MON,  
+       A.PSNO AS CS652_PID, 
+       CASE  WHEN DPT1 = 'A1'   THEN 'E5'  ELSE DPT1    END CS652_ARA, 
+
+       --CASE WHEN DPT1_N = '임      원'  THEN '고객지원부'   ELSE DPT1_N    END CS652_ARANM, 
+       DPT1_N AS CS652_ARANM,
+
+       DEPT AS CS652_TEM, 
+       DEPT_N AS CS652_TEMNM, 
+       COALESCE(D.VKGRP, ''), 
+       RANK_N AS CS652_POS, 
+       IRUM AS CS652_NAM, 
+       JIKJ_N AS CS652_GRP, 
+
+       /*
+       CASE  WHEN DPT1 = 'E3'  THEN 0.5  
+             WHEN DPT1 = 'E5'  AND SUBSTR(DEPT,7,2) = '02'  THEN 0.0 
+             WHEN DPT1 = 'E5'  AND SUBSTR(DEPT,7,2) = '03'  THEN 0.5 
+             WHEN DEPT IN ('A101E500','E5040200','E5040201','E5040300','E5040400','E5050000','E5060000','E5070000','E5909999')  THEN 0.5 
+             WHEN DPT1 BETWEEN 'G1' AND 'H2'   AND SUBSTR(DEPT,3,2) IN ('03','05')  AND SUBSTR(DEPT,7,2) IN ('00','02')   THEN 0.5 
+             ELSE 1.0 
+       END AS CS652_CNT, 
+       */
+       0 AS CS652_CNT,
+
+
+       VALUE(LTEXT,'') AS CS652_CNM, 
+       CASE 
+           WHEN LENGTH(C.PSNO)>7 
+           THEN 'Y' 
+           ELSE '' 
+       END AS CS652_SUR, 
+       'TEST' AS CS652_RID, 
+       HEX(CURRENT DATE) AS CS652_DAT ,
+       COALESCE(D.LGORT, '')
+  FROM SAPHEE.ZHRT001 A 
+   LEFT OUTER JOIN SAPHEE.CSKT B 
+       ON B.MANDT = A.MANDT 
+       AND KOSTL = 
+       (
+           CASE 
+               WHEN LENGTH(KOSTL) = 5 
+               THEN COST 
+               ELSE '00000' || COST 
+           END
+       ) 
+       AND SPRAS = '3' 
+       AND KOKRS = '1000'
+       AND DATBI > HEX(CURRENT DATE) --------------------2018.12.24 Han J.H 추가. 현재일보다 효력 종료일이 커야 됨.
+   LEFT OUTER JOIN 
+       (SELECT DISTINCT PSNO 
+         FROM SAPHEE.ZCST211 
+        WHERE e_date > '20141130' 
+       ) C 
+       ON C.PSNO=A.PSNO 
+   LEFT OUTER JOIN 
+       (SELECT a.usernumb, -- 사번 
+              a.username, -- 성명 
+              b.vkgrp, -- 팀코드 
+              b.lgort 
+         FROM saphee.zuserf a, 
+              saphee.zwbt010 b 
+        WHERE a.mandt = #G_MANDT# 
+              AND a.mandt = b.mandt 
+              AND a.usercode = b.lifnr 
+              AND b.lgort > ''
+       ) D 
+       ON SUBSTR(A.PSNO,2,8) = D.usernumb 
+
+  INNER JOIN  parent AS P
+     ON A.MANDT = P.MANDT
+    AND A.DEPT = P.PKEY  
+
+ WHERE A.MANDT = #G_MANDT# 
+
+   --AND DPT1 IN ('E5','EF' ,'EK','EL','EO','EP','EQ','ER','ES','EN','EM'   )
+
+   AND LEAV = '00000000' 
+   AND RANK <> '' 
+ORDER BY DPT1, 
+       DEPT, 
+       A.PSNO	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

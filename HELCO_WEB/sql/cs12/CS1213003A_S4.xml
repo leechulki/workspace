@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+<![CDATA[
+SELECT 
+         MAX(ARA_NM   ) AS ARA_NM   
+       , MAX(BSU_NM   ) AS BSU_NM   
+       , MAX(TEM_NM   ) AS TEM_NM   
+       , MAX(ARA      ) AS ARA      
+       , MAX(BSU      ) AS BSU      
+       , MAX(GBN1     ) AS GBN1     
+       , MAX(MON      ) AS MON      
+       , MAX(UPN      ) AS UPN      
+       , MAX(ZSITE_NM ) AS ZSITE_NM 
+       , SUM(CNT      ) AS CNT      
+       , MAX(ADT      ) AS ADT      
+       , MAX(YDT      ) AS YDT      
+       , MAX(UGS      ) AS UGS      
+       , MAX(UMR      ) AS UMR      
+       , MAX(YON      ) AS YON      
+       , MAX(KND      ) AS KND      
+       , SUM(TOT      ) AS TOT      
+       , SUM(YMT      ) AS YMT      
+       , SUM(HMT      ) AS HMT      
+       , SUM(DMT      ) AS DMT      
+       , SUM(AOT      ) AS AOT      
+       , MAX(YDT_131  ) AS YDT_131  
+       , SUM(AMT_131  ) AS AMT_131     
+       , MAX(INT      ) AS INT    
+       ,'' SAV_D 
+
+
+  FROM (
+	         SELECT 
+	                SAPHEE.CODE_CONV(#G_MANDT#,'CS115',MAX(A.ARA))         ARA_NM   --지역                       
+	               ,SAPHEE.GET_VENDER_N_NAME(#G_MANDT#,MAX(A.BSU))         BSU_NM   --협력사                       
+	               ,SAPHEE.CODE_CONV(#G_MANDT#,'VKGRP',MAX(A.TEM))         TEM_NM   --팀명
+	               ,MAX(A.ARA)                                           ARA
+	               ,MAX(A.BSU)                                           BSU                     
+	               ,MAX(A.GBN)                                           GBN1                                   
+	               ,SUBSTR(MAX(A.YDT_131),1,6)                           MON                                   
+	               ,A.UPN                                                UPN                                     
+	               ,A.GNO                                                GNO                                   
+	               ,A.PJT                                                PJT                                   
+	               ,A.HNO                                                HNO                                 
+	               ,MAX(A.ZSITE_NM)                                      ZSITE_NM --현장명               
+	               ,1                                                    CNT      --대수                      
+	               ,MAX(A.ADT)                                           ADT      --계약승인일                       
+	               ,MAX(A.YDT)                                           YDT      --계약개시일                       
+	               ,MAX(A.UGS)                                           UGS      --유상개시일                        
+	               ,MAX(A.UMR)                                           UMR      --만료일            
+	               ,MAX(A.YON)                                           YON      --계약개월수                 
+	               ,MAX(A.KND)                                           KND      --계약상품                    
+	               ,VALUE(MAX(A.AMT+A.HMT+A.DMT),0)                      TOT      --계약금액                   
+	               ,VALUE(MAX(A.AMT),0)                                  YMT      --점검료                     
+	               ,VALUE(MAX(A.HMT),0)                                  HMT      --점검료                     
+	               ,VALUE(MAX(A.DMT),0)                                  DMT      --점검료                     
+	               ,0                                                   AOT      --평균점검료 = 계약금액/대수               
+	               ,MAX(A.YDT_131)                                       YDT_131                 
+	               ,VALUE(SUM(A.AMT_131+HMT_131+DMT_131),0)              AMT_131 
+	               ,MAX(A.INT)                                           INT
+	              
+	         FROM (
+	                 SELECT CS126A.MANDT
+	                       ,CS126A.CS126_ARA   ARA 
+	                       ,CS126A.CS126_BSU   BSU
+	                       ,ZW010H.VKGRP       TEM 
+	                       ,CS126A.CS126_BPM   BPM 
+	                       /*
+	                       ,CASE WHEN CS126A.CS126_GKD = '1' THEN 'CONVERSION'
+	                             WHEN CS126A.CS126_GKD = '2' THEN 'RENEWAL'
+	                             WHEN CS126A.CS126_GKD IN ('4', '5') THEN 'RECAPTURE'
+	                         END GBN 
+	                       */
+	                       , 'RENEWAL(O/H)' AS GBN
+	                       ,CS126A.CS126_ADT ADT 
+	                       ,CS126A.CS126_USD YDT 
+	                       ,CS126A.CS126_UGS UGS 
+	                       ,CS126A.CS126_UMR UMR 
+	                       ,CS126A.CS126_UPN UPN 
+	                       ,CS126A.CS126_CST CST 
+	                       ,CS126A.CS126_GNO GNO
+	                       ,CS126A.CS126_PJT PJT
+	                       ,CS126A.CS126_HNO HNO 
+	                       ,CS121.CS121_SPT ZSITE_NM
+	--                       ,ZMA01F.ZSITE_NM
+	                       ,CS126A.CS126_UMS YON 
+	                       ,CASE WHEN CS126A.CS126_KND > '' THEN 'FM'
+	                                              ELSE 'POG' 
+	                         END KND
+	                       ,CS126A.CS126_HYN HYN
+	                       ,CS126A.CS126_AMT AMT
+	                       ,CS126A.CS126_HMT HMT
+	                       ,CS126A.CS126_DMT DMT
+	                       ,CS131.CS131_MYM 
+	                       ,CS131.CS131_YDT  YDT_131
+	                       ,CS131.CS131_AMT  AMT_131
+	                       ,CS131.CS131_HMT  HMT_131
+	                       ,CS131.CS131_DMT  DMT_131
+	                       ,INWON.AMT        INT
+	                     
+	                      
+	          FROM SAPHEE.ZCST126 CS126A 
+	                                            
+	                                     LEFT OUTER JOIN SAPHEE.ZWBT010 ZW010H
+	                                             ON CS126A.MANDT = ZW010H.MANDT
+	                                            AND CS126A.CS126_BSU = ZW010H.LGORT
+	                                            
+	                                     LEFT OUTER JOIN SAPHEE.ZCST121 CS121 
+	                                                  ON CS126A.MANDT = CS121.MANDT
+	                                                 AND CS126A.CS126_UPN = CS121.CS121_UPN
+	                                                 AND CS126A.CS126_CST = CS121.CS121_CST
+	                                     
+	                                     LEFT OUTER JOIN SAPHEE.ZMASTER02 ZMA02E
+	                                                  ON CS126A.MANDT = ZMA02E.MANDT
+	                                                 AND CS126A.CS126_PJT = ZMA02E.POSID
+	                                                 AND CS126A.CS126_PJT||CS126A.CS126_HNO = ZMA02E.POSID_1
+	                                            
+	                                
+	                                     LEFT OUTER JOIN (
+	                                                 			 SELECT CS131_UPN, CS131_CST, SUM(CS131_AMT) AS AMT
+														                               FROM SAPHEE.ZCST131 A
+														                             	WHERE 1=1
+														                             	  AND A.MANDT = #G_MANDT#
+														                             	  AND A.CS131_MYM = #FYM2#
+														                             	  AND A.CS131_MYB = ''
+														                             	  AND A.CS131_HNO = 'Z99' 
+														                             	  
+														                             	GROUP BY CS131_UPN, CS131_CST
+	                                     				 ) INWON
+	                                     			  ON CS126A.CS126_UPN	= INWON.CS131_UPN
+	                                     		   AND CS126A.CS126_CST = INWON.CS131_CST
+				,SAPHEE.ZCST131 CS131
+			 WHERE 1=1
+				AND CS126A.MANDT = #G_MANDT#
+				AND SUBSTR(CS126A.CS126_HNO,1,1) NOT IN ('J','G')
+				AND CS131.CS131_YYM = #FYM2#
+				AND CS126A.MANDT = CS131.MANDT 
+				AND CS126A.CS126_UPN = CS131.CS131_UPN 	
+				AND CS126A.CS126_CST = CS131.CS131_CST 	
+				AND CS126A.CS126_PJT = CS131.CS131_PJT 	
+				AND CS126A.CS126_HNO = CS131.CS131_HNO 	
+				AND CS126A.CS126_SEQ = CS131.CS131_SEQ
+				AND CS131.CS131_MYB = ''
+				AND CS126A.CS126_PST = 'A6'
+				AND CS126A.CS126_DDT = ''
+		]]>			
+			<isNotNull col="PJT">
+	           AND CS126A.CS126_PJT  = #PJT#
+			</isNotNull>	
+			<isNotNull col="ARA">
+	           AND CS126A.CS126_ARA  = #ARA#
+			</isNotNull>
+			<isNotNull col="BSU">
+	           AND CS126A.CS126_BSU = #BSU#
+			</isNotNull>
+			<isNotNull col="BPM">
+	           AND CS126A.CS126_BPM = #BPM#
+			</isNotNull>
+			<isNotNull col="TEM">
+	           AND ZW010H.VKGRP = #TEM#
+			</isNotNull>
+			<isNull col="TEM">
+			 	<isNotNull col="DPT">
+				   AND ZW010H.VKGRP IN (SELECT CODE2 AS CODE
+				                           FROM SAPHEE.ZLCODE
+				                         WHERE MANDT = #G_MANDT#
+				                             AND LANG  = #G_LANG# 
+				                             AND CODE1 = 'VKGRP'
+				                             AND DTEXT1 = #DPT#)
+				</isNotNull>
+			 </isNull>
+	              ) AS A                              	     
+	                  
+	              
+	            WHERE 1=1
+	            
+	            GROUP BY A.UPN ,A.GNO ,A.PJT ,A.HNO
+    ) AS A
+	
+GROUP BY A.UPN 
+    
+ 	WITH UR	
+ 	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list2">
+	</output>
+</query>

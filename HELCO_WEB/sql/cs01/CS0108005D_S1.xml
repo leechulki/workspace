@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[소모재 관리 - 자재신청 Header]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+	SELECT D1.GBN, 
+	       D1.LGORT, 
+	       D1.GBN2, 
+	       D1.MATNR, 
+	       D1.MAKTX, 
+	       D1.ZSIZE, 
+	       D1.LIFNR, 
+	       D1.BNAME, 
+	       COUNT(D1.MATNR) CNT, 
+	       MAX(D1.SAMT1) AS SAMT1, 
+	       SUM(D1.MENGE) AS MENGE, 
+	       SUM(D1.SAMT2) AS SAMT2 
+	  FROM 
+	       (SELECT LC.GBN, 
+	              LC.GBN2, 
+	              LC.LGORT, 
+	              VALUE(BD.MATNR,'') AS MATNR, 
+	              VALUE(BD.MAKTX,'') AS MAKTX, 
+	              VALUE(BD.ZSIZE,'') AS ZSIZE, 
+	              VALUE(BD.SAMT1,0) AS SAMT1, 
+	              VALUE(BD.MENGE,0) AS MENGE, 
+	              VALUE(BD.SAMT2,0) AS SAMT2, 
+	              VALUE(BD.LIFNR,'') AS LIFNR, 
+	              VALUE(BD.NAME1,'') AS BNAME 
+	         FROM 
+	              (SELECT WB.BSU_ARA, 
+	                     WB.ABR_NM, 
+	                     WB.LGORT, 
+	                     WB.VKGRP, 
+	                     WB.VKGRP_NM, 
+	                     DECODE(WB.BSU_ARA, 'E5', '서울', '지방') AS GBN, 
+	                     CASE WB.LGORT 
+	                         WHEN '9000' THEN 'SPARE' 
+	                         WHEN '9005' THEN '강서1' 
+	                         WHEN '9006' THEN '강남' 
+	                         WHEN '9007' THEN '강북' 
+	                         WHEN '9008' THEN '강동' 
+	                         WHEN '9009' THEN 'ES' 
+	                         WHEN '9011' THEN '경기2' 
+	                         WHEN '9043' THEN '경기1' 
+	                         WHEN '9100' THEN '부산' 
+	                         WHEN '9109' THEN '대구' 
+	                         WHEN '9116' THEN '광주' 
+	                         WHEN '9128' THEN '대전' 
+	                         WHEN '9138' THEN '전주' 
+	                         WHEN '9143' THEN '강원' 
+	                         WHEN '9150' THEN '울산' 
+	                         WHEN '9155' THEN '인천' 
+	                         WHEN '9161' THEN '경남, 마창' 
+	                         WHEN '9165' THEN '제주' 
+	                         WHEN '9172' THEN '강서2팀 공항철도' 
+	                         WHEN '9180' THEN '9호선' 
+	                         WHEN '9209' THEN '강북2' 
+	                         WHEN '9210' THEN '강서2' 
+	                         WHEN '9212' THEN '충청' 
+	                         ELSE '기술팀' 
+	                     END GBN2, 
+	                     LC.CTEXT2 AS BST 
+	                FROM SAPHEE.ZWBT010 AS WB 
+	                 LEFT OUTER JOIN SAPHEE.ZLCODE AS LC 
+	                     ON WB.MANDT = LC.MANDT 
+	                     AND LC.LANG = 'ko' 
+	                     AND LC.CODE1 = 'VKGRP' 
+	                     AND LC.CODE2 = WB.VKGRP 
+	               WHERE 1=1 
+	                     AND WB.MANDT = #G_MANDT# 
+	                     AND WB.LGORT IN ('9007','9209','9180','9172','9210'
+											,'9155','9009','9006','9008','9143' 
+											,'9043','9011','9005','9116','9128'
+											,'9138','9165','9212','9161','9109'
+											,'9100','9150','9000','ZZZZ') --ZZZZ:서울기술팀 추가 필요
+	              ) LC 
+	          LEFT OUTER JOIN 
+	              (SELECT MT.CS660_BSU AS BSU, 
+	                     DT.MATNR, 
+	                     DT.MAKTX, 
+	                     Z011.ZSIZE, 
+	                     DT.MEINS, 
+	                     DT.SAMT1, 
+	                     DT.MENGE, 
+	                     DT.SAMT2, 
+	                     D.LIFNR, 
+	                     E.NAME1 
+	                FROM SAPHEE.ZCST660 MT 
+	                 INNER JOIN SAPHEE.ZCST659 DT 
+	                     ON MT.MANDT = DT.MANDT 
+	                     AND MT.CS660_DOC = DT.CS659_DOC 
+	                     AND MT.CS660_SIR = DT.CS659_SIR 
+	                 LEFT OUTER JOIN SAPHEE.ZMMT011 Z011 
+	                     ON DT.MANDT = Z011.MANDT 
+	                     AND DT.MATNR = Z011.MATNR 
+	                 LEFT OUTER JOIN SAPHEE.ZMMT112 AS A 
+	                     ON MT.MANDT = A.MANDT 
+	                     AND MT.CS660_REQNO = A.TRANS_ID 
+	                     AND DT.MATNR = A.MATNR 
+	                 LEFT OUTER JOIN SAPHEE.EBAN AS B 
+	                     ON A.MANDT = B.MANDT 
+	                     AND A.C_BANFN = B.BANFN 
+	                     AND A.C_BNFPO = B.BNFPO 
+	                 LEFT OUTER JOIN SAPHEE.EKPO AS C 
+	                     ON A.MANDT = C.MANDT 
+	                     AND B.EBELN = C.EBELN 
+	                     AND B.EBELP = C.EBELP 
+	                     AND C.LOEKZ = '' 
+	                 LEFT OUTER JOIN SAPHEE.EKKO AS D 
+	                     ON A.MANDT = D.MANDT 
+	                     AND C.EBELN = D.EBELN 
+	                 LEFT OUTER JOIN SAPHEE.LFA1 AS E 
+	                     ON A.MANDT = E.MANDT 
+	                     AND D.LIFNR = E.LIFNR 
+	               WHERE 1=1 
+	                     AND MT.MANDT = #G_MANDT#
+	                     AND MT.CS660_PST = 'A6' 
+	                     AND MT.CS660_MDT >= #RDF#
+	                     AND MT.CS660_MDT <= #RDT# 
+	                     AND MT.CS660_DEL = 'N' 
+	              ) BD 
+	              ON LC.LGORT = BD.BSU 
+	       ) AS D1 
+	 GROUP BY D1.GBN, 
+	       D1.LGORT, 
+	       D1.GBN2, 
+	       D1.MATNR, 
+	       D1.MAKTX, 
+	       D1.ZSIZE, 
+	       D1.LIFNR, 
+	       D1.BNAME 
+	ORDER BY D1.GBN, 
+	       D1.LGORT, 
+	       D1.GBN2, 
+	       D1.MATNR 
+	FOR FETCH ONLY 
+	WITH UR
+]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

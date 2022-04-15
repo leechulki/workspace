@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form BorderColor="user13" Height="464" Id="MM0102001B" Left="8" OnLoadCompleted="fn_OnLoadCompleted" PidAttrib="7" Title="Select&#32;sort&#32;colums" Top="8" Ver="1.0" Width="302" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_sort">
+				<Contents>
+					<colinfo id="code" size="256" type="STRING"/>
+					<colinfo id="name" size="256" type="STRING"/>
+					<record>
+						<code>N</code>
+						<name></name>
+					</record>
+					<record>
+						<code>A</code>
+						<name>오름차순</name>
+					</record>
+					<record>
+						<code>D</code>
+						<name>내림차순</name>
+					</record>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_sortlist" OnColumnChanged="ds_sortlist_OnColumnChanged">
+				<Contents>
+					<colinfo id="col_id" size="20" type="STRING"/>
+					<colinfo id="col_sort" size="1" type="STRING"/>
+					<colinfo id="col_seq" size="2" type="INT"/>
+					<colinfo id="col_nm" size="256" type="STRING"/>
+					<colinfo id="col_index" size="2" type="INT"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Image FillType="STRETCH" Height="36" Id="Image0" ImageID="popup_title_back" TabOrder="1" Width="300"></Image>
+		<Static Color="user5" Font="굴림,10,Bold" Height="20" Id="Static0" Left="28" TabOrder="3" Text="select&#32;sort&#32;colums" Top="8" VAlign="Middle" Width="176"></Static>
+		<Image Height="36" Id="Image1" ImageID="form_bl_title_main" Left="8" TabOrder="2" Width="15"></Image>
+		<Image Cursor="HAND" Font="돋움,9,Bold" Height="20" Id="img_close" Left="269" OnClick="btn_cancel_OnClick" Static="FALSE" TabOrder="4" Text="X" Top="8" Transparent="TRUE" Width="20"></Image>
+		<Grid AutoEnter="TRUE" AutoFit="TRUE" AutoFitEndLine="Hide" BindDataset="ds_sortlist" BkColor2="default" BoldHead="true" Border="Flat" Bottom="433" Editable="TRUE" Enable="true" EndLineColor="default" HeadBorder="Flat" HeadHeight="20" Height="388" Id="grd_col" InputPanel="FALSE" Left="6" LineColor="user20" LineType="ExHORZ" MinWidth="100" Right="294" RowHeight="20" Style="sty_grid" TabOrder="1" TabStop="true" Top="45" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="288">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col width="136"/>
+						<col width="77"/>
+						<col width="52"/>
+					</columns>
+					<head>
+						<cell col="0" display="text" font="굴림,9" text="컬럼명"/>
+						<cell col="1" display="text" font="굴림,9" text="정렬"/>
+						<cell col="2" display="text" font="굴림,9" text="순서"/>
+					</head>
+					<body>
+						<cell col="0" colid="col_id" display="text"/>
+						<cell align="center" col="1" colid="col_sort" combocol="code" combodataset="ds_sort" combotext="name" display="combo" edit="combo"/>
+						<cell align="center" col="2" colid="col_seq" display="number" edit="integer"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Button Appearance="FLAT" AutoDraw="FALSE" ButtonStyle="TRUE" Color="user5" Cursor="HAND" DomainID="btn.confirm" Height="22" Id="btn_confirm" ImageID="btn_comm_confirm_k" Left="92" LeftMargin="20" OnClick="btn_confirm_OnClick" TabOrder="6" Text="확인" Top="436" Width="52"></Button>
+		<Button Appearance="FLAT" ButtonStyle="TRUE" Color="user5" Cursor="HAND" DomainID="btn.cancel" Height="22" Id="btn_cancel" ImageID="btn_comm_cancel_k" Left="148" LeftMargin="20" OnClick="btn_cancel_OnClick" TabOrder="7" Text="취소" Top="436" Width="52"></Button>
+	</Form>
+	<Script><![CDATA[﻿﻿﻿﻿﻿﻿/*
+ ******************************************************************************************
+ * 기      능   : 그리드 상에 표시할 컬럼 정보 선택 
+ * 작  성  자   : 
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+var grdObj;
+var fb_work = false;
+
+
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) 
+{
+	if ( !isExistVar("arg_grid") ) 
+	{
+		return;
+	}
+
+	grdObj = object(arg_grid);  //Paretn의 Grid명을 읽어온다.
+	
+	var nRow, nColnm, nCol;	
+	nCol = grdObj.GetColCount();
+	grd_col.Redraw = false;
+
+	for ( i=startCol; i<nCol; i++ )
+	{
+		nRow = ds_sortlist.AddRow();
+		nColnm = replace(replace(grdObj.GetCellProp("head",i,"text"),"▲"),"▼");
+		
+		//grdObj.GetCellProp("head",i,"text");
+		
+		ds_sortlist.SetColumn(nRow, "col_id", nColnm);
+		ds_sortlist.SetColumn(nRow, "col_nm", grdObj.GetCellProp("body",i,"colid"));
+		ds_sortlist.SetColumn(nRow, "col_sort", "N");
+		ds_sortlist.SetColumn(nRow, "col_index", i);
+	}
+	
+	ds_sortlist.row = 0;
+	grd_col.Redraw = true;
+}
+
+
+//=========================================================================================
+// [ PART 3 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,form닫기)
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 확인 
+********************************************************************************/
+function btn_confirm_OnClick(obj)
+{
+	var strTitle, arg_str = "";
+	var int_cell, nCnt, strSort;
+	
+	nCnt = ds_sortlist.rowcount;
+	
+	ds_sortlist.Sort("col_seq",true);	
+
+	for ( i=0; i<nCnt; i++ )
+	{
+		strSort  = ds_sortlist.GetColumn(i, "col_sort");
+		int_cell = ds_sortlist.GetColumn(i, "col_index");
+		strTitle = ds_sortlist.GetColumn(i, "col_id");
+		
+		if ( strSort <> "N" )
+		{
+			if ( arg_str <> "" ) arg_str += ",";
+			arg_str += ds_sortlist.GetColumn(i, "col_nm") + ":" + strSort;
+			
+			// Head Sort 표시 추가..
+			if ( strSort == "A" )
+			{
+				grdObj.SetCellProp("head",int_cell,"text",strTitle+"▲");
+			}
+			else
+			{
+				grdObj.SetCellProp("head",int_cell,"text",strTitle+"▼");
+			}
+		} 
+		else
+		{
+			grdObj.SetCellProp("head",int_cell,"text",strTitle);
+		}
+	}
+
+	if(strDivFlag)
+	{
+		//Popupdiv로 오픈한 경우 사용 
+		closePopUp(arg_str);
+	} 
+	else 
+	{
+		//Dialog인 경우 사용
+		close(arg_str);   
+	}	
+}
+
+/********************************************************************************
+* 기      능   : 취소
+********************************************************************************/
+function btn_cancel_OnClick(obj)
+{
+	if(strDivFlag)
+	{
+		//Popupdiv로 오픈한 경우 사용 
+		closePopUp("");
+	} 
+	else 
+	{
+		//Dialog인 경우 사용
+		close("");   
+	}	
+}
+
+
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 : 각 Component 별 이벤트 
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 
+********************************************************************************/
+function ds_sortlist_OnColumnChanged(obj,nRow,strColumnID,varOldValue,varNewValue,nPivotIndex)
+{
+	var ll_maxseq;
+	
+	if ( fb_work ) return;
+	
+	fb_work = true;
+	
+	if ( strColumnID == "col_sort")
+	{
+		if ( varNewValue == "N" )
+		{
+			ds_sortlist.SetColumn(nRow, "col_seq", null);
+		}
+		else
+		{
+			//trace("col_seq : " + ds_sortlist.Max("col_seq") );
+			if ( varOldValue == "N" )
+			{
+				ll_maxseq = (ds_sortlist.Max("tonumber(col_seq)")) + 1;
+				ds_sortlist.SetColumn(nRow, "col_seq", ll_maxseq);
+			}
+		}
+	} else if ( strColumnID == "col_seq" )
+	{
+		//ds_sortlist.SetColumn(nRow, "col_seq", "");
+	}
+	
+	fb_work = false;		
+}
+
+]]></Script>
+</Window>

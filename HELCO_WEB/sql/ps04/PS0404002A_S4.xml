@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 0 AS CHK, A.PSPID,  A.POSID,  B.ZSITE_NM,  C.ZSPEC1,   C.ZSPEC2,  A.STATE, C.NAMET, 
+             A.INSLFN, A.INSLFN AS FR_INSLFN, A.GBN ,
+             (SELECT X.NAME1 FROM SAPHEE.LFA1 AS X 
+                WHERE X.MANDT = A.MANDT AND X.LIFNR = A.INSLFN) AS INSLFN_NM,
+             A.WRKLFN,
+             (SELECT X.NAME1 FROM SAPHEE.LFA1 AS X 
+                WHERE X.MANDT = A.MANDT AND X.LIFNR = A.WRKLFN) AS WRKLFN_NM,
+             (A.MWBTR * 100) AS MWBTR,
+             D.MDATE AS  CNFDT,
+             A.BLDAT,
+             '' AS LIFNR,
+             CASE WHEN CAST(A.BLDAT AS INT) &lt;= 20160331 AND CAST(A.BLDAT AS INT) &lt;&gt; 0   THEN D.MDATE  ELSE A.ZFDAT END ZFDAT
+            , C.TEXT30     ,A.ECKEY ,A.CONF
+			, A.DIPBXNUMB 
+--          , CASE WHEN A.DIPBXNUMB = '00000000000' OR  A.DIPBXNUMB = ''  THEN '' ELSE SUBSTR(A.DIPBXNUMB,1,4)||'-'|| SUBSTR(A.DIPBXNUMB,5,3)||'-'|| SUBSTR(A.DIPBXNUMB,8,4) END AS DIPBXNUMB -- 비상통화장치 
+            , A.DIPBXPST
+            , CASE WHEN F.LIFNR5 &lt;&gt; '' THEN F.CDATE ELSE '00000000' END AS IDATE
+			, C.ZZCHAKD
+			, A.WRK_APL_DAT
+			, VALUE(TRIM(T08.KWMENGT),'0') AS DAESU
+			, L.NAME1 AS SEOLCHI_LIFNR
+			, A.INS_DAT
+		    , '' AS INSLFN_DT
+		    , C.NAMET2
+		    , (SELECT  X.CELLP 
+		    	FROM SAPHEE.ZPST0001 X 
+		       WHERE X.MANDT = C.MANDT 
+		         AND X.POSIT = 'X'
+		         AND X.GBN = 'A' 
+		         AND X.RETIF = '' 
+		         AND X.LIFNR = C.LIFNR 
+		         AND X.TEMNO = C.TEMNO2 
+		         FETCH FIRST 1 ROWS ONLY) AS REQ_CELL
+		    , '' AS CHG_INDC
+		    , (SELECT CASE WHEN TRIM(B.STATE) = '3' THEN 'Y'
+                     ELSE 'N'
+			       	 END
+			         FROM SAPHEE.ZPST0023 B
+			         WHERE B.MANDT = A.MANDT
+			         AND B.PSPID = A.PSPID
+			         AND B.POSID = A.POSID
+			         AND B.ZTYPE = '2'
+			       ) JUNGO_APPLY
+			 , DECODE(H.F_DATE,'00000000','',H.F_DATE) AS F_DATE
+			 , DECODE(H.T_DATE,'00000000','',H.T_DATE) AS T_DATE
+			 , B.ZQNTY
+   FROM SAPHEE.ZPSTW1401 AS A
+   INNER JOIN SAPHEE.ZMASTER01 AS B
+        ON A.MANDT = B.MANDT
+      AND A.PSPID = B.POSID
+   INNER JOIN SAPHEE.ZMASTER02 AS C
+        ON A.MANDT = C.MANDT
+      AND A.PSPID = C.POSID
+      AND A.POSID = C.POSID_1
+   LEFT OUTER JOIN SAPHEE.LFA1 AS L
+       ON L.MANDT = C.MANDT
+      AND L.LIFNR = C.LIFNR
+   LEFT OUTER JOIN SAPHEE.ZPST0008 T08
+        ON A.MANDT = T08.MANDT
+       AND A.PSPID = T08.POSID   
+     LEFT OUTER JOIN SAPHEE.ZPST0010 AS  F
+     ON A.MANDT = F.MANDT
+    AND A.PSPID = F.POSID
+    AND A.POSID = F.POSID_1
+    LEFT OUTER JOIN SAPHEE.ZPSTW0207 AS D
+       ON A.MANDT = D.MANDT
+     AND A.PSPID = D.PSPID
+     AND A.POSID = D.POSID
+     AND D.GUBUN = 'A'
+	LEFT OUTER JOIN SAPHEE.ZPSTSITURM81 H
+      ON A.MANDT    = H.MANDT 
+     AND A.PSPID    = H.PSPID 
+     AND A.POSID    = H.POSID 
+     AND H.CHK_KIND = 'A' 					     
+     AND H.CHASU    = '001'
+ WHERE A.MANDT = #G_MANDT#
+   AND A.STATE = #STATE2#
+   AND A.GBN = 'D'   
+   AND C.ZSPEC4 NOT IN ('FT')
+  <isEqual col="PERIOD" value="A">
+     AND (C.ZZSHIP1 BETWEEN #ZZSHIPF# AND #ZZSHIPT#)
+   </isEqual>
+   <isEqual col="PERIOD" value="B">
+   AND (A.BLDAT BETWEEN #ZZSHIPF#  AND #ZZSHIPT#)
+   </isEqual>
+        
+     
+
+   <isNotNull col="PSPID">
+     AND   A.PSPID = #PSPID#
+   </isNotNull>
+
+   <isNull col="PSPID">
+     <isNotNull col="LIFNR">
+        <isEqual col="GBN2" value="A">
+           --AND (A.INSLFN = #LIFNR# OR A.WRKLFN = #LIFNR#)
+           AND (C.LIFNR = #LIFNR# OR A.INSLFN = #LIFNR# OR A.WRKLFN = #LIFNR#)
+        </isEqual>
+        <isEqual col="GBN2" value="B">
+        --AND (A.INSLFN = #LIFNR# OR A.WRKLFN = #LIFNR#)
+           AND A.WRKLFN = #LIFNR#   -- 신청업체 기준으로 조회 (고희수 sw요청)
+        -- AND (C.LIFNR = #LIFNR# OR A.INSLFN = #LIFNR# OR A.WRKLFN = #LIFNR#)
+         </isEqual>     
+      </isNotNull>
+    </isNull>
+
+   <isNotNull col="ZZACTSS">
+     AND C.ZZACTSS = #ZZACTSS#
+   </isNotNull>
+ORDER BY A.PSPID, A.POSID
+FOR FETCH ONLY 
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

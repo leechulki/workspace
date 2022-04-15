@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT T.PSPID, T.GBN , T.TEXT , T.BIGO , T.CODE , T.UNIT , T.MEASURE,
+              T.AMT , VALUE(INT(T.AMT) * T.UNIT,0) AS NETWR  , ROWNUMBER() OVER(PARTITION BY T.PSPID ) AS SEQ
+FROM
+(SELECT  A.MANDT , A.POSID AS PSPID , B.GBN , B.TEXT , B.BIGO , B.CODE,
+             SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST( B.UNIT  AS DECIMAL(13, 2) ) )  AS UNIT,    
+             B.MEASURE ,   
+             (SUBSTR(T.ZZCOMP2,1,4) - SUBSTR(T.ZZCHAKD,1,4))*12 
+              + (SUBSTR(T.ZZCOMP2,5,2) - SUBSTR(T.ZZCHAKD,5,2))  AS AMT   
+	
+FROM SAPHEE.ZMASTER01 AS A
+   INNER JOIN SAPHEE.ZPST0063 AS B
+      ON A.MANDT = B.MANDT
+   INNER JOIN (
+    SELECT X.MANDT, X.POSID, MIN(X.ZZCHAKD) AS ZZCHAKD , MAX(X.ZZCOMP2) AS ZZCOMP2
+       FROM SAPHEE.ZMASTER02 AS X 
+    WHERE X.MANDT =#G_MANDT# 
+        AND X.POSID = #PSPID#
+	GROUP BY X.MANDT, X.POSID
+	     FETCH FIRST 1 ROWS ONLY
+  ) AS T
+  ON A.MANDT = T.MANDT 
+  AND A.POSID = T.POSID
+        	
+WHERE A.MANDT =#G_MANDT#
+    AND A.POSID = #PSPID#  
+    AND B.GBN = 'G'
+	
+ORDER BY B.SORT
+
+) AS T	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list7">
+	</output>
+</query>

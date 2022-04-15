@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  
+        T.CHK
+       ,T.FLAG
+       ,T.BS201_RDT
+       ,T.BS201_SEQ
+       ,T.BS201_SIR
+       ,T.BS201_GBN
+       ,T.BS201_CID
+       ,T.BS201_AYM
+       ,T.BS201_ASQ
+       ,T.BS201_NO
+       ,T.BS201_DEV
+       ,T.BS201_GNM
+       ,T.BS201_SPT
+       ,T.BS201_QTY
+       ,T.BS201_PST
+       ,T.BS201_GNO
+       ,T.BS201_JRT
+       ,T.BS203_TDT
+       ,T.BS203_GDT
+       ,T.BS203_CDT
+       ,T.BS203_COMA
+       ,T.BS203_AMTA
+       ,T.BS203_AMTW
+       ,T.SI_RATE
+       ,T.BS203_AMTT
+       ,T.TU_RATE
+       ,T.BS203_RSN
+       ,T.BS203_COMB
+       ,T.BS203_AMTB
+       ,T.TU2_RATE
+       ,T.BS203_PST
+       ,T.BS203_RMK
+       ,T.BS202_TYP
+       ,T.BS202_SPC
+       ,T.BS201_CDT
+       ,T.BS201_USE
+       ,T.PST
+FROM   (
+        SELECT  
+                '0' AS CHK
+               ,'' AS FLAG
+               ,BS201.BS201_RDT
+               ,BS201.BS201_SEQ
+               ,BS201.BS201_SIR
+               ,(SELECT M28.CTEXT2 FROM SAPHEE.ZLCODE M28 WHERE M28.MANDT = BS201.MANDT AND M28.CODE1 = 'CS131' AND M28.LANG = #G_LANG# AND M28.CODE2 = BS201.BS201_GBN) AS BS201_GBN
+               ,(SELECT UF.USERNAME FROM SAPHEE.ZUSERF UF WHERE UF.MANDT = BS201.MANDT AND UF.USERNUMB = BS201.BS201_CID) AS BS201_CID
+               ,BS201.BS201_AYM AS BS201_AYM
+               ,BS201.BS201_ASQ AS BS201_ASQ
+               ,BS201.BS201_AYM||'-'||BS201.BS201_ASQ AS BS201_NO
+               ,BS201.BS201_DEV
+               ,BS201.BS201_GNM
+               ,BS201.BS201_SPT
+               ,CASE 
+                     WHEN BS201.BS201_RDT &lt; '20110501' 
+                     THEN BS201.BS201_QTY
+                     ELSE (SELECT COUNT(*) FROM SAPHEE.ZBST202 WHERE MANDT = #G_MANDT# AND BS202_RDT = BS201.BS201_RDT AND BS202_SEQ = BS201.BS201_SEQ AND BS202_SIR = BS201.BS201_SIR)
+                END BS201_QTY
+               ,BS201.BS201_PST
+               ,BS201.BS201_GNO
+               ,BS201.BS201_JRT
+               ,VALUE(BS203_TDT ,'') AS BS203_TDT
+               ,VALUE(BS203_GDT ,'') AS BS203_GDT
+               ,VALUE(BS203_CDT ,'') AS BS203_CDT
+               ,VALUE(BS203_COMA,'') AS BS203_COMA
+               ,VALUE(BS203_AMTA,0) AS BS203_AMTA
+               ,VALUE(BS203_AMTW,0) AS BS203_AMTW
+               ,ROUND(CASE WHEN VALUE(BS203_AMTA,0) = 0 THEN 0 ELSE VALUE(BS203_AMTW,0)/VALUE(BS203_AMTA,0)*100 END,2) AS SI_RATE
+               ,VALUE(BS203_AMTT,0) AS BS203_AMTT
+               ,ROUND(CASE WHEN VALUE(BS203_AMTA,0) = 0 THEN 0 ELSE VALUE(BS203_AMTT,0)/VALUE(BS203_AMTA,0)*100 END,2) AS TU_RATE
+               ,VALUE(BS203_RSN ,'') AS BS203_RSN
+               ,VALUE(BS203_COMB,'') AS BS203_COMB
+               ,VALUE(BS203_AMTB,0) AS BS203_AMTB
+               ,ROUND(CASE WHEN VALUE(BS203_AMTB,0) = 0 THEN 0 ELSE VALUE(BS203_AMTW,0)/VALUE(BS203_AMTB,0)*100 END,2) AS TU2_RATE
+               ,(SELECT M.CTEXT2 FROM SAPHEE.ZLCODE M WHERE M.MANDT = BS201.MANDT AND M.CODE1 = 'BS101' AND M.LANG = #G_LANG# AND M.CODE2 = (CASE WHEN BS203_PST IS NULL THEN '10' ELSE BS203_PST END)) AS BS203_PST
+               ,VALUE(BS203_RMK ,'') AS BS203_RMK
+               ,CASE 
+                     WHEN BS201.BS201_RDT &lt; '20110501' 
+                     THEN (SELECT M028.CTEXT2 FROM SAPHEE.ZLCODE AS M028 WHERE M028.MANDT = BS201.MANDT AND M028.CODE1 = 'BS116' AND M028.LANG = 'ko' AND M028.CODE2 = BS202_TYP)
+                     ELSE BS202.BS202_TYP
+                END BS202_TYP
+               ,BS201.BS201_CDT AS BS201_CDT
+               ,CASE WHEN BS203_PST IS NULL THEN '10' ELSE BS203_PST END AS PST
+               ,BS202_USE||BS202_MAN||'-'||BS202_OPN||BS202_SPD||'-'||BS202_STP AS BS202_SPC
+               ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = BS201.MANDT AND CODE1 = 'BS403' AND LANG = #G_LANG# AND CODE2 = BS201.BS201_USE) AS BS201_USE
+        FROM SAPHEE.ZBST201 AS BS201
+             LEFT OUTER JOIN SAPHEE.ZBST203 AS BS203
+             ON BS201.MANDT = #G_MANDT#
+             AND BS201.MANDT = BS203.MANDT
+             AND BS201.BS201_AYM = BS203.BS203_AYM
+             AND BS201.BS201_ASQ = BS203.BS203_ASQ
+             ,SAPHEE.ZBST202 AS BS202
+        WHERE BS201.MANDT = #G_MANDT#
+        AND   BS201.MANDT = BS202.MANDT
+        AND   BS201.BS201_RDT = BS202.BS202_RDT
+        AND   BS201.BS201_SEQ = BS202.BS202_SEQ
+        AND   BS201.BS201_SIR = BS202.BS202_SIR
+        AND   BS202.BS202_ISR = '001'
+        AND   BS201.BS201_PST = '30'
+        AND   BS201.BS201_JRT = '10'
+        AND   BS201.BS201_AGB = 'A'
+
+        <isEqual col="PST" value="15">
+        AND BS203.BS203_PST = '15'
+        </isEqual>
+        <isEqual col="GUBUN" value="A">
+        AND BS203.BS203_TDT BETWEEN #FTDT# AND #TTDT#
+        </isEqual>
+        <isEqual col="GUBUN" value="B">
+        AND (BS203.BS203_TDT BETWEEN #FTDT# AND #TTDT# OR BS203.BS203_CDT BETWEEN #FCDT# AND #TCDT#)
+        </isEqual>
+        <isEqual col="GUBUN" value="C">
+        AND BS203.BS203_CDT BETWEEN #FCDT# AND #TCDT#
+        </isEqual>
+
+        <isNotNull col="ARA">
+        AND BS201_ARA = #ARA#
+        </isNotNull>
+        <isNotNull col="GNO">
+        AND BS201_GNO = #GNO#
+        </isNotNull>
+        <isNotNull col="USER">
+        AND BS201_CID = #USER#
+        </isNotNull>
+        <isNotNull col="GBN">
+        AND BS201_GBN = #GBN#
+        </isNotNull>
+        <isNotNull col="COMA">
+        AND BS203_COMA = #COMA#
+        </isNotNull>
+
+        ORDER BY BS201.BS201_AYM||'-'||BS201.BS201_ASQ
+      ) AS T
+<isEqual col="PST" value="10">
+WHERE T.PST &lt;&gt; '15'
+</isEqual>
+
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

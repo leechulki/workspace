@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.sso.dao.Sso0020D">
+  
+	<resultMap id="SelectAutoLPResultMap" type="hdel.sd.sso.domain.Sso0020VO"></resultMap>
+
+	<!-- 사양리스트 조회 -->	
+	<select id="SelectAutoLP" parameterType="hdel.sd.sso.domain.Sso0020VO" resultMap="SelectAutoLPResultMap">		
+	
+	SELECT MANDT, QTNUM, AUTOLP, 
+	   		  (
+			   SELECT AUTOLP 
+			   FROM SAPHEE.ZSDT1046
+			   WHERE MANDT = #{MANDT} 
+			   AND QTNUM = A.QTNUM 
+			   AND QTSER = (SELECT MAX(QTSER) 
+						   FROM   SAPHEE.ZSDT1046 
+						   WHERE  MANDT = #{MANDT} 
+						   AND    QTNUM = A.QTNUM)
+			   FETCH FIRST 1 ROW ONLY			   
+			  ) AS AUTOLP_P,
+			  ( SELECT MAX(KUNNR_Z3)
+			    FROM   SAPHEE.ZSDT1058
+		    	WHERE  MANDT = #{MANDT}
+		    	AND    QTSO_NO = A.QTNUM
+			  ) AS KUNNR_Z3,
+		  	  ( SELECT LP_CHN
+		    	FROM   SAPHEE.ZSDT1058
+		    	WHERE  MANDT = #{MANDT}
+		    	AND    QTSO_NO = A.QTNUM
+		    	AND    QTSER = A.QTSER
+				AND    ZRQSEQ = ( SELECT MAX(ZRQSEQ) FROM SAPHEE.ZSDT1058 WHERE MANDT =  #{MANDT} AND QTSO_NO = A.QTNUM AND QTSER = A.QTSER) 
+				FETCH FIRST 1 ROW ONLY
+		  	  ) AS LP_CHN
+	FROM   SAPHEE.ZSDT1046 AS A
+	WHERE  MANDT = #{MANDT}
+	AND   VBELN  = #{VBELN}
+	WITH UR
+
+	</select>
+	
+	
+	<resultMap id="SelectSpecEResultMap" type="hdel.sd.sso.domain.Sso0020VO"></resultMap>
+	
+	<!-- 기술사양 전송 조회 -->	
+	<select id="SelectSpecE" parameterType="hdel.sd.sso.domain.Sso0020VO" resultMap="SelectSpecEResultMap">		
+	SELECT HOGI AS SPEC_E
+	FROM   SAPHEE.ZSDT0005 AS A INNER JOIN SAPHEE.VBAK AS B ON A.MANDT = B.MANDT AND A.VBELN = B.VBELN 
+	WHERE  A.MANDT = #{MANDT}
+	AND      A.CHARACTERISTIC LIKE 'EL_%'
+	AND      B.ZZPJT_ID  = #{VBELN}
+	FETCH FIRST 1 ROW ONLY
+	WITH UR
+
+	</select>
+
+	<resultMap id="select1058InfoMap" type="hdel.sd.sso.domain.ZSDT1058"></resultMap>
+	<select id="select1058Info" parameterType="hdel.sd.sso.domain.ZSDT1058" resultMap="select1058InfoMap">		
+		with z1046 as (
+		select z1046.mandt, z1046.qtnum, z1046.qtser, vbpa.kunnr as knrz2
+		from saphee.zsdt1046 as z1046
+			inner join saphee.vbak as vbak on z1046.mandt=vbak.mandt and z1046.vbeln=vbak.zzpjt_id
+			inner join saphee.vbpa as vbpa on vbak.mandt=vbpa.mandt and vbak.vbeln=vbpa.vbeln and vbpa.posnr=0 and vbpa.parvw='Z2'
+		where z1046.mandt=#{mandt}
+		  and z1046.vbeln=#{vbeln}
+		)
+		
+		select z1058.zrqseq, z1058.zrqflg, z1058.zrqdat, z1058.lp_is, z1058.lp_chn, z1058.nonstd, z1046.knrz2
+		from z1046
+			inner join saphee.zsdt1058 as z1058 on z1046.mandt=z1058.mandt and z1046.qtnum=z1058.qtso_no and z1046.qtser=z1058.qtser
+		where z1058.zrqseq=(select max(zrqseq) from saphee.zsdt1058 where mandt=z1058.mandt and qtso_no=z1058.qtso_no and qtser=z1058.qtser)
+		with ur
+	</select>
+	
+	<!-- SAP 사양전송 조회 -->	
+	<resultMap id="selectChnsoFinlMap" type="hdel.sd.sso.domain.ZSDT0090"></resultMap>
+	<select id="selectChnsoFinl" parameterType="hdel.sd.sso.domain.ZSDT0090" resultMap="selectChnsoFinlMap">
+--	select pspid, seq, finl 1차수 이상인 경우 체크 
+	select NVL(MAX(finl), 'X') AS finl
+	from saphee.zsdt0090
+	where mandt = #{mandt}
+		and pspid=#{vbeln}
+		and seq in (
+			select max(seq)
+			  from saphee.zsdt0090
+			 where mandt = #{mandt}
+			   and pspid=#{vbeln}
+			   and seq > 1				
+			)
+	with ur
+	</select>
+	
+	<select id="getLast90Seq" parameterType="map" resultType="Integer">
+		select seq
+		from saphee.zsdt0090 as z90
+		where mandt=#{mandt}
+		  and vbeln=#{vbeln}
+		  and finl='X'
+		  and seq=(select max(seq) from saphee.zsdt0090 where mandt=z90.mandt and vbeln=z90.vbeln)
+		with ur
+	</select>
+	
+	<select id="getGspCnt" parameterType="map" resultType="Integer">
+		select count(*) as gspcnt
+		  from saphee.vbap
+		 where mandt=#{mandt}
+		   and vbeln=#{vbeln}
+		   and brndcd like 'NEX%'
+		with ur
+	</select>	
+
+	<resultMap id="selectPartnerMap" type="hdel.sd.sso.domain.Sso0020Partner"/>
+	<select id="getPartner" parameterType="map" resultMap="selectPartnerMap">
+		select vbpa.vbeln, vbpa.parvw, vbpa.kunnr, zuserf.usermail as email
+		from saphee.vbpa as vbpa
+			left join saphee.zuserf as zuserf on vbpa.mandt=zuserf.mandt and substr(vbpa.kunnr,2,7)=zuserf.usernumb
+		where vbpa.mandt=#{mandt}
+		and vbpa.vbeln=#{vbeln}
+		and vbpa.parvw in ('Z2','Z3')
+	</select>
+</mapper>

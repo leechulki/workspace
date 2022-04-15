@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>insert</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+		<![CDATA[
+INSERT INTO SAPHEE.ZCST116
+(
+MANDT
+,CS116_PJT
+,CS116_HNO
+,CS116_SEQ
+,CS116_ABG
+,CS116_AGB
+,CS116_TYP
+,CS116_HTY
+,CS116_ARA
+,CS116_BPM
+,CS116_BSU
+,CS116_TGB
+,CS116_PST
+,CS116_GND
+,CS116_FDT
+,CS116_CBS
+,CS116_MG1
+,CS116_BGT
+,CS116_IJD
+,CS116_BMT
+,CS116_BHD
+,CS116_BYT
+,CS116_YCJ
+,CS116_BJT
+,CS116_BJJ
+,CS116_BST
+,CS116_APP
+,CS116_RMK
+,CS116_JBF
+,CS116_GNO
+,CS116_MLT
+,CRDAT -- BS ETL 연계를 위한 식별컬럼 추가. 2020.10.29 Han J.H
+,CRTIM -- BS ETL 연계를 위한 식별컬럼 추가. 2020.10.29 Han J.H
+)
+SELECT
+        A.MANDT
+       ,B.PJT
+       ,B.HNO
+	   ,VALUE((SELECT SAPHEE.FILLINZERO(INT(MAX(CS116_SEQ))+1, 4) FROM SAPHEE.ZCST116 WHERE MANDT = #G_MANDT# AND CS116_PJT = #PJT# AND CS116_HNO = #HNO#),'0001')
+       ,B.ABG
+       ,B.AGB
+       ,B.TYP
+       ,CASE WHEN INT(CASE RTRIM(A.ZSPEC3) WHEN '' THEN '0' END) >= 150 THEN 'Y' ELSE 'N' END AS HTY
+       ,B.ARA
+       ,B.BPM
+       ,B.BSU
+       ,B.GBU
+       ,'A6'
+       ,'B' -- 무상일반
+       ,B.FDT
+       ,REPLACE(CHAR((DATE(SAPHEE.GET_DATE_FORMAT(VALUE(D.BMT_A,B.FDT))) + 1 DAY)),'-','') AS CBS
+       ,INT(ZMUSAOCNT2) AS MG1
+       ,REPLACE(CHAR((DATE(SAPHEE.GET_DATE_FORMAT(VALUE(D.BMT_A,B.FDT))) + 1 DAY)),'-','') AS BGT
+       ,REPLACE(CHAR((DATE(SAPHEE.GET_DATE_FORMAT(VALUE(D.BMT_A,B.FDT))) + 1 DAY)),'-','') AS IJD
+       ,REPLACE(CHAR((DATE(SAPHEE.GET_DATE_FORMAT(VALUE(D.BMT_A,B.FDT))) + INT(ZMUSAOCNT2) MONTHS)),'-','') AS BMT
+       ,REPLACE(CHAR((DATE(SAPHEE.GET_DATE_FORMAT(VALUE(D.BMT_A,B.FDT))) + INT(ZMUSAOCNT2) MONTHS)),'-','') AS BHD
+       ,HEX(CURRENT DATE) AS BYT
+       ,#G_USER_ID# AS YCJ
+       ,HEX(CURRENT DATE) AS BJT
+       ,#G_USER_ID# AS BJJ
+       ,HEX(CURRENT DATE) AS BST
+       ,#G_USER_ID# AS APP
+       ,'신규인수접수 자동발주' AS RMK
+       ,'Y' AS JBF
+       ,A.POSID_1||'-R' AS GNO
+       ,(
+          CASE 
+               WHEN A.ZZGUBUN IN ('10','13') THEN
+                    CASE
+                         WHEN INT(ROUND(DOUBLE(CASE A.ZSPEC7 WHEN '' THEN '0' ELSE A.ZSPEC7 END),0)) <= 10 THEN 0.8
+                         WHEN INT(ROUND(DOUBLE(CASE A.ZSPEC7 WHEN '' THEN '0' ELSE A.ZSPEC7 END),0)) > 10 THEN 1 - ((15 - INT(ROUND(DOUBLE(CASE A.ZSPEC7 WHEN '' THEN '0' ELSE A.ZSPEC7 END),0))) * 0.04)
+                         ELSE 0
+                    END
+               WHEN A.ZZGUBUN IN ('11','12','14') THEN 1.8
+               WHEN A.ZZGUBUN = '20' THEN
+                    CASE 
+                         WHEN INT(ROUND(DOUBLE(CASE A.ZSPEC9 WHEN '' THEN '0' ELSE A.ZSPEC9 END),0)) = 0 THEN 0
+                         WHEN INT(ROUND(DOUBLE(CASE A.ZSPEC9 WHEN '' THEN '0' ELSE A.ZSPEC9 END),0)) < 11 THEN 1.0
+                         WHEN INT(ROUND(DOUBLE(CASE A.ZSPEC9 WHEN '' THEN '0' ELSE A.ZSPEC9 END),0)) < 30 THEN 1.5
+                         WHEN INT(ROUND(DOUBLE(CASE A.ZSPEC9 WHEN '' THEN '0' ELSE A.ZSPEC9 END),0)) < 50 THEN 2.0 
+                         ELSE 2.5 
+                    END
+               WHEN A.ZZGUBUN BETWEEN '30' AND '33' THEN 0
+               WHEN A.ZZGUBUN BETWEEN '40' AND '41' THEN
+                    CASE WHEN INT(ROUND(DOUBLE(CASE A.ZSPEC10 WHEN '' THEN '0' ELSE A.ZSPEC10 END),0)) = 0 THEN 0
+                         WHEN INT(ROUND(DOUBLE(CASE A.ZSPEC10 WHEN '' THEN '0' ELSE A.ZSPEC10 END),0)) < 33 THEN 1.0     
+                         WHEN INT(ROUND(DOUBLE(CASE A.ZSPEC10 WHEN '' THEN '0' ELSE A.ZSPEC10 END),0)) < 65 THEN 2.0     
+                         WHEN INT(ROUND(DOUBLE(CASE A.ZSPEC10 WHEN '' THEN '0' ELSE A.ZSPEC10 END),0)) < 81 THEN 2.5 
+                         ELSE 3.0 
+                    END     
+               ELSE 0 
+          END 
+           ) AS MLT
+       ,HEX(CURRENT DATE) AS CRDAT -- BS ETL 연계를 위한 식별컬럼 추가. 2020.10.29 Han J.H
+       ,HEX(CURRENT TIME) AS CRTIM -- BS ETL 연계를 위한 식별컬럼 추가. 2020.10.29 Han J.H
+  FROM
+       SAPHEE.ZMASTER02 AS A LEFT OUTER JOIN SAPHEE.ZCST111 AS B 
+                               ON B.MANDT = A.MANDT
+                              AND B.PJT = A.POSID
+                              AND B.HNO = SUBSTR(A.POSID_1,7,3) 
+                             
+                             LEFT OUTER JOIN SAPHEE.ZWBT010 AS C 
+                               ON C.MANDT = B.MANDT
+                              AND C.LGORT = B.BSU
+                             
+                             LEFT OUTER JOIN (
+                                                SELECT CS116_PJT      AS PJT
+                                                      ,CS116_HNO      AS HNO
+                                                      ,MAX(CS116_BMT) AS BMT_A
+                                                  FROM SAPHEE.ZCST116
+                                                 WHERE MANDT =  #G_MANDT#  
+                                                   AND CS116_PJT = #PJT#
+                                                   AND CS116_HNO = #HNO#
+                                                  GROUP BY CS116_PJT,CS116_HNO
+                                              ) AS D 
+                               ON D.PJT = B.PJT
+                              AND D.HNO = B.HNO
+ WHERE 
+       A.MANDT = #G_MANDT#  
+   AND A.POSID = #PJT#
+   AND A.POSID_1 = #PJT#||#HNO# 
+   AND SUBSTR(A.POSID_1,7,1) IN ('L','S','W') 
+   AND INT(ZMUSAOCNT2) > INT(ZMUSAUCNT2) 
+            
+
+]]>
+	</statement>
+	<input default-name="ds_list">
+	</input>
+	<output default-name="none">
+	</output>
+</query>

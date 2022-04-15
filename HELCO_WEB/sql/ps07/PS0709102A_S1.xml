@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+ WITH TMP AS
+(
+SELECT     H.CFM_DATE  -- : 최초승인일   
+				,TRIM(VALUE(G.RECEPTIONIST, '')) AS RECEPTIONIST --: 공단접수자
+                ,E.TEXT30   --: 지사명     				  
+				,C.CHK_KIND -- : 검사종류   
+                ,VALUE( SUM(CASE WHEN B.ZBEPJEO > '19000101' THEN  1 ELSE 0 END), 0)  AS ZBEPJEO 
+                ,VALUE( SUM(CASE WHEN B.ZBEPJEO &lt;= '19000101' THEN  1 ELSE 0 END), 0)  AS ZBEPJEO2 
+			    ,VALUE( SUM(CASE WHEN G.KETF1_DATE > '19000101' THEN  1 ELSE 0 END), 0)  AS KETF1_DATE_A
+				,VALUE( SUM(CASE WHEN G.KETF2_DATE > '19000101' THEN  1 ELSE 0 END), 0)  AS KETF2_DATE_A
+				,VALUE( SUM(CASE WHEN G.KETF3_DATE > '19000101' THEN  1 ELSE 0 END), 0)  AS KETF3_DATE_A 		
+				,0 AS KETF1_DATE_B
+				,0 AS KETF2_DATE_B
+				,0 AS KETF3_DATE_B									     
+   FROM SAPHEE.ZMASTER01 AS A
+   INNER JOIN SAPHEE.ZMASTER02 AS B  
+        ON A.MANDT = B.MANDT
+	  AND A.POSID = B.POSID
+   INNER JOIN SAPHEE.ZPST0036 AS C  
+        ON C.MANDT = B.MANDT
+	  AND C.PSPID = B.POSID
+	  AND C.POSID = B.POSID_1  	  
+	  
+    LEFT OUTER JOIN SAPHEE.ZPST0024 AS D
+	   ON  C.MANDT = D.MANDT
+	  AND C.PSPID = D.PSPID
+	  AND C.POSID = D.POSID
+      AND C.CHK_KIND = 'A'   
+	  
+	 LEFT OUTER JOIN SAPHEE.J_1AACTT AS E 
+	    ON B.MANDT = E.MANDT
+	  AND E.SPRAS = '3'     	  
+	  AND B.ZZACTSS = E.J_1AACT 
+	  
+	  
+	 LEFT OUTER JOIN SAPHEE.ZPST0043 AS G
+	    ON C.MANDT = G.MANDT
+	  AND C.PSPID = G.PSPID
+	  AND C.POSID = G.POSID
+	  AND C.CHK_KIND = G.CHK_KIND
+	  AND C.CHASU = G.CHASU
+  
+	  LEFT OUTER JOIN SAPHEE.ZPST0036F AS H
+	     ON C.MANDT = H.MANDT
+	  AND C.PSPID = H.PSPID
+	  AND C.POSID = H.POSID
+	  AND C.CHK_KIND = H.CHK_KIND
+	  AND C.CHASU = H.CHASU
+    
+	  
+  WHERE A.MANDT = #G_MANDT#
+      <isNotNull col="ZZACTSS">
+       AND B.ZZACTSS = #ZZACTSS#
+      </isNotNull>
+      <isEqual col="CO_GBN" value="C">
+        #SQRY+#
+      </isEqual>	 	  
+       AND H.CFM_DATE  BETWEEN #FROM_DT#  AND #TO_DT#     -- 최초승인일  
+       AND C.CHK_KIND = 'A'
+       AND (D.DATE4 &lt;&gt; '' OR D.DATE4 &lt;&gt; '00000000') 
+	   AND B.TXT04 &lt;&gt; 'C'
+	   AND B.ZZGUBUN IN ( '10' , '11', '12', '13', '14', '20')
+    
+
+ GROUP BY 	H.CFM_DATE, TRIM(VALUE(G.RECEPTIONIST, '')) ,E.TEXT30 ,  C.CHK_KIND
+ 
+ UNION ALL
+ 
+ SELECT   H.CFM_DATE  -- : 최초승인일   
+				,TRIM(VALUE(G.RECEPTIONIST, '')) AS RECEPTIONIST --: 공단접수자
+                ,E.TEXT30   --: 지사명     				  
+				,C.CHK_KIND -- : 검사종류   
+			    ,VALUE( SUM(CASE WHEN B.ZBEPJEO > '19000101' THEN  1 ELSE 0 END), 0)  AS ZBEPJEO 
+                ,VALUE( SUM(CASE WHEN B.ZBEPJEO &lt;= '19000101' THEN  1 ELSE 0 END), 0)  AS ZBEPJEO2 
+			    ,0  AS KETF1_DATE_A
+				,0  AS KETF2_DATE_A
+				,0  AS KETF3_DATE_A 			
+				,VALUE( SUM(CASE WHEN G.KETF1_DATE > '19000101' THEN  1 ELSE 0 END), 0)  AS KETF1_DATE_B
+				,VALUE( SUM(CASE WHEN G.KETF2_DATE > '19000101' THEN  1 ELSE 0 END), 0)  AS KETF2_DATE_B
+				,VALUE( SUM(CASE WHEN G.KETF3_DATE > '19000101' THEN  1 ELSE 0 END), 0)  AS KETF3_DATE_B	
+				
+				     
+   FROM SAPHEE.ZMASTER01 AS A
+   INNER JOIN SAPHEE.ZMASTER02 AS B  
+        ON A.MANDT = B.MANDT
+	  AND A.POSID = B.POSID
+   INNER JOIN SAPHEE.ZPST0036 AS C  
+        ON C.MANDT = B.MANDT
+	  AND C.PSPID = B.POSID
+	  AND C.POSID = B.POSID_1  	  
+  
+	 LEFT OUTER JOIN SAPHEE.J_1AACTT AS E 
+	    ON B.MANDT = E.MANDT
+	  AND E.SPRAS = '3'     	  
+	  AND B.ZZACTSS = E.J_1AACT 
+	  
+	  
+	 LEFT OUTER JOIN SAPHEE.ZPST0043 AS G
+	    ON C.MANDT = G.MANDT
+	  AND C.PSPID = G.PSPID
+	  AND C.POSID = G.POSID
+	  AND C.CHK_KIND = G.CHK_KIND
+	  AND C.CHASU = G.CHASU
+  
+	  LEFT OUTER JOIN SAPHEE.ZPST0036F AS H
+	     ON C.MANDT = H.MANDT
+	  AND C.PSPID = H.PSPID
+	  AND C.POSID = H.POSID
+	  AND C.CHK_KIND = H.CHK_KIND
+	  AND C.CHASU = H.CHASU
+
+	 LEFT OUTER JOIN SAPHEE.ZPST0037 AS K
+        ON  C.MANDT = K.MANDT
+  	  AND C.PSPID = K.PSPID
+	  AND C.POSID = K.POSID
+	  AND C.CHASU = K.CHASU 
+      AND C.CHK_KIND = 'C'   
+        
+	  
+  WHERE A.MANDT = #G_MANDT#
+      <isNotNull col="ZZACTSS">
+       AND B.ZZACTSS = #ZZACTSS#
+      </isNotNull>
+      <isEqual col="CO_GBN" value="C">
+        #SQRY+#
+      </isEqual>	  
+       AND H.CFM_DATE  BETWEEN #FROM_DT#  AND #TO_DT#     -- 최초승인일  
+       AND C.CHK_KIND = 'C'
+       AND (K.DATE4 &lt;&gt; '' OR K.DATE4 &lt;&gt; '00000000') 
+	   AND B.TXT04 &lt;&gt; 'C'
+	   AND B.ZZGUBUN IN ( '10' , '11', '12', '13', '14', '20')    	   	   	   	   
+  GROUP BY 	H.CFM_DATE, TRIM(VALUE(G.RECEPTIONIST, '')) ,E.TEXT30 ,  C.CHK_KIND
+ )
+ 
+ SELECT   T.CFM_DATE, T.RECEPTIONIST, T.TEXT30
+               ,SUM(T.ZBEPJEO) AS ZBEPJEO
+			   ,SUM(T.ZBEPJEO2) AS ZBEPJEO2
+			   ,SUM(T.KETF1_DATE_A) AS KETF1_CNT_A
+			   ,SUM(T.KETF2_DATE_A) AS KETF2_CNT_A
+			   ,SUM(T.KETF3_DATE_A) AS KETF3_CNT_A
+			   ,SUM(T.KETF1_DATE_A + T.KETF2_DATE_A + T.KETF3_DATE_A) AS SUB_SUM_A
+			   ,SUM(T.KETF1_DATE_B) AS KETF1_CNT_B
+			   ,SUM(T.KETF2_DATE_B) AS KETF2_CNT_B
+			   ,SUM(T.KETF3_DATE_B) AS KETF3_CNT_B
+			   ,SUM(T.KETF1_DATE_B + T.KETF2_DATE_B + T.KETF3_DATE_B) AS SUB_SUM_B
+    FROM TMP AS T
+ GROUP BY T.CFM_DATE, T.RECEPTIONIST, T.TEXT30
+ORDER BY  T.CFM_DATE, T.RECEPTIONIST, T.TEXT30
+
+FOR FETCH ONLY 
+WITH UR
+
+			
+			
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="192" Id="Sbp0192" Left="8" OnLoadCompleted="fn_OnLoadCompleted" OnUnloadCompleted="fn_OnUnloadCompleted" PidAttrib="7" Title="종결처리(보수)" Top="8" Ver="1.0" Width="400" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_cond">
+				<Contents>
+					<colinfo id="GUBUN" size="256" type="STRING"/>
+					<colinfo id="SONNR" size="256" type="STRING"/>
+					<colinfo id="SORLT" size="256" type="STRING"/>
+					<colinfo id="ZPYM" size="256" type="STRING"/>
+					<colinfo id="AUART" size="256" type="STRING"/>
+					<colinfo id="NEWZPYM" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Div Height="36" Id="div_btn" TabOrder="5" Text="Div0" Url="WB01::CommBtnForm.xml" Width="400">
+			<Contents></Contents>
+		</Div>
+		<Shape BKColor="user0" Bottom="144" Height="106" Id="Shape1" Left="0" LineColor="user1" Right="400" TabOrder="2" Top="38" Type="Rectangle" Width="400"></Shape>
+		<Static Align="Right" Height="20" Id="Static0" Left="5" Style="sty_lb_search" TabOrder="2" Text="수주계획번호&#32;" Top="44" VAlign="Middle" Width="90"></Static>
+		<Edit Border="Flat" CheckLength="Byte" Enable="FALSE" Height="20" Id="ed_sonnr" ImeMode="none" Left="98" LeftMargin="4" MaxLength="10" OnKeyDown="ed_buyr_cd_OnKeyDown" RightMargin="4" Style="sty_ipt_search" TabOrder="1" Top="44" UpperOnly="TRUE" Width="100"></Edit>
+		<Edit Border="Flat" CheckLength="Byte" Enable="FALSE" Height="20" Id="ed_zpym" ImeMode="none" Left="298" LeftMargin="4" MaxLength="105" OnKeyDown="ed_buyr_nm_OnKeyDown" RightMargin="4" Style="sty_ipt_search" TabOrder="2" Top="44" UpperOnly="TRUE" Width="90"></Edit>
+		<Static Align="Right" Height="20" Id="Static1" Left="205" Style="sty_lb_search" TabOrder="4" Text="계획년월&#32;" Top="44" VAlign="Middle" Width="90"></Static>
+		<Button Appearance="FLAT" ButtonStyle="TRUE" Color="user5" Cursor="HAND" DomainID="btn.confirm" Height="22" Id="btn_confirm" ImageID="btn_comm_confirm_k" Left="144" LeftMargin="20" OnClick="fn_OnClick_btn" TabOrder="3" Text="확인" Top="157" Width="52"></Button>
+		<Button Appearance="FLAT" ButtonStyle="TRUE" Color="user5" Cursor="HAND" DomainID="btn.cancel" Height="22" Id="btn_cancel" ImageID="btn_comm_cancel_k" Left="200" LeftMargin="20" OnClick="fn_OnClick_btn" TabOrder="4" Text="취소" Top="157" Width="52"></Button>
+		<Radio Border="None" Height="50" Id="rd_sorlt" INDEX="0" Left="8" OnChanged="rd_sorlt_OnChanged" Style="sty_ipt_search_radio" TabOrder="9" Top="80" Width="60">
+			<Contents>
+				<Layout code="A" height="20" left="10" text="종결" top="0" width="50"/>
+				<Layout code="B" height="20" left="10" text="이월" top="30" width="50"/>
+			</Contents>
+		</Radio>
+		<Combo Border="Flat" CodeColumn="CODE" Column="CODE_NAME" DataColumn="CODE_NAME" Enable="FALSE" Height="20" Id="cb_zpym_yy" InnerDataset="ds_yearf_cd" Left="80" OnChanged="cb_zpym_yy_OnChanged" Style="sty_ipt_form" TabOrder="10" Top="108" Width="80"></Combo>
+		<Combo Border="Flat" CodeColumn="CODE" Column="CODE_NAME" DataColumn="CODE_NAME" Enable="FALSE" Height="20" Id="cb_zpym_mm" INDEX="0" InnerDataset="ds_monthf_cd" Left="163" OnChanged="cb_zpym_mm_OnChanged" Style="sty_ipt_form" TabOrder="11" Top="108" Width="60"></Combo>
+	</Form>
+	<Script><![CDATA[/*
+ ******************************************************************************************
+ * 기      능   : 종결처리 팝업
+ * 작  성  자   : 이지훈
+ * 작성  일자   : 2012.05.14
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    : V1.0 : 2012.09.03 : 신규
+ * COMMENT
+   1. WFC URL 				: 
+   2. WFC OPERATION NAME 	: 
+   3. WFC OBJ NAME 			: 
+   4. 개발자료 :  
+ ******************************************************************************************
+*/
+#include "LIB::commons.js";	// 공통 스크립트 
+#include "LIB::nsfRequest.js";	// 공통 스크립트  /* GNY 추가 */
+#include "LIB::common_hdel.js";	// 공통 스크립트  /* GNY 추가 */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+var F_SORTL = "";
+var F_ZDELI = "";
+var F_AUART = "";
+
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) {
+	// Form 로드 이벤트 맨 첫줄에 기술 
+	gfn_initForm();
+
+	gfn_translation(obj, G_LANG);
+
+	ds_combo.ClearData();
+	
+	// 화면제목 설정 및 버튼 활성화 (조회버튼)
+	div_btn.fn_loadUseBtn("", fa_name, "", "");
+	ed_sonnr.Text = fa_sonnr;
+	ed_zpym.Text = fa_zpym;
+	F_SORTL = fa_sortl;
+	F_ZDELI = fa_zdeli;
+	F_AUART = fa_auart;
+
+	cb_zpym_yy.Index = 5;
+	cb_zpym_mm.Index = parseInt(substr(gfn_getCurrDate(),4,2));
+}
+
+function rd_sorlt_OnChanged(obj,strCode,strText,nOldIndex,nNewIndex)
+{
+	if (rd_sorlt.Value == 'B') {
+		if (F_SORTL == '40') {
+			if (F_ZDELI == '1') {
+				Alert('견적이면서 단납기/주공일 경우 이월처리가 안됩니다.');
+				rd_sorlt.Index = 0;
+				return;
+			}
+			cb_zpym_yy.Enable = true;
+			cb_zpym_mm.Enable = true;
+		} else {
+			cb_zpym_yy.Enable = true;
+			cb_zpym_mm.Enable = true;
+		}
+	} else {
+		cb_zpym_yy.Enable = false;
+		cb_zpym_mm.Enable = false;
+	}
+}
+
+function cb_zpym_yy_OnChanged(obj,strCode,strText,nOldIndex,nNewIndex)
+{
+	if (cb_zpym_yy.Index > 5) {
+		alert(substr(gfn_getCurrDate(),0,4) + '년 이전은 선택이 안됩니다.');
+		cb_zpym_yy.Index = 5;
+		return;
+	}
+}
+
+function cb_zpym_mm_OnChanged(obj,strCode,strText,nOldIndex,nNewIndex)
+{
+	var zpym1 = parseInt(ed_zpym.Text);
+	var zpym2 = parseInt(substr(gfn_getCurrDate(),0,6));
+	var zpym3 = parseInt(cb_zpym_yy.Value + cb_zpym_mm.Value);
+
+	if (zpym3 >= zpym2) {
+		if (zpym3 == zpym1) {
+			Alert('계획년월과 같습니다.');
+		}
+	} else {
+		Alert('현재월 이전은 선택할 수 없습니다.');
+		cb_zpym_mm.Value = substr(gfn_getCurrDate(),4,2);
+	}
+}
+
+function fn_OnClick_btn(obj)
+{
+	var fncName = "fn_" + substr(obj.id, 4); 
+	eval( fncName + "()");
+}
+
+function fn_confirm() {
+	ds_cond.DeleteAll();
+	ds_cond.AddRow();
+	ds_cond.SetColumn(0,'SONNR',ed_sonnr.Text);
+	if (rd_sorlt.Value == 'B') {
+		ds_cond.SetColumn(0,'GUBUN','B');
+		ds_cond.SetColumn(0,'SORLT','70');
+		ds_cond.SetColumn(0,'ZPYM',ed_zpym.Text);
+		ds_cond.SetColumn(0,'AUART',F_AUART);
+		ds_cond.SetColumn(0,'NEWZPYM',cb_zpym_yy.Value + cb_zpym_mm.Value);
+
+		// 서비스 호출
+		nsfRequest("query"				// srvId
+					, "sbp0192/insert"	// url
+					, "ds_cond=ds_cond"	// inDsList
+					, ""				// outDsList
+					, ""				// strParam
+					, "fn_afterQuery"	// CallBackFunc
+					);
+	} else {
+		ds_cond.SetColumn(0,'GUBUN','A');
+		ds_cond.SetColumn(0,'SORLT','60');
+		ds_cond.SetColumn(0,'ZPYM',ed_zpym.Text);
+
+		// 서비스 호출
+		nsfRequest("query"				// srvId
+					, "sbp0192/update"	// url
+					, "ds_cond=ds_cond"	// inDsList
+					, ""				// outDsList
+					, ""				// strParam
+					, "fn_afterQuery"	// CallBackFunc
+					);
+	}
+}
+
+/********************************************************************************
+* 기      능   : 조회 Callback  
+********************************************************************************/
+function fn_afterQuery(errCode, errMsg) {
+	fn_destroyWait();
+
+	close('ok');
+}
+
+/********************************************************************************
+// 취소버튼 클릭 시
+********************************************************************************/
+function fn_cancel() {
+	// 팝업화면을 닫는다.
+	fn_close();
+}
+
+/********************************************************************************
+* 기      능   : 닫기  
+********************************************************************************/
+function fn_close() {
+	close();
+}
+]]></Script>
+</Window>

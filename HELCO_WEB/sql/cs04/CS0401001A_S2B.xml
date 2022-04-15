@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[전자결재- 조직 트리조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT DISTINCT
+     DPT1 AS DPT1
+	, DPT1_N AS DPT1_N
+   , DEPT AS DEPT
+   , CASE WHEN DPT1 = 'A1' THEN '임  원' ELSE DEPT_N END AS DEPT_N
+--   , CASE WHEN DPT1 = 'A1' THEN '임  원' 
+--               WHEN SUBSTR(DEPT,3,4) = '0000' THEN DPT1_N
+--			   ELSE DPT1_N||'-'||DEPT_N END AS DETP_N1
+   , MIN(LV1)  AS TL
+ FROM (
+ 
+SELECT 
+    DPT1
+  , CASE WHEN DPT1 = 'EK' THEN '서비스기획관리부' ELSE DPT1_N END AS DPT1_N
+  , RTRIM(DPT1)||'00' AS DEPT
+  , CASE WHEN DPT1 = 'EK' THEN '서비스기획관리부' ELSE DPT1_N END AS DEPT_N
+  , '1' AS LV1
+FROM SAPHEE.ZHRT001 H1
+WHERE H1.MANDT = #G_MANDT#
+   AND H1.LEAV = '00000000' 
+   AND H1.DEPT > ''
+   AND H1.DPT1 <> 'A1'
+  -- AND H1.PSNO NOT IN ('H2012804','H2025884')
+   AND H1.PSNO NOT IN ('H2012804')
+GROUP BY DPT1,DPT1_N
+
+UNION
+
+SELECT 
+    CASE WHEN DPT1 = 'EL' THEN 'EK' ELSE DPT1||'X' END AS DPT1
+  , CASE WHEN DPT1 = 'EL' THEN '서비스기획관리부' ELSE '한국서비스 담당' END AS DPT1_N
+  , CASE WHEN DPT1 = 'EL' THEN 'EK00' ELSE RTRIM(DPT1)||'X' END AS DEPT
+  , CASE WHEN DPT1 = 'EL' THEN '서비스기획관리부' ELSE '한국서비스 담당' END AS DEPT_N
+  , '1' AS LV1
+FROM SAPHEE.ZHRT001 H1
+WHERE H1.MANDT = #G_MANDT#
+   AND H1.PSNO IN ('H2012804','H2025884')
+GROUP BY DPT1,DPT1_N
+
+UNION
+
+SELECT 
+     DPT1 AS DPT1
+   , CASE WHEN DPT1 = 'EK' THEN '서비스기획관리부' ELSE DPT1_N END AS DPT1_N
+   , CASE WHEN DPT1 = 'A1' THEN 'A101' ELSE SUBSTR(DEPT,1,4) END AS DEPT
+   , CASE WHEN DPT1 = 'A1' THEN DPT1_N ELSE DEPT_N END AS DEPT_N
+   , CASE WHEN DPT1 = 'A1' THEN '1' ELSE '2' END AS LV1
+FROM SAPHEE.ZHRT001 H1
+WHERE H1.MANDT = #G_MANDT#
+   AND H1.LEAV = '00000000' 
+   AND H1.DEPT > ''
+   AND SUBSTR(H1.DEPT,3,2) > '00'
+   ) AS ORG
+   WHERE 1=1
+   AND DEPT_N > ''
+
+--AND DPT1 IN ( 'EL' , 'EO')
+
+GROUP BY DPT1, DPT1_N, DEPT, DEPT_N
+ORDER BY DPT1,DEPT
+
+  FOR FETCH ONLY
+  WITH UR	]]></statement>
+	<input default-name="_none">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_tree">
+		<col name="DPT1" size="6" type="VARCHAR" description="" /> 
+		<col name="DPT1_N" size="60" type="VARCHAR" description="" /> 
+		<col name="DEPT" size="6" type="VARCHAR" description="" /> 
+		<col name="DETP_N" size="60" type="VARCHAR" description="" /> 
+		<col name="TL" size="11" type="INTEGER" description="" /> 
+	</output>
+</query>

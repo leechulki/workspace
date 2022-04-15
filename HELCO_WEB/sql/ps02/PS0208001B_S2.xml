@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[화면 메인 조회쿼리]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	
+SELECT O.*
+     , SUM( DECODE ( O.LSAFE, NULL , 0
+                            , O.SAFE, 0
+                            , DECODE(O.VER, '001', 0  
+                                          , '002', 0 , DECODE(O.CHKOPEN, 1 , 0 , LAG(  O.SAFEAPRCNT3 ) OVER ( ORDER BY  O.PRONR ) )
+                                    )      
+                   )
+          ) OVER ( ORDER BY  O.PRONR  ) AS CHKSAFE             
+FROM 
+(	
+SELECT  T11.PRONR AS PRONR
+      , MAX(T13.INP_DT) AS INP_DT
+      , MAX(T13.PSPID) PSPID
+      , MAX(T13.POSID) AS POSID
+      , MAX(T13.GUBUN) AS GUBUN
+      , MAX(T11.TYPE) TYPE
+      , MAX(T11.VER) VER
+      , MAX(T11.PROWRK) PROWRK      
+      , MAX(T11.PRO_R) PRO_R
+      , MAX(T11.ZCHECK) ZCHECK
+      , MAX(T11.PRO_SUM) PRO_SUM
+      , MAX(T11.PRO_CHK) AS PRO_CHK
+      , CAST(#F_SAFE# AS CHAR(10)) F_SAFE
+      , VALUE((CASE CAST(#F_SAFE# AS CHAR(10))
+                    WHEN 'A' THEN 1
+                    WHEN 'B' THEN 2
+                    WHEN 'C' THEN 3
+                END), 0) AS F_SAFE_NUM
+      , MAX(T11.SAFE) AS PROCESS_BY_SAFE
+      , CASE MAX(T11.SAFE)
+             WHEN 'N' THEN 0
+             WHEN 'A' THEN 1
+             WHEN 'B' THEN 2
+             WHEN 'C' THEN 3
+         END AS PROCESS_BY_SAFE_NUM
+      , MAX(T11.SAFE_PIC) AS SAFE_PIC
+      , MAX(T11.FINISH_PIC) AS FINISH_PIC
+      , MAX(T11.QUALITY_PIC) AS QUALITY_PIC
+      , MAX(T13.COM_CHK) AS FIX_COM_CHK
+      , MAX(T13.EDATE) AS EDATE
+
+      , VALUE((CASE
+                  WHEN MAX(T13.ORGFNAME)   &lt;&gt; '' THEN 'Y'
+                  ELSE 'N'
+               END), 'N')  AS ORGFNAME_YN
+      , VALUE((CASE
+                  WHEN MAX(T11.FINISH_PIC)  &lt;&gt; '' THEN 'Y'
+                  ELSE 'N'
+              END), 'N') FINISH_PIC_YN
+      , VALUE((CASE
+                  WHEN MAX(T11.QUALITY_PIC)  &lt;&gt; '' THEN 'Y'
+                  ELSE 'N'
+              END), 'N') QUALITY_PIC_YN
+      , MAX(T13.COM_CHK) AS COM_CHK
+
+      --, VALUE((CASE
+      --            WHEN MAX(T13.INP_DT)= #INP_DT# THEN '1'
+      --            ELSE '0'
+      --        END), '0') AS DAY_PROCESS
+      , VALUE((CASE
+                  WHEN (T12.INP_DT) = #INP_DT# THEN '1'
+                  ELSE '0'
+               END), '0') AS DAY_PROCESS
+
+ 	  , VALUE((CASE
+ 	              WHEN (T14.CRDAT) &lt;&gt; '' THEN '1'
+ 	              ELSE '0'
+ 	           END), '0') AS RM_PROCESS
+
+	  , CASE
+	        WHEN MAX(T13.MDATE)  &lt;&gt; '' THEN '1'
+	        ELSE '0'
+	     END AS FLAG
+	  , 'N' AS B_COL0
+	  , CAST(#F_CHK# AS CHAR(10)) F_CHK
+	  , CAST(#F_ACTIVE# AS CHAR(10)) F_ACTIVE
+	  , CAST(#F_COPY# AS CHAR(10)) F_COPY
+	  , '' AS LIFNR   --데이터셋 컬럼생성을 위한 빈값
+      , '' AS TEMNO2  --데이터셋 컬럼생성을 위한 빈값
+      , '0' AS SAFE_COM_CHK
+      , MAX(T13.FPATH) AS FPATH
+      , MAX(T13.ORGFNAME) AS ORGFNAME
+      , MAX(T13.FNAME) AS FNAME
+      , MAX(T13.FNAME) AS FNAME_TMP
+      , MAX(T13.FSIZE) AS FSIZE
+      , MAX(T13.FDATR) AS FDATR
+      
+      , MAX(T106.GBN) AS GBN
+      , MAX(T106.GBN_NM) AS GBN_NM
+      , MAX(T106.SAFE_CK) AS SAFE_CK
+      
+      , MAX(AR.APRCD) AS APRCD
+      , MAX(DECODE(  AR.APRCD, 'Y' ,    SUBSTR(AR.APRDT, 1, 8))) AS APRDT
+      , DECODE(MAX(T106.GBN) , NULL , 'Y' , DECODE(MAX(AR.APRCD), 'Y',  'Y', 'N'  ) ) AS SAFEAPR           
+      , SUM(DECODE(MAX(T106.GBN) , NULL , '0' ,  DECODE( MAX(AR.APRCD), 'Y',  '0',  DECODE(MAX(AR.APRCD), NULL,  '1' , '1' ))  )   ) OVER  ( ORDER BY  T11.PRONR  ) AS SAFEAPRCNT3
+      
+      , MAX(T106.SAFE ) AS SAFE
+      , LAG(  MAX(T106.SAFE)  ) OVER ( ORDER BY  T11.PRONR  )  AS LSAFE      
+
+        , CASE WHEN (MAX(CASE WHEN T15.STEP1_DT > '10000101' AND T15.APPR1_DT > '10000101' AND (T15.RJCT1_DESC IS NULL OR T15.RJCT1_DESC = '') THEN 10
+        WHEN T15.STEP1_DT > '10000101' AND T15.APPR1_DT > '10000101' AND T15.RJCT1_DESC > '' THEN -10
+        WHEN T15.STEP1_DT > '10000101' AND (T15.APPR1_DT IS NULL OR T15.APPR1_DT = '') THEN -10
+        ELSE 0 END)
+        + MAX(CASE WHEN T15.STEP2_DT > '10000101' AND T15.APPR2_DT > '10000101' AND (T15.RJCT2_DESC IS NULL OR T15.RJCT2_DESC = '') THEN 100
+        WHEN T15.STEP2_DT > '10000101' AND T15.APPR2_DT > '10000101' AND T15.RJCT2_DESC > '' THEN -100
+        WHEN T15.STEP2_DT > '10000101' AND (T15.APPR2_DT IS NULL OR T15.APPR2_DT = '') THEN -100
+        ELSE 0 END)
+        + MAX(CASE WHEN T15.STEP3_DT > '10000101' AND T15.APPR3_DT > '10000101' AND (T15.RJCT3_DESC IS NULL OR T15.RJCT3_DESC = '') THEN 1000
+        WHEN T15.STEP3_DT > '10000101' AND T15.APPR3_DT > '10000101' AND T15.RJCT3_DESC > '' THEN -1000
+        WHEN T15.STEP3_DT > '10000101' AND (T15.APPR3_DT IS NULL OR T15.APPR3_DT = '') THEN -1000
+        ELSE 0 END)) > 0 THEN 1 ELSE 0 END AS RM_PROCESS2
+        
+        , MAX(F.CDATE) AS CDATE
+<![CDATA[
+		-- 20500511 : 승인여부에 따라 계획공정 클릭 불가 적용 시작일
+		-- 오픈일 정해지면 해당 일자로 변경해 주세요.
+        , CASE WHEN MAX(F.CDATE) < '20500511'
+               THEN 1
+               WHEN T14.CRDAT < '20500511'
+               THEN 1
+               WHEN TO_CHAR(CURRENT TIMESTAMP, 'YYYYMMDD') < '20500511'
+               THEN 1
+               WHEN SAPHEE.GET_WORKINGDAY( MAX(F.CDATE), 3 ) 
+                    || DECODE(  MAX(F.CDATE) , SAPHEE.GET_WORKINGDAY( MAX(F.CDATE), 0 ) ,   MAX(F.CTIME) , '235959' ) > TO_CHAR(CURRENT TIMESTAMP, 'YYYYMMDDHH24MISS')
+               THEN 1
+               ELSE 0   
+                END AS CHKOPEN
+]]>
+	FROM SAPHEE.ZPST0111 T11
+	
+         LEFT OUTER JOIN SAPHEE.ZPST0111T T11T 
+             ON T11T.MANDT = T11.MANDT 
+            AND T11T.GUBUN = T11.GUBUN 
+            AND T11T.VER = T11.VER 
+            AND T11T.PRONR = T11.PRONR
+            AND T11T.TYPE = T11.TYPE	
+
+		 left OUTER JOIN SAPHEE.ZPSTW0304  T12
+		     ON T11.MANDT = T12.MANDT
+		 	AND T11.GUBUN = T12.GUBUN
+		 	AND T11.PRONR = T12.PRONR
+		 	AND T12.PSPID = #PSPID#
+		    AND T12.POSID = #POSID#
+		    AND T12.INP_DT = #INP_DT#
+ 		 left OUTER JOIN SAPHEE.ZPSTW0304  T13
+ 		   ON T11.MANDT = T13.MANDT
+		  AND T11.GUBUN = T13.GUBUN
+		  AND T11.PRONR = T13.PRONR
+		  AND T13.PSPID = #PSPID#
+       	  AND T13.POSID = #POSID#
+       	              -- AND T13.INP_DT &lt;  #INP_DT#
+         left OUTER JOIN SAPHEE.ZPST0112  T14
+           ON T11.MANDT = T14.MANDT
+		  AND T11.GUBUN = T14.GUBUN
+		  AND T11.PRONR = T14.PRONR
+          AND T14.PSPID = #PSPID#
+          AND T14.POSID = #POSID#
+		 left OUTER JOIN SAPHEE.ZMASTER02 R02
+		   ON T12.MANDT = R02.MANDT
+		  AND T12.PSPID = R02.POSID AND T12.POSID = R02.POSID_1
+		  AND R02.ZZCHAKG = 'X'
+		  AND R02.TXT04 NOT IN ('C','B','R7')
+         LEFT   OUTER JOIN (SELECT X.INP_DT , X.MANDT
+		        			  FROM SAPHEE.ZPSTW0304  AS X
+		 					 WHERE  X.MANDT =  #G_MANDT#
+                               AND X.GUBUN = #GUBUN#
+                               AND  X.PSPID = #PSPID#
+                               AND X.POSID = #POSID#
+		     AND X.INP_DT &lt; HEX(CURRENT DATE) ORDER BY X.INP_DT DESC  FETCH FIRST 1 ROWS ONLY  ) AS T
+		 ON T.MANDT = T11.MANDT
+        LEFT OUTER JOIN SAPHEE.ZPSTW1502 T15
+        ON T11.MANDT = T15.MANDT
+        AND T15.PSPID = #PSPID#
+        AND T15.POSID = #POSID#
+        
+        LEFT OUTER JOIN SAPHEE.ZPST0111M AS P
+        ON T11.MANDT = P.MANDT
+        AND T11.GUBUN = P.GUBUN
+        AND T11.TYPE  = P.TYPE
+        AND T11.VER   = P.VER                
+      LEFT OUTER JOIN SAPHEE.ZPST1106 AS T106
+        ON T11.MANDT = T106.MANDT
+        AND P.STEP3_GBN  =  T106.TYPE
+        AND T11T.GUBUN = T106.GUBUN        
+        AND T11T.GNO  = T106.GNO
+        
+        LEFT OUTER JOIN SAPHEE.ZPST1150 AS AR
+        ON T11.MANDT    = AR.MANDT
+        AND AR.POSID    = #PSPID#
+        AND AR.POSID_1  = #POSID#
+         AND T106.GUBUN   = AR.GUBUN
+         AND T106.TYPE      = AR.TYPE
+         AND T11.VER       = AR.VER
+         AND T106.GBN      = AR.GBN
+         AND AR.USEYN      = '1'
+         
+        LEFT OUTER JOIN SAPHEE.ZCMFL001 AS F
+        ON AR.MANDT = F.MANDT
+        AND AR.POSID = F.PSPID
+        AND AR.POSID_1 = F.POSID
+         AND T106.GBN = F.GBN                  
+
+    WHERE   T11.GUBUN = #GUBUN#
+      AND   T11.MANDT = #G_MANDT#
+      AND   T11.TYPE  = #TYPE#
+      AND   T11.VER   = #VER#
+
+	GROUP BY  T11.PRONR   , T14.CRDAT  ,T12.INP_DT
+	)  O 
+ORDER BY  O.PRONR	
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="_none">
+	</input>
+	<output default-name="ds_pop2">
+	</output>
+</query>

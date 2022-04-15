@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT A.PSPID, 
+             B.BSTNK,
+             A.DEPT,
+             A.TEAM,
+             A.MAKE_MM,                                 
+             A.WAERK,
+             A.ERNAM, 
+             (SELECT X.NAMET  FROM SAPHEE.ZPST0011 AS X
+                   WHERE X.MANDT = A.MANDT
+                       AND X.TEMNO = A.PERSON_NM) AS ERNAMNM,
+ 
+             SAPHEE.GET_CURRENCY2(CAST(A.WAERK AS VARCHAR(15) ), CAST(A.MR_NETWR  AS DECIMAL(13, 2) ) ) AS NETWR, 
+             A.TYPE,
+             A.ACTION,
+             A.GUBUN,
+             (SELECT B.SAYU  FROM SAPHEE.ZPSTW0402 AS B   WHERE  A.MANDT = B.MANDT  AND A.PSPID   = B.PSPID  fetch first 1 rows only) AS CONTENT ,
+             CASE WHEN A.PSPID = D.PSPID THEN '유' ELSE '무' END AS PLAN, 
+             TRIM(CHAR(INT(ROW_NUMBER() OVER(ORDER BY A.MAKE_MM )))) AS RNO,
+             '' AS DEPT2,
+             '' AS TEAM2,
+             '' AS MAKF_DT,
+             '' AS MAKT_DT
+
+FROM SAPHEE.ZPSTW0401 AS A
+            
+  INNER JOIN SAPHEE.VBAK AS B
+       ON A.MANDT = B.MANDT
+     AND A.PSPID   = B.ZZPJT_ID
+   
+   INNER JOIN SAPHEE.ZMASTER01 AS C
+        ON B.MANDT = C.MANDT
+      AND B.ZZPJT_ID = C.POSID
+	  
+   LEFT OUTER JOIN SAPHEE.ZPSTW0403 AS D
+     ON A.MANDT = D.MANDT
+    AND A.PSPID   = D.PSPID
+			 
+	 
+			 
+WHERE A.MANDT = #G_MANDT#
+    AND A.MAKE_MM BETWEEN SUBSTR(#MAKF_DT#,1,6) AND SUBSTR(#MAKT_DT#,1,6)
+
+<isNotNull col="DEPT">
+    AND A.DEPT =  #DEPT#
+</isNotNull>
+
+<isNotNull col="TEAM">
+     AND A.TEAM = #TEAM#
+</isNotNull>
+
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

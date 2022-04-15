@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.PSPID,A.POSID, 
+             --A.INSLFN,  
+                 D.NAME1,
+                 B.NAMET,
+             (CASE WHEN A.ENDCHK = '' THEN '배치미실행'
+			            WHEN A.ENDCHK = 'C' THEN '정산or취소'
+				 	   WHEN A.ENDCHK = 'X' THEN '일식외주'
+					   WHEN A.ENDCHK = 'Y' THEN '발주삭제'
+					   WHEN A.ENDCHK = 'N' THEN '미발주'
+                                                                         ELSE '기타'   END) AS BIGO
+            ,B.ZSPEC1
+            ,B.ZSPEC2
+            ,F.ZSITE_NM
+            ,C.CRDAT
+			,A.WRKLFN
+         --   ,(SUBSTR(A.INSLFN,1,3)||'-'||SUBSTR(A.INSLFN,4,2)||'-'||SUBSTR(A.INSLFN,6,5)) AS INSLFN
+--            ,F.ADDR1||' '||F.ADDR2 AS ADDR
+	--,D.LIFNR
+            ,(SUBSTR(D.LIFNR,1,3)||'-'||SUBSTR(D.LIFNR,4,2)||'-'||SUBSTR(D.LIFNR,6,5)) AS LIFNR
+             ,TRIM(E.MCOD3)||TRIM(E.STRAS) AS ADDR
+             ,E.J_1KFREPRE AS REP
+   --          ,CHAR(ROWNUMBER() OVER(PARTITION BY D.LIFNR, B.ZZACTSS)) AS ROWNUM
+ FROM SAPHEE.ZMASTER01 AS F
+           INNER JOIN SAPHEE.ZPSTW1401 AS A
+               ON F.MANDT = A.MANDT
+	AND F.POSID =A.PSPID
+           INNER JOIN SAPHEE.ZMASTER02 AS B
+               ON A.MANDT = B.MANDT
+              AND A.PSPID = B.POSID
+              AND A.POSID = B.POSID_1
+           INNER JOIN SAPHEE.ZPST0112 AS C
+               ON A.MANDT = C.MANDT
+              AND A.PSPID = C.PSPID
+	AND A.POSID = C.POSID
+	--AND C.PRONR = '06'
+ -- 타입별 양중공정
+              AND C.PRONR =  (CASE  WHEN B.TYPE = 'EL01' OR  B.TYPE = 'EL04' THEN '04'
+                             	         WHEN B.TYPE = 'EL02' OR  B.TYPE = 'EL05' THEN '05'
+		                       WHEN B.TYPE = 'EL03' OR  B.TYPE = 'EL06' THEN '07' ELSE '06'  END )
+             
+             LEFT OUTER JOIN SAPHEE.LFA1 AS D
+	  ON A.MANDT = D.MANDT
+	 AND A.INSLFN = D.LIFNR
+	 
+             INNER JOIN SAPHEE.ZMMT012 AS E
+	   ON D.MANDT = E.MANDT
+	 AND D.LIFNR = E.LIFNR
+  WHERE A.MANDT = #G_MANDT#
+
+             AND A.GBN = 'B'
+      
+--AND A.INSLFN = #INSLFN#      
+<isNotNull col="LIFNR">
+AND   D.LIFNR = #LIFNR#
+</isNotNull>    
+<isNotNull col="ZZACTSS">
+AND   F.ZZACTSS = #ZZACTSS#
+</isNotNull>	   
+            AND C.CRDAT BETWEEN #SUP_DTF# AND #SUP_DTT#
+            <isNotNull col="PSPID"> 
+            AND A.PSPID = #PSPID# 
+            </isNotNull>
+            AND B.ZZGUBUN = '10'
+            AND NOT EXISTS ( SELECT *
+                                         FROM SAPHEE.ZPST0102 AS X
+                                       WHERE X.MANDT = A.MANDT
+                                           AND X.PSPID = A.PSPID
+                                           AND X.POSID = A.POSID 
+          		               AND X.CHGNO = '00' )
+									   
+ORDER BY A.PSPID,A.POSID
+
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

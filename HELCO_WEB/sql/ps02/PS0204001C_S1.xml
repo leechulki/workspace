@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[화면 메인 조회쿼리]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  T.PRONR, T.PROWRK, T.PRO_R,T.PRO_SUM, T.ZCHECK, T.VER, T.UD , T.GISUNG_CHK
+              <isNotNull col="S3_QUERY">
+               #S3_QUERY+#
+	</isNotNull>
+
+
+FROM
+(SELECT A.PRONR, A.PROWRK, A.PRO_R,A.PRO_SUM, A.ZCHECK, A.VER, 'A' UD , A.GISUNG_CHK
+	<isNotNull col="S1_QUERY">
+		#S1_QUERY+#
+	</isNotNull>
+	  FROM SAPHEE.ZPST0111 AS A
+	             left OUTER JOIN SAPHEE.ZPSTW0304 T13 ON a.MANDT = T13.MANDT 
+		 AND a.GUBUN = T13.GUBUN AND a.PRONR = T13.PRONR
+		  AND T13.PSPID =  #POSID#
+		  left OUTER JOIN SAPHEE.ZMASTER02 R03 ON T13.MANDT = R03.MANDT 
+		 AND T13.PSPID = R03.POSID AND T13.POSID = R03.POSID_1 
+
+		 
+	WHERE A.GUBUN = #GUBUN#
+	AND   A.MANDT = #G_MANDT#		
+    AND   A.TYPE = #TYPE#
+	AND   A.VER   IN (  
+		   SELECT DISTINCT B.VER
+				  FROM SAPHEE.ZPST0112  AS B
+		  	  	  WHERE B.PSPID = #POSID#
+				  AND   B.MANDT = #G_MANDT#	
+			  	  AND   B.GUBUN = #GUBUN#
+			  	  )
+
+ GROUP BY A.PRONR, A.PROWRK, A.PRO_R, A.ZCHECK , A.VER , A.PRO_SUM	, A.GISUNG_CHK	 ,A.MANDT 
+
+
+ --ORDER  BY A.PRONR		  
+				  	 
+	UNION ALL
+	
+	SELECT A.PRONR, A.PROWRK, A.PRO_R, A.PRO_SUM,A.ZCHECK, A.VER, 'B' UD	, A.GISUNG_CHK
+	  	<isNotNull col="S1_QUERY">
+		#S1_QUERY+#
+	</isNotNull>
+		  FROM SAPHEE.ZPST0111 AS A
+	             left OUTER JOIN SAPHEE.ZPSTW0304 T13 ON a.MANDT = T13.MANDT 
+		 AND a.GUBUN = T13.GUBUN AND a.PRONR = T13.PRONR
+		  AND T13.PSPID = #POSID#
+		  left OUTER JOIN SAPHEE.ZMASTER02 R03 ON T13.MANDT = R03.MANDT 
+		 AND T13.PSPID = R03.POSID AND T13.POSID = R03.POSID_1 
+
+	WHERE A.GUBUN = #GUBUN#
+	AND   A.MANDT = #G_MANDT#	  
+              AND   A.TYPE = #TYPE#
+	and   A.ver = (select max(B.ver)  
+					 FROM SAPHEE.ZPST0111 AS B 	
+					WHERE B.GUBUN = #GUBUN#
+					  AND B.TYPE  = #TYPE#	
+					  AND   B.MANDT = #G_MANDT#	 )	
+
+
+
+ GROUP BY A.PRONR, A.PROWRK, A.PRO_R, A.ZCHECK , A.VER , A.PRO_SUM, A.GISUNG_CHK , A.MANDT 
+
+) AS T
+
+
+ORDER BY   T.UD , T.PRONR
+
+ 
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_pop1">
+	</output>
+</query>

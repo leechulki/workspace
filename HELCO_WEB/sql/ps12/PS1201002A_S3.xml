@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  '' FLAG,P.LIFNR
+       ,P.PSPID
+       ,P.TEMNO
+       ,CASE WHEN P.PSPID = '00000Z' THEN '사무실보관' ELSE (SELECT ZSITE_NM  FROM SAPHEE.ZMASTER01 WHERE MANDT = P.MANDT AND POSID = PSPID) END AS ZSITE_NM
+       ,P.SEQ
+       ,P.IPQTY
+       ,P.INQTY
+       ,P.OUTQTY
+       ,P.LOSQTY
+       ,P.BANQTY
+       ,CASE WHEN P.PSPID = '00000Z' THEN P.IPQTY ELSE P.IPQTY-P.OUTQTY-P.LOSQTY END AS CURQTY
+       ,P.GUBUN
+       ,P.ZZACTSS
+       ,P.CDATE
+       , DEC(ROUND((SELECT SUM(PRO_R) PRO_R 
+           FROM SAPHEE.ZPST0112 D 
+        WHERE D.MANDT = P.MANDT
+             AND   D.PSPID = P.PSPID
+          --  AND   D.POSID = A.POSID_1
+       GROUP BY D.MANDT ,D.PSPID--,A.POSID_1		
+       )   / A.ZQNTY ,2 ), 10, 2) AS   PRO_R
+FROM SAPHEE.ZPST0141 AS P
+LEFT OUTER JOIN SAPHEE.ZMASTER01 AS A
+               ON  P.MANDT = A.MANDT 
+			  AND P.PSPID = A.POSID
+			  
+WHERE P.MANDT = #G_MANDT#
+AND P.LIFNR = #LIFNR#
+<isNotNull col="PSPID">
+AND (PSPID = #PSPID# OR PSPID = '00000Z')
+</isNotNull>
+<isNotNull col="ZZACTSS">
+AND P.ZZACTSS = #ZZACTSS# 
+</isNotNull>
+<isNotNull col="GUBUN">
+AND (GUBUN = #GUBUN# OR PSPID = '00000Z')
+</isNotNull>
+GROUP BY P.PSPID,P.LIFNR,P.MANDT,P.CDATE,P.ZZACTSS,P.GUBUN,P.SEQ,A.ZQNTY
+       ,P.IPQTY
+       ,P.INQTY
+       ,P.OUTQTY
+       ,P.LOSQTY
+       ,P.BANQTY
+	   ,P.TEMNO
+ ORDER BY P.SEQ,P.PSPID
+
+
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

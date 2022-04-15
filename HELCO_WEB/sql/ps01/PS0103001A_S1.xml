@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+WITH TEMP AS
+(
+SELECT  A.PSPID, B.ZSITE_NM
+             ,(CASE WHEN A.SURVEYGBN = 'A' THEN '고객사' 
+			             WHEN A.SURVEYGBN = 'B' THEN '협력사'
+				 	     ELSE ''   END ) AS GBN 
+
+			 ,(CASE WHEN A.SURVEYGBN = 'A' THEN 
+			                            (SELECT X.NAME1 FROM SAPHEE.KNA1 AS X WHERE X.MANDT = A.MANDT AND X.KUNNR = A.RESPONDENT)
+				         WHEN A.SURVEYGBN = 'B' THEN 
+			                            (SELECT X.NAME1 FROM SAPHEE.LFA1 AS X WHERE X.MANDT = A.MANDT AND X.LIFNR = A.RESPONDENT)
+			             ELSE '' END) AS RESPONDENT_NM
+
+
+			 ,(CASE WHEN  A.SURVEYGBN = 'B' 
+			                         THEN (SELECT X.NAMET FROM SAPHEE.ZPST0002 AS X WHERE X.MANDT = A.MANDT AND X.TEMNO = A.TEMNO)
+						  ELSE '' END) AS TEMNM
+			 ,A.MDATE   
+			 ,A.MNAME AS MNAME_CD 
+			 ,(SELECT X.USERNAME FROM SAPHEE.ZUSERF AS X WHERE X.MANDT = A.MANDT AND X.USERNUMB = A.MNAME) AS  MNAME
+			 ,A.ANSWERDT  
+			 ,(CASE WHEN A.DEVICE = 'A' THEN '문자'  
+			             WHEN A.DEVICE = 'B' THEN 'MSRM'
+						 ELSE '' END ) AS GBN2
+			 ,(A.SURVEYGBN || '-' || A.SURVEYID) AS S_ID
+			 ,A.RESPONDENT ,A.SURVEYGBN, A.TEMNO,  A.SURVEYID
+   FROM SAPHEE.ZPSTSRYR AS A
+   INNER JOIN SAPHEE.ZMASTER01 AS B  
+	   ON A.MANDT = B.MANDT
+	 AND A.PSPID = B.POSID
+--   INNER JOIN SAPHEE.LFA1 AS C
+--        ON A.MANDT = C.MANDT
+--	  AND A.RESPONDENT = C.LIFNR
+ WHERE A.MANDT = #G_MANDT#
+     
+ 
+   <isNotNull col="SENDID">
+     AND A.SENDID = #SENDID#
+   </isNotNull>  
+
+    <isEqual col="GBN" value="A">
+     AND  A.MDATE BETWEEN #FROM_DT# AND #TO_DT#
+    </isEqual>
+    <isEqual col="GBN" value="B">
+     AND  A.ANSWERDT BETWEEN #FROM_DT# AND #TO_DT#
+    </isEqual>
+
+   <isNotNull col="LFGBN">
+     AND  A.SURVEYGBN = #LFGBN#
+   </isNotNull>   
+   
+   <isNotNull col="ZZACTSS">
+     AND  B.ZZACTSS = #ZZACTSS#
+   </isNotNull>   
+   
+   <isNotNull col="PSPID">
+     AND  A.PSPID = #PSPID#
+   </isNotNull>      
+   
+    <isEqual col="STATUS" value="1">
+     AND  A.ANSWERDT &gt;= '19000101' 
+    </isEqual>
+    <isEqual col="STATUS" value="2">
+     AND  (A.ANSWERDT = '' OR  A.ANSWERDT = '00000000')
+    </isEqual> 
+   
+ )
+ 
+ SELECT  T1.*
+     FROM TEMP AS T1
+  GROUP BY T1.PSPID, T1.ZSITE_NM, T1.GBN, T1.TEMNM, T1.MDATE, T1.MNAME_CD, T1.MNAME, T1.ANSWERDT,	T1.GBN2, T1.S_ID
+                   ,T1.RESPONDENT, T1.SURVEYGBN, T1.TEMNO,  T1.SURVEYID, T1.RESPONDENT_NM
+				   
+				   
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list_master">
+	</output>
+</query>

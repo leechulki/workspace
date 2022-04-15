@@ -1,0 +1,1090 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.smp.dao.Smp0110D">
+  
+	<resultMap id="SmpResultMap" type="hdel.sd.smp.domain.Smp0110VO"></resultMap>
+
+	<!-- 통화종류 조회 -->
+	<select id="SelectWaerk" parameterType="hdel.sd.smp.domain.Smp0110VO" resultMap="SmpResultMap">
+		<![CDATA[
+		SELECT 
+			DISTINCT ZSDT1036.WAERK									-- 통화
+		  FROM SAPHEE.ZSDT1036 ZSDT1036								-- 이동계획(수주)
+	     WHERE 1=1
+	       AND ZSDT1036.MANDT 	= #{MANDT} 							-- 클라이언트
+	       AND ZSDT1036.ZMPINC 	= #{ZMPINC} 						-- 이동계획차수
+	    ]]>
+	    
+	    <!-- 사업장 -->
+	    <if test="VKBUR_F != '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR BETWEEN #{VKBUR_F} AND #{VKBUR_T}
+	    </if>
+	    <if test="VKBUR_F != '' and VKBUR_T == ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_F} 
+	    </if>
+	    <if test="VKBUR_F == '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_T} 
+	    </if>
+	    
+	    <!-- 영업그룹 -->
+	    <if test="VKGRP_F != '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP BETWEEN #{VKGRP_F} AND #{VKGRP_T}
+	    </if>
+	    <if test="VKGRP_F != '' and VKGRP_T == ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_F} 
+	    </if>
+	    <if test="VKGRP_F == '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_T} 
+	    </if>
+	    
+	    <!-- 영업사원 -->
+	    <if test="ZKUNNR != ''" >
+	    	AND ZSDT1036.ZKUNNR = #{ZKUNNR}
+	    </if>
+	    
+	    <!-- 오더유형(판매유형문서) -->
+	    <if test="AUART != ''" >
+	    	AND ZSDT1036.AUART = #{AUART}
+	    </if>
+		WITH UR
+	    
+	</select>
+	
+	<!-- 통화별 수주 -->	
+	<select id="SelectOrder" parameterType="hdel.sd.smp.domain.Smp0110VO" resultMap="SmpResultMap">
+		<![CDATA[ 
+		SELECT
+			ZSDT1036.MANDT											-- 클라이언트
+			,ZSDT1036.ZMPINC										-- 이동계획차수
+			,${FILTER2}												-- 계획년월
+			,(SELECT BEZEI						
+			    FROM SAPHEE.TVKBT
+			   WHERE MANDT = #{MANDT}
+			     AND VKBUR = ZSDT1036.VKBUR
+			     AND SPRAS = '3'
+			 )AS VKBUR												-- 사업장
+			,ZSDT1036.VKGRP											-- 영업그룹
+			,(SELECT NAME1	 
+					   FROM SAPHEE.KNA1  
+					  WHERE MANDT = #{MANDT}
+					    AND KUNNR = ZSDT1036.ZAGNT
+					  UNION ALL
+					 SELECT NAME1						
+					   FROM SAPHEE.LFA1
+					  WHERE MANDT = #{MANDT}
+					    AND LIFNR = ZSDT1036.ZAGNT
+	         ) AS ZAGNT												-- 대리점
+			,(SELECT NAME1						
+			    FROM SAPHEE.KNA1
+			   WHERE MANDT = #{MANDT}
+			     AND KTOKD = 'Z201'
+			     AND KUNNR = ZSDT1036.ZKUNNR
+			 )AS ZKUNNR												-- 영업사원
+            ,ZSDT1036.WAERK											-- 통화
+		    ,${FILTER1}												-- 수주예상액
+		    ,(select ukurs
+				from saphee.ztcurr as ztcurr
+				where mandt=#{MANDT} and kurst='BP' 
+				and
+				case
+					when (select substr(max(frdat),1,4) from saphee.ztcurr where mandt=ztcurr.mandt and kurst=ztcurr.kurst and fcurr=ztcurr.fcurr and tcurr=ztcurr.tcurr) >= substr(#{zmpinc}, 1, 4) then substr(#{zmpinc}, 1, 4) else substr(#{zmpinc}, 1, 4)-1 end 
+				||'0101' between frdat and todat and fcurr='USD' and tcurr='KRW') as KRWUSD
+		 FROM SAPHEE.ZSDT1036 ZSDT1036								-- 이동계획(수주)
+		WHERE 1=1
+		  AND ZSDT1036.MANDT 	= #{MANDT} 							-- 클라이언트
+		  AND ZSDT1036.ZMPINC 	= #{ZMPINC}						 	-- 이동계획차수
+	    ]]>
+	    <!-- 사업장 -->
+	    <if test="VKBUR_F != '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR BETWEEN #{VKBUR_F} AND #{VKBUR_T}
+	    </if>
+	    <if test="VKBUR_F != '' and VKBUR_T == ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_F} 
+	    </if>
+	    <if test="VKBUR_F == '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_T} 
+	    </if>
+	    
+	    <!-- 영업그룹 -->
+	    <if test="VKGRP_F != '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP BETWEEN #{VKGRP_F} AND #{VKGRP_T}
+	    </if>
+	    <if test="VKGRP_F != '' and VKGRP_T == ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_F} 
+	    </if>
+	    <if test="VKGRP_F == '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_T} 
+	    </if>
+	    
+	    <!-- 영업사원 -->
+	    <if test="ZKUNNR != ''" >
+	    	AND ZSDT1036.ZKUNNR = #{ZKUNNR}
+	    </if>
+	    
+	    <!-- 오더유형(판매유형문서) -->
+	    <if test="AUART != ''" >
+	    	AND ZSDT1036.AUART = #{AUART}
+	    </if>
+	    
+		<![CDATA[
+        GROUP BY ZSDT1036.MANDT										-- 클라이언트
+         		, ZSDT1036.ZMPINC									-- 이동계획차수
+                , ZSDT1036.VKBUR									-- 사업장
+                , ZSDT1036.VKGRP									-- 영업그룹
+				, ZSDT1036.ZAGNT									-- 대리점
+                , ZSDT1036.ZKUNNR									-- 영업사원
+            	, ZSDT1036.WAERK									-- 통화
+		       
+		UNION ALL
+		
+		SELECT
+			ZSDT1036.MANDT											-- 클라이언트
+			,ZSDT1036.ZMPINC										-- 이동계획차수
+			,ZSDT1036.ZPYM											-- 계획년월
+			,(SELECT BEZEI						
+			    FROM SAPHEE.TVKBT
+			   WHERE MANDT = #{MANDT}
+			     AND VKBUR = ZSDT1036.VKBUR
+			     AND SPRAS = '3'
+			 )AS VKBUR												-- 사업장
+			,ZSDT1036.VKGRP											-- 영업그룹
+			,(SELECT NAME1	 
+					   FROM SAPHEE.KNA1  
+					  WHERE MANDT = #{MANDT}
+					    AND KUNNR = ZSDT1036.ZAGNT
+					  UNION ALL
+					 SELECT NAME1						
+					   FROM SAPHEE.LFA1
+					  WHERE MANDT = #{MANDT}
+					    AND LIFNR = ZSDT1036.ZAGNT
+	         ) AS ZAGNT												-- 대리점
+			,(SELECT NAME1						
+			    FROM SAPHEE.KNA1
+			   WHERE MANDT = #{MANDT}
+			     AND KTOKD = 'Z201'
+			     AND KUNNR = ZSDT1036.ZKUNNR
+			 )AS ZKUNNR												-- 영업사원
+            ,ZSDT1036.WAERK											-- 통화
+			,SUM(ZSDT1036.SOFOCA) AS SOFOCA							-- 수주예상액
+		    ,0 AS KRWUSD											-- 환율
+		  FROM SAPHEE.ZSDT1036 ZSDT1036								-- 이동계획(수주)
+	     WHERE 1=1
+	       AND ZSDT1036.MANDT 	= #{MANDT} 							-- 클라이언트
+	       AND ZSDT1036.ZMPINC 	= #{ZMPINC}						 	-- 이동계획차수
+	    ]]>
+	    <!-- 사업장 -->
+	    <if test="VKBUR_F != '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR BETWEEN #{VKBUR_F} AND #{VKBUR_T}
+	    </if>
+	    <if test="VKBUR_F != '' and VKBUR_T == ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_F} 
+	    </if>
+	    <if test="VKBUR_F == '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_T} 
+	    </if>
+	    
+	    <!-- 영업그룹 -->
+	    <if test="VKGRP_F != '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP BETWEEN #{VKGRP_F} AND #{VKGRP_T}
+	    </if>
+	    <if test="VKGRP_F != '' and VKGRP_T == ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_F} 
+	    </if>
+	    <if test="VKGRP_F == '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_T} 
+	    </if>
+	    
+	    <!-- 영업사원 -->
+	    <if test="ZKUNNR != ''" >
+	    	AND ZSDT1036.ZKUNNR = #{ZKUNNR}
+	    </if>
+	    
+	    <!-- 오더유형(판매유형문서) -->
+	    <if test="AUART != ''" >
+	    	AND ZSDT1036.AUART = #{AUART}
+	    </if>
+	    
+		<![CDATA[
+         GROUP BY ZSDT1036.MANDT								-- 클라이언트
+       		, ZSDT1036.ZMPINC									-- 이동계획차수
+            , ZSDT1036.ZPYM										-- 계획년월
+            , ZSDT1036.VKBUR									-- 사업장
+            , ZSDT1036.VKGRP									-- 영업그룹
+			, ZSDT1036.ZAGNT									-- 대리점
+            , ZSDT1036.ZKUNNR									-- 영업사원
+        	, ZSDT1036.WAERK									-- 통화
+	    ]]>
+		WITH UR
+	    
+	</select>
+	<!-- 월별 수주 -->	
+	<select id="SelectOrderExitWaerk" parameterType="hdel.sd.smp.domain.Smp0110VO" resultMap="SmpResultMap">
+		<![CDATA[ 
+		SELECT
+			ZSDT1036.MANDT											-- 클라이언트
+			,ZSDT1036.ZMPINC										-- 이동계획차수
+			,ZSDT1036.ZPYM											-- 계획년월
+			,(SELECT BEZEI						
+			    FROM SAPHEE.TVKBT
+			   WHERE MANDT = #{MANDT}
+			     AND VKBUR = ZSDT1036.VKBUR
+			     AND SPRAS = '3'
+			 )AS VKBUR												-- 사업장
+			,ZSDT1036.VKGRP											-- 영업그룹
+			,(SELECT NAME1	 
+					   FROM SAPHEE.KNA1  
+					  WHERE MANDT = #{MANDT}
+					    AND KUNNR = ZSDT1036.ZAGNT
+					  UNION ALL
+					 SELECT NAME1						
+					   FROM SAPHEE.LFA1
+					  WHERE MANDT = #{MANDT}
+					    AND LIFNR = ZSDT1036.ZAGNT
+	         ) AS ZAGNT												-- 대리점
+			,(SELECT NAME1						
+			    FROM SAPHEE.KNA1
+			   WHERE MANDT = #{MANDT}
+			     AND KTOKD = 'Z201'
+			     AND KUNNR = ZSDT1036.ZKUNNR
+			 )AS ZKUNNR												-- 영업사원
+			,SUM(ZSDT1036.SOFOCA) AS SOFOCA							-- 수주예상액
+		 FROM SAPHEE.ZSDT1036 ZSDT1036								-- 이동계획(수주)
+		WHERE 1=1
+		  AND ZSDT1036.MANDT 	= #{MANDT} 							-- 클라이언트
+		  AND ZSDT1036.ZMPINC 	= #{ZMPINC}						 	-- 이동계획차수
+	    ]]>
+	    <!-- 사업장 -->
+	    <if test="VKBUR_F != '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR BETWEEN #{VKBUR_F} AND #{VKBUR_T}
+	    </if>
+	    <if test="VKBUR_F != '' and VKBUR_T == ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_F} 
+	    </if>
+	    <if test="VKBUR_F == '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_T} 
+	    </if>
+	    
+	    <!-- 영업그룹 -->
+	    <if test="VKGRP_F != '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP BETWEEN #{VKGRP_F} AND #{VKGRP_T}
+	    </if>
+	    <if test="VKGRP_F != '' and VKGRP_T == ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_F} 
+	    </if>
+	    <if test="VKGRP_F == '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_T} 
+	    </if>
+	    
+	    <!-- 영업사원 -->
+	    <if test="ZKUNNR != ''" >
+	    	AND ZSDT1036.ZKUNNR = #{ZKUNNR}
+	    </if>
+	    
+	    <!-- 오더유형(판매유형문서) -->
+	    <if test="AUART != ''" >
+	    	AND ZSDT1036.AUART = #{AUART}
+	    </if>
+	    
+		<![CDATA[
+        GROUP BY ZSDT1036.MANDT										-- 클라이언트
+         		, ZSDT1036.ZMPINC									-- 이동계획차수
+                , ZSDT1036.ZPYM										-- 계획년월
+                , ZSDT1036.VKBUR									-- 사업장
+                , ZSDT1036.VKGRP									-- 영업그룹
+				, ZSDT1036.ZAGNT									-- 대리점
+                , ZSDT1036.ZKUNNR									-- 영업사원
+	    ]]>
+		WITH UR
+	    
+	</select>
+	
+	<!-- 통화별 매출 -->	
+	<select id="SelectSales" parameterType="hdel.sd.smp.domain.Smp0110VO" resultMap="SmpResultMap">
+		<![CDATA[
+		SELECT 
+			ZSDT1036.MANDT											-- 클라이언트
+			,ZSDT1036.ZMPINC										-- 이동계획차수
+			,${FILTER2}												-- 계획년월
+			,(SELECT BEZEI						
+			    FROM SAPHEE.TVKBT
+			   WHERE MANDT = #{MANDT}
+			     AND VKBUR = ZSDT1036.VKBUR
+			     AND SPRAS = '3'
+			 )AS VKBUR												-- 사업장
+			,ZSDT1036.VKGRP											-- 영업그룹
+			,(SELECT NAME1	 
+					   FROM SAPHEE.KNA1  
+					  WHERE MANDT = #{MANDT}
+					    AND KUNNR = ZSDT1036.ZAGNT
+					  UNION ALL
+					 SELECT NAME1						
+					   FROM SAPHEE.LFA1
+					  WHERE MANDT = #{MANDT}
+					    AND LIFNR = ZSDT1036.ZAGNT
+	         ) AS ZAGNT												-- 대리점
+			,(SELECT NAME1						
+			    FROM SAPHEE.KNA1
+			   WHERE MANDT = #{MANDT}
+			     AND KTOKD = 'Z201'
+			     AND KUNNR = ZSDT1036.ZKUNNR
+			 )AS ZKUNNR												-- 영업사원
+            ,ZSDT1036.WAERK											-- 통화
+		    ,${FILTER1}												-- 매출예상액
+		    ,(select ukurs
+				from saphee.ztcurr as ztcurr
+				where mandt=#{MANDT} and kurst='BP' 
+				and
+				case
+					when (select substr(max(frdat),1,4) from saphee.ztcurr where mandt=ztcurr.mandt and kurst=ztcurr.kurst and fcurr=ztcurr.fcurr and tcurr=ztcurr.tcurr) >= substr(#{zmpinc}, 1, 4) then substr(#{zmpinc}, 1, 4) else substr(#{zmpinc}, 1, 4)-1 end 
+				||'0101' between frdat and todat and fcurr='USD' and tcurr='KRW') as KRWUSD
+		  FROM SAPHEE.ZSDT1036 ZSDT1036								-- 이동계획(수주)
+   			  ,SAPHEE.ZSDT1037 ZSDT1037								-- 이동계획(매출)
+	     WHERE 1=1
+	       AND ZSDT1036.MANDT 	= #{MANDT} 							-- 클라이언트
+	       AND ZSDT1036.ZMPINC 	= #{ZMPINC} 						-- 이동계획차수
+		   AND ZSDT1036.MANDT 	= ZSDT1037.MANDT 					-- 클라이언트
+		   AND ZSDT1036.ZMPNNR 	= ZSDT1037.ZMPNNR 					-- 이동계획번호
+		   AND ZSDT1036.ZMPINC 	= ZSDT1037.ZMPINC 					-- 이동계획차수
+	    ]]>
+	    
+	    <!-- 사업장 -->
+	    <if test="VKBUR_F != '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR BETWEEN #{VKBUR_F} AND #{VKBUR_T}
+	    </if>
+	    <if test="VKBUR_F != '' and VKBUR_T == ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_F} 
+	    </if>
+	    <if test="VKBUR_F == '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_T} 
+	    </if>
+	    
+	    <!-- 영업그룹 -->
+	    <if test="VKGRP_F != '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP BETWEEN #{VKGRP_F} AND #{VKGRP_T}
+	    </if>
+	    <if test="VKGRP_F != '' and VKGRP_T == ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_F} 
+	    </if>
+	    <if test="VKGRP_F == '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_T} 
+	    </if>
+	    
+	    <!-- 영업사원 -->
+	    <if test="ZKUNNR != ''" >
+	    	AND ZSDT1036.ZKUNNR = #{ZKUNNR}
+	    </if>
+	    
+	    <!-- 오더유형(판매유형문서) -->
+	    <if test="AUART != ''" >
+	    	AND ZSDT1036.AUART = #{AUART}
+	    </if>
+	    
+		<![CDATA[
+         GROUP BY ZSDT1036.MANDT									-- 클라이언트
+         		, ZSDT1036.ZMPINC									-- 이동계획차수
+                , ZSDT1036.VKBUR									-- 사업장
+                , ZSDT1036.VKGRP									-- 영업그룹
+				, ZSDT1036.ZAGNT									-- 대리점
+                , ZSDT1036.ZKUNNR									-- 영업사원
+            	, ZSDT1036.WAERK									-- 통화
+            	
+        UNION ALL
+         
+		SELECT 
+			ZSDT1036.MANDT											-- 클라이언트
+			,ZSDT1036.ZMPINC										-- 이동계획차수			
+			,ZSDT1036.ZPYM											-- 계획년월
+			,(SELECT BEZEI						
+			    FROM SAPHEE.TVKBT
+			   WHERE MANDT = #{MANDT}
+			     AND VKBUR = ZSDT1036.VKBUR
+			     AND SPRAS = '3'
+			 )AS VKBUR												-- 사업장
+			,ZSDT1036.VKGRP											-- 영업그룹
+			,(SELECT NAME1	 
+					   FROM SAPHEE.KNA1  
+					  WHERE MANDT = #{MANDT}
+					    AND KUNNR = ZSDT1036.ZAGNT
+					  UNION ALL
+					 SELECT NAME1						
+					   FROM SAPHEE.LFA1
+					  WHERE MANDT = #{MANDT}
+					    AND LIFNR = ZSDT1036.ZAGNT
+	         ) AS ZAGNT												-- 대리점
+			,(SELECT NAME1						
+			    FROM SAPHEE.KNA1
+			   WHERE MANDT = #{MANDT}
+			     AND KTOKD = 'Z201'
+			     AND KUNNR = ZSDT1036.ZKUNNR
+			 )AS ZKUNNR												-- 영업사원
+            ,ZSDT1036.WAERK											-- 통화
+		    ,SUM(ZSDT1037.NETWR_SA) AS SOFOCA						-- 매출예상액
+		    ,0 AS KRWUSD											-- 환율
+		  FROM SAPHEE.ZSDT1036 ZSDT1036								-- 이동계획(수주)
+   			  ,SAPHEE.ZSDT1037 ZSDT1037								-- 이동계획(매출)
+	     WHERE 1=1
+	       AND ZSDT1036.MANDT 	= #{MANDT} 							-- 클라이언트
+	       AND ZSDT1036.ZMPINC 	= #{ZMPINC} 						-- 이동계획차수
+		   AND ZSDT1036.MANDT 	= ZSDT1037.MANDT 					-- 클라이언트
+		   AND ZSDT1036.ZMPNNR 	= ZSDT1037.ZMPNNR 					-- 이동계획번호
+		   AND ZSDT1036.ZMPINC 	= ZSDT1037.ZMPINC 					-- 이동계획차수
+	    ]]>
+	    
+	    <!-- 사업장 -->
+	    <if test="VKBUR_F != '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR BETWEEN #{VKBUR_F} AND #{VKBUR_T}
+	    </if>
+	    <if test="VKBUR_F != '' and VKBUR_T == ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_F} 
+	    </if>
+	    <if test="VKBUR_F == '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_T} 
+	    </if>
+	    
+	    <!-- 영업그룹 -->
+	    <if test="VKGRP_F != '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP BETWEEN #{VKGRP_F} AND #{VKGRP_T}
+	    </if>
+	    <if test="VKGRP_F != '' and VKGRP_T == ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_F} 
+	    </if>
+	    <if test="VKGRP_F == '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_T} 
+	    </if>
+	    
+	    <!-- 영업사원 -->
+	    <if test="ZKUNNR != ''" >
+	    	AND ZSDT1036.ZKUNNR = #{ZKUNNR}
+	    </if>
+	    
+	    <!-- 오더유형(판매유형문서) -->
+	    <if test="AUART != ''" >
+	    	AND ZSDT1036.AUART = #{AUART}
+	    </if>
+	    
+		<![CDATA[
+         GROUP BY ZSDT1036.MANDT									-- 클라이언트
+         		, ZSDT1036.ZMPINC									-- 이동계획차수
+                , ZSDT1036.ZPYM										-- 계획년월
+                , ZSDT1036.VKBUR									-- 사업장
+                , ZSDT1036.VKGRP									-- 영업그룹
+				, ZSDT1036.ZAGNT									-- 대리점
+                , ZSDT1036.ZKUNNR									-- 영업사원
+            	, ZSDT1036.WAERK									-- 통화
+	    ]]>
+		WITH UR
+	</select>
+	<!-- 월별 매출 -->	
+	<select id="SelectSalesExitWaerk" parameterType="hdel.sd.smp.domain.Smp0110VO" resultMap="SmpResultMap">
+		<![CDATA[
+		SELECT 
+			ZSDT1036.MANDT											-- 클라이언트
+			,ZSDT1036.ZMPINC										-- 이동계획차수			
+			,ZSDT1036.ZPYM											-- 계획년월
+			,(SELECT BEZEI						
+			    FROM SAPHEE.TVKBT
+			   WHERE MANDT = #{MANDT}
+			     AND VKBUR = ZSDT1036.VKBUR
+			     AND SPRAS = '3'
+			 )AS VKBUR												-- 사업장
+			,ZSDT1036.VKGRP											-- 영업그룹
+			,(SELECT NAME1	 
+					   FROM SAPHEE.KNA1  
+					  WHERE MANDT = #{MANDT}
+					    AND KUNNR = ZSDT1036.ZAGNT
+					  UNION ALL
+					 SELECT NAME1						
+					   FROM SAPHEE.LFA1
+					  WHERE MANDT = #{MANDT}
+					    AND LIFNR = ZSDT1036.ZAGNT
+	         ) AS ZAGNT												-- 대리점
+			,(SELECT NAME1						
+			    FROM SAPHEE.KNA1
+			   WHERE MANDT = #{MANDT}
+			     AND KTOKD = 'Z201'
+			     AND KUNNR = ZSDT1036.ZKUNNR
+			 )AS ZKUNNR												-- 영업사원
+		    ,SUM(ZSDT1037.NETWR_SA) AS SOFOCA						-- 매출예상액
+		  FROM SAPHEE.ZSDT1036 ZSDT1036								-- 이동계획(수주)
+   			  ,SAPHEE.ZSDT1037 ZSDT1037								-- 이동계획(매출)
+	     WHERE 1=1
+	       AND ZSDT1036.MANDT 	= #{MANDT} 							-- 클라이언트
+	       AND ZSDT1036.ZMPINC 	= #{ZMPINC} 						-- 이동계획차수
+		   AND ZSDT1036.MANDT 	= ZSDT1037.MANDT 					-- 클라이언트
+		   AND ZSDT1036.ZMPNNR 	= ZSDT1037.ZMPNNR 					-- 이동계획번호
+		   AND ZSDT1036.ZMPINC 	= ZSDT1037.ZMPINC 					-- 이동계획차수
+	    ]]>
+	    
+	    <!-- 사업장 -->
+	    <if test="VKBUR_F != '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR BETWEEN #{VKBUR_F} AND #{VKBUR_T}
+	    </if>
+	    <if test="VKBUR_F != '' and VKBUR_T == ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_F} 
+	    </if>
+	    <if test="VKBUR_F == '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_T} 
+	    </if>
+	    
+	    <!-- 영업그룹 -->
+	    <if test="VKGRP_F != '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP BETWEEN #{VKGRP_F} AND #{VKGRP_T}
+	    </if>
+	    <if test="VKGRP_F != '' and VKGRP_T == ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_F} 
+	    </if>
+	    <if test="VKGRP_F == '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_T} 
+	    </if>
+	    
+	    <!-- 영업사원 -->
+	    <if test="ZKUNNR != ''" >
+	    	AND ZSDT1036.ZKUNNR = #{ZKUNNR}
+	    </if>
+	    
+	    <!-- 오더유형(판매유형문서) -->
+	    <if test="AUART != ''" >
+	    	AND ZSDT1036.AUART = #{AUART}
+	    </if>
+	    
+		<![CDATA[
+         GROUP BY ZSDT1036.MANDT									-- 클라이언트
+         		, ZSDT1036.ZMPINC									-- 이동계획차수
+                , ZSDT1036.ZPYM										-- 계획년월
+                , ZSDT1036.VKBUR									-- 사업장
+                , ZSDT1036.VKGRP									-- 영업그룹
+				, ZSDT1036.ZAGNT									-- 대리점
+                , ZSDT1036.ZKUNNR									-- 영업사원
+	    ]]>
+		WITH UR
+	</select>
+	
+	<!-- 통화별 청구 -->	
+	<select id="SelectCharge" parameterType="hdel.sd.smp.domain.Smp0110VO" resultMap="SmpResultMap">
+		<![CDATA[
+		SELECT 
+			ZSDT1036.MANDT											-- 클라이언트
+			,ZSDT1036.ZMPINC										-- 이동계획차수			
+			,${FILTER2}												-- 계획년월
+			,(SELECT BEZEI						
+			    FROM SAPHEE.TVKBT
+			   WHERE MANDT = #{MANDT}
+			     AND VKBUR = ZSDT1036.VKBUR
+			     AND SPRAS = '3'
+			 )AS VKBUR												-- 사업장
+			,ZSDT1036.VKGRP											-- 영업그룹
+			,(SELECT NAME1	 
+					   FROM SAPHEE.KNA1  
+					  WHERE MANDT = #{MANDT}
+					    AND KUNNR = ZSDT1036.ZAGNT
+					  UNION ALL
+					 SELECT NAME1						
+					   FROM SAPHEE.LFA1
+					  WHERE MANDT = #{MANDT}
+					    AND LIFNR = ZSDT1036.ZAGNT
+	         ) AS ZAGNT												-- 대리점
+			,(SELECT NAME1						
+			    FROM SAPHEE.KNA1
+			   WHERE MANDT = #{MANDT}
+			     AND KTOKD = 'Z201'
+			     AND KUNNR = ZSDT1036.ZKUNNR
+			 )AS ZKUNNR												-- 영업사원
+            ,ZSDT1036.WAERK											-- 통화
+		    ,${FILTER1}												-- 청구예상액
+		    ,(select ukurs
+				from saphee.ztcurr as ztcurr
+				where mandt=#{MANDT} and kurst='BP' 
+				and
+				case
+					when (select substr(max(frdat),1,4) from saphee.ztcurr where mandt=ztcurr.mandt and kurst=ztcurr.kurst and fcurr=ztcurr.fcurr and tcurr=ztcurr.tcurr) >= substr(#{zmpinc}, 1, 4) then substr(#{zmpinc}, 1, 4) else substr(#{zmpinc}, 1, 4)-1 end 
+				||'0101' between frdat and todat and fcurr='USD' and tcurr='KRW') as KRWUSD
+		  FROM SAPHEE.ZSDT1036 ZSDT1036								-- 이동계획(수주)
+   			  ,SAPHEE.ZSDT1038 ZSDT1038								-- 이동계획(청구)
+	     WHERE 1=1
+	       AND ZSDT1036.MANDT 	= #{MANDT} 							-- 클라이언트
+	       AND ZSDT1036.ZMPINC 	= #{ZMPINC} 						-- 이동계획차수
+		   AND ZSDT1036.MANDT 	= ZSDT1038.MANDT 					-- 클라이언트
+		   AND ZSDT1036.ZMPNNR 	= ZSDT1038.ZMPNNR 					-- 이동계획번호
+		   AND ZSDT1036.ZMPINC 	= ZSDT1038.ZMPINC 					-- 이동계획차수
+	    ]]>
+	    
+	    <!-- 사업장 -->
+	    <if test="VKBUR_F != '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR BETWEEN #{VKBUR_F} AND #{VKBUR_T}
+	    </if>
+	    <if test="VKBUR_F != '' and VKBUR_T == ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_F} 
+	    </if>
+	    <if test="VKBUR_F == '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_T} 
+	    </if>
+	    
+	    <!-- 영업그룹 -->
+	    <if test="VKGRP_F != '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP BETWEEN #{VKGRP_F} AND #{VKGRP_T}
+	    </if>
+	    <if test="VKGRP_F != '' and VKGRP_T == ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_F} 
+	    </if>
+	    <if test="VKGRP_F == '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_T} 
+	    </if>
+	    
+	    <!-- 영업사원 -->
+	    <if test="ZKUNNR != ''" >
+	    	AND ZSDT1036.ZKUNNR = #{ZKUNNR}
+	    </if>
+	    
+	    <!-- 오더유형(판매유형문서) -->
+	    <if test="AUART != ''" >
+	    	AND ZSDT1036.AUART = #{AUART}
+	    </if>
+	    
+		<![CDATA[
+         GROUP BY ZSDT1036.MANDT									-- 클라이언트
+         		, ZSDT1036.ZMPINC									-- 이동계획차수
+                , ZSDT1036.VKBUR									-- 사업장
+                , ZSDT1036.VKGRP									-- 영업그룹
+				, ZSDT1036.ZAGNT									-- 대리점
+                , ZSDT1036.ZKUNNR									-- 영업사원
+            	, ZSDT1036.WAERK									-- 통화
+         
+         UNION ALL
+         
+         SELECT 
+			ZSDT1036.MANDT											-- 클라이언트
+			,ZSDT1036.ZMPINC										-- 이동계획차수			
+			,ZSDT1036.ZPYM											-- 계획년월
+			,(SELECT BEZEI						
+			    FROM SAPHEE.TVKBT
+			   WHERE MANDT = #{MANDT}
+			     AND VKBUR = ZSDT1036.VKBUR
+			     AND SPRAS = '3'
+			 )AS VKBUR												-- 사업장
+			,ZSDT1036.VKGRP											-- 영업그룹
+			,(SELECT NAME1	 
+					   FROM SAPHEE.KNA1  
+					  WHERE MANDT = #{MANDT}
+					    AND KUNNR = ZSDT1036.ZAGNT
+					  UNION ALL
+					 SELECT NAME1						
+					   FROM SAPHEE.LFA1
+					  WHERE MANDT = #{MANDT}
+					    AND LIFNR = ZSDT1036.ZAGNT
+	         ) AS ZAGNT												-- 대리점
+			,(SELECT NAME1						
+			    FROM SAPHEE.KNA1
+			   WHERE MANDT = #{MANDT}
+			     AND KTOKD = 'Z201'
+			     AND KUNNR = ZSDT1036.ZKUNNR
+			 )AS ZKUNNR												-- 영업사원
+            ,ZSDT1036.WAERK											-- 통화
+		    ,SUM(ZSDT1038.NETWR_RQ) AS SOFOCA						-- 청구예상액
+		    ,0 AS KRWUSD											-- 환율
+		  FROM SAPHEE.ZSDT1036 ZSDT1036								-- 이동계획(수주)
+   			  ,SAPHEE.ZSDT1038 ZSDT1038								-- 이동계획(청구)
+	     WHERE 1=1
+	       AND ZSDT1036.MANDT 	= #{MANDT} 							-- 클라이언트
+	       AND ZSDT1036.ZMPINC 	= #{ZMPINC} 						-- 이동계획차수
+		   AND ZSDT1036.MANDT 	= ZSDT1038.MANDT 					-- 클라이언트
+		   AND ZSDT1036.ZMPNNR 	= ZSDT1038.ZMPNNR 					-- 이동계획번호
+		   AND ZSDT1036.ZMPINC 	= ZSDT1038.ZMPINC 					-- 이동계획차수
+	    ]]>
+	    
+	    <!-- 사업장 -->
+	    <if test="VKBUR_F != '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR BETWEEN #{VKBUR_F} AND #{VKBUR_T}
+	    </if>
+	    <if test="VKBUR_F != '' and VKBUR_T == ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_F} 
+	    </if>
+	    <if test="VKBUR_F == '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_T} 
+	    </if>
+	    
+	    <!-- 영업그룹 -->
+	    <if test="VKGRP_F != '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP BETWEEN #{VKGRP_F} AND #{VKGRP_T}
+	    </if>
+	    <if test="VKGRP_F != '' and VKGRP_T == ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_F} 
+	    </if>
+	    <if test="VKGRP_F == '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_T} 
+	    </if>
+	    
+	    <!-- 영업사원 -->
+	    <if test="ZKUNNR != ''" >
+	    	AND ZSDT1036.ZKUNNR = #{ZKUNNR}
+	    </if>
+	    
+	    <!-- 오더유형(판매유형문서) -->
+	    <if test="AUART != ''" >
+	    	AND ZSDT1036.AUART = #{AUART}
+	    </if>
+	    
+		<![CDATA[
+         GROUP BY ZSDT1036.MANDT									-- 클라이언트
+         		, ZSDT1036.ZMPINC									-- 이동계획차수
+                , ZSDT1036.ZPYM										-- 계획년월
+                , ZSDT1036.VKBUR									-- 사업장
+                , ZSDT1036.VKGRP									-- 영업그룹
+				, ZSDT1036.ZAGNT									-- 대리점
+                , ZSDT1036.ZKUNNR									-- 영업사원
+            	, ZSDT1036.WAERK									-- 통화
+	    ]]>
+		WITH UR
+	    
+	</select>
+	<!-- 월별 청구 -->	
+	<select id="SelectChargeExitWaerk" parameterType="hdel.sd.smp.domain.Smp0110VO" resultMap="SmpResultMap">
+		<![CDATA[
+		SELECT 
+			ZSDT1036.MANDT											-- 클라이언트
+			,ZSDT1036.ZMPINC										-- 이동계획차수			
+			,ZSDT1036.ZPYM											-- 계획년월
+			,(SELECT BEZEI						
+			    FROM SAPHEE.TVKBT
+			   WHERE MANDT = #{MANDT}
+			     AND VKBUR = ZSDT1036.VKBUR
+			     AND SPRAS = '3'
+			 )AS VKBUR												-- 사업장
+			,ZSDT1036.VKGRP											-- 영업그룹
+			,(SELECT NAME1	 
+					   FROM SAPHEE.KNA1  
+					  WHERE MANDT = #{MANDT}
+					    AND KUNNR = ZSDT1036.ZAGNT
+					  UNION ALL
+					 SELECT NAME1						
+					   FROM SAPHEE.LFA1
+					  WHERE MANDT = #{MANDT}
+					    AND LIFNR = ZSDT1036.ZAGNT
+	         ) AS ZAGNT												-- 대리점
+			,(SELECT NAME1						
+			    FROM SAPHEE.KNA1
+			   WHERE MANDT = #{MANDT}
+			     AND KTOKD = 'Z201'
+			     AND KUNNR = ZSDT1036.ZKUNNR
+			 )AS ZKUNNR												-- 영업사원
+		    ,SUM(ZSDT1038.NETWR_RQ) AS SOFOCA						-- 청구예상액
+		  FROM SAPHEE.ZSDT1036 ZSDT1036								-- 이동계획(수주)
+   			  ,SAPHEE.ZSDT1038 ZSDT1038								-- 이동계획(청구)
+	     WHERE 1=1
+	       AND ZSDT1036.MANDT 	= #{MANDT} 							-- 클라이언트
+	       AND ZSDT1036.ZMPINC 	= #{ZMPINC} 						-- 이동계획차수
+		   AND ZSDT1036.MANDT 	= ZSDT1038.MANDT 					-- 클라이언트
+		   AND ZSDT1036.ZMPNNR 	= ZSDT1038.ZMPNNR 					-- 이동계획번호
+		   AND ZSDT1036.ZMPINC 	= ZSDT1038.ZMPINC 					-- 이동계획차수
+	    ]]>
+	    
+	    <!-- 사업장 -->
+	    <if test="VKBUR_F != '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR BETWEEN #{VKBUR_F} AND #{VKBUR_T}
+	    </if>
+	    <if test="VKBUR_F != '' and VKBUR_T == ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_F} 
+	    </if>
+	    <if test="VKBUR_F == '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_T} 
+	    </if>
+	    
+	    <!-- 영업그룹 -->
+	    <if test="VKGRP_F != '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP BETWEEN #{VKGRP_F} AND #{VKGRP_T}
+	    </if>
+	    <if test="VKGRP_F != '' and VKGRP_T == ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_F} 
+	    </if>
+	    <if test="VKGRP_F == '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_T} 
+	    </if>
+	    
+	    <!-- 영업사원 -->
+	    <if test="ZKUNNR != ''" >
+	    	AND ZSDT1036.ZKUNNR = #{ZKUNNR}
+	    </if>
+	    
+	    <!-- 오더유형(판매유형문서) -->
+	    <if test="AUART != ''" >
+	    	AND ZSDT1036.AUART = #{AUART}
+	    </if>
+	    
+		<![CDATA[
+         GROUP BY ZSDT1036.MANDT									-- 클라이언트
+         		, ZSDT1036.ZMPINC									-- 이동계획차수
+                , ZSDT1036.ZPYM										-- 계획년월
+                , ZSDT1036.VKBUR									-- 사업장
+                , ZSDT1036.VKGRP									-- 영업그룹
+				, ZSDT1036.ZAGNT									-- 대리점
+                , ZSDT1036.ZKUNNR									-- 영업사원
+	    ]]>
+		WITH UR
+	    
+	</select>
+	
+	<!-- 통화별 수금 -->	
+	<select id="SelectCollection" parameterType="hdel.sd.smp.domain.Smp0110VO" resultMap="SmpResultMap">
+		<![CDATA[
+		SELECT 
+			ZSDT1036.MANDT											-- 클라이언트
+			,ZSDT1036.ZMPINC										-- 이동계획차수			
+			,${FILTER2}												-- 계획년월
+			,(SELECT BEZEI						
+			    FROM SAPHEE.TVKBT
+			   WHERE MANDT = #{MANDT}
+			     AND VKBUR = ZSDT1036.VKBUR
+			     AND SPRAS = '3'
+			 )AS VKBUR												-- 사업장
+			,ZSDT1036.VKGRP											-- 영업그룹
+			,(SELECT NAME1	 
+					   FROM SAPHEE.KNA1  
+					  WHERE MANDT = #{MANDT}
+					    AND KUNNR = ZSDT1036.ZAGNT
+					  UNION ALL
+					 SELECT NAME1						
+					   FROM SAPHEE.LFA1
+					  WHERE MANDT = #{MANDT}
+					    AND LIFNR = ZSDT1036.ZAGNT
+	         ) AS ZAGNT												-- 대리점
+			,(SELECT NAME1						
+			    FROM SAPHEE.KNA1
+			   WHERE MANDT = #{MANDT}
+			     AND KTOKD = 'Z201'
+			     AND KUNNR = ZSDT1036.ZKUNNR
+			 )AS ZKUNNR												-- 영업사원
+            ,ZSDT1036.WAERK											-- 통화
+		    ,${FILTER1}												-- 수금예상액
+		    ,(select ukurs
+				from saphee.ztcurr as ztcurr
+				where mandt=#{MANDT} and kurst='BP' 
+				and
+				case
+					when (select substr(max(frdat),1,4) from saphee.ztcurr where mandt=ztcurr.mandt and kurst=ztcurr.kurst and fcurr=ztcurr.fcurr and tcurr=ztcurr.tcurr) >= substr(#{zmpinc}, 1, 4) then substr(#{zmpinc}, 1, 4) else substr(#{zmpinc}, 1, 4)-1 end 
+				||'0101' between frdat and todat and fcurr='USD' and tcurr='KRW') as KRWUSD
+		  FROM SAPHEE.ZSDT1036 ZSDT1036								-- 이동계획(수주)
+   			  ,SAPHEE.ZSDT1039 ZSDT1039								-- 이동계획(수금)
+	     WHERE 1=1
+	       AND ZSDT1036.MANDT 	= #{MANDT} 							-- 클라이언트
+	       AND ZSDT1036.ZMPINC 	= #{ZMPINC} 						-- 이동계획차수
+		   AND ZSDT1036.MANDT 	= ZSDT1039.MANDT 					-- 클라이언트
+		   AND ZSDT1036.ZMPNNR 	= ZSDT1039.ZMPNNR 					-- 이동계획번호
+		   AND ZSDT1036.ZMPINC 	= ZSDT1039.ZMPINC 					-- 이동계획차수
+	    ]]>
+	    
+	    <!-- 사업장 -->
+	    <if test="VKBUR_F != '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR BETWEEN #{VKBUR_F} AND #{VKBUR_T}
+	    </if>
+	    <if test="VKBUR_F != '' and VKBUR_T == ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_F} 
+	    </if>
+	    <if test="VKBUR_F == '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_T} 
+	    </if>
+	    
+	    <!-- 영업그룹 -->
+	    <if test="VKGRP_F != '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP BETWEEN #{VKGRP_F} AND #{VKGRP_T}
+	    </if>
+	    <if test="VKGRP_F != '' and VKGRP_T == ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_F} 
+	    </if>
+	    <if test="VKGRP_F == '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_T} 
+	    </if>
+	    
+	    <!-- 영업사원 -->
+	    <if test="ZKUNNR != ''" >
+	    	AND ZSDT1036.ZKUNNR = #{ZKUNNR}
+	    </if>
+	    
+	    <!-- 오더유형(판매유형문서) -->
+	    <if test="AUART != ''" >
+	    	AND ZSDT1036.AUART = #{AUART}
+	    </if>
+	    
+		<![CDATA[
+         GROUP BY ZSDT1036.MANDT									-- 클라이언트
+         		, ZSDT1036.ZMPINC									-- 이동계획차수
+                , ZSDT1036.VKBUR									-- 사업장
+                , ZSDT1036.VKGRP									-- 영업그룹
+				, ZSDT1036.ZAGNT									-- 대리점
+                , ZSDT1036.ZKUNNR									-- 영업사원
+            	, ZSDT1036.WAERK									-- 통화
+          
+         UNION ALL
+         
+         SELECT 
+			ZSDT1036.MANDT											-- 클라이언트
+			,ZSDT1036.ZMPINC										-- 이동계획차수			
+			,ZSDT1036.ZPYM											-- 계획년월
+			,(SELECT BEZEI						
+			    FROM SAPHEE.TVKBT
+			   WHERE MANDT = #{MANDT}
+			     AND VKBUR = ZSDT1036.VKBUR
+			     AND SPRAS = '3'
+			 )AS VKBUR												-- 사업장
+			,ZSDT1036.VKGRP											-- 영업그룹
+			,(SELECT NAME1	 
+					   FROM SAPHEE.KNA1  
+					  WHERE MANDT = #{MANDT}
+					    AND KUNNR = ZSDT1036.ZAGNT
+					  UNION ALL
+					 SELECT NAME1						
+					   FROM SAPHEE.LFA1
+					  WHERE MANDT = #{MANDT}
+					    AND LIFNR = ZSDT1036.ZAGNT
+	         ) AS ZAGNT												-- 대리점
+			,(SELECT NAME1						
+			    FROM SAPHEE.KNA1
+			   WHERE MANDT = #{MANDT}
+			     AND KTOKD = 'Z201'
+			     AND KUNNR = ZSDT1036.ZKUNNR
+			 )AS ZKUNNR												-- 영업사원
+            ,ZSDT1036.WAERK											-- 통화
+		    ,SUM(ZSDT1039.COLBI) AS SOFOCA							-- 수금예상액
+		    ,0 AS KRWUSD											-- 환율
+		  FROM SAPHEE.ZSDT1036 ZSDT1036								-- 이동계획(수주)
+   			  ,SAPHEE.ZSDT1039 ZSDT1039								-- 이동계획(수금)
+	     WHERE 1=1
+	       AND ZSDT1036.MANDT 	= #{MANDT} 							-- 클라이언트
+	       AND ZSDT1036.ZMPINC 	= #{ZMPINC} 						-- 이동계획차수
+		   AND ZSDT1036.MANDT 	= ZSDT1039.MANDT 					-- 클라이언트
+		   AND ZSDT1036.ZMPNNR 	= ZSDT1039.ZMPNNR 					-- 이동계획번호
+		   AND ZSDT1036.ZMPINC 	= ZSDT1039.ZMPINC 					-- 이동계획차수
+	    ]]>
+	    
+	    <!-- 사업장 -->
+	    <if test="VKBUR_F != '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR BETWEEN #{VKBUR_F} AND #{VKBUR_T}
+	    </if>
+	    <if test="VKBUR_F != '' and VKBUR_T == ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_F} 
+	    </if>
+	    <if test="VKBUR_F == '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_T} 
+	    </if>
+	    
+	    <!-- 영업그룹 -->
+	    <if test="VKGRP_F != '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP BETWEEN #{VKGRP_F} AND #{VKGRP_T}
+	    </if>
+	    <if test="VKGRP_F != '' and VKGRP_T == ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_F} 
+	    </if>
+	    <if test="VKGRP_F == '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_T} 
+	    </if>
+	    
+	    <!-- 영업사원 -->
+	    <if test="ZKUNNR != ''" >
+	    	AND ZSDT1036.ZKUNNR = #{ZKUNNR}
+	    </if>
+	    
+	    <!-- 오더유형(판매유형문서) -->
+	    <if test="AUART != ''" >
+	    	AND ZSDT1036.AUART = #{AUART}
+	    </if>
+	    
+		<![CDATA[
+         GROUP BY ZSDT1036.MANDT									-- 클라이언트
+         		, ZSDT1036.ZMPINC									-- 이동계획차수
+                , ZSDT1036.ZPYM										-- 계획년월
+                , ZSDT1036.VKBUR									-- 사업장
+                , ZSDT1036.VKGRP									-- 영업그룹
+				, ZSDT1036.ZAGNT									-- 대리점
+                , ZSDT1036.ZKUNNR									-- 영업사원
+            	, ZSDT1036.WAERK									-- 통화
+	    ]]>
+		WITH UR
+	    
+	</select>
+	<!-- 월별 수금 -->	
+	<select id="SelectCollectionExitWaerk" parameterType="hdel.sd.smp.domain.Smp0110VO" resultMap="SmpResultMap">
+		<![CDATA[
+		SELECT 
+			ZSDT1036.MANDT											-- 클라이언트
+			,ZSDT1036.ZMPINC										-- 이동계획차수
+            ,ZSDT1036.ZPYM											-- 계획년월
+			,(SELECT BEZEI						
+			    FROM SAPHEE.TVKBT
+			   WHERE MANDT = #{MANDT}
+			     AND VKBUR = ZSDT1036.VKBUR
+			     AND SPRAS = '3'
+			 )AS VKBUR												-- 사업장
+			,ZSDT1036.VKGRP											-- 영업그룹
+			,(SELECT NAME1	 
+					   FROM SAPHEE.KNA1  
+					  WHERE MANDT = #{MANDT}
+					    AND KUNNR = ZSDT1036.ZAGNT
+					  UNION ALL
+					 SELECT NAME1						
+					   FROM SAPHEE.LFA1
+					  WHERE MANDT = #{MANDT}
+					    AND LIFNR = ZSDT1036.ZAGNT
+	         ) AS ZAGNT												-- 대리점
+			,(SELECT NAME1						
+			    FROM SAPHEE.KNA1
+			   WHERE MANDT = #{MANDT}
+			     AND KTOKD = 'Z201'
+			     AND KUNNR = ZSDT1036.ZKUNNR
+			 )AS ZKUNNR												-- 영업사원
+		    ,SUM(ZSDT1039.COLBI) AS SOFOCA							-- 수금예상액
+		  FROM SAPHEE.ZSDT1036 ZSDT1036								-- 이동계획(수주)
+   			  ,SAPHEE.ZSDT1039 ZSDT1039								-- 이동계획(수금)
+	     WHERE 1=1
+	       AND ZSDT1036.MANDT 	= #{MANDT} 							-- 클라이언트
+	       AND ZSDT1036.ZMPINC 	= #{ZMPINC} 						-- 이동계획차수
+		   AND ZSDT1036.MANDT 	= ZSDT1039.MANDT 					-- 클라이언트
+		   AND ZSDT1036.ZMPNNR 	= ZSDT1039.ZMPNNR 					-- 이동계획번호
+		   AND ZSDT1036.ZMPINC 	= ZSDT1039.ZMPINC 					-- 이동계획차수
+	    ]]>
+	    
+	    <!-- 사업장 -->
+	    <if test="VKBUR_F != '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR BETWEEN #{VKBUR_F} AND #{VKBUR_T}
+	    </if>
+	    <if test="VKBUR_F != '' and VKBUR_T == ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_F} 
+	    </if>
+	    <if test="VKBUR_F == '' and VKBUR_T != ''" >
+	    	AND ZSDT1036.VKBUR = #{VKBUR_T} 
+	    </if>
+	    
+	    <!-- 영업그룹 -->
+	    <if test="VKGRP_F != '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP BETWEEN #{VKGRP_F} AND #{VKGRP_T}
+	    </if>
+	    <if test="VKGRP_F != '' and VKGRP_T == ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_F} 
+	    </if>
+	    <if test="VKGRP_F == '' and VKGRP_T != ''" >
+	    	AND ZSDT1036.VKGRP = #{VKGRP_T} 
+	    </if>
+	    
+	    <!-- 영업사원 -->
+	    <if test="ZKUNNR != ''" >
+	    	AND ZSDT1036.ZKUNNR = #{ZKUNNR}
+	    </if>
+	    
+	    <!-- 오더유형(판매유형문서) -->
+	    <if test="AUART != ''" >
+	    	AND ZSDT1036.AUART = #{AUART}
+	    </if>
+	    
+		<![CDATA[
+         GROUP BY ZSDT1036.MANDT									-- 클라이언트
+         		, ZSDT1036.ZMPINC									-- 이동계획차수
+                , ZSDT1036.ZPYM										-- 계획년월
+                , ZSDT1036.VKBUR									-- 사업장
+                , ZSDT1036.VKGRP									-- 영업그룹
+				, ZSDT1036.ZAGNT									-- 대리점
+                , ZSDT1036.ZKUNNR									-- 영업사원
+	    ]]>
+		WITH UR
+	    
+	</select>
+	
+</mapper>  

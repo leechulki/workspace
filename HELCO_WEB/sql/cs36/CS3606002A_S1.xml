@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[부서팀별 수주/매출/수금실적 및 
+목표금액조회(전체조회)]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+    -- SAPHEE.CODE_CONV(#G_MANDT#,'VKBUR',MAX(A.VKBUR)) VKBUR,
+    -- SAPHEE.CODE_CONV(#G_MANDT#, 'VKBUR', (SELECT DTEXT1 FROM SAPHEE.ZLCODE WHERE CODE1='VKGRP' AND        -- CODE2 = A.VKGRP))VKBUR,
+       CASE WHEN MAX(A.VKGRP) = 'EB7' THEN '서비스관리부'
+	  	       ELSE SAPHEE.CODE_CONV('183','VKBUR',MAX(A.VKBUR)) 
+       END AS VKBUR,
+       SAPHEE.CODE_CONV(#G_MANDT#,'VKGRP',MAX(A.VKGRP)) VKGRP,
+       
+     --  CASE WHEN MAX(A.VKBUR) IN ('EA00','EB00','EC00') AND MAX(A.VKGRP) &lt;&gt; 'EB7' THEN 'CC1'
+     --           WHEN MAX(A.VKBUR) IN ('ED00','EE00','EF00') THEN 'CC2'
+     --           WHEN MAX(A.VKGRP) = 'EB7' THEN '주차서비스팀'
+     
+       CASE WHEN MAX(A.VKBUR) IN ('E900','EA00','EB00','EC00','EI00','EK00') AND MAX(A.VKGRP) &lt;&gt; 'E97' THEN 'CC1'
+                WHEN MAX(A.VKBUR) IN ('ED00','EE00','EF00') THEN 'CC2'
+                WHEN MAX(A.VKGRP) = 'E97' THEN '주차서비스팀'     
+     
+     
+       END AS GRP,
+       A.ZYEAR ZYEAR,
+       A.ZMON ZMON,
+       MAX(A.ERDAT) ERDAT,
+       MAX(A.ERTIM) ERTIM,
+       MAX(A.DAMT_T_U) DAMT_T_U, -- 정기보수 당월 목표
+       MAX(A.DAMT_S_U) DAMT_S_U, -- 정기보수 당월 실적 
+       MAX(A.DAMT_T_S) DAMT_T_S, -- 수리공사 당월 목표
+       MAX(A.DAMT_S_S) DAMT_S_S, -- 수리공사 당월 실적
+       MAX(A.DAMT_T_J) DAMT_T_J, -- 부품판매 당월 목표
+       MAX(A.DAMT_S_J) DAMT_S_J, -- 부품판매 당월 실적
+       MAX(A.NAMT_T_U) NAMT_T_U, -- 정기보수 누계 목표
+       MAX(A.NAMT_S_U) NAMT_S_U, -- 정기보수 누계 실적
+       MAX(A.NAMT_T_S) NAMT_T_S, -- 수리공사 누계 목표
+       MAX(A.NAMT_S_S) NAMT_S_S, -- 수리공사 누계 실적
+       MAX(A.NAMT_T_J) NAMT_T_J, -- 부품판매 누계 목표
+       MAX(A.NAMT_S_J) NAMT_S_J  -- 부품판매 누계 실적
+  FROM
+       (
+        SELECT
+               VKBUR,
+               VKGRP,
+               ZYEAR,
+               ZMON,
+               AUART,
+               ERDAT,
+               ERTIM,
+               DECODE(AUART,'U',SUM(DAMT_T),0) DAMT_T_U,
+               DECODE(AUART,'U',SUM(DAMT_S),0) DAMT_S_U,
+               DECODE(AUART,'S',SUM(DAMT_T),0) DAMT_T_S,
+               DECODE(AUART,'S',SUM(DAMT_S),0) DAMT_S_S,
+               DECODE(AUART,'J',SUM(DAMT_T),0) DAMT_T_J,
+               DECODE(AUART,'J',SUM(DAMT_S),0) DAMT_S_J,
+               DECODE(AUART,'U',SUM(NAMT_T),0) NAMT_T_U,
+               DECODE(AUART,'U',SUM(NAMT_S),0) NAMT_S_U,
+               DECODE(AUART,'S',SUM(NAMT_T),0) NAMT_T_S,
+               DECODE(AUART,'S',SUM(NAMT_S),0) NAMT_S_S,
+               DECODE(AUART,'J',SUM(NAMT_T),0) NAMT_T_J,
+               DECODE(AUART,'J',SUM(NAMT_S),0) NAMT_S_J
+          FROM
+               SAPHEE.ZCST197
+         WHERE
+               MANDT = #G_MANDT#                -- 클라이언트
+           AND ZYEAR = #ZYEAR#                  -- 기준년도
+           AND ZMON = #ZMON#                    -- 기준월
+           AND GBN IN (#GBN#, #T_GBN#)       -- 수주/매출/수금/목표
+           AND AUART IN ('U','S','J')               -- 판매문서유형
+          <isNotNull col="TEM">
+	  AND VKGRP = #TEM#
+         </isNotNull>
+          <isNull col="TEM">
+	<isNotNull col="DPT">
+              AND VKGRP IN (SELECT CODE2 AS CODE
+                                      FROM SAPHEE.ZLCODE
+                         		WHERE MANDT = #G_MANDT#
+                             	AND LANG  = #G_LANG# 
+                            	AND CODE1 = 'VKGRP'
+                           		AND DTEXT1 = #DPT#)
+            </isNotNull>
+        </isNull> 
+        GROUP BY
+               VKBUR,
+               VKGRP,
+               ZYEAR,
+               ZMON,
+               AUART,
+               ERDAT,
+               ERTIM
+       ) A
+        GROUP BY
+               VKBUR,
+               VKGRP,
+               ZYEAR,
+               ZMON
+        ORDER BY GRP
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

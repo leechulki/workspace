@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[WBS 조회]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+<isNotNull col="PROJ_PSPID">
+WITH
+TREE_DATA(ROW_NUM, MANDT, PROJ_PSPID, POSID, PROJ_PROFL , PROJ_POST1, PROJ_PRCTR
+          ,UP_WBS, STUFE, POST1, ZZWBS01, ZZWBS02, ZZWBS03, ZZWBS04, ZZWBS05,  ZZWBS06, ZZWBS07
+          ,ZZGUBUN, BELKZ, PLAKZ, FAKKZ, PRCTR, ABGSL) as (
+  SELECT ROW_NUMBER() OVER() AS ROW_NUM ,
+        A.MANDT, A.PSPID AS PROJ_PSPID, B.POSID, A.PROFL AS PROJ_PROFL , A.POST1 AS PROJ_POST1,   A.PRCTR AS PROJ_PRCTR
+        ,VALUE((SELECT X.POSID FROM SAPHEE.PRPS AS X WHERE X.MANDT = A.MANDT AND X.PSPNR = C.UP), ' ') AS UP_WBS
+        ,B.STUFE, B.POST1, B.ZZWBS01, B.ZZWBS02, B.ZZWBS03, B.ZZWBS04, B.ZZWBS05,  B.ZZWBS06, B.ZZWBS07
+        ,B.ZZGUBUN, B.BELKZ, B.PLAKZ, B.FAKKZ, B.PRCTR, B.ABGSL
+  FROM  SAPHEE.PROJ AS A
+          INNER JOIN SAPHEE.PRPS AS B
+            ON A.MANDT = B.MANDT    AND    A.PSPNR = B.PSPHI
+          INNER JOIN SAPHEE.PRHI AS C
+            ON B.MANDT = C.MANDT    AND    B.PSPNR = C.POSNR
+  WHERE A.MANDT = #G_MANDT#
+  AND   A.PSPID = #PSPID#
+),
+TREE_LEVEL(T_POS, LEVEL,
+ROW_NUM, MANDT, PROJ_PSPID, POSID, PROJ_PROFL , PROJ_POST1, PROJ_PRCTR
+          ,UP_WBS, STUFE, POST1, ZZWBS01, ZZWBS02, ZZWBS03, ZZWBS04, ZZWBS05,  ZZWBS06, ZZWBS07
+          ,ZZGUBUN, BELKZ, PLAKZ, FAKKZ, PRCTR, ABGSL) as (
+  SELECT  CAST('1-1' AS VARCHAR(1000)), 1, A.*
+  FROM    TREE_DATA A
+  WHERE   A.ROW_NUM = 1
+  UNION   ALL
+  SELECT  B.T_POS || ',' || (B.LEVEL+1) ||'-'|| A.ROW_NUM AS T_POS, B.LEVEL + 1 AS LEVEL,
+          A.*
+  FROM    TREE_DATA A, TREE_LEVEL B
+  WHERE   A.UP_WBS = B.POSID
+)
+SELECT  X.*
+       ,'1' AS FLAG
+       ,'M' AS DIV
+       ,CASE WHEN Y.OCNT_NUMB IS NULL THEN
+           ''
+        ELSE 
+           '1'
+        END AS CHK
+FROM   TABLE (
+			SELECT A.MANDT -- 클라이언트
+			       ,CAST(#OCNT_NUMB# AS VARCHAR(60)) AS OCNT_NUMB -- 수주번호
+			       ,CAST(#PROJ_PSPID# AS VARCHAR(60)) AS PROJ_PSPID
+			       ,TRIM(CAST(#PROJ_PSPID# AS VARCHAR(60))||SUBSTR(A.POSID,12,20)) AS POSID
+			       ,A.PROJ_PROFL
+			       ,A.PROJ_POST1
+			       ,A.PROJ_PRCTR
+			       ,TRIM(CAST(#PROJ_PSPID# AS VARCHAR(60))||SUBSTR(A.UP_WBS,12,20)) AS UP_WBS
+			       ,CASE WHEN A.UP_WBS = A.POSID OR A.UP_WBS = '' THEN
+			           ''
+			        ELSE
+			           TRIM(CAST(#PROJ_PSPID# AS VARCHAR(60))||SUBSTR(A.UP_WBS,12,20))
+			        END AS UP_WBS_TMP
+			       ,A.STUFE
+			       ,A.POST1
+			       ,A.ZZWBS01
+			       ,A.ZZWBS02
+			       ,A.ZZWBS03
+			       ,A.ZZWBS04
+			       ,A.ZZWBS05
+			       ,A.ZZWBS06
+			       ,A.ZZWBS07
+			       ,A.ZZGUBUN
+			       ,A.BELKZ
+			       ,A.PLAKZ
+			       ,A.FAKKZ
+			       ,A.PRCTR
+			       ,A.ABGSL
+			       ,A.T_POS
+			       ,A.LEVEL
+			FROM   TREE_LEVEL A
+			) X
+			LEFT OUTER JOIN SAPHEE.ZFST0309 Y
+			ON  X.MANDT = Y.MANDT
+			AND X.OCNT_NUMB = Y.OCNT_NUMB
+			AND X.PROJ_PSPID = Y.PROJ_PSPID
+			AND X.POSID = Y.POSID
+ORDER BY X.T_POS			
+FOR FETCH ONLY
+WITH UR
+</isNotNull>
+<isNull col="PROJ_PSPID">
+WITH
+TREE_DATA(ROW_NUM, MANDT, PROJ_PSPID, POSID, PROJ_PROFL , PROJ_POST1, PROJ_PRCTR
+          ,UP_WBS, STUFE, POST1, ZZWBS01, ZZWBS02, ZZWBS03, ZZWBS04, ZZWBS05,  ZZWBS06, ZZWBS07
+          ,ZZGUBUN, BELKZ, PLAKZ, FAKKZ, PRCTR, ABGSL) as (
+  SELECT ROW_NUMBER() OVER() AS ROW_NUM ,
+        A.MANDT, A.PSPID AS PROJ_PSPID, B.POSID, A.PROFL AS PROJ_PROFL , A.POST1 AS PROJ_POST1,   A.PRCTR AS PROJ_PRCTR
+        ,VALUE((SELECT X.POSID FROM SAPHEE.PRPS AS X WHERE X.MANDT = A.MANDT AND X.PSPNR = C.UP), ' ') AS UP_WBS
+        ,B.STUFE, B.POST1, B.ZZWBS01, B.ZZWBS02, B.ZZWBS03, B.ZZWBS04, B.ZZWBS05,  B.ZZWBS06, B.ZZWBS07
+        ,B.ZZGUBUN, B.BELKZ, B.PLAKZ, B.FAKKZ, B.PRCTR, B.ABGSL
+  FROM  SAPHEE.PROJ AS A
+          INNER JOIN SAPHEE.PRPS AS B
+            ON A.MANDT = B.MANDT    AND    A.PSPNR = B.PSPHI
+          INNER JOIN SAPHEE.PRHI AS C
+            ON B.MANDT = C.MANDT    AND    B.PSPNR = C.POSNR
+  WHERE A.MANDT = #G_MANDT#
+  AND   A.PSPID = #PSPID#
+),
+TREE_LEVEL(T_POS, LEVEL,
+ROW_NUM, MANDT, PROJ_PSPID, POSID, PROJ_PROFL , PROJ_POST1, PROJ_PRCTR
+          ,UP_WBS, STUFE, POST1, ZZWBS01, ZZWBS02, ZZWBS03, ZZWBS04, ZZWBS05,  ZZWBS06, ZZWBS07
+          ,ZZGUBUN, BELKZ, PLAKZ, FAKKZ, PRCTR, ABGSL) as (
+  SELECT  CAST('1-1' AS VARCHAR(1000)), 1, A.*
+  FROM    TREE_DATA A
+  WHERE   A.ROW_NUM = 1
+  UNION   ALL
+  SELECT  B.T_POS || ',' || (B.LEVEL+1) ||'-'|| A.ROW_NUM AS T_POS, B.LEVEL + 1 AS LEVEL,
+          A.*
+  FROM    TREE_DATA A, TREE_LEVEL B
+  WHERE   A.UP_WBS = B.POSID
+)
+SELECT  X.*
+       ,'1' AS FLAG
+       ,'M' AS DIV
+       ,CASE WHEN Y.OCNT_NUMB IS NULL THEN
+           ''
+        ELSE 
+           '1'
+        END AS CHK
+FROM   TABLE (
+			SELECT A.MANDT -- 클라이언트
+			       ,CAST(#OCNT_NUMB# AS VARCHAR(60)) AS OCNT_NUMB -- 수주번호
+			       ,A.PROJ_PSPID
+			       ,A.POSID
+			       ,A.PROJ_PROFL
+			       ,A.PROJ_POST1
+			       ,A.PROJ_PRCTR
+			       ,A.UP_WBS
+			       ,CASE WHEN A.UP_WBS = A.POSID OR A.UP_WBS = '' THEN
+			           ''
+			        ELSE
+			           A.UP_WBS
+			        END AS UP_WBS_TMP
+			       ,A.STUFE
+			       ,A.POST1
+			       ,A.ZZWBS01
+			       ,A.ZZWBS02
+			       ,A.ZZWBS03
+			       ,A.ZZWBS04
+			       ,A.ZZWBS05
+			       ,A.ZZWBS06
+			       ,A.ZZWBS07
+			       ,A.ZZGUBUN
+			       ,A.BELKZ
+			       ,A.PLAKZ
+			       ,A.FAKKZ
+			       ,A.PRCTR
+			       ,A.ABGSL
+			       ,A.T_POS
+			       ,A.LEVEL
+			FROM   TREE_LEVEL A
+			) X
+			LEFT OUTER JOIN SAPHEE.ZFST0309 Y
+			ON  X.MANDT = Y.MANDT
+			AND X.OCNT_NUMB = Y.OCNT_NUMB
+			AND X.PROJ_PSPID = Y.PROJ_PSPID
+			AND X.POSID = Y.POSID
+ORDER BY X.T_POS			
+FOR FETCH ONLY
+WITH UR
+</isNull>
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_zfst0309">
+    </output>
+</query>

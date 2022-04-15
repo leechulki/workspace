@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>update</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+UPDATE
+       SAPHEE.ZCST126
+   SET
+       CS126_PST = 'A6',
+       CS126_FFG = (SELECT CASE WHEN COUNT(*) = 0 AND CAST(#KND# AS VARCHAR(1)) > '' THEN 'Y' 
+                               WHEN COUNT(*) > 0 AND CAST(#KND# AS VARCHAR(1)) > '' AND MAX(A.KND) = '' THEN 'Y'
+                            -- 실패회수 후 갱신계약 #GKD#가 '4'로 들어가는 경우 발생   MAX(A.GKD)는 '2'
+                               WHEN COUNT(*) > 0 AND CAST(#KND# AS VARCHAR(1)) > '' AND MAX(A.KND) > ''   AND MAX(A.SIR) = CS126_SIR AND MAX(A.GKD) = '2'  AND CAST(#GKD# AS VARCHAR(1)) = '4' THEN '' 
+                               WHEN COUNT(*) > 0 AND CAST(#KND# AS VARCHAR(1)) > '' AND MAX(A.KND) > ''   AND MAX(A.SIR) = CS126_SIR AND MAX(A.GKD) != '2' AND CAST(#GKD# AS VARCHAR(1)) = '4' THEN ''
+                               WHEN COUNT(*) > 0 AND CAST(#KND# AS VARCHAR(1)) > '' AND MAX(A.KND) > '' AND CAST(#GKD# AS VARCHAR(1)) = '4' THEN 'Y'
+						   ELSE '' END FFG 
+                     FROM (SELECT CS126_FFG FFG, CS126_KND KND, CS126_GKD GKD, CS126_SIR SIR
+                             FROM SAPHEE.ZCST126
+                            WHERE MANDT = #G_MANDT# AND CS126_PJT = #PJT# AND CS126_HNO = #HNO# AND SUBSTR(CS126_CST,1,1) &lt;&gt; 'C' AND CS126_DDT = '' AND CS126_PST = 'A6' AND CS126_USD &lt; #USD#
+                              AND CS126_KND != ''
+                           ORDER BY CS126_PJT,CS126_HNO,CS126_USD DESC
+                           FETCH FIRST 1 ROW ONLY) A),
+       CS126_FHG = (SELECT CASE WHEN COUNT(*) = 0 AND CAST(#HYN# AS VARCHAR(1)) = '1' THEN 'Y' 
+                                WHEN COUNT(*) > 0 AND CAST(#HYN# AS VARCHAR(1)) = '1' AND CAST(#GKD# AS VARCHAR(1)) = '4' AND MAX(A.GKD) = '2' THEN ''                                
+                                WHEN COUNT(*) > 0 AND CAST(#HYN# AS VARCHAR(1)) = '1' AND MAX(A.SIR) = CS126_SIR AND MAX(A.GKD) = '2'  AND CAST(#GKD# AS VARCHAR(1)) = '4' THEN '' 
+                                WHEN COUNT(*) > 0 AND CAST(#HYN# AS VARCHAR(1)) = '1' AND MAX(A.SIR) = CS126_SIR AND MAX(A.GKD) != '2' AND CAST(#GKD# AS VARCHAR(1)) = '4' THEN ''
+                                WHEN COUNT(*) > 0 AND CAST(#HYN# AS VARCHAR(1)) = '1' AND CAST(#GKD# AS VARCHAR(1)) = '4' THEN 'Y'
+                                 ELSE '' END FHG 
+                      FROM (SELECT CS126_FHG FHG, CS126_GKD GKD, CS126_SIR SIR
+                              FROM SAPHEE.ZCST126
+                             WHERE MANDT = #G_MANDT# AND CS126_PJT = #PJT# AND CS126_HNO = #HNO# AND SUBSTR(CS126_CST,1,1) &lt;&gt; 'C' 
+                               AND CS126_DDT = '' AND CS126_PST = 'A6' AND CS126_USD &lt; #USD# AND CS126_HYN = 'Y' AND CS126_FHG = 'Y'
+                            ) A ),
+       CS126_FDG = (SELECT CASE WHEN COUNT(*) = 0 AND CAST(#DYN# AS VARCHAR(1)) = '1' THEN 'Y'              
+                                WHEN COUNT(*) > 0 AND CAST(#DYN# AS VARCHAR(1)) = '1' AND CAST(#GKD# AS VARCHAR(1)) = '4' AND MAX(A.GKD) = '2' THEN ''   
+                                WHEN COUNT(*) > 0 AND CAST(#DYN# AS VARCHAR(1)) = '1' AND MAX(A.SIR) = CS126_SIR AND MAX(A.GKD) = '2'  AND CAST(#GKD# AS VARCHAR(1)) = '4' THEN '' 
+                                WHEN COUNT(*) > 0 AND CAST(#DYN# AS VARCHAR(1)) = '1' AND MAX(A.SIR) = CS126_SIR AND MAX(A.GKD) != '2' AND CAST(#GKD# AS VARCHAR(1)) = '4' THEN ''
+                                WHEN COUNT(*) > 0 AND CAST(#DYN# AS VARCHAR(1)) = '1' AND CAST(#GKD# AS VARCHAR(1)) = '4' THEN 'Y'                    
+                                 ELSE '' END FDG 
+                      FROM (SELECT CS126_FDG FDG, CS126_GKD GKD, CS126_SIR SIR
+                              FROM SAPHEE.ZCST126
+                             WHERE MANDT = #G_MANDT# AND CS126_PJT = #PJT# AND CS126_HNO = #HNO# AND SUBSTR(CS126_CST,1,1) &lt;&gt; 'C' 
+                               AND CS126_DDT = '' AND CS126_PST = 'A6' AND CS126_USD &lt; #USD# AND CS126_DYN = 'Y' AND CS126_FDG = 'Y'
+                            ) A ),
+       CS126_MLT = (
+                    SELECT
+                           CASE 
+                                WHEN ZZGUBUN IN ('10','13') THEN
+                                     CASE
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC7 WHEN '' THEN '0' ELSE ZSPEC7 END),0)) &lt;= 10 THEN 0.8
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC7 WHEN '' THEN '0' ELSE ZSPEC7 END),0)) > 10 THEN 1 - ((15 - INT(ROUND(DOUBLE(CASE ZSPEC7 WHEN '' THEN '0' ELSE ZSPEC7 END),0))) * 0.04)
+                                          ELSE 0
+                                     END
+                                WHEN ZZGUBUN IN ('11','12','14') THEN 1.8
+                                WHEN ZZGUBUN = '20' THEN
+                                     CASE 
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC9 WHEN '' THEN '0' ELSE ZSPEC9 END),0)) = 0 THEN 0
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC9 WHEN '' THEN '0' ELSE ZSPEC9 END),0)) &lt; 11 THEN 1.0
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC9 WHEN '' THEN '0' ELSE ZSPEC9 END),0)) &lt; 30 THEN 1.5
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC9 WHEN '' THEN '0' ELSE ZSPEC9 END),0)) &lt; 50 THEN 2.0 
+                                          ELSE 2.5 
+                                     END
+                                WHEN ZZGUBUN BETWEEN '30' AND '33' THEN 0
+                                WHEN ZZGUBUN BETWEEN '40' AND '41' THEN
+                                     CASE WHEN INT(ROUND(DOUBLE(CASE ZSPEC10 WHEN '' THEN '0' ELSE ZSPEC10 END),0)) = 0 THEN 0
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC10 WHEN '' THEN '0' ELSE ZSPEC10 END),0)) &lt; 33 THEN 1.0     
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC10 WHEN '' THEN '0' ELSE ZSPEC10 END),0)) &lt; 65 THEN 2.0     
+                                          WHEN INT(ROUND(DOUBLE(CASE ZSPEC10 WHEN '' THEN '0' ELSE ZSPEC10 END),0)) &lt; 81 THEN 2.5 
+                                          ELSE 3.0 
+                                     END     
+                                ELSE 0 
+                           END AS MLT
+                      FROM
+                           SAPHEE.ZMASTER02
+                     WHERE
+                           MANDT = #G_MANDT#
+                       AND POSID = #PJT#
+                       AND SUBSTR(POSID_1,7) = #HNO#
+                   ),
+       CS126_GNO = #GNO#,
+<isNull col="GRP">
+       CS126_GRP = #GNO#,
+</isNull>
+<isNotNull col="GRP">
+       CS126_GRP = #GRP#,
+</isNotNull>
+       CS126_ADT = HEX(CURRENT DATE),
+       CS126_AEQ = #G_USER_ID#,
+       CS126_GKD = CAST((
+                          SELECT
+                                 CASE WHEN B.GBN1 = '1' AND B.GBN2 = '4' THEN '4' ELSE B.GBN1 END
+                            FROM
+                                 (
+                                  SELECT
+                                         MAX(A.GBN1) GBN1,
+                                         MAX(A.GBN2) GBN2
+                                    FROM
+                                         (
+                                          SELECT 
+                                                 CASE 
+                                                      WHEN VALUE(MAX(A.CS126_PJT),'') = '' AND VALUE(MAX(B.JHD),'') = '' AND SUBSTR(CAST(#PJT# AS VARCHAR(6)),1,1) &lt;&gt; 'M' THEN '1'
+                                                      WHEN VALUE(MAX(A.CS126_PJT),'') = '' AND VALUE(MAX(B.JHD),'') = '' AND SUBSTR(CAST(#PJT# AS VARCHAR(6)),1,1) = 'M' THEN '5'
+                                                      WHEN VALUE(MAX(A.CS126_PJT),'') > '' AND VALUE(MAX(A.CS126_UMR),'') &lt;= VALUE(MAX(B.JHD),'') THEN '4'
+                                                      ELSE '2'
+                                                 END GBN1,
+                                                 '' GBN2
+                                            FROM 
+                                                 SAPHEE.ZCST126 A
+                                                        LEFT OUTER JOIN (
+                                                                         SELECT
+                                                                                B.CS144_PJT PJT,
+                                                                                B.CS144_HNO HNO,
+                                                                                MAX(A.CS143_JHD) JHD
+                                                                           FROM
+                                                                                SAPHEE.ZCST143 A,
+                                                                                SAPHEE.ZCST144 B
+                                                                          WHERE
+                                                                                A.MANDT = #G_MANDT#
+                                                                            AND A.MANDT = B.MANDT
+                                                                            AND A.CS143_SEQ = B.CS144_SEQ
+                                                                            AND B.CS144_PJT = #PJT#
+                                                                            AND B.CS144_HNO = #HNO#
+                                                                            AND A.CS143_PST = 'A6'
+                                                                         GROUP BY
+                                                                                B.CS144_PJT,
+                                                                                B.CS144_HNO
+                                                                        ) B ON B.PJT = A.CS126_PJT
+                                                                           AND B.HNO = A.CS126_HNO
+                                           WHERE 
+                                                 A.MANDT = #G_MANDT#
+                                             AND A.CS126_PJT = #PJT#
+                                             AND A.CS126_HNO = #HNO#
+                                             AND A.CS126_DDT = '' 
+                                             AND A.CS126_PST = 'A6' 
+                                             AND SUBSTR(A.CS126_CST,1,1) &lt;&gt; 'C'
+                          
+                                          UNION ALL
+                          
+                                          SELECT
+                                                 '' GBN1,
+                                                 CASE WHEN COUNT(*) > 0 THEN '4' ELSE '' END GBN2
+                                            FROM
+                                                 SAPHEE.ZCST144
+                                           WHERE
+                                                 MANDT = #G_MANDT#
+                                             AND CS144_PJT = #PJT#
+                                             AND CS144_HNO = #HNO#
+                                         ) A
+                                  ) B
+                          	     ) AS VARCHAR(1))
+ WHERE
+       MANDT = #G_MANDT#
+   AND CS126_UPN = #UPN#
+   AND CS126_CST = #CST#
+   AND CS126_PJT = #PJT#
+   AND CS126_HNO = #HNO#
+   AND CS126_SEQ = #SEQ#
+   AND CS126_DDT = ''	</statement>
+	<input default-name="ds_list">
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="PJT" size="255" type="VARCHAR" description="" /> 
+		<col name="HNO" size="255" type="VARCHAR" description="" /> 
+		<col name="GNO" size="255" type="VARCHAR" description="" /> 
+		<col name="G_USER_ID" size="255" type="VARCHAR" description="" /> 
+		<col name="UPN" size="255" type="VARCHAR" description="" /> 
+		<col name="CST" size="255" type="VARCHAR" description="" /> 
+		<col name="SEQ" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

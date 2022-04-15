@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[PS1505001A_S3]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--외주업체 콤보 조회
+SELECT T.CODE
+     , T.CODE_NAME
+     , T.ZZACTSS
+     , T.GBN
+     , T.JOB_CODE
+     , T.LRGE_CODE
+  FROM (
+        SELECT DISTINCT A.LIFNR AS CODE--외주업체코드
+             , A.NAME1 AS CODE_NAME--외주업체명
+             , WB010A.ZZACTSS AS ZZACTSS--사무소
+             , A.GBN--설치/구매 구분
+             , B.LIFNR_GBN AS JOB_CODE--외주작업코드 추가 : 외주작업구분 선택 시 외주업체를 필터하기 위해 - 2019.10.10 강민석K
+             , C.LRGE_CODE
+          FROM SAPHEE.ZPST0034 AS A
+          LEFT OUTER JOIN SAPHEE.ZWBT010 WB010A
+            ON A.MANDT = WB010A.MANDT
+           AND A.LIFNR = WB010A.LIFNR
+          LEFT OUTER JOIN SAPHEE.ZPST0417 AS B
+            ON A.MANDT = B.MANDT
+           AND A.LIFNR = B.LIFNR
+          LEFT OUTER JOIN SAPHEE.ZPST0418 AS C
+            ON B.MANDT     = C.MANDT
+           AND B.LIFNR_GBN = C.JOB_CODE 
+           AND B.DELT &lt;&gt; 'X'--폐업인 경우 제외
+        WHERE A.MANDT = #G_MANDT#
+           AND A.ZCHECK &lt;&gt; 'X'--미공개인 경우 제외
+           AND A.GBN = 'A'--고정값(설치)
+           AND EXISTS (
+                       SELECT X.LIFNR
+                         FROM SAPHEE.ZPST0417 AS X
+                        WHERE X.MANDT = A.MANDT
+                          AND X.LIFNR = A.LIFNR
+                      )
+         UNION ALL
+        SELECT DISTINCT A.LIFNR AS CODE--외주업체코드
+             , A.NAME1 AS CODE_NAME--외주업체명
+             , WB010A.ZZACTSS AS ZZACTSS--사무소
+             , A.GBN--설치/구매 구분
+             , '' AS JOB_CODE--외주작업코드 추가 : 외주작업구분 선택 시 외주업체를 필터하기 위해 - 2019.10.10 강민석K
+             , '' AS LRGE_CODE
+          FROM SAPHEE.ZPST0034 AS A
+          LEFT OUTER JOIN SAPHEE.ZWBT010 WB010A
+            ON A.MANDT = WB010A.MANDT
+           AND A.LIFNR = WB010A.LIFNR
+         WHERE A.MANDT = #G_MANDT#
+           AND A.ZCHECK &lt;&gt; 'X'--미공개인 경우 제외
+           AND A.GBN = 'B'--고정값(구매)
+       ) AS T
+ WHERE 1=1
+ ORDER BY T.CODE_NAME, T.CODE--화면단 콤보에 중복제거 필터를 위해 정렬 시 업체코드도 추가 - 2019.10.10 강민석K
+FOR FETCH ONLY
+WITH UR
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_zzlifnr">
+	</output>
+</query>

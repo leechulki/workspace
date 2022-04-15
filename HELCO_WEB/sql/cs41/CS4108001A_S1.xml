@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.VBELN                                            
+       ,A.ZZPJT_ID                                             
+       ,A.BSTNK    NAM                                       
+       ,E.ZSITE_NM SPT    
+       ,D.CTEXT2 TEM_NM 
+       ,C.ABR_NM BSU_NM  
+       ,C.BSU_GB BSU_GB                              
+      ,A.VKGRP    TEM   
+      ,A.BSTDK  
+      ,A.SPART
+      ,CASE WHEN A.SPART = '10' THEN '승강기'
+            WHEN A.SPART = '20' THEN '주차'
+            ELSE '' 
+        END SPART_NM
+      ,A.NETWR*100 SUJU  
+      ,CS005.REQNO --청구번호
+--    ,CS005.NAM
+      ,CS005.GNAM
+      ,CS005.MAT_AMT*100 MAT_AMT
+      ,CS005.SMAT_AMT*100 SMAT_AMT
+      ,CS005.MAN_AMT*100 MAN_AMT
+      ,CS005.MANAGE_AMT
+      ,CS005.PROFIT
+      ,CS005.TMAN_AMT*100 TMAN_AMT
+      ,CS005.IMAN_AMT
+      ,CS005.DIR_AMT*100 DIR_AMT
+      ,CS005.INDIR_AMT*100 INDIR_AMT
+      ,CS005.TWON_AMT*100 TWON_AMT
+      ,CS005.SRATE
+      ,CS005.NIGHT
+      ,CS005.ILSIC_AMT*100 ILSIC_AMT
+      ,CS005.INCENT
+      ,CS005.STATUS
+      ,CS005.COMP01
+      ,CS005.COMP02
+      ,CS005.COMP03
+      ,CS005.COMP04
+      ,CS005.COMP05
+      ,(SELECT SUM(TWBTR)*100
+          FROM SAPHEE.ZCST006
+         WHERE MANDT = #G_MANDT#
+           AND PSPID = CS005.PSPID
+           AND STATE IN ('2','3')) AS JI_AMT
+      ,0 AS MIJI_AMT
+      ,(SELECT SUM(C.NETWR)*100
+          FROM SAPHEE.VBUK B INNER JOIN SAPHEE.VBRK C
+                                ON B.MANDT = C.MANDT
+                               AND B.VBELN = C.XBLNR
+        WHERE B.MANDT = #G_MANDT#
+          AND B.VBELN = A.VBELN
+          AND B.ABSTK != 'C'
+          AND HEX(CURRENT DATE) >= C.FKDAT
+          AND C.FKSTO = ''
+          AND C.VBTYP = 'M'
+        ) AS MECHUL
+      ,(SELECT MAX(C.FKDAT)
+          FROM SAPHEE.VBUK B INNER JOIN SAPHEE.VBRK C
+                                ON B.MANDT = C.MANDT
+                               AND B.VBELN = C.XBLNR
+        WHERE B.MANDT = #G_MANDT#
+          AND B.VBELN = A.VBELN
+          AND B.ABSTK != 'C'
+          AND HEX(CURRENT DATE) >= C.FKDAT
+          AND C.FKSTO = ''
+          AND C.VBTYP = 'M'
+        ) AS FKDAT
+      ,(SELECT MAX(C.ERDAT)
+          FROM SAPHEE.VBUK B INNER JOIN SAPHEE.VBRK C
+                                ON B.MANDT = C.MANDT
+                               AND B.VBELN = C.XBLNR
+        WHERE B.MANDT = #G_MANDT#
+          AND B.VBELN = A.VBELN
+          AND B.ABSTK != 'C'
+          AND HEX(CURRENT DATE) >= C.FKDAT
+          AND C.FKSTO = ''
+          AND C.VBTYP = 'M'
+        ) AS ERDAT
+      , CS001.DOC2 
+--      , CS001.HIS_RATE
+	  /* 2019.07.30 변경된 원가율 구하기 위한 쿼리 수정 시작 */
+	  , CASE
+	  		WHEN
+				CS001.HIS_RATE != CS01R.HIS_RATE THEN CS01R.HIS_RATE
+			ELSE
+				CS001.HIS_RATE
+		END AS HIS_RATE
+	  /* 2019.07.30 변경된 원가율 구하기 위한 쿼리 수정 종료 */      
+      , (SELECT APIRUM FROM SAPHEE.ZWBAP02 
+          WHERE MANDT = #G_MANDT# 
+            AND DOCNO = CS001.DOC2 
+            AND APPGUBN = 'S'
+          ORDER BY SEQNO DESC
+          FETCH FIRST 1 ROW ONLY
+           ) AS APIRUM
+           
+           -- 전결규정 2016년도 17년도 구분 요청
+      ,CASE WHEN SUBSTR(A.BSTDK,1,4) >= '2017' THEN
+            (CASE WHEN SUBSTR(A.ZZPJT_ID,7,2) = 'NC' THEN
+                  (CASE WHEN A.NETWR > 2000000  THEN 
+                        (CASE WHEN CS005.SRATE > 90 THEN '본부장'
+                              WHEN CS005.SRATE BETWEEN 85 AND 90 THEN '담당'
+                              WHEN CS005.SRATE BETWEEN 0 AND 85 THEN '팀장'
+                        ELSE '' END)
+                   ELSE 
+                        (CASE WHEN CS005.SRATE > 95 THEN '본부장'
+                              WHEN CS005.SRATE BETWEEN 90 AND 95 THEN '담당'
+                              WHEN CS005.SRATE BETWEEN 85 AND 90 THEN '팀장'
+                              WHEN CS005.SRATE BETWEEN 0 AND 85 THEN '지사장'
+                        ELSE '' END)
+                   END)	
+      						
+            ELSE(
+                  CASE WHEN A.NETWR > 500000  THEN 
+                        (CASE WHEN CS005.SRATE > 80 THEN '본부장'
+                              WHEN CS005.SRATE BETWEEN 75 AND 80 THEN '담당'
+                              WHEN CS005.SRATE BETWEEN 70 AND 75 THEN '팀장'
+                              WHEN CS005.SRATE BETWEEN 0 AND 70 THEN '지사장'
+                        ELSE '' END)
+                  ELSE 
+                        (CASE WHEN CS005.SRATE > 85 THEN '본부장'
+                              WHEN CS005.SRATE BETWEEN 80 AND 85 THEN '담당'
+                              WHEN CS005.SRATE BETWEEN 75 AND 80 THEN '팀장'
+                              WHEN CS005.SRATE BETWEEN 0 AND 75 THEN '지사장'
+                        ELSE '' END)
+                  END)	
+            END)
+      
+      ELSE 
+            (CASE WHEN SUBSTR(A.ZZPJT_ID,7,2) = 'NC' THEN
+                  (CASE WHEN A.NETWR > 1000000  THEN 
+                        (CASE WHEN CS005.SRATE > 85 THEN '본부장'
+                              WHEN CS005.SRATE BETWEEN 80 AND 85 THEN '담당'
+                              WHEN CS005.SRATE BETWEEN 0 AND 80 THEN '팀장'
+                        ELSE '' END)
+                  ELSE 
+                        (CASE WHEN CS005.SRATE > 90 THEN '본부장'
+                              WHEN CS005.SRATE BETWEEN 85 AND 90 THEN '담당'
+                              WHEN CS005.SRATE BETWEEN 80 AND 75 THEN '팀장'
+                              WHEN CS005.SRATE BETWEEN 0 AND 80 THEN '지사장'
+                        ELSE '' END)
+                  END)	
+            ELSE(
+                        CASE WHEN A.NETWR > 500000  THEN 
+                              (CASE WHEN CS005.SRATE > 85 THEN '본부장'
+                                    WHEN CS005.SRATE BETWEEN 80 AND 85 THEN '담당'
+                                    WHEN CS005.SRATE BETWEEN 75 AND 80 THEN '팀장'
+                                    WHEN CS005.SRATE BETWEEN 0 AND 75 THEN '지사장'
+                              ELSE '' END)
+                        ELSE 
+                              (CASE WHEN CS005.SRATE > 85 THEN '본부장'
+                                    WHEN CS005.SRATE BETWEEN 80 AND 85 THEN '담당'
+                                    WHEN CS005.SRATE BETWEEN 75 AND 80 THEN '팀장'
+                                    WHEN CS005.SRATE BETWEEN 0 AND 75 THEN '지사장'
+                              ELSE '' END)
+                        END)    	 
+            END)
+      END AS COF 
+     ,'' AS CHK
+     ,CS005.HOLDF
+
+  FROM ( SELECT  QTNUM, --
+ 	  				  		MAX(SEQ) AS SEQ,
+							MAX(GBNSEQ) AS GBNSEQ
+			  FROM SAPHEE.ZCST001R
+			  WHERE MANDT = '183'
+			  GROUP BY QTNUM) AS MX01, 
+ 	SAPHEE.VBAK A  LEFT OUTER JOIN SAPHEE.VBPA B
+                        ON A.MANDT = B.MANDT
+                        AND A.VBELN = B.VBELN
+                        AND B.PARVW = 'Z1'
+   												  
+                     LEFT OUTER JOIN SAPHEE.ZWBT010 C
+                        ON A.MANDT = C.MANDT
+                        AND B.LIFNR = C.LIFNR
+   												  
+                     LEFT OUTER JOIN SAPHEE.ZLCODE D
+                        ON A.MANDT = D.MANDT
+                        AND D.CODE1 = 'VKGRP'
+                        AND D.CODE2 = A.VKGRP
+                        AND D.LANG = 'ko'
+                                         
+                      LEFT OUTER JOIN SAPHEE.ZMASTER01 E
+                        ON A.MANDT = E.MANDT
+                        AND SUBSTR(A.ZZPJT_ID,1,6) = E.POSID
+                                         
+                      LEFT OUTER JOIN SAPHEE.ZCST005 CS005
+                        ON A.MANDT = CS005.MANDT
+                        AND A.VBELN = CS005.VBELN
+                        AND A.ZZPJT_ID = CS005.PSPID
+                                         
+                      LEFT OUTER JOIN SAPHEE.ZCST001 CS001
+                        ON A.MANDT = CS001.MANDT
+                        AND A.ZZPJT_ID = CS001.PS_PSPID
+                        AND A.VBELN = CS001.VBELN      
+					  /* 2019.07.30 변경된 원가율 구하기 위한 쿼리 수정 시작 */	
+					  LEFT OUTER JOIN SAPHEE.ZCST001R CS01R
+                        ON CS01R.MANDT = CS001.MANDT
+                        AND CS01R.QTNUM = CS001.QTNUM
+						AND CS01R.SEQ = CS001.SEQ
+						AND CS01R.GBN = 'Q'
+					  /* 2019.07.30 변경된 원가율 구하기 위한 쿼리 수정 종료 */                                   
+   
+ WHERE A.MANDT = #G_MANDT#
+   AND A.AUART = 'ZR13' -- 수리공사
+   AND A.BSTDK BETWEEN #DAT1# AND #DAT2#   
+    
+    --AND (A.VKBUR BETWEEN 'E900' AND 'EF00' OR A.VKBUR = 'EI00')
+    --AND (A.VKBUR BETWEEN 'E900' AND 'EF00' OR A.VKBUR = 'EI00' OR A.VKBUR = 'BJ00' OR A.VKBUR = 'EK00')
+    AND (A.VKBUR BETWEEN 'E900' AND 'EF00' OR A.VKBUR = 'EI00' OR A.VKBUR = 'BJ00' OR A.VKBUR = 'EK00' OR A.VKBUR = 'BK00' OR A.VKBUR = 'BL00' OR A.VKBUR = 'BM00')
+    
+   AND A.SPART IN ( '10' ,'20' )
+   AND A.NETWR > 0
+   AND A.VBTYP != 'B'
+   /* 2019.07.30 변경된 원가율 구하기 위한 쿼리 수정 시작 */
+   AND MX01.QTNUM = CS01R.QTNUM
+   AND MX01.SEQ = CS01R.SEQ
+   AND MX01.GBNSEQ = CS01R.GBNSEQ
+   /* 2019.07.30 변경된 원가율 구하기 위한 쿼리 수정 종료 */   
+<isNotNull col="UPN">
+   AND SUBSTR(A.ZZPJT_ID,1,6) = #UPN#
+</isNotNull>
+<isNotNull col="ARA">
+   AND C.BSU_ARA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+   AND C.LGORT = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+   AND C.BSU_PM = #BPM#
+</isNotNull>
+<isNotNull col="TEM">
+   AND A.VKGRP = #TEM#
+</isNotNull>  
+<isNotNull col="VKGRP">
+   AND A.VKGRP = #VKGRP#
+</isNotNull>   
+ ORDER BY ZZPJT_ID                  
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

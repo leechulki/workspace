@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  '' AS CHECK, A.POSID AS PSPID,  B.POSID_1 AS POSID, A.ZSITE_NM AS POST1,  B.ZSPEC1, B.ZSPEC2
+             , E.TEXT30,  B.NAMET, F.NAME1 AS LIFNR_NM, B.NAMET2, B.ZZSHIP1, B.ZZCOMP2 , (CASE WHEN C.CFM_DATE = '00000000' THEN '' ELSE C.CFM_DATE END) AS CFM_DATE
+             , C.AUSE
+             , C.CHK_LIFNR AS LIFNR
+             ,  (SELECT SA.VALUE  
+                   FROM SAPHEE.ZSDT0005 AS SA
+                  WHERE SA.MANDT = B.MANDT
+				    AND SA.HOGI = B.POSID_1
+                    AND SA.CHARACTERISTIC = 'EL_ASTD'
+                  ORDER BY SA.MANDT, SA.HOGI, SA.CHARACTERISTIC, SA.SEQ DESC
+                  FETCH FIRST 1 ROW ONLY ) AS ASTD
+													  
+	 		  , VALUE(CASE WHEN C.CHK_KIND = 'A' OR C.CHK_KIND = 'B' OR C.CHK_KIND = 'F' OR C.CHK_KIND = 'G'
+	 		               THEN D.RCPT_DATE 
+	 		               ELSE K.RCPT_DATE 
+	 		               END , '00000000') AS RCPT_DATE
+	 		  , C.REQ_DATE
+	 		  , C.REQ_DATE2
+	 		  , VALUE(CASE WHEN C.CHK_KIND = 'A' OR C.CHK_KIND = 'B' OR C.CHK_KIND = 'F' OR C.CHK_KIND = 'G'
+	 		               THEN D.REQ_DATE 
+	 		               ELSE K.REQ_DATE 
+	 		               END , '00000000') AS REQ_DATE3
+			  , B.ZBEPJEO
+			  , (CASE WHEN ZPDM_SAL = 'X' THEN '완료'  ELSE '' END) AS ZPDM_SAL
+			  , (CASE WHEN ZPDM_TSL = 'X' THEN '완료'  ELSE '' END) AS ZPDM_TSL
+			  , (CASE WHEN ZPDM_DES = 'X' THEN '완료'  ELSE '' END) AS ZPDM_DES      
+			  , (CASE WHEN (SELECT COUNT(*) FROM SAPHEE.ZPPT004 AS X  WHERE X.MANDT = B.MANDT AND X.WOKNUM = B.POSID_1 ) > 0 
+			                         THEN '완료'  ELSE '' END) AS QM        
+
+			  --, CASE WHEN G.FILE_END = ''  OR G.FILE_END =  '00000000' OR G.FILE_END IS NULL THEN  B.ZBEPJEO  ELSE G.FILE_END END AS FILE_END
+
+              , VALUE(G.KETF1_DATE, '00000000') AS KETF1_DATE
+		      , G.RECEPTIONIST
+			  , VALUE(G.KETF2_DATE, '00000000') AS KETF2_DATE
+			  , VALUE(G.KETF3_DATE, '00000000') AS KETF3_DATE
+ 			  , (CASE WHEN VALUE(G.KETF1_DATE, '00000000') > '00000000' AND C.REQ_DATE > '00000000'  THEN (    CHAR(DAYS(INSERT(INSERT(VALUE(G.KETF1_DATE, '00000000'), 5, 0,'-'),8,0,'-'))    -    DAYS(INSERT(INSERT(C.REQ_DATE, 5, 0,'-'),8,0,'-')))     ) ELSE ' '  END) AS DCHK 
+			  , G.BIGO
+			  , C.CHASU 
+			  , A.ISREMD 
+			  , C.CHK_KIND
+              ,(SELECT J.AUTAL  
+                  FROM SAPHEE.ZPST0044 AS J 
+                 WHERE A.MANDT = J.MANDT 
+                   AND J.UNAME= #G_USER_ID# ) AS FLAG -- 입력 권한 체크
+			  
+			  ,B.SAL_DATE, B.TSL_DATE, B.DES_DATE
+			  ,(CASE WHEN B.SAL_DATE > '00000000' AND B.ZZSHIP1 > '00000000'  
+			         THEN (    CHAR(DAYS(INSERT(INSERT(B.SAL_DATE, 5, 0,'-'),8,0,'-'))    -    DAYS(INSERT(INSERT(B.ZZSHIP1, 5, 0,'-'),8,0,'-')))     ) 
+			         ELSE ' '  
+			         END) AS SAL_GAP
+			  ,(CASE WHEN B.TSL_DATE > '00000000' AND B.ZZSHIP1 > '00000000'  
+			         THEN (    CHAR(DAYS(INSERT(INSERT(B.TSL_DATE, 5, 0,'-'),8,0,'-'))    -    DAYS(INSERT(INSERT(B.ZZSHIP1, 5, 0,'-'),8,0,'-')))     ) 
+			         ELSE ' '  END) AS TSL_GAP
+			  ,(CASE WHEN B.DES_DATE > '00000000' AND B.ZZSHIP1 > '00000000'  
+			         THEN (    CHAR(DAYS(INSERT(INSERT(B.DES_DATE, 5, 0,'-'),8,0,'-'))    -    DAYS(INSERT(INSERT(B.ZZSHIP1, 5, 0,'-'),8,0,'-')))     ) 
+			         ELSE ' '  END) AS DES_GAP
+			  , L.KEYCODE AS KEYCODE			  			  			  
+			  , M.STATUS      AS SAFE_STUS
+		      , M.CUST_NO     AS SAFE_CUST_NO
+			  , C.CDATE
+			  , B.ZZACTSS
+			  , C.BIGO AS BIGO2
+			  , N.UKEY
+   FROM SAPHEE.ZMASTER01 AS A
+   INNER JOIN SAPHEE.ZMASTER02 AS B
+        ON A.MANDT = B.MANDT
+	  AND A.POSID = B.POSID
+   INNER JOIN SAPHEE.ZPST0200 AS C
+        ON C.MANDT = B.MANDT
+	  AND C.PSPID = B.POSID
+	  AND C.POSID = B.POSID_1  	  
+    LEFT OUTER JOIN SAPHEE.ZPST0201 AS D
+	   ON  C.MANDT = D.MANDT
+	  AND C.PSPID = D.PSPID
+	  AND C.POSID = D.POSID
+      AND C.CHK_KIND = D.CHK_KIND
+      AND C.CHASU = D.CHASU 
+	 LEFT OUTER JOIN SAPHEE.J_1AACTT AS E
+	    ON B.MANDT = E.MANDT
+	  AND E.SPRAS = '3'     	  
+	  AND B.ZZACTSS = E.J_1AACT 
+	 LEFT OUTER JOIN SAPHEE.LFA1 AS F
+	    ON B.MANDT = F.MANDT
+	  AND B.LIFNR = F.LIFNR
+	  
+	 LEFT OUTER JOIN SAPHEE.ZPST0203 AS G
+	    ON C.MANDT = G.MANDT
+	  AND C.PSPID = G.PSPID
+	  AND C.POSID = G.POSID
+	  AND C.CHK_KIND = G.CHK_KIND
+	  AND C.CHASU = G.CHASU
+  
+	  LEFT OUTER JOIN SAPHEE.ZPST0200F AS H
+	     ON C.MANDT = H.MANDT
+	  AND C.PSPID = H.PSPID
+	  AND C.POSID = H.POSID
+	  AND C.CHK_KIND = H.CHK_KIND
+	  AND C.CHASU = H.CHASU
+
+	 LEFT OUTER JOIN SAPHEE.ZPST0202 AS K
+        ON  C.MANDT = K.MANDT
+  	  AND C.PSPID = K.PSPID
+	  AND C.POSID = K.POSID
+	  AND C.CHK_KIND = K.CHK_KIND
+	  AND C.CHASU = K.CHASU   
+     
+     LEFT OUTER JOIN SAPHEE.ZPST0046 AS L
+         ON C.MANDT    = L.MANDT
+        AND C.PSPID    = L.PSPID
+        AND C.POSID    = L.POSID
+        AND C.CHASU    = L.CHASU
+        AND C.CHK_KIND = L.CHK_KIND
+    
+     LEFT OUTER JOIN SAPHEE.ZPSTSITURM81 M
+         ON C.MANDT = M.MANDT 
+        AND C.PSPID = M.PSPID 
+        AND C.POSID = M.POSID 
+        AND C.CHK_KIND = M.CHK_KIND 
+        AND C.CHASU = M.CHASU
+     LEFT OUTER JOIN SAPHEE.ZPSTDONG AS N
+                  ON C.MANDT = N.MANDT 
+		         AND C.PSPID = N.PSPID 
+		         AND C.POSID = N.POSID 
+
+	  
+  WHERE A.MANDT   = #G_MANDT#
+    AND C.REQ_GBN = '2'
+    <isNotNull col="PSPID">
+       AND A.POSID = #PSPID#
+    </isNotNull> 
+
+    <isNotNull col="ZZACTSS">
+      	AND B.ZZACTSS = #ZZACTSS#
+     </isNotNull>
+	 
+    <isNotNull col="LIFNR_NM">
+      	AND F.NAME1 LIKE '%'||#LIFNR_NM#||'%'
+    </isNotNull>	 
+	 
+	 <!-- 
+     <isEqual col="CO_GBN" value="C">
+        #SQRY+#
+     </isEqual>	 
+	  -->
+ <isNotNull col="FROM_DT">
+    <isEqual col="TEXT" value="A">
+       AND B.ZZSHIP1 BETWEEN #FROM_DT# AND #TO_DT#
+    </isEqual>
+    <isEqual col="TEXT" value="B">
+       AND B.ZZCOMP2 BETWEEN #FROM_DT# AND #TO_DT#
+    </isEqual>
+       <isEqual col="TEXT" value="C">
+          <isEqual col="CHK_KIND" value="A">
+             AND D.RCPT_DATE BETWEEN #FROM_DT# AND #TO_DT#   --검사 접수일  
+          </isEqual>
+          <isEqual col="CHK_KIND" value="C">
+             AND K.RCPT_DATE BETWEEN #FROM_DT# AND #TO_DT#   --검사 접수일  
+          </isEqual>
+       </isEqual>		
+    <isEqual col="TEXT" value="D">
+       AND C.REQ_DATE BETWEEN #FROM_DT# AND #TO_DT#   --검사요청일  
+    </isEqual>		
+    <isEqual col="TEXT" value="E">
+       AND B.ZBEPJEO BETWEEN #FROM_DT# AND #TO_DT#     -- 법정검사일 
+    </isEqual>		
+     <isEqual col="TEXT" value="F">
+       AND C.CFM_DATE  BETWEEN #FROM_DT# AND #TO_DT#     -- 승인일  
+    </isEqual>	
+     <isEqual col="TEXT" value="G">
+       AND G.KETF1_DATE BETWEEN #FROM_DT# AND #TO_DT#     -- 1차접수일
+    </isEqual>	
+     <isEqual col="TEXT" value="H">
+       AND G.KETF2_DATE BETWEEN #FROM_DT# AND #TO_DT#     -- 2차접수일  
+    </isEqual>	
+     <isEqual col="TEXT" value="I">
+       AND G.KETF3_DATE BETWEEN #FROM_DT# AND #TO_DT#     -- 3차접수일
+    </isEqual>	
+	
+  </isNotNull>	 
+
+  
+     <isNotNull col="CHK_KIND">
+       <isEqual col="CHK_KIND" value="A">
+          AND (D.REQ_DATE &lt;&gt; '' OR D.REQ_DATE &lt;&gt; '00000000' OR D.REQ_DATE IS NULL)
+          AND C.CHK_KIND IN ('A','B','F','G','D')
+       </isEqual>
+       <isEqual col="CHK_KIND" value="C">
+          AND (K.REQ_DATE &lt;&gt; '' OR K.REQ_DATE &lt;&gt; '00000000' OR K.REQ_DATE IS NULL) 
+          AND C.CHK_KIND IN ('C','E','H','I')
+       </isEqual>
+	 </isNotNull>
+
+       
+
+     		 
+	   AND B.TXT04 &lt;&gt; 'C'
+	   AND B.ZZGUBUN IN ( '10' , '11', '12', '13', '14', '20')
+ORDER BY DECODE(TRIM(G.RECEPTIONIST),NULL,'1','2'), A.POSID, B.POSID_1, C.REQ_DATE
+FOR FETCH ONLY WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

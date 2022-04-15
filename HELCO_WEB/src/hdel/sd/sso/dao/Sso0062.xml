@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.sso.dao.Sso0062D"> 
+  
+	<resultMap id="selectQtnumDetailResultMap" type="hdel.sd.sso.domain.Sso0062VO"> 
+	    <result property="QTNUM" column="QTNUM"/>
+	    <result property="QTSER" column="QTSER"/>
+	    <result property="QTSEQ" column="QTSEQ"/>
+	    <result property="ZPRDGBN" column="ZPRDGBN"/>
+	</resultMap> 
+	
+	
+	<!-- 견적Detail   -->
+	<select id="selectQtnumDetail" parameterType="hdel.sd.sso.domain.Sso0062ParamVO" resultMap="selectQtnumDetailResultMap">
+		SELECT  DISTINCT A.QTNUM   		AS QTNUM  -- 견적번호 
+		      , A.QTSER 		AS QTSER  -- 견적차수 
+		      , A.QTSEQ 		AS QTSEQ  -- 견적일련번호
+			  , A.ZPRDGBN       AS ZPRDGBN -- 제품구분
+		  FROM SAPHEE.ZSDT1047 A
+		 WHERE A.MANDT = #{MANDT}   
+		   AND A.QTNUM = #{QTNUM}	-- 견적번호
+		   AND A.QTSER = #{QTSER}	-- 견적차수
+		   AND A.MATNR = #{MATNR}	-- 자재번호
+		FETCH FIRST 1 ROWS ONLY
+		WITH UR
+	</select>
+
+	<select id="selectZprdgbn" parameterType="hdel.sd.sso.domain.Sso0062ParamVO" resultMap="selectQtnumDetailResultMap">
+		with smtr as (
+			select inob.mandt, inob.objek as matnr, makt.maktx, klah.class
+			from saphee.inob as inob
+				inner join saphee.kssk as kssk on inob.mandt=kssk.mandt and inob.cuobj=kssk.objek
+				inner join saphee.klah as klah on kssk.mandt=klah.mandt and kssk.clint=klah.clint
+				left join saphee.makt as makt on inob.mandt=makt.mandt and inob.objek=makt.matnr and makt.spras='3'
+			where inob.mandt=#{MANDT} and inob.klart='300' and inob.obtab='MARA' and inob.objek=#{MATNR}
+		)
+		select class as zprdgbn
+		from smtr
+		
+		union all
+		select smtr.class as zprdgbn
+		from saphee.zsdt1033 as z1033
+			inner join smtr on z1033.mandt=smtr.mandt and z1033.rsmtr=smtr.matnr
+			left join saphee.zsdt1034 as z1034 on z1033.mandt=z1034.mandt and z1033.vsmtr=z1034.vsmtr and z1034.spras='3'
+		where z1033.vsmtr=#{MATNR}
+		with ur
+	</select>
+</mapper>  

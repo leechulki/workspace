@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+    <type>select</type>
+    <description><![CDATA[]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>1</result-count>
+    <statement>
+<![CDATA[
+SELECT 
+     CASE WHEN A.JJD = '' THEN ''
+              WHEN VALUE(G.CS146_DGB,'') = 'A' AND VALUE(G.CS146_STA,'') = '1' AND A.JGD = '1' THEN '중지'
+              WHEN VALUE(G.CS146_DGB,'') = 'A' AND VALUE(G.CS146_STA,'') = '2' AND A.JGD = '2' THEN '보류'
+              WHEN A.FSD >'' THEN '실패보고' 
+              ELSE '' 
+     END AS STATUS 
+    ,B.CS122_PJT AS PJT 
+    ,B.CS122_HNO AS HNO 
+    ,C.CS101_HNA AS HNA
+    ,D.ZSPEC2 AS ZSPEC2
+    ,D.ZSPEC1 AS ZSPEC1 
+    ,F.CS126_USD AS USD
+    ,F.CS126_UHJ AS UHJ
+    ,F.CS126_AMT AS AMT
+    ,F.CS126_AMBT AS AMBT
+    ,VALUE(F.CS126_AMT,0) + VALUE(F.CS126_AMBT,0) AS AMTT
+    ,F.CS126_SEQ AS SEQ 
+    ,F.CS126_GNO AS GNO 
+    ,F.CS126_GND AS GND 
+    ,'' AS CHECK 
+    ,B.CS122_UPN AS UPN
+    ,B.CS122_CST AS CST 
+    ,A.FSD AS FSD
+    ,CASE VALUE(G.CS146_STA,'') WHEN '1' THEN A.JJD WHEN '2' THEN A.JJD ELSE '' END AS JJD
+    ,CASE VALUE(G.CS146_STA,'') WHEN '1' THEN A.UDT WHEN '2' THEN A.UDT ELSE '' END AS UDT 
+    ,DECODE(F.CS126_BDGBN,'X','1','') AS BDGBN
+FROM SAPHEE.ZCST111 AS A
+    ,SAPHEE.ZCST122 AS B
+    ,SAPHEE.ZCST101 AS C
+    ,SAPHEE.ZMASTER02 AS D 
+    ,(SELECT MANDT,CS126_UPN, CS126_CST, CS126_PJT, CS126_HNO, CS126_SEQ AS MAXSEQ 
+      FROM SAPHEE.ZCST126   
+      WHERE 
+        MANDT = #G_MANDT#
+        AND CS126_DDT = '' 
+            AND CS126_GND IN ('C','D')
+            AND CS126_PST = 'A6' 
+            AND CS126_GNO = #GNO#
+     ) AS E
+    ,SAPHEE.ZCST126 AS F
+            LEFT OUTER JOIN (
+                             SELECT
+                                        J.MANDT,
+                                        J.CS146_UPN,
+                                        J.CS146_CST,
+                                        J.CS146_PJT,
+                                        J.CS146_HNO,
+                                        J.CS146_SEQ,
+                                        J.CS146_ISR,
+                                        J.CS146_STA,
+                                        J.CS146_DGB
+                                   FROM
+                                        (
+                                         SELECT
+                                                H.MANDT,
+                                                H.CS146_UPN UPN,
+                                                H.CS146_CST CST,
+                                                H.CS146_PJT PJT,
+                                                H.CS146_HNO HNO,
+                                                H.CS146_SEQ SEQ,
+                                                MAX(H.CS146_ISR) ISR
+                                           FROM
+                                                SAPHEE.ZCST146 H
+                                         GROUP BY
+                                                H.MANDT,
+                                                H.CS146_UPN,
+                                                H.CS146_CST,
+                                                H.CS146_PJT,
+                                                H.CS146_HNO,
+                                                H.CS146_SEQ
+                                        ) I,
+                                        SAPHEE.ZCST146 J
+                                  WHERE 
+                                        I.MANDT = J.MANDT
+                                    AND I.UPN = J.CS146_UPN
+                                    AND I.CST = J.CS146_CST
+                                    AND I.PJT = J.CS146_PJT
+                                    AND I.HNO = J.CS146_HNO
+                                    AND I.SEQ = J.CS146_SEQ
+                                    AND I.ISR = J.CS146_ISR
+                            ) G ON G.MANDT = F.MANDT
+                               AND G.CS146_UPN = F.CS126_UPN
+                               AND G.CS146_CST = F.CS126_CST
+                               AND G.CS146_PJT = F.CS126_PJT
+                               AND G.CS146_HNO = F.CS126_HNO
+                               AND G.CS146_SEQ = F.CS126_SEQ
+WHERE 
+    A.MANDT = #G_MANDT#  
+    AND B.MANDT = A.MANDT  
+    AND C.MANDT = B.MANDT  
+    AND D.MANDT = C.MANDT  
+    AND E.MANDT = D.MANDT  
+    AND F.MANDT = E.MANDT  
+    AND B.CS122_UPN = #UPN#
+    AND B.CS122_CST = #CST#
+    AND A.PJT = B.CS122_PJT 
+    AND A.HNO = B.CS122_HNO 
+    AND B.CS122_PJT = C.CS101_PJT 
+    AND B.CS122_HNO = C.CS101_HNO 
+    AND B.CS122_PJT||B.CS122_HNO = D.POSID_1  
+    AND B.CS122_UPN = E.CS126_UPN 
+    AND B.CS122_CST = E.CS126_CST 
+    AND B.CS122_PJT = E.CS126_PJT 
+    AND B.CS122_HNO = E.CS126_HNO 
+    AND E.CS126_UPN = F.CS126_UPN 
+    AND E.CS126_CST = F.CS126_CST 
+    AND E.CS126_PJT = F.CS126_PJT 
+    AND E.CS126_HNO = F.CS126_HNO 
+    AND F.CS126_SEQ = E.MAXSEQ 
+ORDER BY B.CS122_PJT,B.CS122_HNO
+WITH UR ]]></statement>
+    <input default-name="ds_cond3">
+        <col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+        <col name="GNO" size="72" type="VARCHAR" description="" /> 
+        <col name="UPN" size="18" type="VARCHAR" description="" /> 
+        <col name="CST" size="9" type="VARCHAR" description="" /> 
+    </input>
+    <output default-name="ds_list3">
+        <col name="STATUS" size="12" type="VARCHAR" description="" /> 
+        <col name="PJT" size="18" type="VARCHAR" description="" /> 
+        <col name="HNO" size="9" type="VARCHAR" description="" /> 
+        <col name="HNA" size="90" type="VARCHAR" description="" /> 
+        <col name="ZSPEC2" size="75" type="VARCHAR" description="" /> 
+        <col name="ZSPEC1" size="15" type="VARCHAR" description="" /> 
+        <col name="USD" size="24" type="VARCHAR" description="" /> 
+        <col name="UHJ" size="24" type="VARCHAR" description="" /> 
+        <col name="AMT" size="12" type="DECIMAL" description="" /> 
+        <col name="AMBT" size="12" type="DECIMAL" description="" /> 
+        <col name="AMTT" size="12" type="DECIMAL" description="" /> 
+        <col name="SEQ" size="6" type="VARCHAR" description="" /> 
+        <col name="GNO" size="72" type="VARCHAR" description="" /> 
+        <col name="GND" size="3" type="VARCHAR" description="" /> 
+        <col name="CHECK" size="0" type="VARCHAR" description="" /> 
+        <col name="UPN" size="18" type="VARCHAR" description="" /> 
+        <col name="CST" size="9" type="VARCHAR" description="" /> 
+        <col name="FSD" size="24" type="VARCHAR" description="" /> 
+        <col name="JJD" size="24" type="VARCHAR" description="" /> 
+        <col name="UDT" size="24" type="VARCHAR" description="" /> 
+        <col name="BDGBN" size="24" type="VARCHAR" description="" /> 
+    </output>
+</query>

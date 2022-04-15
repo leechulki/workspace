@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  MAX(PSPID) AS PSPID
+       ,MAX(ZSITE_NM) AS ZSITE_NM
+       ,CHAR(COUNT(POSID)) AS POSID
+       ,SUBSTR(MAX(DATE4),5,2)||'월'||SUBSTR(MAX(DATE4),7,2)||'일' AS DATE4
+       ,CHAR(FLOOR) AS FLOOR
+       ,CASE SPEC_GBN WHEN 'EH' THEN '인승용' WHEN 'HY' THEN '유압용' WHEN 'ES' THEN 'E/S' WHEN 'MW' THEN 'M/W' WHEN 'FT' THEN '화물용' ELSE '' END AS SPEC_GBN
+       ,CASE SPEC_GBN WHEN 'EH' THEN '로프식' WHEN 'HY' THEN '유압식' WHEN 'ES' THEN MAX(ESMW) WHEN 'MW' THEN MAX(ESMW) WHEN 'FT' THEN '로프식' ELSE '' END AS TYPE
+       ,'현대E/L' AS COMP
+       ,MAX(LIFNR) AS LIFNR
+       ,MAX(PERNO) AS PERNO
+       ,MAX(REQ_CELL) AS REQ_CELL
+       ,MAX(J_1KFREPRE) AS J_1KFREPRE
+       ,MAX(TELF1     ) AS TELF1     
+       ,MAX(ZZACTSS   ) AS ZZACTSS   
+       ,MAX(ADDR      ) AS ADDR      
+       ,MAX(ZSITE_TEL ) AS ZSITE_TEL 
+       ,MAX(CHK_KIND ) AS CHK_KIND 
+FROM (
+        SELECT
+                P.MANDT
+               ,P.PSPID
+               ,P.POSID
+               ,P.DATE4
+               ,M1.ZSITE_NM
+               ,M2.ZSPEC2
+               ,P.LIFNR
+               ,CASE WHEN  M2.ZSPEC2 > '' AND (SUBSTR(M2.POSID_1,7,1) = 'S' OR SUBSTR(M2.POSID_1,7,1) = 'W')
+                       THEN (SUBSTR(SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1),1,LOCATE('-',SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1))-1))
+                     WHEN  M2.ZSPEC2 > ''
+                       THEN (CASE WHEN LOCATE('/',SUBSTR(SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1),LOCATE('-',SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1))+1)) >0
+                                    THEN (SUBSTR(SUBSTR(SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1),LOCATE('-',SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1))+1),1,LOCATE('/',SUBSTR(SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1),LOCATE('-',SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1))+1))-1))
+                                    ELSE (SUBSTR(SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1),LOCATE('-',SUBSTR(M2.ZSPEC2, LOCATE( '-', M2.ZSPEC2 )+1))+1))
+                             END)
+                     ELSE '0'
+                END AS FLOOR
+               ,CASE WHEN SUBSTR(M2.ZSPEC2,1,2) = 'FT' AND M2.ZSPEC1 = 'HYD' THEN 'HY'
+			              WHEN SUBSTR(M2.ZSPEC2,1,2) = 'FT' THEN 'FT' 
+						   WHEN SUBSTR(P.POSID,7,1) = 'S' THEN 'ES'
+						   WHEN SUBSTR(P.POSID,7,1) = 'W' THEN 'MW'  
+						   ELSE 'EH' END AS SPEC_GBN
+               ,(SELECT NAMET FROM SAPHEE.ZPST0011 WHERE MANDT = P.MANDT AND TEMNO = P2.PERNO) AS PERNO
+               ,P2.REQ_CELL
+               ,M.J_1KFREPRE
+               ,M.TELF1
+               ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = P.MANDT AND CODE1 = 'PS003' AND LANG = #G_LANG# AND CODE2 = M1.ZZACTSS) AS ZZACTSS
+               ,M1.ADDR1||' '||M1.ADDR2 AS ADDR
+               ,M1.ZSITE_TEL
+               ,P2.CHK_KIND
+			   ,CASE WHEN (SUBSTR(M2.POSID_1,7,1) = 'S' OR SUBSTR(M2.POSID_1,7,1) = 'W') AND M2.ZSPEC2 > '' THEN  (SUBSTR(M2.ZSPEC2,1,LOCATE( '-', M2.ZSPEC2 )-1)) ELSE '0' END ESMW 
+        FROM  SAPHEE.ZPST0024 AS P
+                LEFT OUTER JOIN SAPHEE.ZMMT012 AS M
+                ON P.MANDT = M.MANDT
+                AND P.LIFNR = M.LIFNR
+                AND M.KTOKK = ''
+             ,SAPHEE.ZMASTER02 AS M2
+             ,SAPHEE.ZMASTER01 AS M1			 
+             ,SAPHEE.ZPST0023 AS P2
+        WHERE P.MANDT = #G_MANDT#
+        AND P.MANDT = M1.MANDT
+        AND P.PSPID = M1.POSID
+        AND P.MANDT = M2.MANDT
+        AND P.PSPID = M2.POSID
+        AND P.POSID = M2.POSID_1
+        AND P.MANDT = P2.MANDT
+        AND P.PSPID = P2.PSPID
+        AND P.POSID = P2.POSID
+        AND P2.ZTYPE = '2'
+        AND P.DATE1 != '00000000'
+<isNotNull col="GUBUN">
+        #GUBUN+#
+</isNotNull>
+
+    ) AS T
+GROUP BY  FLOOR,SPEC_GBN   
+
+UNION ALL
+
+SELECT DISTINCT '' AS PSPID
+       ,'' AS ZSITE_NM
+       ,'' AS POSID
+       ,(SELECT DISTINCT C.NAME1 FROM SAPHEE.ZMMT012 C WHERE C.MANDT = P.MANDT AND C.LIFNR = P.LIFNR) DATE4
+       ,'' AS FLOOR
+       ,'' AS SPEC_GBN
+       ,'' AS TYPE	   
+       ,'' AS COMP
+	   ,'' AS LIFNR
+	   ,'' AS PERNO
+       ,'' AS REQ_CELL
+       ,'' AS J_1KFREPRE
+       ,'' AS TELF1     
+       ,'' AS ZZACTSS   
+       ,'' AS ADDR      
+       ,'' AS ZSITE_TEL 
+       ,'' AS CHK_KIND
+FROM  SAPHEE.ZPST0024 AS P
+WHERE P.MANDT = #G_MANDT#
+AND P.DATE1 != '00000000'
+<isNotNull col="GUBUN">
+        #GUBUN+#
+</isNotNull>
+
+ORDER BY PSPID DESC,FLOOR
+
+FOR FETCH ONLY
+WITH UR
+	</statement>
+	<input default-name="ds_cond_p">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="GUBUN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list_p">
+		<col name="ADDR" size="211" type="VARCHAR" description="" /> 
+		<col name="COMP" size="9" type="VARCHAR" description="" /> 
+		<col name="DATE4" size="105" type="VARCHAR" description="" /> 
+		<col name="FLOOR" size="11" type="VARCHAR" description="" /> 
+		<col name="J_1KFREPRE" size="30" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="30" type="VARCHAR" description="" /> 
+		<col name="PERNO" size="60" type="VARCHAR" description="" /> 
+		<col name="POSID" size="11" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="72" type="VARCHAR" description="" /> 
+		<col name="REQ_CELL" size="45" type="VARCHAR" description="" /> 
+		<col name="SPEC_GBN" size="9" type="VARCHAR" description="" /> 
+		<col name="TELF1" size="48" type="VARCHAR" description="" /> 
+		<col name="TYPE" size="9" type="VARCHAR" description="" /> 
+		<col name="ZSITE_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="ZSITE_TEL" size="60" type="VARCHAR" description="" /> 
+		<col name="ZZACTSS" size="60" type="VARCHAR" description="" /> 
+	</output>
+</query>

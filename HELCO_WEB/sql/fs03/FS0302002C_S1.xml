@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[예산그룹관리 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+WITH ESCS_DATA(SEQ1, SEQ2, ESCS_CODE, NAME1, NAME2, NAME3, NAME4, BDGR_NAME ) AS
+(
+SELECT 1 AS SEQ1
+        , A.BDGR_CDSQ +1 AS SEQ2
+        , A.ESCS_CODE
+        , B.CODE_NAME AS NAME1
+        , C.BDGR_NAME AS NAME2
+        , D.BDGR_NAME AS NAME3
+        , F.BDGR_NAME AS NAME4
+        , A.BDGR_NAME
+FROM SAPHEE.ZFST0101 AS A 
+        LEFT JOIN SAPHEE.ZFST0100 B ON ( A.MANDT = B.MANDT AND B.CODE_GROP = 'C01' AND B.CODE = A.BGCL )
+        LEFT JOIN SAPHEE.ZFST0101 C ON ( A.MANDT = C.MANDT AND A.BGCL = C.BGCL AND SUBSTR( A.ESCS_CODE , 1, 3 ) || '000000' || A.BGCL_DTIL = C.BGIT_CODE )
+        LEFT JOIN SAPHEE.ZFST0101 D ON ( A.MANDT = D.MANDT AND A.BGCL = D.BGCL AND SUBSTR( A.ESCS_CODE , 1, 6 ) || '000' || A.BGCL_DTIL = D.BGIT_CODE  AND SUBSTR( A.ESCS_CODE , 4, 6 ) != '000000' ) 
+        LEFT JOIN SAPHEE.ZFST0101 F ON ( A.MANDT = F.MANDT AND A.BGCL = F.BGCL AND A.ESCS_CODE || A.BGCL_DTIL = F.BGIT_CODE  AND SUBSTR( A.ESCS_CODE , 7, 3 ) != '000' ) 
+WHERE A.MANDT = #G_MANDT#
+AND A.BGCL_DTIL = '000000000000'
+ORDER BY SEQ1, SEQ2
+)
+SELECT 
+        A.OCNT_NUMB
+        ,A.EBDG_MGSQ
+        ,B.PSPID
+        ,B.BSTNK
+        ,A.EBDG_ITSQ
+        ,A.BDGT_ITEM
+        ,ED.NAME1
+        ,ED.NAME2
+        ,ED.NAME3
+        ,ED.NAME4
+        ,A.EBDG_NAME
+        ,A.EBDG_AMT
+        ,A.SPEN_AMT
+        ,A.EBDG_AMT - A.SPEN_AMT AS REMN_AMT
+FROM SAPHEE.ZFST0302 A
+        JOIN SAPHEE.ZFST0304 B ON ( A.MANDT = B.MANDT AND A.OCNT_NUMB = B.OCNT_NUMB )
+        LEFT JOIN ESCS_DATA ED ON ( A.BDGT_ITEM = ED.ESCS_CODE )
+WHERE ( A.MANDT, A.OCNT_NUMB, A.EBDG_MGSQ ) IN 
+                (SELECT B.MANDT, B.OCNT_NUMB, MAX(B.EBDG_MGSQ)
+                FROM SAPHEE.ZFST0301 B
+                WHERE B.MANDT = #G_MANDT#
+                AND B.OCNT_NUMB = #OCNT_NUMB#
+                AND B.EBDG_MGST = '350'
+                GROUP BY B.MANDT, B.OCNT_NUMB)
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_zfst0400_list0302">
+    </output>
+</query>

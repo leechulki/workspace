@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[FM청구-직영현장 기성비집계]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT 
+    MAX(A.YEAR) AS YEAR
+   ,SUM(A.TWBTR)*100 AS SUM
+FROM (
+  SELECT
+      CASE WHEN MAX(CS126.CS126_USD) BETWEEN #A_SDATE# AND #A_EDATE# THEN CAST(#A_CHASU# AS VARCHAR(20))      ELSE(
+      CASE WHEN MAX(CS126.CS126_USD) BETWEEN #B_SDATE# AND #B_EDATE# THEN CAST(#B_CHASU# AS VARCHAR(20))      ELSE(
+     CASE WHEN MAX(CS126.CS126_USD) BETWEEN #C_SDATE# AND #C_EDATE# THEN CAST(#C_CHASU# AS VARCHAR(20))     ELSE(
+     CASE WHEN MAX(CS126.CS126_USD) BETWEEN #D_SDATE# AND #D_EDATE# THEN CAST(#D_CHASU# AS VARCHAR(20))     ELSE(
+     CASE WHEN MAX(CS126.CS126_USD) BETWEEN #E_SDATE# AND #E_EDATE# THEN CAST(#E_CHASU# AS VARCHAR(20))     ELSE      ('X')END		          
+     )END )END )END )END AS YEAR
+     ,CS006.PSPID AS PSPID
+     ,CS006.REQNO AS REQNO
+     ,MAX(CS006.TWBTR) TWBTR --기성비(직영현장 인건비)
+   FROM SAPHEE.ZCST006 AS CS006 		
+	 	 INNER JOIN SAPHEE.ZCST126 AS CS126
+	 	  ON CS006.MANDT = CS126.MANDT
+		  AND CS006.PSPID = CS126.CS126_GNO
+   WHERE CS006.MANDT = #G_MANDT#
+   AND (CS006.PSPID) IN (
+       SELECT CS126.CS126_GNO
+         FROM SAPHEE.ZCST126 AS CS126
+       WHERE CS126.MANDT = #G_MANDT#
+        AND CS126.CS126_UPN = #UPN#
+        AND CS126.CS126_CST = #CST#
+        AND ((CS126_USD BETWEEN #SDATE# AND #EDATE#) OR (CS126_UHJ BETWEEN #SDATE# AND #EDATE#))
+        AND CS126.CS126_KND > ''
+        AND CS126.CS126_DDT = ''
+      GROUP BY CS126.CS126_GNO
+       )
+GROUP BY CS006.PSPID, CS006.REQNO
+)A
+GROUP BY A.PSPID
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_date_1">
+	</input>
+	<output default-name="ds_glist_1">
+	</output>
+</query>

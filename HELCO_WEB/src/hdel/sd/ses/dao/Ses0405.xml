@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.ses.dao.Ses0405D"> 
+	<resultMap id="annualUnitCostMap" type="hdel.sd.ses.domain.Ses0405"/>
+	<select id="searchAnnualUnitCost" parameterType="hdel.sd.ses.domain.Ses0405" resultMap="annualUnitCostMap">
+		with target as (
+			select mandt, qtnum, qtser, vbeln as pjtid, frcmfcdat, '' as ildat
+			from saphee.zsdt1046 as z1046
+			where mandt=#{mandt}
+				and frcmfcdat between #{fr_bsdat} and #{to_bsdat}
+				and qtser = (select max(qtser) from saphee.zsdt1046 where mandt=z1046.mandt and qtnum=z1046.qtnum)
+				<if test="qtnum != ''">and z1046.qtnum=#{qtnum}</if>
+				<if test="fr_vkbur != ''">and z1046.vkbur between #{fr_vkbur} and #{to_vkbur}</if>
+				<if test="fr_vkgrp != ''">and z1046.vkgrp between #{fr_vkgrp} and #{to_vkgrp}</if>
+
+			union all
+			select z1046.mandt, z1046.qtnum, z1046.qtser, z027.pspid as pjtid, '' as frcmfcdat, min(z027.ildat) as ildat
+			from saphee.zppt027 as z027
+				inner join saphee.zsdt1046 as z1046 on z027.mandt=z1046.mandt and z027.pspid=z1046.vbeln
+			where z027.mandt=#{mandt}
+				and z027.gubun='01'
+				and z027.activ='05'
+				and z027.ildat between #{fr_bsdat} and #{to_bsdat}
+				and z027.block in ('A','B')
+				<if test="qtnum != ''">and z1046.qtnum=#{qtnum}</if>
+				<if test="fr_vkbur != ''">and z1046.vkbur between #{fr_vkbur} and #{to_vkbur}</if>
+				<if test="fr_vkgrp != ''">and z1046.vkgrp between #{fr_vkgrp} and #{to_vkgrp}</if>
+			group by z027.pspid, z1046.mandt, z1046.qtnum, z1046.qtser
+		),
+		z1046 as (
+			select target.mandt, target.qtnum, target.qtser, z1047.qtseq,
+			target.pjtid, z1046.gsnam, z1058.kunnr_z3, z1046.vkbur, z1046.vkgrp, z1058.findat, z1046.zkunnr, z1046.kunnr, 
+			target.frcmfcdat, target.ildat,
+				case 
+					when z1047.matnr='L-1000' or z1047.matnr='L-2000' then 
+						z1047.gtype||' '||z1047.zuse||
+						case
+							when z1047.zuse='DW' or z1047.zuse='TL'  or z1047.zuse='AM' or z1047.zuse='HA' or z1047.zuse='HF' or z1047.zuse='BD' or z1047.zuse='BH' or z1047.zuse='FT' then
+								z1047.zacapa 
+							else z1047.type3 
+						end || '-'||z1047.zopn||z1047.type2||'-'||z1047.type3||
+						case z1047.type3 when z1047.zlen then '' else '/'||z1047.zlen end 
+					when z1047.matnr='S-1000' or z1047.matnr='S-2000' then 
+						z1047.gtype||' '||z1047.type1||'-'||z1047.type3||'-'||z1047.type2 
+					else
+						z1047.gtype 
+				end as spec
+			from target
+				inner join saphee.zsdt1046 as z1046 on target.mandt=z1046.mandt and target.qtnum=z1046.qtnum and target.qtser=z1046.qtser
+				inner join saphee.zsdt1047 as z1047 on target.mandt=z1047.mandt and target.qtnum=z1047.qtnum and target.qtser=z1047.qtser
+				inner join saphee.zsdt0500 as z0500  on z1046.mandt=z0500.mandt and z1046.kunnr=z0500.kunnr and z0500.ycont='Y'
+				inner join saphee.zsdt1058 as z1058 on z1046.mandt=z1058.mandt and z1046.qtnum=z1058.qtso_no and z1046.qtser=z1058.qtser and z1058.zrqstat &lt;&gt; 'D'
+			where z1058.zrqseq = (select max(zrqseq) from saphee.zsdt1058 where mandt=z1058.mandt and qtso_no=z1058.qtso_no and kunnr_z3=z1058.kunnr_z3)
+				<if test="parz3 != ''">and z1058.kunnr_z3=#{parz3}</if>
+		)
+		select zhr1.psno as parz3, zhr1.irum as parz3nm, zhr1.dept, zhr1.dept_n,
+			z1046.qtnum, z1046.qtser, z1046.qtseq, z1046.spec, z1046.gsnam, z1046.pjtid, z1046.zkunnr as parz2, kna1z2.name1 as parz2nm, z1046.kunnr, kna1.name1 as kunnrnm, z1046.vkbur, z1046.vkgrp, z1046.findat,
+			z1046.frcmfcdat, z1046.ildat
+		from saphee.zhrt001 as zhr1
+			left join z1046 on zhr1.mandt=z1046.mandt and zhr1.psno=z1046.kunnr_z3
+			left join saphee.kna1 as kna1z2 on z1046.mandt=kna1z2.mandt and z1046.zkunnr=kna1z2.kunnr
+			left join saphee.kna1 as kna1 on z1046.mandt=kna1.mandt and z1046.kunnr=kna1.kunnr
+		where zhr1.mandt=#{mandt}
+		  and zhr1.dpt1='B8'
+		  and zhr1.leav='00000000'
+		  <if test="parz3 != ''">and zhr1.psno=#{parz3}</if>
+		order by dept
+		with ur
+	</select>
+</mapper>

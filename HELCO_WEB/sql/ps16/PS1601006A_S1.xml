@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[PS1601006A_S1]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	
+SELECT 
+       E.POSID AS PSPID
+      ,E.PAPRYYYYMM  AS PAPRYYYYMM
+      ,E.ZZGUBUN
+      ,E.CHKDAT AS CHKDAT  --발생일자
+      ,(SELECT DISTINCT NN.NAME1 FROM SAPHEE.ZPST0034 NN WHERE NN.MANDT = E.MANDT   AND NN.LIFNR = E.LIFNR  AND NN.GBN = 'A') AS LIFNRNM
+      ,(SELECT N.DTEXT4 FROM SAPHEE.ZLCODE N WHERE N.MANDT = E.MANDT AND N.CODE1 = 'PS003' AND N.LANG = 'ko' AND N.CODE2 = W.ZZACTSS) AS TEMNM
+      ,E.LIFNR AS LIFNR
+      ,(SELECT MM028.CTEXT2 FROM SAPHEE.ZLCODE MM028 WHERE MM028.MANDT = E.MANDT AND MM028.CODE1 = 'PS003' AND MM028.LANG = 'ko' AND MM028.CODE2 = W.ZZACTSS) ZZACTSS
+      ,E.POSID_1 AS HOGI -- 호기 
+      , E.NAMET2
+      ,(SELECT M.ZSITE_NM FROM SAPHEE.ZMASTER01 M WHERE M.MANDT = E.MANDT AND M.POSID = E.POSID) AS ZSITE_NM -- 프로젝트명 
+      ,E.WK_DESC  --작업내용
+      ,E.CH_PER  --점검자
+      ,E.CH_NO  --인원
+      ,E.EVAL_IMNO  --중대재해위반건수
+      ,E.EVAL_GRADE  --점수
+FROM (
+          SELECT A.MANDT
+                ,Left(A.POSID, 6) AS POSID 
+                ,A.CHKDAT                                      --발생일자
+                ,substr(A.CHKDAT,1,6)  AS PAPRYYYYMM
+                ,A.ZZGUBUN
+                ,M02.LIFNR  --업체번호
+                ,B.NAMET AS NAMET2    -- 설치팀장명
+                ,A.POSID AS   POSID_1   --호기
+                ,A.WK_DESC  --작업내용
+                ,A.CH_PER  --점검자
+                ,A.CH_NO  --인원
+                ,A.EVAL_IMNO  --중대재해위반건수
+                ,A.EVAL_GRADE  --점수
+            FROM SAPHEE.ZPSTW1902 AS A                        
+            INNER JOIN  SAPHEE.ZMASTER02 M02 ON M02.MANDT = A.MANDT AND M02.POSID = Left(A.POSID, 6)   AND M02.POSID_1 =  A.POSID
+            INNER JOIN SAPHEE.ZWBT010 AS C ON A.MANDT = C.MANDT AND M02.LIFNR = C.LIFNR
+            LEFT OUTER JOIN SAPHEE.ZPST0002 AS B ON A.MANDT = B.MANDT AND M02.TEMNO2 = B.TEMNO 
+            --AND B.DELEF = ''
+        WHERE A.MANDT = #G_MANDT#
+          AND (substr(A.CHKDAT,1,6) BETWEEN #YYYYMMF#  AND #YYYYMMT#) 
+          <isNotNull col="ZTEMNO">
+             AND M02.TEMNO2 = #ZTEMNO#
+          </isNotNull>
+          <isNotNull col="ZZLIFNR">
+              AND M02.LIFNR = #ZZLIFNR#      
+          </isNotNull>
+          <isEqual col="CHK_GBN" value="10">
+          <isNotNull col="CHK_GBN3">
+              AND  A.ZZGUBUN = #CHK_GBN3#
+          </isNotNull>
+          </isEqual>
+          <isEqual col="CHK_GBN" value="11">
+          <isNotNull col="CHK_GBN3">
+              AND A.ZZGUBUN = #CHK_GBN3# AND SUBSTR(A.POSID,7,1) = 'S'
+          </isNotNull>
+          </isEqual>
+      ORDER BY A.POSID, M02.LIFNR, B.NAMET
+ ) AS E
+ INNER JOIN SAPHEE.ZPST0034 AS C 
+         ON E.MANDT = C.MANDT AND E.LIFNR = C.LIFNR AND C.GBN = 'A' AND (C.SO = 'X' OR C.SO3 = 'X')
+ LEFT OUTER JOIN SAPHEE.ZWBT010 W
+              ON E.MANDT = W.MANDT
+             AND E.LIFNR = W.LIFNR
+     WHERE 1=1 
+       AND (W.ZZACTSS IS NOT NULL OR W.ZZACTSS != '')
+       AND C.SO5 <![CDATA[<>]]> 'X'
+       <isNotNull col="CHK_GBN">
+       <isEqual col="CHK_GBN" value="10">
+       AND (C.EL_INDC = 'X' OR (C.EL_INDC = 'X' AND C.ES_INDC = 'X')) AND E.LIFNR  <![CDATA[  <> ]]> '0000008001'
+       </isEqual>
+       </isNotNull>
+       <isNotNull col="CHK_GBN">
+       <isEqual col="CHK_GBN" value="11">
+       AND (C.ES_INDC = 'X' OR (C.ES_INDC = 'X' AND C.ES_INDC = 'X')) AND E.LIFNR  <![CDATA[  <> ]]> '0000008001'
+       </isEqual>
+       </isNotNull>
+       <isNotNull col="TEMNO">
+       AND W.ZZACTSS IN ( SELECT CODE2 FROM SAPHEE.ZLCODE  WHERE MANDT = E.MANDT AND CODE1 = 'PS003' AND LANG = 'ko' AND DTEXT3 = #TEMNO# )
+       </isNotNull>
+       <isNotNull col="ZZACTSS">
+       AND W.ZZACTSS = #ZZACTSS#
+       </isNotNull>
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+
+	<output default-name="ds_list">
+	</output>
+</query>

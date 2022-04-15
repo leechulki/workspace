@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT   PJT,   HNO,
+               CASE WHEN SNM = 'SD' THEN '' ELSE SNM END SNM,
+               BJD,   HDM,    UPD,     NAP,
+               ZSITE_NM,
+               ADDR1 || ' ' || ADDR2 || '(' || ZSITE_TEL || ')' AS ADDR,
+               (SELECT NAMET FROM SAPHEE.ZPST0011 
+                                       WHERE MANDT=C.MANDT AND TEMNO=C.TEMNO AND RETIF = '') NAMET,
+               (SELECT NAME1 FROM SAPHEE.ZMMT012  WHERE MANDT=C.MANDT AND LIFNR=C.LIFNR) NAME1,
+               ZSPEC1,     CAST(ZSPEC7 AS INTEGER) AS ZSPEC7,    CAST(ZSPEC11 AS INTEGER) AS ZSPEC11,
+               RADIO_1,     RADIO_2,  
+               REQ,           A.FRAME_CK
+               ,(CASE WHEN (SELECT COUNT(*)  FROM SAPHEE.ZCMFL001 AS X WHERE X.MANDT = C.MANDT
+                                                                                                                     AND X.GBN = 'E'
+                                                                                                                     AND X.PSPID = C.POSID
+                                                                                                                     AND X.POSID = C.POSID_1) > 0 THEN '파일첨부'
+                         ELSE '' 
+                  END ) AS FILE
+           	 , (SELECT VALUE(X.VALUE, '')  FROM SAPHEE.ZSDT0005 AS X  WHERE X.MANDT = C.MANDT  AND X.HOGI = C.POSID_1   AND X.CHARACTERISTIC = 'EL_EHM' 
+	     ORDER BY X.SEQ DESC    fetch first 1 rows only ) AS VALUE -- 재질    
+
+ FROM  SAPHEE.ZPST11071M   AS A
+           ,SAPHEE.ZMASTER01 AS B
+           ,SAPHEE.ZMASTER02 AS C
+
+ WHERE A.MANDT    = B.MANDT
+     AND A.PJT = B.POSID
+     AND A.MANDT    = C.MANDT
+     AND A.PJT = C.POSID
+     AND A.HNO = RIGHT(C.POSID_1,3)
+     AND A.MANDT    = #G_MANDT#
+     AND A.PJT = #PJT#
+     AND A.HNO = #HNO#
+
+ FOR FETCH ONLY
+ WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_master">
+	</output>
+</query>

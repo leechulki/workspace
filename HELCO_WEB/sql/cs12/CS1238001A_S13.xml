@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--2020.09.09 제약조건 현업과 협의상 사항으로 적용됨	
+SELECT 
+      ZC.DTEXT1 AS VKBUR
+      ,SAPHEE.CODE_CONV(A.MANDT,'VKBUR',ZC.DTEXT1) VKBUR_NM
+      ,COUNT(*)  AS CNT_T
+      ,SUM(CASE A.BSU_GB WHEN '1' THEN 1 ELSE 0 END) CNT_1
+      ,SUM(CASE A.BSU_GB WHEN '3' THEN 1 ELSE 0 END) CNT_3
+  FROM
+       (
+       
+
+        SELECT 
+               A.MANDT,
+               A.CS101_PJT PJT,
+               A.CS101_HNO HNO,
+               A.CS101_IGD IGD,
+               CASE WHEN B.MANDT IS NULL THEN A.CS101_ARA ELSE B.ARA END AS ARA,
+               CASE WHEN B.MANDT IS NULL THEN A.CS101_BSU ELSE B.BSU END AS BSU,
+               A.CS101_BPM BPM,    
+               VALUE(ZWBT.VKGRP,'') VKGRP,
+               VALUE(ZWBT.ABR_NM,'') ABR_NM,
+               VALUE(ZWBT.BSU_GB,'') BSU_GB
+               
+          FROM SAPHEE.ZCST101 A LEFT OUTER JOIN SAPHEE.ZCST111 B
+                                             ON A.MANDT = B.MANDT
+                                            AND A.CS101_PJT = B.PJT
+                                            AND A.CS101_HNO = B.HNO
+
+                                LEFT OUTER JOIN SAPHEE.ZWBT010 ZWBT
+                                             ON ZWBT.MANDT = A.MANDT
+                                            AND ZWBT.LGORT = A.CS101_BSU 
+                                            AND A.CS101_BSU != ''
+                                           
+         WHERE A.MANDT = #G_MANDT#
+           AND A.CS101_PJT NOT LIKE 'M%'
+           AND SUBSTR(A.CS101_HNO,1,1) NOT IN ('J','G')  
+        <isEqual col="GBN2" value="IGD">
+           AND A.CS101_IGD BETWEEN #FYM#||'01' AND #TYM#||'31'
+        </isEqual>
+        <isEqual col="GBN2" value="ISD">
+           AND A.CS101_ISD BETWEEN #FYM#||'01' AND #TYM#||'31'
+        </isEqual>
+           AND A.MDATE &lt;= #TYM#||'31'
+           AND A.CS101_ARA > ''
+
+) A    
+           
+                   LEFT OUTER JOIN SAPHEE.ZLCODE ZC
+                                ON A.MANDT = ZC.MANDT
+                               AND ZC.LANG= 'ko'
+                               AND ZC.CODE1 = 'VKGRP'
+                               AND ZC.CODE2 = A.VKGRP
+                           
+ WHERE 1=1       
+<isNotNull col="ARA">
+   AND A.ARA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+   AND A.BSU = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+   AND A.BPM = #BPM#
+</isNotNull>
+<isNotNull col="TEM">
+   AND A.VKGRP = #TEM#
+</isNotNull>
+<isNotNull col="PJT">
+   AND A.PJT = #PJT#
+</isNotNull>
+<isNotNull col="DPT">
+   AND SUBSTR(A.VKGRP,1,2)||'00' = #DPT#
+</isNotNull>    
+
+ GROUP BY  A.MANDT,ZC.DTEXT1 
+ ORDER BY  A.MANDT,ZC.DTEXT1    
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list3">
+	</output>
+</query>

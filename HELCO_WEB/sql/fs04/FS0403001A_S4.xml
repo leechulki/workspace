@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[발주 신규 키 생성 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement> 
+SELECT
+        CAST(#ACTION_CMD# AS VARCHAR(30)) AS ACTION_CMD
+       ,CAST(CASE WHEN #ACTION_CMD# = 'I' 
+                  THEN (SELECT  COALESCE( MAX( A.PROV_SEQN ) , 0 ) + 1
+                        FROM    SAPHEE.ZFST0403 A
+                        WHERE   A.MANDT = #G_MANDT#)
+                  ELSE #PROV_SEQN# END AS INTEGER ) AS PROV_SEQN
+       ,CAST(CASE WHEN #ACTION_CMD# = 'I' 
+             THEN (SELECT 'HECS' || TO_CHAR(CURRENT_DATE, 'YYYYMMDD') 
+                                 || TRIM( 
+                                         TO_CHAR( 
+                                                 COALESCE( MAX( TO_NUMBER( SUBSTR( A.CONT_NUMB , 13 ) ) ) , 0 ) + 1
+                                                 , '000' ) 
+                                        )
+                   FROM   SAPHEE.ZFST0403 A
+                   WHERE  A.MANDT = #G_MANDT# 
+                   AND    A.CONT_NUMB LIKE 'HECS'||TO_CHAR(CURRENT_DATE, 'YYYYMMDD')||'%' )
+             ELSE (SELECT A.CONT_NUMB
+                   FROM   SAPHEE.ZFST0403 A
+                   WHERE  A.MANDT = #G_MANDT# 
+                   AND    A.PROV_SEQN = #PROV_SEQN# ) END AS VARCHAR(60) ) AS CONT_NUMB
+        ,CAST(1 AS SMALLINT) AS CONT_NTIM
+FROM    SYSIBM.SYSDUMMY1
+FOR     FETCH ONLY
+WITH    UR
+    </statement>
+    <input default-name="ds_cond"> 
+    </input>
+    <output default-name="ds_zfst0403_key">
+    </output>
+</query>

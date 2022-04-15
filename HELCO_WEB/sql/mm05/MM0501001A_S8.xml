@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[일자별 대수 톤수 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+  SUM(DELCNT) AS DELCNT
+FROM (
+
+       SELECT  DISTINCT T2.MANDT, T2.ZKNUM,T2.ZKNUM2, lt001.lifcd, '1' AS DELCNT
+        FROM SAPHEE.ZLET002 AS T2
+          INNER JOIN SAPHEE.ZLET003 AS T3 ON  T2.MANDT  = T3.MANDT
+           AND T2.ZKNUM  = T3.ZKNUM
+           AND T2.ZKNUM2 = T3.ZKNUM2
+           INNER JOIN SAPHEE.ZLET004 AS T4 ON  T3.MANDT  = T4.MANDT
+                                           AND T3.VBELN  = T4.VBELN 
+           left outer join saphee.zlet001_1 as lt001 on T3.mandt = lt001.mandt and T3.ZLZONE = lt001.zone1
+      	WHERE T2.MANDT =  #G_MANDT#
+<isNotNull col="PJT">
+          AND  (T2.ZKNUM, T2.ZKNUM2) IN (
+                      SELECT 
+                        ZKNUM ,ZKNUM2
+                      FROM SAPHEE.ZLET003 
+                      WHERE MANDT = #G_MANDT# 
+                      AND PSPID LIKE  #PJT#||'%')
+</isNotNull>
+<isNull col="PJT">
+        AND T2.ERDAT =  #ERDAT#
+        AND T2.ZKNUM LIKE  '_%'
+</isNull>
+        AND T2.ZCANC = 'X'
+        AND T2.DELCONFIRM = 'Y'
+        AND SUBSTR(T4.POSID,1,1) NOT IN ('C','E')
+        <isEqual col="LIFCD" value="A">        
+        		AND T2.LIFNR = '3148131696'
+        		--and lt001.lifcd = 'A'
+		</isEqual>
+		<isEqual col="LIFCD" value="B">
+		        --and lt001.lifcd = 'B'
+		        AND T2.LIFNR = '1018194310'		       
+		</isEqual>
+        GROUP BY T2.MANDT,T2.ZKNUM,T2.ZKNUM2,lt001.lifcd
+
+      UNION
+
+      SELECT T6.MANDT,T6.ZKNUM,T6.ZKNUM2, lt001.lifcd, '1' AS DELCNT
+      FROM SAPHEE.ZLET006 AS T6
+        INNER JOIN SAPHEE.ZLET007 AS T7 ON  T6.MANDT  = T7.MANDT
+           AND T6.ZKNUM  = T7.ZKNUM
+           AND T6.ZKNUM2 = T7.ZKNUM2
+        left outer join saphee.zlet001_1 as lt001 on T7.mandt = lt001.mandt and T7.ZLZONE = lt001.zone1   
+      WHERE T6.MANDT =  #G_MANDT#
+<isNotNull col="PJT">
+          AND  (T6.ZKNUM, T6.ZKNUM2) IN (
+                      SELECT 
+                        ZKNUM ,ZKNUM2
+                      FROM SAPHEE.ZLET007 
+                      WHERE MANDT = #G_MANDT# 
+                      AND PSPID LIKE  #PJT#||'%')
+</isNotNull>
+<isNull col="PJT">
+        AND T6.ERDAT =  #ERDAT#
+        AND T6.ZKNUM LIKE  '_%'
+</isNull>
+        AND T6.ZCANC = 'X'
+        AND T6.DELCONFIRM = 'Y'
+        AND SUBSTR(T7.POSID,1,1) NOT IN ('C','E')
+        <isEqual col="LIFCD" value="A">
+        		--and lt001.lifcd = 'A'
+        		AND T6.LIFNR = '3148131696'
+		</isEqual>
+		<isEqual col="LIFCD" value="B">
+		        --and lt001.lifcd = 'B'
+		        AND T6.LIFNR = '1018194310'
+		</isEqual>
+        GROUP BY T6.MANDT,T6.ZKNUM,T6.ZKNUM2,lt001.lifcd
+      ) AS LE002
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="PJT" size="255" type="VARCHAR" description="" /> 
+		<col name="ERDAT" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_delConfirm">
+		<col name="DELCNT" size="11" type="NUMERIC" description="" /> 
+	</output>
+</query>

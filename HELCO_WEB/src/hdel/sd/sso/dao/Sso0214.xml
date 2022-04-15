@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE 
+	mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	
+<mapper namespace="hdel.sd.sso.dao.Sso0214D">
+	<resultMap id="findMap" type="hdel.sd.sso.domain.Sso0214"/>
+	
+	<!-- 영업미수현황 검색 -->
+	<select id="find" parameterType="hdel.sd.sso.domain.Sso0214" resultMap="findMap">
+	<![CDATA[
+	with T AS (
+	SELECT vbak.ZZPJT_ID, A.hogi, vbak.bstnk, A.name1, A.zzchakd AS chakd, z0057.dpcpd,
+		CASE WHEN (select SUM(FPLT.FAKWR) FROM saphee.vbkd AS vbkd INNER JOIN saphee.fplt as fplt ON vbkd.mandt = fplt.mandt AND vbkd.fplnr = fplt.fplnr
+		WHERE vbkd.mandt = A.mandt AND vbkd.vbeln = A.vbeln AND LEFT(fplt.zterm, 1) = 'A' AND fplt.fksaf = '') <= z0029.hwbas THEN 'Y' ELSE 'N' END AS CHKCOL,
+		A.chktpdate2, A.chktpdate3,
+		z0218.POCDT, z0218.PTPDT,
+		CASE WHEN vbak.NETWR = z0029.hwbas THEN z0029.budat ELSE '' END AS tpdate2,
+		A.tpdate3, A.dealer, kna1.name1 AS manager, TVGRT.BEZEI AS sdfield 
+	FROM TABLE (
+			SELECT vbap.mandt, vbap.VBELN, vbap.hogi, 
+				MAX(CASE WHEN vbpa.parvw = 'RG' THEN kna1.name1 ELSE '' END) AS name1,
+				MAX(CASE WHEN vbpa.PARVW = 'Z2' THEN kna1.kunnr ELSE '' END) AS dealer_num,
+				MAX(CASE WHEN vbpa.parvw = 'Z2' THEN kna1.name1 ELSE '' END) AS dealer,
+				zm02.ZZCHAKD, vbap.TPDATE3,
+				CASE vbap.TPDATE2 WHEN '00000000' THEN 'N' ELSE 'Y' END AS chktpdate2,
+				CASE vbap.TPDATE3 WHEN '00000000' THEN 'N' ELSE 'Y' END AS chktpdate3
+			FROM SAPHEE.vbap AS vbap
+				LEFT OUTER JOIN SAPHEE.KNA1 AS kna1 ON vbap.mandt = kna1.mandt
+				INNER JOIN SAPHEE.VBPA AS vbpa ON vbap.mandt = vbpa.MANDT AND vbap.vbeln = vbpa.VBELN AND vbpa.kunnr = kna1.kunnr
+				INNER JOIN SAPHEE.ZMASTER02 AS zm02 ON vbap.mandt = zm02.mandt AND vbap.hogi = zm02.POSID_1 
+			WHERE vbap.mandt = '183'
+				AND VBPA.POSNR = '000000'
+				AND SUBSTR(vbap.hogi, 7, 1) <>'Y' ]]>
+			GROUP BY vbap.mandt, vbap.vbeln, vbap.hogi, vbap.tpdate3, vbap.tpdate2, zm02.zzchakd
+		) A
+		INNER JOIN saphee.vbak AS vbak ON vbak.mandt = A.mandt AND vbak.vbeln = A.vbeln
+		INNER JOIN saphee.zsdt0149 AS z0149 ON z0149.mandt = A.mandt AND A.dealer_num = z0149.dealer and z0149.sdfield = 'NI'
+		LEFT OUTER JOIN saphee.kna1 AS kna1 ON kna1.mandt = z0149.mandt AND kna1.kunnr = z0149.manager
+		LEFT OUTER JOIN saphee.ZSDT0057 AS z0057 ON vbak.mandt = z0057.mandt AND vbak.vbeln = z0057.vbeln AND z0057.canfg = ''
+		LEFT OUTER JOIN SAPHEE.TVGRT AS tvgrt ON vbak.mandt = tvgrt.mandt AND vbak.vkgrp = tvgrt.vkgrp AND tvgrt.spras = '3'
+		LEFT OUTER JOIN TABLE (
+			SELECT mandt, zcandt, kidno, SUM(hwbas) AS hwbas, MAX(budat) AS budat
+			FROM saphee.zsdt0029
+			GROUP BY mandt, kidno, zcandt
+			) z0029 
+			ON z0029.mandt = vbak.mandt
+			AND vbak.zzpjt_id = z0029.kidno
+			AND zcandt = '00000000'
+		LEFT OUTER JOIN saphee.zsdt0218 AS z0218 ON vbak.mandt = z0218.mandt AND vbak.zzpjt_id = z0218.posid
+	WHERE vbak.mandt = #{mandt}
+		<if test="fr_chakd !='' and to_chakd !=''">AND A.zzchakd between #{fr_chakd} and #{to_chakd}</if>
+		<if test="dealer !=null and dealer !=''">AND A.dealer_num = #{dealer}</if>
+		<if test="manager !=null and manager !=''">AND kna1.kunnr = #{manager}</if>
+		<if test="zzpjt_id !=null and zzpjt_id !=''">AND vbak.zzpjt_id = #{zzpjt_id}</if> 
+		<!-- 부서 -->
+	    <if test="vkbur_f != '' and vkbur_t != ''" > AND vbak.vkbur BETWEEN #{vkbur_f} AND #{vkbur_t} </if>
+	    <if test="vkbur_f != '' and vkbur_t == ''" > AND vbak.vkbur = #{vkbur_f} </if>
+	    <if test="vkbur_f == '' and vkbur_t != ''" > AND vbak.vkbur = #{vkbur_t} </if>
+	    <!-- 영업그룹 -->
+	    <if test="vkgrp_f != '' and vkgrp_t != ''" > AND vbak.vkgrp BETWEEN #{vkgrp_f} AND #{vkgrp_t} </if>
+	    <if test="vkgrp_f != '' and vkgrp_t == ''" > AND vbak.vkgrp = #{vkgrp_f} </if>
+	    <if test="vkgrp_f == '' and vkgrp_t != ''" > AND vbak.vkgrp = #{vkgrp_t} </if>
+		<if test="chktpdate2 != 0">AND A.chktpdate2 = 'N'</if>
+		<if test="chktpdate3 != 0">AND A.chktpdate3 = 'N'</if>
+	ORDER BY A.vbeln
+	) select T.*
+	FROM T
+	<if test="chkcol != 0">where T.CHKCOL = 'N' </if>
+	WITH ur
+	</select>
+	
+	<update id="merge" parameterType="java.util.List">
+		MERGE INTO saphee.zsdt0218 as z0218
+			USING (
+				SELECT * FROM TABLE(
+					VALUES
+					<foreach item="item" index="index" collection="list" open="(" separator="),(" close=")">
+					#{item.mandt}, #{item.zzpjt_id}, #{item.pocdt}, #{item.ptpdt},
+					#{item.tstmp.erdat}, #{item.tstmp.erzet}, #{item.tstmp.ernam}, #{item.tstmp.aedat}, #{item.tstmp.aezet}, #{item.tstmp.aenam}
+					</foreach>
+				) AS (mandt, posid, pocdt, ptpdt, erdat, erzet, ernam, aedat, aezet, aenam)
+			) AS z0218set 
+			ON z0218.mandt = z0218set.mandt AND z0218.posid = z0218set.posid
+			WHEN MATCHED THEN
+				UPDATE SET
+					POCDT = z0218set.pocdt,
+					PTPDT = z0218set.ptpdt,
+					AEDAT = z0218set.aedat,
+					AEZET = z0218set.aezet,
+					AENAM = z0218set.aenam
+			WHEN NOT MATCHED THEN
+				INSERT (mandt, posid, pocdt, ptpdt, erdat, erzet, ernam, aedat, aezet, aenam)
+					VALUES (z0218set.mandt, z0218set.posid, z0218set.pocdt, z0218set.ptpdt,
+					z0218set.erdat, z0218set.erzet, z0218set.ernam, z0218set.aedat, z0218set.aezet, z0218set.aenam)
+	</update>
+</mapper>

@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT T.POSID,
+       MAX(T.CONTR_DA)CONTR_DA,
+       MAX(T.ZSITE_NM)ZSITE_NM,
+       MAX(T.ZSITE_TEL)ZSITE_TEL,
+       MAX(CS101_FYN)CS101_FYN,
+       MAX(CASE WHEN T.ALL_CNT > 0 THEN ROUND((DOUBLE(T.INSU_CNT)/DOUBLE(T.ALL_CNT))*100,2)
+	        ELSE 0
+	   END) INSU_RATE,
+       MAX(T.ALL_CNT)ALL_CNT,
+       MAX(T.INSU_CNT)INSU_CNT,
+       MAX(T.MIINSU_CNT)MIINSU_CNT,
+       MAX((T.ALL_CNT-T.INSU_CNT-T.MIINSU_CNT)) AS MIINKE_CNT,
+       MAX(T.ZZARA) ARA,
+       MAX(T.ADDR)ADDR,
+       VALUE(SUM(INT(T.ZSPEC9_I)),0)INSU_PLT,    --인수PLT수
+       VALUE(SUM(INT(T.ZSPEC9_M)),0)MIINSU_PLT   --미인수PLT수
+
+FROM  (	   
+        SELECT MASTER02A.POSID,
+               MASTER02A.MANDT,
+               MASTER01A.CONTR_DA,
+	MASTER01A.TEXT30 ZZARA,
+            -- MASTER01A.ADDR1||MASTER01A.ADDR2 ADDR,
+               CASE WHEN CS121.CS121_P1C IS NULL THEN MASTER01A.ADDR1||MASTER01A.ADDR2 ELSE CS121.CS121_P1C||' '||CS121.CS121_P2C END ADDR,
+               MASTER01A.ZSITE_NM AS ZSITE_NM,
+               MASTER01A.ZSITE_TEL AS ZSITE_TEL,
+               (CASE WHEN (SELECT COUNT(*) FROM SAPHEE.ZCST101 WHERE MANDT = MASTER02A.MANDT AND CS101_PJT = MASTER02A.POSID AND CS101_FYN = 'Y') > 0 THEN 'Y'
+				     ELSE 'N'
+				END	 
+			   ) CS101_FYN,
+        	   (SELECT AA.ALL_CNT
+    			FROM
+    			   (SELECT POSID,
+                           MAX(MANDT) MANDT,
+                           COUNT(*) ALL_CNT
+                    FROM   SAPHEE.ZMASTER02
+                    WHERE  MANDT = #G_MANDT#
+                    GROUP  BY POSID) AA
+			    WHERE AA.MANDT = MASTER02A.MANDT
+			    AND   AA.POSID = MASTER02A.POSID
+			   ) ALL_CNT,
+               (SELECT COUNT(*) FROM SAPHEE.ZCST101 WHERE MANDT = MASTER02A.MANDT AND CS101_PJT = MASTER02A.POSID AND CS101_ISD > ''  AND CS101_ISD &lt;&gt; '00000000'	 
+			   ) INSU_CNT,
+               (SELECT COUNT(*) FROM SAPHEE.ZCST101 WHERE MANDT = MASTER02A.MANDT AND CS101_PJT = MASTER02A.POSID AND CS101_IGD > '' AND (CS101_ISD = '' OR CS101_ISD = '00000000')	 
+			   ) MIINSU_CNT,
+
+         (SELECT MASTER02A.ZSPEC9 FROM SAPHEE.ZCST101 A 
+			WHERE A.MANDT= MASTER02A.MANDT
+			AND A.CS101_PJT = MASTER02A.POSID
+			AND A.CS101_ISD > ''  AND A.CS101_ISD &lt;&gt; '00000000'
+			AND A.CS101_HNO = SUBSTR(MASTER02A.POSID_1,7,3)
+			--GROUP BY A.CS101_PJT
+          ) ZSPEC9_I,
+         (SELECT MASTER02A.ZSPEC9 FROM SAPHEE.ZCST101 A
+			WHERE A.MANDT=MASTER02A.MANDT
+			AND A.CS101_PJT = MASTER02A.POSID
+			AND A.CS101_IGD > ''
+			AND (CS101_ISD = '' OR CS101_ISD = '00000000')
+                                          AND A.CS101_HNO = SUBSTR(MASTER02A.POSID_1,7,3)
+			--GROUP BY A.CS101_PJT
+
+         ) ZSPEC9_M 
+
+    FROM  SAPHEE.ZMASTER01 AS MASTER01A   
+    INNER JOIN SAPHEE.ZMASTER02 AS  MASTER02A
+         ON MASTER01A.MANDT =  MASTER02A.MANDT
+       AND MASTER01A.POSID =  MASTER02A.POSID 
+
+      LEFT OUTER JOIN SAPHEE.ZCST121 AS CS121 				  
+        ON MASTER01A.MANDT = CS121.MANDT
+       AND MASTER01A.POSID = CS121.CS121_UPN
+       AND CS121.CS121_CST = ''    
+   WHERE  MASTER01A.MANDT = #G_MANDT#
+   AND    MASTER02A.POSID = MASTER01A.POSID
+
+<isNotNull col="ZBOSUOUT_FROM">
+   AND    MASTER02A.ZBOSUOUT BETWEEN #ZBOSUOUT_FROM# AND #ZBOSUOUT_TO#
+</isNotNull>
+<isEqual col="GBN" value="A">
+   AND    SUBSTR(MASTER02A.POSID_1,7,1) IN ('L','S','W','F','J','G')
+</isEqual>
+<isEqual col="GBN" value="D">
+   AND    SUBSTR(MASTER02A.POSID_1,7,1) = 'L'
+</isEqual>
+<isEqual col="GBN" value="E">
+   AND    SUBSTR(MASTER02A.POSID_1,7,1) = 'S'
+</isEqual>
+<isEqual col="GBN" value="F">
+    AND    SUBSTR(MASTER02A.POSID_1,7,1) = 'W'
+</isEqual>
+<isEqual col="GBN" value="G">
+    AND    SUBSTR(MASTER02A.POSID_1,7,1) = 'F'
+</isEqual>
+<isEqual col="GBN" value="H">
+    AND    SUBSTR(MASTER02A.POSID_1,7,1) = 'J'
+</isEqual>
+<isEqual col="GBN" value="B">
+    AND    SUBSTR(MASTER02A.POSID_1,7,1) = 'M'
+</isEqual>  
+<isNotNull col="ZZARA">
+   AND    MASTER01A.ZZARA = #ZZARA#
+</isNotNull>
+        
+      ) T
+GROUP BY T.POSID
+ORDER BY T.POSID
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="ZBOSUOUT_FROM" size="255" type="VARCHAR" description="" /> 
+		<col name="ZBOSUOUT_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="ZZARA" size="255" type="VARCHAR" description="" /> 
+		<col name="GBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="ALL_CNT" size="11" type="NUMERIC" description="" /> 
+		<col name="CS101_FYN" size="1" type="VARCHAR" description="" /> 
+		<col name="INSU_CNT" size="11" type="NUMERIC" description="" /> 
+		<col name="INSU_RATE" size="22" type="NUMERIC" description="" /> 
+		<col name="MIINKE_CNT" size="11" type="NUMERIC" description="" /> 
+		<col name="MIINSU_CNT" size="11" type="NUMERIC" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="ZSITE_NM" size="105" type="VARCHAR" description="" /> 
+	</output>
+</query>

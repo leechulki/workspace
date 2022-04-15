@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+       C.ITEM        AS ITEM
+      ,C.STYM        AS STYM
+      ,C.GUBUN       AS GUBUN
+      ,C.MATNR_SVAMT AS MATNR_SVAMT
+      ,C.MATNR_WAERK AS MATNR_WAERK
+      ,B.MATNR       AS MATNR
+      ,VALUE(SUM(B.MENGE), 0)  AS QNTY
+  FROM SAPHEE.EKKO  AS A
+       INNER JOIN SAPHEE.EKPO  AS B  ON A.MANDT = B.MANDT AND B.EBELN = A.EBELN
+       INNER JOIN TABLE( SELECT A.MANDT  AS MANDT
+                               ,A.ITEM   AS ITEM
+                               ,REPLACE(A.STYM, '000000', '') AS STYM
+                               ,B.MATNR  AS MATNR
+                               ,B.GUBUN  AS GUBUN
+                               ,CASE WHEN B.WAERK IN ('KRW', 'JPY') THEN B.SVAMT  * 100 ELSE B.SVAMT  END AS MATNR_SVAMT
+                               ,B.WAERK  AS MATNR_WAERK
+                           FROM SAPHEE.ZQMT071U AS A
+                                INNER JOIN SAPHEE.ZQMT073U B
+        	                            ON B.MANDT = A.MANDT AND B.DEPT  = A.DEPT AND B.GJAHR = A.GJAHR
+        	                           AND B.ITEM  = A.ITEM  AND B.GUBUN = '1'
+                          WHERE A.MANDT = #G_MANDT#
+                            AND A.DEPT  = #DEPT#
+                            AND A.GJAHR = #GJAHR#
+                            AND (REPLACE(A.STYM, '000000', '') = '' OR A.STYM > SUBSTR(CAST(HEX(DATE(SUBSTR(#RSLTYM#, 1, 4)||'-'||SUBSTR(#RSLTYM#, 5, 2)||'-'||'01') - 12 MONTHS) AS VARCHAR(8)), 1, 6) )
+                       ) AS C
+	         ON C.MANDT = A.MANDT AND C.MATNR = B.MATNR
+WHERE A.MANDT = #G_MANDT#
+  AND A.BEDAT BETWEEN #RSDATE# AND #REDATE#
+  AND A.BSTYP  = 'F'
+  AND B.MATNR IN (SELECT B.MATNR
+                    FROM SAPHEE.ZQMT071U AS A
+                         INNER JOIN SAPHEE.ZQMT073U B
+        	                ON B.MANDT = A.MANDT AND B.DEPT  = A.DEPT AND B.GJAHR = A.GJAHR
+        	               AND B.ITEM  = A.ITEM  AND B.GUBUN = '1'
+                   WHERE A.MANDT = #G_MANDT#
+                     AND A.DEPT  = #DEPT#
+                     AND A.GJAHR = #GJAHR#
+                     AND (REPLACE(A.STYM, '000000', '') = '' OR A.STYM > SUBSTR(CAST(HEX(DATE(SUBSTR(#RSLTYM#, 1, 4)||'-'||SUBSTR(#RSLTYM#, 5, 2)||'-'||'01') - 12 MONTHS) AS VARCHAR(8)), 1, 6) )
+                 )
+  AND B.LOEKZ != 'X'
+GROUP BY C.ITEM, C.STYM, C.GUBUN, C.MATNR_SVAMT, C.MATNR_WAERK, B.MATNR
+UNION ALL
+SELECT
+       D.ITEM        AS ITEM
+      ,D.STYM        AS STYM
+      ,D.GUBUN       AS GUBUN
+      ,D.MATNR_SVAMT AS MATNR_SVAMT
+      ,D.MATNR_WAERK AS MATNR_WAERK
+      ,C.DZEINR      AS MATNR
+      ,VALUE(SUM(B.MENGE), 0)  AS QNTY
+  FROM SAPHEE.EKKO  AS A
+       INNER JOIN SAPHEE.EKPO  AS B  ON A.MANDT = B.MANDT AND B.EBELN = A.EBELN
+       INNER JOIN SAPHEE.MARA  AS C  ON B.MANDT = C.MANDT AND C.MATNR = B.MATNR
+
+       INNER JOIN TABLE( SELECT A.MANDT  AS MANDT
+                               ,A.ITEM   AS ITEM
+                               ,REPLACE(A.STYM, '000000', '') AS STYM
+                               ,B.MATNR  AS MATNR
+                               ,B.GUBUN  AS GUBUN
+                               ,CASE WHEN B.WAERK IN ('KRW', 'JPY') THEN B.SVAMT  * 100 ELSE B.SVAMT  END AS MATNR_SVAMT
+                               ,B.WAERK  AS MATNR_WAERK
+                           FROM SAPHEE.ZQMT071U AS A
+                                INNER JOIN SAPHEE.ZQMT073U B
+        	                            ON B.MANDT = A.MANDT AND B.DEPT  = A.DEPT AND B.GJAHR = A.GJAHR
+        	                           AND B.ITEM  = A.ITEM  AND B.GUBUN = '2'
+                          WHERE A.MANDT = #G_MANDT#
+                            AND A.DEPT  = #DEPT#
+                            AND A.GJAHR = #GJAHR#
+                            AND (REPLACE(A.STYM, '000000', '') = '' OR A.STYM > SUBSTR(CAST(HEX(DATE(SUBSTR(#RSLTYM#, 1, 4)||'-'||SUBSTR(#RSLTYM#, 5, 2)||'-'||'01') - 12 MONTHS) AS VARCHAR(8)), 1, 6) )
+                       ) AS D
+	         ON D.MANDT = A.MANDT AND D.MATNR = C.DZEINR
+WHERE A.MANDT = #G_MANDT#
+  AND A.BEDAT BETWEEN #RSDATE# AND #REDATE#
+  AND A.BSTYP  = 'F'
+  AND C.DZEINR IN (SELECT B.MATNR
+                     FROM SAPHEE.ZQMT071U AS A
+                          INNER JOIN SAPHEE.ZQMT073U B
+        	                 ON B.MANDT = A.MANDT AND B.DEPT  = A.DEPT AND B.GJAHR = A.GJAHR
+        	                AND B.ITEM  = A.ITEM  AND B.GUBUN = '2'
+                    WHERE A.MANDT = #G_MANDT#
+                      AND A.DEPT  = #DEPT#
+                      AND A.GJAHR = #GJAHR#
+                      AND (REPLACE(A.STYM, '000000', '') = '' OR A.STYM > SUBSTR(CAST(HEX(DATE(SUBSTR(#RSLTYM#, 1, 4)||'-'||SUBSTR(#RSLTYM#, 5, 2)||'-'||'01') - 12 MONTHS) AS VARCHAR(8)), 1, 6) )
+                  )
+  AND B.LOEKZ != 'X'
+GROUP BY D.ITEM, D.STYM, D.GUBUN, D.MATNR_SVAMT, D.MATNR_WAERK, C.DZEINR
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

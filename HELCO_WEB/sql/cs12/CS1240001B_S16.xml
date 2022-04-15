@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	<![CDATA[
+		SELECT MANDT
+		      , INT(ROUND(GMT,0)) AS GMT
+		      , INT(ROUND(GM2,0)) AS GM2
+		      , INT(ROUND(COST,0)) AS COST
+		      , INT(ROUND(COST2,0)) AS COS2
+		      , INC
+		      , ROUND(COST / TAMT * 100,1) AS RAT
+		      , ROUND(COST2 / TAMT * 100,1) AS RA2
+		      , ROUND(COST / TAMT * 100,1) - ROUND(COST2 / TAMT * 100,1) AS PER
+		  FROM
+			  (
+		      SELECT A4.*
+		            , COS1 + GMT AS COST    
+		            , CASE WHEN KND = '1' THEN COS2 + GM2 + T_INC
+		            	   ELSE COS2 + GM2
+		               END AS COST2
+		        FROM
+		            (
+		        		  SELECT A3.*
+		                    , COS1 * PER / 100 AS GMT
+		                    , (COS2 + T_INC) * PER / 100 AS GM2
+		                FROM
+		                (       
+		                  SELECT A2.*
+		                      , CASE WHEN KND = '1' THEN
+		                                CASE WHEN GBU = 'A' THEN A21.INC 
+		                    		         ELSE ROUND(AMT * T605.CS605_RAT, 0)
+		                    		         END 
+		                             ELSE 0
+		                           END AS T_INC  --인센티브
+		                      , CASE WHEN KND = '1' THEN 
+		                      			CASE WHEN GBU = 'A' THEN A21.INC
+		                      				 ELSE T605.CS605_RAT
+		                      				 END
+		                      		 ELSE 0		  
+		                       	   END AS INC
+		              		FROM
+		              		    (
+		              		    SELECT A.MANDT
+		                        	, A.GBU
+		                        	, A.KND
+		                        	, A.AMT
+		                        	, A.TAMT
+		                        	, A.COS1 AS COS1
+		                        	, A.COS2 AS COS2
+		                        	, A.COSTT AS COSTT
+		                            , CASE WHEN V_RAT > 0.0 AND V_RAT <= 50.0 THEN 0.0
+		                            		   WHEN V_RAT > 50.0 AND V_RAT <= 60.0 THEN 50.1
+		                            		   WHEN V_RAT > 60.0 AND V_RAT <= 70.0 THEN 60.1
+		                            		   WHEN V_RAT > 70.0 AND V_RAT <= 75.0 THEN 70.1
+		                            		   WHEN V_RAT > 75.0 AND V_RAT <= 80.0 THEN 75.1
+		                            		   WHEN V_RAT > 80.0 AND V_RAT <= 85.0 THEN 80.1
+		                            		   WHEN V_RAT > 85.0 THEN 85.1
+		                            		   ELSE 85.1
+		                            	  END RAT
+		                            , A.PER
+		                            , A.RAT2
+		                        FROM
+		                            (
+		                             SELECT A.* 
+		                             	  , CS604_US AS PER
+	                            	  	  , CS600_RAT AS RAT2
+		                             FROM
+		                             	(
+			                             SELECT CAST(#G_MANDT# AS VARCHAR(3)) AS MANDT
+			                                  , CAST(#GBU# AS VARCHAR(1)) AS GBU
+			                                  , CAST(#KND# AS VARCHAR(1)) AS KND
+			                                  , CAST(#AMT# AS INTEGER) AS AMT
+			                                  , SAPHEE.MONTH_BETWEEN(#STD#,#ETD#,2) AS UMS
+			                                  , CAST(#TAMT# AS INTEGER) AS TAMT
+			                                  , CAST(#COS1# AS INTEGER) AS COS1
+			                                  , CAST(#COS2# AS INTEGER) AS COS2
+			                                  , CAST(#COSTT# AS INTEGER) AS COSTT
+			                                  , ROUND(CAST(#COSTT# AS INTEGER) / CAST(#TAMT# AS INTEGER) * 100 ,1) AS V_RAT
+			                               FROM sysibm.sysdummy1
+				                        ) A 
+					              	    , SAPHEE.ZCST604 T604
+			                            , SAPHEE.ZCST600 T600
+			                         WHERE 1=1
+			                           AND A.MANDT = T604.MANDT
+			                           AND T604.MANDT = T600.MANDT
+			                           AND T604.CS604_YEAR = #ZYEAR#
+			                           AND T600.CS600_YEAR = #ZYEAR#
+				              	    ) A  
+		              		    ) A2   
+			              	        LEFT OUTER JOIN SAPHEE.ZCST605 T605
+			              	          ON T605.MANDT = #G_MANDT#
+			              	         AND T605.CS605_YEAR = #ZYEAR#
+			              	         AND T605.CS605_INTV = A2.RAT
+			              	         
+			              	         
+			              	    --직영인센티브
+			              	    , (SELECT SUM(T_INC) AS INC
+								  FROM(
+								      SELECT CASE WHEN A.CS301_CDY < 36 THEN 0 
+								                  WHEN A.CS301_CDY >= 36 AND A.CS301_CDY < 60 THEN I_AMT * 0.5
+								                  WHEN A.CS301_CDY >= 60 THEN I_AMT
+								                  ELSE 0 END AS T_INC
+								      FROM (
+
+								          SELECT A.CS301_CDY, A.CS301_STD, A.CS301_CPD, A.GKD, A.TOT
+								               --FM 갱신 견적 작성 시/ 종전계약이 POG 인 경우
+								               , CASE WHEN VALUE(A.PJT,'') <> '' AND  VALUE(A.KND,'') = '' AND A.GKDN = 'B' AND A.CS301_CPD = 'A'											
+												                   THEN CASE WHEN (CASE WHEN (A.TOT * 1.5) > VALUE(CS508.AMT,0) THEN A.CS302_FMT / (A.TOT * 1.5) 
+																	                              ELSE A.CS302_FMT / CS508.AMT 
+																												        END ) >=0.8 THEN  A.CS302_FMT * 0.5
+								                                ELSE 0 END
+								               --  FM 전환, 회수 견적 작성 시                  
+                                                      WHEN  A.GKDN IN ('A', 'C')  AND A.CS301_CPD = 'A'	                                                        
+															             THEN CASE WHEN (CASE WHEN VALUE(CS508.AMT,0) = 0 THEN 0 
+																	                              ELSE A.CS302_FMT / CS508.AMT 
+																												   END ) >= 0.8 THEN A.CS302_FMT * 0.3 
+																										ELSE 0 END  
+																	ELSE 0
+								                  END AS I_AMT
+
+								            FROM (
+								            			 SELECT   A.CS301_CDY, A.CS301_STD, A.CS301_CPD      --견적 작성 내용
+								            			        , B.CS302_PJT, B.CS302_HNO ,B.CS302_FMT ,A.CS301_CND GKDN 
+								            			        , F.GKD, F.TOT,F.PJT,F.KND                   --종전계약 정보
+								            			        --FM 표준단가 산출 요소
+								            			        , C.ABG ,D.ZSPEC12 ,D.ZSPEC3 ,D.ZSPEC6 ,E.CS101_ISD  
+								            			        , SAPHEE.GET_DAYS(E.CS101_ISD,A.CS301_CDT)/365 YCNT2
+                                          , ( SELECT COUNT(*)
+                                                FROM SAPHEE.ZCST302 I
+                                               WHERE I.MANDT = #G_MANDT#
+                                                 AND I.CS302_TEM =  B.CS302_TEM
+                                                 AND I.CS302_RDT =  B.CS302_RDT
+                                                 AND I.CS302_SEQ =  B.CS302_SEQ
+                                                 AND I.CS302_SIR =  B.CS302_SIR
+                                             ) CNTN
+                                          , CASE WHEN C.ABG = 'A' THEN 'A' ELSE 'B' END ABGN
+	                                        ,(CASE WHEN SUBSTR(B.CS302_HNO,1,1) IN ('S','W') THEN '0'
+				 	                                       ELSE (CASE WHEN SUBSTR(B.CS302_PJT,1,1) != 'M' 
+				 	                                                         AND D.ZSPEC12 IN 
+				 	                                                             ('CARE/L', 'CARLIFT', 'CYCLE E/L','HOIST',    'HVF',      
+                                                                        'HYD', 'PLC', 'CARE/L', 'CARLIFT', 'CYCLE E/L',
+                                                                        'HOIST', 'HVF', 'HYD', 'PLC', 'CARE/L',   
+                                                                        'CARLIFT', 'CYCLE E/L','HOIST', 'HVF', 'HYD',      
+                                                                        'PLC', 'CARE/L', 'CARLIFT',  
+                                                                        'CYCLE E/L','HOIST', 'HVF', 'HYD', 'PLC'
+                                                                       ) THEN (CASE WHEN INT(D.ZSPEC6) <= 2000 THEN '2000'
+                                                                                    WHEN INT(D.ZSPEC6) <= 3000 THEN '3000'
+                                                                                    WHEN INT(D.ZSPEC6) <= 4000 THEN '4000'
+                                                                                    WHEN INT(D.ZSPEC6) > 4000 THEN '4001'
+                                                                                    ELSE '0' END )
+                                                             ELSE ( CASE WHEN INT(D.ZSPEC3) <= 60   THEN '60'  
+                                                                         WHEN INT(D.ZSPEC3) <= 90   THEN '90' 
+                                                                         WHEN INT(D.ZSPEC3) <= 105  THEN '105' 
+                                                                         WHEN INT(D.ZSPEC3) <= 150  THEN '150' 
+                                                                         WHEN INT(D.ZSPEC3) <= 210  THEN '210' 
+                                                                         WHEN INT(D.ZSPEC3) <= 240  THEN '240' 
+                                                                         WHEN INT(D.ZSPEC3) <= 360  THEN '360' 
+                                                                         ELSE '0' END )
+				 	                                                  END )
+				 	                                         END)  ZSPEC3N							                            	            			      	      
+								            			   FROM SAPHEE.ZCST301 A
+								                        , SAPHEE.ZCST302 B
+								                                           LEFT OUTER JOIN SAPHEE.ZCST111 C
+								                                                        ON C.MANDT = B.MANDT 
+								                                                       AND B.CS302_PJT = C.PJT 
+								                                                       AND B.CS302_HNO = C.HNO
+								                                           LEFT OUTER JOIN SAPHEE.ZMASTER02 D
+								                                                        ON D.MANDT = B.MANDT 
+								                                                       AND B.CS302_PJT = D.POSID 
+								                                                       AND B.CS302_PJT||B.CS302_HNO = D.POSID_1 
+								                                           LEFT OUTER JOIN SAPHEE.ZCST101 E  
+								                                                        ON E.MANDT = B.MANDT 
+								                                                       AND B.CS302_PJT = E.CS101_PJT 
+								                                                       AND B.CS302_HNO = E.CS101_HNO
+								                                           LEFT OUTER JOIN (
+								                                                         SELECT A.*
+								                                                           FROM (
+								                                                              SELECT ROW_NUMBER() OVER(PARTITION BY A.MANDT, A.CS126_PJT, A.CS126_HNO ORDER BY A.CS126_SEQ DESC, A.CS126_ADT DESC) NO
+								                                                                     , A.MANDT
+								                                                                     , A.CS126_GRP
+								                                                                     , A.CS126_PJT AS PJT
+								                                                                     , A.CS126_HNO AS HNO
+								                                                                     , A.CS126_GKD AS GKD
+								                                                                     , A.CS126_TOT AS TOT
+								                                                                     , A.CS126_KND AS KND
+								                                                                FROM SAPHEE.ZCST126 A, SAPHEE.ZCST111 B
+								                                                               WHERE A.MANDT = #G_MANDT#
+								                                                                 AND A.CS126_DDT = ''
+								                                                                 AND A.CS126_PST = 'A6'
+								                                                                 AND A.CS126_GND = 'D'
+								                                                                 AND A.CS126_USD <= #STD#
+								                                                                 AND A.MANDT = B.MANDT
+								                                                                 AND A.CS126_PJT = B.PJT
+								                                                                 AND A.CS126_HNO = B.HNO
+								                                                                 AND SUBSTR(B.HNO,1,1) NOT IN ('J','G')
+								                                                                 AND A.CS126_ADT <= #STD#) A
+								                                                           WHERE A.NO = 1
+								                                                         ) F
+								                                                    ON F.MANDT = #G_MANDT#
+								                                                   AND B.CS302_PJT = F.PJT
+								                                                   AND B.CS302_HNO = F.HNO
+								                   WHERE A.MANDT = #G_MANDT#
+								                     AND A.MANDT = B.MANDT
+								                     AND A.CS301_DOC = #DOCNO#
+								                     AND A.CS301_TEM = B.CS302_TEM
+								                     AND A.CS301_RDT = B.CS302_RDT
+								                     AND A.CS301_SEQ = B.CS302_SEQ
+								                     AND A.CS301_SIR = B.CS302_SIR
+								               ) A
+								                    LEFT OUTER JOIN SAPHEE.ZCST508 CS508 
+								                                 ON CS508.MANDT = #G_MANDT#
+						  					                        AND CS508.TYP = (CASE WHEN SUBSTR(A.CS302_HNO,1,1) IN ('S','W') THEN 'E/S' 
+						  					                                              ELSE (CASE WHEN SUBSTR(A.CS302_PJT,1,1) = 'M' THEN 'ETC'
+						  					                                                         ELSE A.ZSPEC12 END )
+						  					                                         END )  
+							  				                        AND CS508.SPD = A.ZSPEC3N
+								  			                        AND CS508.ABG = ( CASE WHEN A.CNTN < 3 THEN 'C' ELSE A.ABGN END )
+											                          AND CS508.AGE = ( CASE WHEN A.ZSPEC12 IN ('60VF','BAXVF','DOVER','VAC','VVSR','WCHYD','WCVF','X') THEN '11'
+											                                                 WHEN A.GKDN = 'A' THEN '0'
+                                                                       WHEN A.YCNT2 < 3 THEN '3'
+                                                                       WHEN A.YCNT2 < 5 THEN '5'
+                                                                       WHEN A.YCNT2 < 10 THEN '10'
+                                                                       WHEN A.YCNT2 >= 10 THEN '11'
+		                                                               END )
+								          ) A
+								      ) A2
+								) A21
+		              	          
+		              	          
+		                ) A3
+		            ) A4
+			  ) A5
+		WITH UR
+	]]>
+	</statement>
+	<input default-name="ds_cost_sum_i">
+	</input>
+	<output default-name="ds_cost_sum_o">
+	</output>
+</query>

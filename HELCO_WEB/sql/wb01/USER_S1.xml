@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[사용자 목록 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+ USERAUT1
+,USERAUT2
+,USERAUT3
+,USERAUT4
+,USERAUT5
+,USERCODE
+,USERCODE_R
+,USERCODE_B
+,USERCODE_M
+,USERCODE_E
+,LGORT
+,USERDESC
+,USERFAIL
+,USERJUNO
+,USERLANG
+,USERMAIL
+,USERMBPN
+,USERNAME
+,USERNUMB
+,USERTELE
+,AREA_CODE
+,AREA_NAME
+,AREA_CODE_B
+,AREA_CODE_R
+,AREA_CODE_E
+,VEND_NAME
+,DPT1
+,VKGRP
+,VKGRP_NM
+FROM (
+
+	SELECT
+	 USER.USERAUT1 AS USERAUT1
+	,USER.USERAUT2 AS USERAUT2
+	,USER.USERAUT3 AS USERAUT3
+	,USER.USERAUT4 AS USERAUT4
+	,USER.USERAUT5 AS USERAUT5
+	,CASE WHEN USER.USERAUT2 &lt;&gt; '' THEN M005.LGORT ELSE USER.USERCODE END AS USERCODE
+	,CASE WHEN USER.USERAUT2 &lt;&gt; '' THEN M005.LGORT ELSE USER.USERCODE_R END AS USERCODE_R
+	,USER.USERCODE_B AS USERCODE_B
+	,USER.USERCODE_M AS USERCODE_M
+	,USER.USERCODE_E AS USERCODE_E
+	,M005.LGORT    AS LGORT
+	,USER.USERDESC AS USERDESC
+	,USER.USERFAIL AS USERFAIL
+	,USER.USERJUNO AS USERJUNO
+	,USER.USERLANG AS USERLANG
+	,USER.USERMAIL AS USERMAIL
+	,USER.USERMBPN AS USERMBPN
+	,USER.USERNAME AS USERNAME
+	,USER.USERNUMB AS USERNUMB
+	,USER.USERTELE AS USERTELE	
+	,CASE WHEN USER.USERAUT2&lt;&gt;'' THEN T010.BSU_ARA 
+	      WHEN USER.USERAUT5&lt;&gt;'' THEN T010.ZZACTSS 
+	      ELSE T010.BSU_ARA END AS AREA_CODE
+	,''                                                                  AS AREA_NAME	
+	,CASE WHEN USER.USERAUT3&lt;&gt;'' THEN T010.BIZ_ARA ELSE ''           END AS AREA_CODE_B
+	,CASE WHEN USER.USERAUT2&lt;&gt;'' THEN T010.BSU_ARA ELSE ''           END AS AREA_CODE_R
+	,CASE WHEN USER.USERAUT5&lt;&gt;'' THEN T010.ZZACTSS ELSE ''           END AS AREA_CODE_E
+	,VALUE(DEPT_N,SAPHEE.GET_VENDER_NAME(USER.MANDT,USER.USERCODE))      AS VEND_NAME
+	,VALUE(DPT1,'')                                                      AS DPT1
+	,VALUE(CASE WHEN T010.WGBN IN ('A', 'B', 'C', 'D', 'E') THEN T010.VKGRP ELSE USER.USERTEAM END,'') AS VKGRP -- 2012.11.21 : LJH 추가
+	,VALUE((SELECT BEZEI FROM SAPHEE.TVGRT 
+					WHERE MANDT = USER.MANDT 
+					  AND SPRAS = '3'
+					  AND VKGRP = CASE WHEN T010.WGBN IN ('A', 'B', 'C', 'D', 'E') THEN T010.VKGRP
+                                       ELSE USER.USERTEAM END),'') AS VKGRP_NM -- 2012.11.21 : LJH 추가
+	FROM (
+
+	   SELECT      -- 자기 자신
+	   *
+	   FROM SAPHEE.ZUSERF
+	   WHERE MANDT    = #G_MANDT#
+	     AND USERMAIL = (SELECT USERMAIL FROM SAPHEE.ZUSERF WHERE MANDT = #G_MANDT# AND USERNUMB = #USER_ID#)
+
+	<isGreaterThan col="USER_GROUP_M" value="M10">
+	   UNION       -- 자재관리자
+	   SELECT
+	   *
+	   FROM SAPHEE.ZUSERF
+	   WHERE MANDT = #G_MANDT#
+	     AND USERAUT4 &lt; #USER_GROUP_M#
+	     AND USERAUT4 > 'M00'
+	     AND USEREXPR > '20000101'   -- 퇴사자 제외
+	</isGreaterThan>
+
+	<isEqual col="USER_GROUP_E" value="E40">
+	   UNION       -- 설치관리자
+	   SELECT
+	   *
+	   FROM SAPHEE.ZUSERF
+	   WHERE MANDT = #G_MANDT#
+	     AND USERAUT5 &lt; 'E40'
+	     AND USERAUT5 > 'E00'
+	     AND USEREXPR > '20000101'   -- 퇴사자 제외
+	</isEqual>
+
+	<isEqual col="USER_GROUP_E" value="E30">
+	   UNION       -- 설치사무소
+	   SELECT
+	   *
+	   FROM SAPHEE.ZUSERF
+	   WHERE MANDT = #G_MANDT#
+	     AND USERAUT5 &lt; 'E30'
+	     AND USERAUT5 > 'E00'
+	     AND USEREXPR > '20000101'   -- 퇴사자 제외
+	     AND USERCODE IN (
+	         SELECT
+	         LIFNR
+	         FROM SAPHEE.ZWBT010
+	         WHERE MANDT   = #G_MANDT#
+	           AND ZZACTSS = #AREA_CODE_E#
+	   )
+	</isEqual>
+
+	<isEqual col="USER_GROUP_E" value="E20">
+	   UNION       -- 설치PM
+	   SELECT
+	   *
+	   FROM SAPHEE.ZUSERF
+	   WHERE MANDT = #G_MANDT#
+	     AND USERAUT5 &lt; 'E20'
+	     AND USERAUT5 > 'E00'
+	     AND USEREXPR > '20000101'   -- 퇴사자 제외
+	     AND USERCODE IN (
+	         SELECT
+	         LIFNR
+	         FROM SAPHEE.ZWBT010
+	         WHERE MANDT = #G_MANDT#
+	           AND TEMNO IN (
+	               SELECT
+	               TEMNO
+	               FROM SAPHEE.ZPST0011
+	               WHERE MANDT    = #G_MANDT#
+	                 AND USERNUMB = #USER_ID#
+	                 AND RETIF = ''
+	      )
+	   )
+	</isEqual>
+
+	<isEqual col="USER_GROUP_R" value="R40">
+	   UNION       -- 보수관리자
+	   SELECT
+	   *
+	   FROM SAPHEE.ZUSERF
+	   WHERE MANDT = #G_MANDT#
+	     AND USERAUT2 &lt; 'R40'
+	     AND USERAUT2 > 'R00'
+	     AND USEREXPR > '20000101'   -- 퇴사자 제외
+	</isEqual>
+
+	<isEqual col="USER_GROUP_R" value="R30">
+	   UNION       -- 보수사무소
+	   SELECT
+	   *
+	   FROM SAPHEE.ZUSERF
+	   WHERE MANDT = #G_MANDT#
+	     AND USERAUT2 &lt; 'R30'
+	     AND USERAUT2 > 'R00'
+	     AND USEREXPR > '20000101'   -- 퇴사자 제외
+	     AND USERCODE IN (
+	         SELECT
+	         LIFNR
+	         FROM SAPHEE.ZWBT010
+	         WHERE MANDT   = #G_MANDT#
+	           AND VKGRP = #USER_VGCD#
+	      )
+	</isEqual>
+
+	<isEqual col="USER_GROUP_R" value="R20">
+	   UNION       -- 보수PM
+	   SELECT
+	   *
+	   FROM SAPHEE.ZUSERF
+	   WHERE MANDT = #G_MANDT#
+	     AND USERAUT2 &lt; 'R20'
+	     AND USERAUT2 > 'R00'
+	     AND USEREXPR > '20000101'   -- 퇴사자 제외
+	     AND USERCODE IN (
+	         SELECT
+	         LIFNR
+	         FROM SAPHEE.ZWBT010
+	         WHERE MANDT  = #G_MANDT#
+	           AND BSU_PM = #USER_ID#
+	      )
+	</isEqual>
+
+	<isEqual col="USER_GROUP_B" value="B40">
+	   UNION       -- 영업관리자
+	   SELECT
+	   *
+	   FROM SAPHEE.ZUSERF
+	   WHERE MANDT = #G_MANDT#
+	     AND USERAUT3 &lt; 'B40'
+	     AND USERAUT3 > 'B00'
+	     AND USEREXPR > '20000101'   -- 퇴사자 제외
+	</isEqual>
+
+	<isEqual col="USER_GROUP_B" value="B30">
+	   UNION       -- 영업사무소
+	   SELECT
+	   *
+	   FROM SAPHEE.ZUSERF
+	   WHERE MANDT = #G_MANDT#
+	     AND USERAUT3 &lt; 'B30'
+	     AND USERAUT3 > 'B00'
+	     AND USEREXPR > '20000101'   -- 퇴사자 제외
+	     AND USERCODE IN (
+	         SELECT
+	         LIFNR
+	         FROM SAPHEE.ZWBT010
+	         WHERE MANDT   = #G_MANDT#
+	           AND BSU_ARA = #AREA_CODE_E#
+	      )
+	</isEqual>
+
+	<isEqual col="USER_GROUP_B" value="B20">
+	   UNION       -- 영업PM
+	   SELECT
+	   *
+	   FROM SAPHEE.ZUSERF
+	   WHERE MANDT = #G_MANDT#
+	     AND USERAUT3 &lt; 'B20'
+	     AND USERAUT3 > 'B00'
+	     AND USEREXPR > '20000101'   -- 퇴사자 제외
+	     AND USERCODE IN (
+	         SELECT
+	         LIFNR
+	         FROM SAPHEE.ZWBT010
+	         WHERE MANDT  = #G_MANDT#
+	           AND BIZ_PM = #USER_ID#
+	      )
+	</isEqual>
+	) AS USER
+	LEFT OUTER JOIN SAPHEE.ZHRT001 AS HR01 ON  HR01.MANDT  = USER.MANDT AND HR01.PSNO   = 'H' || USER.USERNUMB
+	LEFT OUTER JOIN SAPHEE.ZWBT010 AS T010 ON  T010.MANDT=USER.MANDT AND T010.LIFNR=USER.USERCODE
+	LEFT OUTER JOIN SAPHEE.ZMMT005 AS M005 ON  M005.MANDT=USER.MANDT AND M005.LIFNR=USER.USERCODE
+
+) AS USER
+WHERE USERNUMB NOT LIKE 'Z%'
+<isNotNull col="USERNUMB">
+  AND USER.USERNUMB LIKE #USERNUMB# || '%'
+</isNotNull>
+<isNotNull col="USERNAME">
+  AND USER.USERNAME LIKE '%' || #USERNAME# || '%'
+</isNotNull>
+<isNotNull col="VENDNAME">
+  AND USER.VEND_NAME LIKE '%' || #VENDNAME# || '%'
+</isNotNull>
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="USER_ID" size="10" type="VARCHAR" description="사용자" /> 
+		<col name="USER_GROUP_M" size="3" type="VARCHAR" description="자재권한" /> 
+		<col name="USERNUMB" size="10" type="VARCHAR" description="검색-ID" /> 
+		<col name="USERNAME" size="30" type="VARCHAR" description="검색-이름" /> 
+		<col name="USER_GROUP_R" size="3" type="VARCHAR" description="보수권한" /> 
+		<col name="USER_GROUP_E" size="3" type="VARCHAR" description="설치권한" /> 
+		<col name="AREA_CODE_E" size="2" type="VARCHAR" description="설치사무소" /> 
+		<col name="AREA_CODE_R" size="2" type="VARCHAR" description="보수사무소" /> 
+		<col name="AREA_CODE_B" size="256" type="VARCHAR" description="영업지사" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="AREA_CODE" size="0" type="VARCHAR" description="" /> 
+		<col name="AREA_CODE_E" size="9" type="VARCHAR" description="" /> 
+		<col name="AREA_CODE_R" size="6" type="VARCHAR" description="" /> 
+		<col name="AREA_NAME" size="0" type="VARCHAR" description="" /> 
+		<col name="LOGRT" size="30" type="VARCHAR" description="" /> 
+		<col name="USERAUT1" size="15" type="VARCHAR" description="" /> 
+		<col name="USERAUT2" size="15" type="VARCHAR" description="" /> 
+		<col name="USERAUT3" size="15" type="VARCHAR" description="" /> 
+		<col name="USERAUT4" size="15" type="VARCHAR" description="" /> 
+		<col name="USERAUT5" size="15" type="VARCHAR" description="" /> 
+		<col name="USERCODE" size="30" type="VARCHAR" description="" /> 
+		<col name="USERCODE_R" size="30" type="VARCHAR" description="" /> 
+		<col name="USERCODE_B" size="30" type="VARCHAR" description="" /> 
+		<col name="USERCODE_M" size="30" type="VARCHAR" description="" /> 
+		<col name="USERCODE_E" size="30" type="VARCHAR" description="" /> 
+		<col name="USERDESC" size="765" type="VARCHAR" description="" /> 
+		<col name="USERFAIL" size="6" type="NUMERIC" description="" /> 
+		<col name="USERJUNO" size="42" type="VARCHAR" description="" /> 
+		<col name="USERLANG" size="6" type="VARCHAR" description="" /> 
+		<col name="USERMAIL" size="150" type="VARCHAR" description="" /> 
+		<col name="USERMBPN" size="60" type="VARCHAR" description="" /> 
+		<col name="USERNAME" size="90" type="VARCHAR" description="" /> 
+		<col name="USERNUMB" size="30" type="VARCHAR" description="" /> 
+		<col name="USERTELE" size="60" type="VARCHAR" description="" /> 
+		<col name="VEND_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="AREA_CODE_B" size="256" type="VARCHAR" description="" /> 
+	</output>
+</query>

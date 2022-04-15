@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT  CASE WHEN (SUM(T.JDAMT) + MAX(T.INAMT) = (SUM(T.NETWR)/COUNT(*)) * 100 ) THEN 'Y' ELSE 'N'  END SUJU
+      , SUM(T.JDAMT) + MAX(T.INAMT) AS CS126_AMT
+  FROM  (
+         SELECT A.CS126_GNO
+              , A.CS126_UPN
+              , A.CS126_CST
+              , A.CS126_AMT
+              , A.CS126_HMT
+              , A.CS126_DMT
+              , A.CS126_ACMT
+              , C.AMT
+              , A.CS126_UMR
+              , SAPHEE.MONTH_BETWEEN(A.CS126_UGS,REPLACE(CHAR(DATE(SUBSTR(CAST(A.CS126_UMR AS VARCHAR(8)),1,4) || '-' || SUBSTR(CAST(A.CS126_UMR AS VARCHAR(8)),5,2) || '-' || SUBSTR(CAST(A.CS126_UMR AS VARCHAR(8)),7,2) ) - 1 DAY),'-',''),'2')
+              , VALUE(C.AMT,0) *
+               (CASE WHEN CAST(#CDT# AS VARCHAR(8)) >= A.CS126_UMR THEN SAPHEE.MONTH_BETWEEN(A.CS126_UGS,REPLACE(CHAR(DATE(SUBSTR(CAST(A.CS126_UMR AS VARCHAR(8)),1,4) || '-' ||  SUBSTR(CAST(A.CS126_UMR AS VARCHAR(8)),5,2)  || '-' ||  SUBSTR(CAST(A.CS126_UMR AS VARCHAR(8)),7,2)) - 1 DAY),'-',''),'2')
+                      ELSE 
+                           (CASE WHEN CAST(#CDT# AS VARCHAR(8)) <= A.CS126_UGS THEN 0
+                                 ELSE SAPHEE.MONTH_BETWEEN(A.CS126_UGS,REPLACE(CHAR(DATE(SUBSTR(CAST(#CDT# AS VARCHAR(8)),1,4) || '-' ||  SUBSTR(CAST(#CDT# AS VARCHAR(8)),5,2)  || '-' ||  SUBSTR(CAST(#CDT# AS VARCHAR(8)),7,2)) - 1 DAY),'-',''),'2')
+                            END)     
+                 END) AS INAMT
+              , (VALUE(A.CS126_AMT,0) + VALUE(A.CS126_HMT,0) + VALUE(A.CS126_DMT,0) + VALUE(A.CS126_ACMT,0)) *
+                (CASE WHEN CAST(#CDT# AS VARCHAR(8)) >= A.CS126_UMR THEN SAPHEE.MONTH_BETWEEN(A.CS126_UGS,REPLACE(CHAR(DATE(SUBSTR(CAST(A.CS126_UMR AS VARCHAR(8)),1,4) || '-' ||  SUBSTR(CAST(A.CS126_UMR AS VARCHAR(8)),5,2)  || '-' ||  SUBSTR(CAST(A.CS126_UMR AS VARCHAR(8)),7,2)) - 1 DAY),'-',''),'2')
+                      ELSE 
+                           (CASE WHEN CAST(#CDT# AS VARCHAR(8)) <= A.CS126_UGS THEN 0
+                                 ELSE SAPHEE.MONTH_BETWEEN(A.CS126_UGS,REPLACE(CHAR(DATE(SUBSTR(CAST(#CDT# AS VARCHAR(8)),1,4) || '-' ||  SUBSTR(CAST(#CDT# AS VARCHAR(8)),5,2)  || '-' ||  SUBSTR(CAST(#CDT# AS VARCHAR(8)),7,2)) - 1 DAY),'-',''),'2')
+                            END)     
+                END) AS JDAMT
+              , B.NETWR
+           FROM SAPHEE.ZCST126 A
+                LEFT OUTER JOIN SAPHEE.VBAK B ON A.MANDT = B.MANDT
+                                             AND A.CS126_GNO = B.ZZPJT_ID
+                LEFT OUTER JOIN (
+                                 SELECT CS127_UPN AS UPN
+                                      , CS127_CST AS CST
+                                      , CS127_GNO AS GNO
+                                      , SUM(CS127_AMT) AS AMT
+                                   FROM SAPHEE.ZCST127
+                                  WHERE MANDT = #G_MANDT#
+                                    AND CS127_DDT = ''
+                                    AND CS127_PST = 'A6'
+                                    AND CS127_UPN = #UPN#
+                                    AND CS127_CST = #CST#
+                               GROUP BY CS127_UPN, CS127_CST, CS127_GNO
+                                ) AS C  ON A.CS126_UPN = C.UPN
+                                       AND A.CS126_CST = C.CST
+                                       AND A.CS126_GNO = C.GNO
+          WHERE A.MANDT = #G_MANDT#
+            AND A.CS126_DDT = ''
+            AND A.CS126_PST = 'A6'
+            AND A.CS126_UPN = #UPN#
+            AND A.CS126_CST = #CST#
+            AND A.CS126_GNO = CAST(#GNO# AS VARCHAR(15))
+        ) AS T
+WITH UR
+	]]></statement>
+	<input default-name="ds_list">
+		<col name="UMR" size="255" type="VARCHAR" description="" /> 
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="UPN" size="255" type="VARCHAR" description="" /> 
+		<col name="CST" size="255" type="VARCHAR" description="" /> 
+		<col name="USD" size="255" type="VARCHAR" description="" /> 
+        <col name="CDT" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

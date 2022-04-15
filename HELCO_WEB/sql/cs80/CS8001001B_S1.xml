@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[보수자재관리-견적작성-프로젝트 상세정보]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+		
+			
+	SELECT DISTINCT A.CS121_UPN AS UPN ,                                            --프로젝트번호
+	       A.CS121_CST AS CST ,                                                     --거래선(''->기본, 존재->온핸드)
+	       A.CS121_SPT AS SPT ,                                                     --현장명
+	       A.KUNNR AS KUNNR ,                                                       --고객번호
+	       A.CS121_NAM AS KUNNRNM ,                                                 --고객명
+	       '10' AS SPART,                                                             --제품구분
+	       '' AS SPARTNM,                                                           --제품구분명
+	       VALUE(E.J_1KFREPRE,'') PNAME ,                                           --담당자명
+	       A.PERNR ,                                                                 --영업사원
+	       E.NAME1 AS CSTNM,                                                    --사업자명
+	       A.VKGRP AS VKGRP,                                                        --팀
+	       A.VKBUR AS VKBUR,                                                        --작업그룹
+	       CS111.ARA AS ARA,            --대지역코드
+	       CS111.TGB AS TGB,            --직영/협력사 구분
+	       CS111.BPM AS BPM,            --보수PM
+	       SAPHEE.GET_BOSU_INWON(A.MANDT, CS111.BPM) AS BPMNM, --보수PM명
+	       A.LGORT AS BSU,
+	       A.ABR_NM  AS BSUNM, 	       
+	       '' AS FAILYN,                     										  --실패현장여부
+	       (SELECT VALUE(MM005A.WERKS,'') AS WERKS
+	          FROM SAPHEE.ZMMT005 AS MM005A
+	         WHERE MM005A.MANDT = CAST(#G_MANDT# AS CHAR(3))
+	           AND MM005A.LGORT= A.LGORT
+	       ) AS WERKS,                                                              --플랜트
+	       A.WAERS AS WAERS ,                                                        --통화코드
+	       A.ZTERM AS ZTERM ,                                                       --지급조건
+	       A.CS121_GNO AS GNO,                                                      --사업자등록번호
+	       CS600.CS600_RAT2 AS RATE,                                                --당해년도 공사임율
+	       CS600.CS600_RAT AS RATE2,                                                --당해년도 공사임율(기성예상비용 계산에 필요)
+	       A.LGORT,                                                                 --저장위치
+	       A.LIFNR,                                                                  --공급업체번호
+	       A.LAND1 AS REGIO,
+	       A.TO_1,
+	       A.TO_2,
+	       A.TO_3,
+	       A.TO_4,
+	       A.TO_5,
+	       A.SHIPTO
+	  FROM 
+	       (SELECT CSEP01.MANDT AS MANDT,
+		 		         USR.USERNUMB AS USER_ID,
+	          	   CSEP01.LIFNR,
+	          	   CSEP01.ABR_NM,
+	          	   CSEP01.LGORT,	          	
+	          	   CSEP01.VKGRP,
+	          	   CSEP01.VKBUR,
+	          	   CSEP01.LAND1,
+	          	   CSEP01.PERNR,
+	          	   CS121G.CS121_UPN,
+	          	   CS121G.CS121_CST,
+	          	   CS121G.CS121_SPT,
+	          	   CS121G.CS121_NAM,
+	          	   CS121G.KUNNR,
+	          	   CS121G.ZTERM,
+	          	   CS121G.CS121_GNO,
+	          	   CSEP01.TO_1,
+	          	   CSEP01.TO_2,
+	          	   CSEP01.TO_3,
+	          	   CSEP01.TO_4,
+	          	   CSEP01.TO_5,
+	          	   CSEP01.SHIPTO,
+	          	   CSEP01.WAERS
+	     	    FROM SAPHEE.ZCST121G AS CS121G  INNER JOIN SAPHEE.ZCSTEP01 AS CSEP01 
+	     	                                      ON CS121G.MANDT = CSEP01.MANDT
+	     	                                     AND CS121G.KUNNR = CSEP01.LIFNR
+	     	                                    
+	     	                                    LEFT OUTER JOIN SAPHEE.ZUSERF AS USR
+	     	                                      ON CS121G.MANDT = USR.MANDT
+	     	                                     AND USR.USERNUMB = #G_USER_ID#
+	     	                                     
+	     	                                     
+	     	   WHERE CS121G.MANDT = #G_MANDT#
+	     	     AND CS121G.CS121_UPN = #UPN#
+	     	     AND CS121G.CS121_CST = #CST#
+
+	       ) AS A                              
+
+		   LEFT OUTER JOIN
+		        (SELECT MANDT,
+		              DECODE(UPN, '', PJT, UPN) AS UPN,
+		              CST,
+		              MAX(ARA) AS ARA,
+		              MAX(GBU) AS TGB,
+		              MAX(BPM) AS BPM,
+		              MAX(BSU) AS BSU
+		         FROM SAPHEE.ZCST111G                                                --보수호기 마스터
+					  WHERE (UPN = #UPN# AND CST = #CST#) OR PJT = #UPN#
+		        GROUP BY MANDT, UPN, PJT, CST
+		        FETCH FIRST 1 ROW ONLY
+		        ) AS CS111                                                          --보수현장
+		        ON A.MANDT = CS111.MANDT
+		        AND A.CS121_UPN = CS111.UPN
+		
+		   LEFT OUTER JOIN SAPHEE.KNA1 AS E                                         --고객마스터 일반데이터
+		       ON A.MANDT = E.MANDT
+		       AND A.KUNNR = E.KUNNR
+		       
+		   LEFT OUTER JOIN SAPHEE.ZCST600 AS CS600                                  --시행율관리-임율
+		       ON CS600.MANDT = A.MANDT
+		       AND CS600.CS600_YEAR = SUBSTR(HEX(CURRENT DATE),1,4)                 --당해년도 공사임율
+		 WHERE 1=1
+		 
+WITH UR
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_pjt_det">
+	</output>
+</query>

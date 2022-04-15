@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+       '' CHK,
+       '' FLAG,
+       A.BS201_RDT || '-' || A.BS201_SEQ MNO,
+       CASE A.BS201_AGB WHEN 'A' THEN '실행가' WHEN 'B' THEN '예산가' ELSE A.BS201_AGB END AGB,
+       (SELECT M.CTEXT2 FROM SAPHEE.ZLCODE M WHERE M.MANDT = A.MANDT AND M.CODE1 = 'CS131' AND M.LANG = #G_LANG# AND M.CODE2 = A.BS201_GBN) GBN,
+       A.BS201_DEV DEV,
+       A.BS201_GNM GNM,
+       A.BS201_SPT SPT,
+       (SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = A.MANDT AND CODE1 = 'BS403' AND LANG = #G_LANG# AND CODE2 = A.BS201_USE) USE,
+       (SELECT U.USERNAME FROM SAPHEE.ZUSERF U WHERE U.MANDT = A.MANDT AND U.USERNUMB = A.BS201_CID) USR,
+       A.BS201_AD1 || ' ' || A.BS201_AD2 ADR,
+       A.BS201_RQT RQT,
+       A.BS201_AYM || '-' || A.BS201_ASQ SNO,
+       CASE
+            WHEN A.BS201_YST = 'A6'
+                 THEN (SELECT VALUE(SUM(B.BS202_OAM),0) FROM SAPHEE.ZBST202 B WHERE B.MANDT = A.MANDT AND B.BS202_RDT = A.BS201_RDT AND B.BS202_SEQ = A.BS201_SEQ AND B.BS202_SIR = A.BS201_SIR) 
+            ELSE
+                 0
+       END OAM,
+       CASE WHEN A.BS201_YST = '' THEN 'A0' ELSE A.BS201_YST END YST,
+       (SELECT COUNT(*) FROM SAPHEE.ZBST202 WHERE MANDT = #G_MANDT# AND BS202_RDT = A.BS201_RDT AND BS202_SEQ = A.BS201_SEQ AND BS202_SIR = A.BS201_SIR) QTY,
+       (SELECT BS202_TYP FROM SAPHEE.ZBST202 WHERE MANDT = #G_MANDT# AND BS202_RDT = A.BS201_RDT AND BS202_SEQ = A.BS201_SEQ AND BS202_SIR = A.BS201_SIR AND BS202_ISR = '001') TYP,
+       (SELECT BS202_USE||BS202_MAN||'-'||BS202_OPN||BS202_SPD||'-'||BS202_STP FROM SAPHEE.ZBST202 WHERE MANDT = #G_MANDT# AND BS202_RDT = A.BS201_RDT AND BS202_SEQ = A.BS201_SEQ AND BS202_SIR = A.BS201_SIR AND BS202_ISR = '001') SPC,
+       A.BS201_RDT,
+       A.BS201_SEQ,
+       A.BS201_SIR,
+       A.BS201_GNO,
+       (SELECT MAX(K.BS205_CDT) FROM SAPHEE.ZBST205 K WHERE K.MANDT = A.MANDT AND K.BS205_RDT = A.BS201_RDT AND K.BS205_SEQ = A.BS201_SEQ AND K.BS205_SIR = A.BS201_SIR) CDT
+  FROM
+       SAPHEE.ZBST201 A,
+       (
+        SELECT
+               C.BS201_RDT,
+               C.BS201_SEQ,
+               C.BS201_SIR
+          FROM
+               (
+                SELECT
+                       B.BS201_RDT,
+                       B.BS201_SEQ,
+                       B.BS201_SIR,
+                       ROWNUMBER() OVER(PARTITION BY BS201_RDT, BS201_SEQ ORDER BY BS201_RDT, BS201_SEQ, BS201_SIR DESC) RNO
+                  FROM
+                       SAPHEE.ZBST201 B
+                 WHERE
+                       MANDT = #G_MANDT#
+               ) C
+         WHERE 
+               C.RNO = 1
+       ) X
+ WHERE 
+       1=1
+   AND A.MANDT = #G_MANDT#
+   AND A.BS201_RDT = X.BS201_RDT
+   AND A.BS201_SEQ = X.BS201_SEQ
+   AND A.BS201_SIR = X.BS201_SIR
+   AND A.BS201_PST = '30'
+   AND A.BS201_JRT = '10'
+   AND A.BS201_DEL = ''
+   AND A.BS201_AGB = #AGB#
+   AND A.BS201_AYM = #SAM#
+   AND A.BS201_ASQ = #SAQ#
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

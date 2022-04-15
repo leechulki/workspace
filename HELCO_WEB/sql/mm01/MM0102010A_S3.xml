@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[사양/납기 변경 조회-납기일변경]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+*
+FROM
+(
+SELECT 
+    T3.MANDT AS MANDT    -- CLIENT
+   ,T3.POSID AS POSID      -- 공사번호 
+   ,T3.POST1 AS POST1     -- 현장명
+   ,T3.MATNR AS MATNR    -- 자재번호
+   ,T3.TXZ01 AS TXZ01        -- 품명
+   ,T3.EBELN AS EBELN        -- 발주번호
+   ,T3.EBELP AS EBELP        -- 품목번호
+   ,T3.CHNDAT AS CHNDAT  -- 변경일
+   ,'5' AS GUBN                       -- 구분
+   ,T3.PO_MENGE AS PO_MENGE       -- 발주수량
+   ,T3.MENGE AS MENGE       -- 신수량
+   ,T3.MENGE1 AS MENGE1      -- 구수량
+   ,T3.BLOCK_NO AS BLOCK_NO   -- BLOCK
+    , VALUE(SAPHEE.GET_BUDAT(T3.MANDT,T3.EBELN,T3.EBELP),'') AS BUDAT         -- 입고일
+    , VALUE(SAPHEE.GET_MPASS(T3.MANDT,T3.EBELN,T3.EBELP),0) AS MPASS  -- 입고수량
+   ,T3.EINDT AS EINDT                                      -- 최초 납품 예정일
+   ,T3.UDATE AS UDATE                                   -- 변경납품 예정일
+FROM
+(
+SELECT  
+		A1.MANDT AS MANDT
+       ,M13.EBELN AS EBELN
+       ,M13.EBELP AS EBELP
+       ,M13.POSID AS POSID
+       ,M13.POST1 AS POST1
+       ,M13.MATNR AS MATNR
+       ,M13.TXZ01 AS TXZ01
+       ,A1.CHNDAT AS CHNDAT
+       ,M13.MENGE AS PO_MENGE
+       ,M13.MENGE AS MENGE
+       ,M13.MENGE AS MENGE1
+       ,CASE WHEN M11.BLOCK_NO = ''       THEN ''
+             WHEN M11.BLOCK_NO LIKE 'A%'  THEN 'A'  
+             WHEN M11.BLOCK_NO LIKE 'B%'  THEN 'B' 
+             WHEN M11.BLOCK_NO LIKE 'C%'  THEN 'C'  
+             WHEN M11.BLOCK_NO LIKE 'D%'  THEN 'D'  
+             WHEN M11.BLOCK_NO LIKE 'E%'  THEN 'E' END AS BLOCK_NO
+       ,M13.EINDT AS EINDT
+       ,M13.UDATE AS UDATE
+       , (CASE WHEN A1.MATKL IN ('D375A04', 'D375A', 'E331A', 'E331C01', 'E322A') THEN ( SELECT MAX(A.LIFNR)
+       	                                                                                   FROM SAPHEE.ZMMT013 AS A
+       	                                                                                   INNER JOIN SAPHEE.MARA AS B ON A.MANDT = B.MANDT
+       	                                                                                                                   AND A.MATNR = B.MATNR
+       	                                                                                  WHERE A.MANDT = #G_MANDT#
+       	                                                                                    AND A.POSID = A1.POSID_P
+       	                                                                                    AND B.BLOCK_NO IN ('E322C01', 'E322C02', 'E322C03', 'E322C04', 'AR11')) 
+       																							
+               WHEN A1.MATKL IN ('C2620', 'E280A', 'E280B') THEN ( SELECT MAX(LIFNR)
+               	                                                     FROM SAPHEE.ZMMT013
+               	                                                    WHERE MANDT = #G_MANDT#
+               	                                                      AND POSID = A1.POSID_P
+               	                                                      AND EKGRP = '117')
+
+               WHEN A1.MATKL = 'A2000' THEN ( CASE WHEN A1.ZPART = '1' THEN ( SELECT MAX(LIFNR)
+                                                                              FROM SAPHEE.ZMMT013
+                                                                             WHERE MANDT = #G_MANDT#
+                                                                               AND POSID = A1.POSID_P
+                                                                               AND EXTWG = 'BOX02')
+               									   WHEN A1.ZPART = '2' THEN ( SELECT MAX(LIFNR)
+               									   							  FROM SAPHEE.ZMMT013
+               									   							 WHERE MANDT = #G_MANDT#
+               									   							   AND POSID = A1.POSID_P
+               									   							   AND EKGRP = '117')
+               									   WHEN A1.ZPART = '3' THEN ( SELECT MAX(LIFNR)
+               									   							  FROM SAPHEE.ZMMT013
+               									   							 WHERE MANDT = #G_MANDT#
+               									   							   AND POSID = A1.POSID_P
+               									   							   AND EXTWG = 'BOX09') END)
+               ELSE '' END )  AS LIFNR2
+
+FROM 
+(	
+	SELECT M25.MANDT, M25.POSID, P04.IDNRK, M25.POSID_P, M25.CHNDAT, P04.MATKL, P04.ZPART, P04.WOKNUM
+	 FROM SAPHEE.ZMMT025 AS M25
+	 INNER JOIN SAPHEE.ZPPT004 AS P04 ON M25.MANDT = P04.MANDT
+	                                 AND M25.POSID = P04.WOKNUM
+	                                 AND M25.PSTYPE = '02'
+	WHERE M25.MANDT = #G_MANDT#
+	  AND M25.CHNDAT BETWEEN #UDATE1# AND #UDATE2#
+	  AND M25.PSTYPE = '02' 
+	  AND P04.MATKL IN ('D375A04', 'D375A', 'E331A', 'E331C01','E322A', 'A2000', 'C2620', 'E280A', 'E280B')
+) AS A1	  
+LEFT OUTER JOIN SAPHEE.ZMMT013 AS M13 ON A1.MANDT = M13.MANDT
+                                     AND A1.POSID_P = M13.POSID
+																	   AND A1.IDNRK = M13.MATNR
+LEFT OUTER JOIN SAPHEE.ZMMT011 AS M11 ON A1.MANDT = M11.MANDT
+                                                                     AND A1.IDNRK = M11.MATNR
+WHERE A1.MANDT = #G_MANDT#
+     AND M13.MANDT = #G_MANDT#
+	 AND M11.MANDT = #G_MANDT#
+	 AND M13.STATE = '2'
+     AND M13.UDATE &lt;&gt; M13.EINDT																 
+<isNotNull col="POSID">
+     AND M13.POSID  LIKE #POSID# || '-P'
+     AND M25.POSID  LIKE #POSID# || '%'
+</isNotNull>
+<isNotNull col="MATNR">
+     AND M13.MATNR  LIKE #MATNR# || '%'
+</isNotNull>
+
+) AS T3     
+WHERE 1=1
+AND LIFNR2 = #LIFNR# ) AS T
+
+WHERE MENGE > MPASS
+<isNotNull col="POSID">
+   AND POSID  LIKE #POSID# || '%'
+</isNotNull>
+<isNotNull col="MATNR">
+   AND MATNR  LIKE #MATNR# || '%'
+</isNotNull>
+ORDER BY POSID, MATNR, CHNDAT, EINDT, UDATE
+
+ FOR FETCH ONLY
+ WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="G_VEND_CODE_M" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="255" type="VARCHAR" description="" /> 
+		<col name="UDATE1" size="255" type="VARCHAR" description="" /> 
+		<col name="UDATE2" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

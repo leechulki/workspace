@@ -1,0 +1,577 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[PS1601002A_S2]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>1</result-count>
+    <statement>
+             
+SELECT  PAPRYYYYMM, LIFNR, LIFNRNM
+       , TEMNM
+       , ZZACTSS   
+       , CNT       --JQPR건수
+       , OCCAMT     --JQPR발생금액
+       , JUNG_CNT   --준공대수
+       , QC
+       , POINT
+       , CASE WHEN POINT1 IS NULL THEN 10 ELSE POINT1 END AS POINT1  --환산점수
+       , CNT_SUM
+       , CASE WHEN OCCAMT_SUM IS NULL THEN 0 ELSE OCCAMT_SUM END AS OCCAMT_SUM
+       , CASE WHEN QC_SUM IS NULL THEN 0 ELSE QC_SUM END AS QC_SUM
+       , CASE WHEN POINT_SUM IS NULL THEN 0 ELSE POINT_SUM END AS POINT_SUM
+       , CASE WHEN JUNG_CNT_SUM IS NULL THEN 0 ELSE JUNG_CNT_SUM END AS JUNG_CNT_SUM  --준공대수 누계
+       , CASE WHEN POINT_SUM2 IS NULL THEN 0 ELSE POINT_SUM2 END AS POINT_SUM2
+       , CASE WHEN QC_SUM2 IS NULL THEN 0 ELSE QC_SUM2 END AS QC_SUM2
+       , CASE WHEN POINT_SUM2 + QC_SUM2 IS NULL THEN CAST(REPLACE(#VAR1#, ' ', '0') AS INT) + CAST(REPLACE(#VAR2#, ' ', '0') AS INT) ELSE POINT_SUM2 + QC_SUM2 END  AS TOT  --평균환산점수
+       , DENSE_RANK() OVER(ORDER BY QC_SUM2+POINT_SUM2 desc) AS RANKING  --순위
+   FROM (
+     SELECT PAPRYYYYMM, LIFNR, LIFNRNM
+       , TEAM_NM AS TEMNM
+       , ZZACTSS_NM AS ZZACTSS   
+       , CNT          
+       , OCCAMT        
+       , JUNG_CNT       
+       , QC
+       , POINT
+       , QC + POINT AS POINT1  
+       , CNT_SUM
+       , OCCAMT_SUM
+       , QC_SUM
+       , POINT_SUM
+       , JUNG_CNT_SUM   
+       , CASE WHEN DEC((POINT_SUM), 10,2) IS NULL THEN 0.00
+              WHEN DEC((POINT_SUM), 10,2) <![CDATA[  < ]]> 0.00 THEN 0.00
+              WHEN DEC((POINT_SUM), 10,2) <![CDATA[  > ]]> CAST(REPLACE(#VAR1#, ' ', '') AS INT) THEN CAST(REPLACE(#VAR1#, ' ', '') AS INT)
+              ELSE DEC((POINT_SUM), 10,2)  END AS POINT_SUM2
+       , CASE WHEN DEC((QC_SUM), 10,2) IS NULL THEN 0.00
+              WHEN DEC((QC_SUM), 10,2) <![CDATA[  < ]]> 0.00 THEN 0.00
+              WHEN DEC((QC_SUM), 10,2) <![CDATA[  > ]]> CAST(REPLACE(#VAR2#, ' ', '') AS INT) THEN CAST(REPLACE(#VAR2#, ' ', '') AS INT)
+              ELSE DEC((QC_SUM), 10,2) END AS QC_SUM2
+      FROM (
+           SELECT  P.MANDT ,P.PAPRYYYYMM ,P.ZZACTSS 
+                 , P.TEAM_CD
+                 , P.TEAM_NM
+                 , P.ZZACTSS_CD
+                 , P.ZZACTSS_NM
+                 , P.LIFNR 
+                 , P.NAME1 AS LIFNRNM
+                 , P.CNT
+                 , P.OCCAMT
+                 , P.JUNG_CNT
+                 , CASE WHEN DEC(P.POINT, 10,2) IS NULL THEN 0.00 
+                        WHEN DEC(P.POINT, 10,2) <![CDATA[ < ]]> 0.00 THEN 0.00
+                        WHEN DEC(P.POINT, 10,2) <![CDATA[ > ]]> CAST(REPLACE(#VAR1#, ' ', '') AS INT) THEN CAST(REPLACE(#VAR1#, ' ', '') AS INT)
+                        ELSE DEC(P.POINT, 10,2) END AS POINT
+                 , CASE WHEN DEC(P.QC, 10,2) IS NULL THEN 0.00 
+                        WHEN DEC(P.QC, 10,2) <![CDATA[ < ]]>  0.00 THEN 0.00
+                        WHEN DEC(P.QC, 10,2) <![CDATA[ > ]]> CAST(REPLACE(#VAR2#, ' ', '') AS INT) THEN CAST(REPLACE(#VAR2#, ' ', '') AS INT)
+                        ELSE DEC(P.QC, 10,2) END AS QC
+                 , P.CNT_SUM
+                 , P.OCCAMT_SUM
+                 , P.JUNG_CNT_SUM
+              --   , CASE WHEN DEC(CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE) - CASE WHEN  P.JUNG_CNT_SUM IS NULL THEN 0.00 ELSE  DEC( DEC(P.CNT_SUM ,10,3) / DEC(NULLIF(P.JUNG_CNT_SUM, 0),10,3) * CAST(REPLACE(#VAR3#, ' ', '') AS DOUBLE), 10, 3)  END , 10, 2) IS NULL THEN CAST(REPLACE(#VAR1#, ' ', '') AS INT) ELSE DEC(CAST(REPLACE(#VAR1#, ' ', '') AS INT) - CASE WHEN  P.JUNG_CNT_SUM  IS NULL THEN 0.00 ELSE   DEC( DEC(P.CNT_SUM ,10,2) / DEC(NULLIF(P.JUNG_CNT_SUM, 0),10,2) * CAST(REPLACE(#VAR3#, ' ', '') AS DOUBLE), 10, 2) END , 10, 2) END AS POINT_SUM
+              --   , CASE WHEN DEC(CAST(REPLACE(#VAR2#, ' ', '') AS DOUBLE) - CASE WHEN  P.JUNG_CNT_SUM IS NULL THEN 0.00 ELSE  DEC( DEC(P.OCCAMT_SUM ,10,2) / DEC(NULLIF(P.JUNG_CNT_SUM, 0),10,2) / CAST(REPLACE(#VAR4#, ' ', '') AS DOUBLE), 10, 2) END , 10, 2) IS NULL THEN CAST(REPLACE(#VAR2#, ' ', '') AS INT) ELSE  DEC(CAST(REPLACE(#VAR2#, ' ', '') AS INT) - CASE WHEN  P.JUNG_CNT_SUM IS NULL THEN 0.0 ELSE   DEC( DEC(P.OCCAMT_SUM ,10,2) / DEC(NULLIF(P.JUNG_CNT_SUM, 0),10,2) / CAST(REPLACE(#VAR4#, ' ', '') AS DOUBLE), 10, 2) END , 10, 2) END AS QC_SUM
+                 , CASE WHEN P.JUNG_CNT_SUM IS NULL OR P.JUNG_CNT_SUM = 0.00 THEN 0.00 ELSE  DEC(CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE) - DEC( DEC(P.CNT_SUM ,10,2) / DEC(NULLIF(P.JUNG_CNT_SUM, 0),10,2) * CAST(REPLACE(#VAR3#, ' ', '') AS DOUBLE), 10, 3) , 10, 2)  END AS POINT_SUM
+                 , CASE WHEN P.JUNG_CNT_SUM IS NULL OR P.JUNG_CNT_SUM = 0.00 THEN 0.00 ELSE  DEC(CAST(REPLACE(#VAR2#, ' ', '') AS DOUBLE) - DEC( DEC(P.OCCAMT_SUM ,20,2) / DEC(NULLIF(P.JUNG_CNT_SUM, 0),20,2) / CAST(REPLACE(#VAR4#, ' ', '') AS DOUBLE), 10, 2) , 10, 2)  END AS QC_SUM
+                 
+             FROM (
+                SELECT Q.MANDT, Q.PAPRYYYYMM, W.ZZACTSS
+                     , L.TEAM_CD
+                     , L.TEAM_NM
+                     , L.ZZACTSS_CD
+                     , L.ZZACTSS_NM
+                     , Q.LIFNR, Q.NAME1
+                     , CASE WHEN Q.CNT IS NULL THEN 0 ELSE Q.CNT END AS CNT
+                     , CASE WHEN Q.OCCAMT IS NULL THEN 0 ELSE Q.OCCAMT END AS OCCAMT
+                     , CASE WHEN Q.QC IS NULL THEN 0 ELSE Q.QC END AS QC
+                     , CASE WHEN Q.POINT IS NULL THEN 0 ELSE Q.POINT END AS POINT
+                     , CASE WHEN Q.JUNG_CNT IS NULL THEN 0 ELSE Q.JUNG_CNT END AS JUNG_CNT
+                     , SUM(Q.CNT) OVER (PARTITION BY Q.LIFNR ORDER BY Q.LIFNR ) AS CNT_SUM  
+                     , SUM(Q.OCCAMT) OVER (PARTITION BY Q.LIFNR ORDER BY Q.LIFNR ) AS OCCAMT_SUM  
+                     , SUM(Q.JUNG_CNT) OVER (PARTITION BY Q.LIFNR ORDER BY Q.LIFNR ) AS JUNG_CNT_SUM  
+               FROM (
+                SELECT PAPRYYYYMM
+                     , MANDT, LIFNR, NAME1
+                     , SUM(CNT) AS CNT, SUM(OCCAMT) AS OCCAMT, SUM(JUNG_CNT) AS JUNG_CNT
+                   --  , CASE WHEN DEC(CAST(REPLACE(#VAR1#, ' ', '') AS INT) - CASE WHEN SUM(JUNG_CNT) IS NULL THEN 0.00 ELSE  DEC( DEC(SUM(CNT) ,10,2) / DEC(NULLIF(SUM(JUNG_CNT), 0),10,2) * CAST(REPLACE(#VAR3#, ' ', '') AS DOUBLE), 10, 2)  END , 10, 2) IS NULL THEN CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE) ELSE DEC(CAST(REPLACE(#VAR1#, ' ', '') AS INT) - CASE WHEN  SUM(JUNG_CNT)  IS NULL THEN 0.0 ELSE   DEC( DEC(SUM(CNT),10,2) / DEC(NULLIF(SUM(JUNG_CNT), 0),10,2) * CAST(REPLACE(#VAR3#, ' ', '') AS DOUBLE), 10, 2) END , 10, 2) END AS POINT
+                   --  , CASE WHEN DEC(CAST(REPLACE(#VAR2#, ' ', '') AS INT) - CASE WHEN SUM(JUNG_CNT) IS NULL THEN 0.00 ELSE  DEC( DEC(SUM(OCCAMT) ,10,2) / DEC(NULLIF(SUM(JUNG_CNT), 0),10,2) / CAST(REPLACE(#VAR4#, ' ', '') AS DOUBLE), 10, 2) END , 10, 2) IS NULL THEN CAST(REPLACE(#VAR2#, ' ', '') AS INT) ELSE  DEC(CAST(REPLACE(#VAR2#, ' ', '') AS INT) - CASE WHEN  SUM(JUNG_CNT) IS NULL THEN 0.0 ELSE   DEC( DEC(SUM(OCCAMT) ,10,2) / DEC(NULLIF(SUM(JUNG_CNT), 0),10,2) / CAST(REPLACE(#VAR4#, ' ', '') AS DOUBLE), 10, 2) END , 10, 2) END AS QC
+                      , CASE WHEN SUM(JUNG_CNT) IS NULL OR SUM(JUNG_CNT) = 0.00 THEN 0.00 ELSE  DEC(CAST(REPLACE(#VAR1#, ' ', '') AS DOUBLE) - DEC( DEC(SUM(CNT) ,10,2) / DEC(NULLIF(SUM(JUNG_CNT), 0),10,2) * CAST(REPLACE(#VAR3#, ' ', '') AS DOUBLE), 10, 2) , 10, 2)  END AS POINT
+                      , CASE WHEN  SUM(JUNG_CNT) IS NULL OR SUM(JUNG_CNT) = 0.00 THEN 0.00 ELSE  DEC(CAST(REPLACE(#VAR2#, ' ', '') AS DOUBLE) - DEC( DEC(SUM(OCCAMT) ,20,2) / DEC(NULLIF(SUM(JUNG_CNT), 0),20,2) / CAST(REPLACE(#VAR4#, ' ', '') AS DOUBLE), 10, 2) , 10, 2)  END AS QC
+                 FROM (
+                      SELECT MANDT
+                           , PAPRYYYYMM
+                           , LIFNR
+                           , NAME1
+                           , CASE WHEN SUM(CNT) IS NULL THEN 0 ELSE SUM(CNT) END  AS CNT 
+                           , CASE WHEN SUM(OCCAMT) IS NULL THEN 0 ELSE SUM(OCCAMT) END  AS OCCAMT       
+                           , CASE WHEN SUM(JUNG_CNT) IS NULL THEN 0 ELSE SUM(JUNG_CNT) END AS JUNG_CNT  
+                        FROM (
+                            SELECT A.MANDT
+                                 , substr(A.CREDT,1,6)  AS PAPRYYYYMM
+                                 , A.LIFNR
+                                 , C.NAME1
+                                 , COUNT(*) AS CNT 
+                                 , (SUM(A.IWBTR) + SUM(A.OWBTR))*100 AS OCCAMT       
+                                 , 0 AS JUNG_CNT 
+                              FROM SAPHEE.ZQMT007 AS A
+                        INNER JOIN SAPHEE.ZPST0034 AS C ON A.MANDT = C.MANDT AND A.LIFNR = C.LIFNR AND C.GBN = 'A' AND (C.SO = 'X' OR C.SO3 = 'X')  
+                   LEFT OUTER JOIN SAPHEE.ZMASTER02 M02 ON M02.MANDT = A.MANDT AND M02.POSID = A.PSPID AND M02.POSID_1 =  A.HOGI
+                   LEFT OUTER JOIN SAPHEE.KNA1 AS K 
+                      ON A.MANDT  = K.MANDT 
+                     AND A.IMPLFN = K.KUNNR
+                             WHERE A.MANDT = #G_MANDT#
+                               AND (A.LIFNR IS NOT NULL OR A.LIFNR != '' OR A.LIFNR != ' ')
+                               AND A.WERKS BETWEEN '1000' AND '3110'
+		  					   AND A.STATUS IN ('3','4','5','6')
+                               AND A.GUBUN = 'J'
+                               AND (substr(A.CREDT,1,6) BETWEEN #YYYYMMF#  AND #YYYYMMT#)
+                               AND A.LIFNR = K.STCD2 -- 설치귀책만 조회되도록
+                               AND C.SO5 <![CDATA[<>]]> 'X'
+                               <isNotNull col="ZTEMNO">
+                               AND A.TEMNO = #ZTEMNO#
+                               </isNotNull>
+                               <isNotNull col="ZZLIFNR">
+                               AND A.LIFNR = #ZZLIFNR#      
+                               </isNotNull>
+                               <isNotNull col="CHK_GBN">
+                               AND M02.ZZGUBUN = #CHK_GBN#
+                               </isNotNull>
+                               <isNotNull col="CHK_GBN">
+                               <isEqual col="CHK_GBN" value="10">
+                               AND (C.EL_INDC = 'X' OR (C.EL_INDC = 'X' AND C.ES_INDC = 'X')) AND A.LIFNR  <![CDATA[  <> ]]> '0000008001'
+                               </isEqual>
+                               </isNotNull>
+                               <isNotNull col="CHK_GBN">
+                               <isEqual col="CHK_GBN" value="11">
+                               AND (C.ES_INDC = 'X' OR (C.ES_INDC = 'X' AND C.ES_INDC = 'X')) AND A.LIFNR  <![CDATA[  <> ]]> '0000008001'
+                               </isEqual>
+                               </isNotNull>
+                          GROUP BY  A.MANDT, substr(A.CREDT,1,6), A.LIFNR, C.NAME1, A.PSPID, A.HOGI, A.JQPRNUM
+                      UNION ALL 
+                      (
+                         SELECT A.MANDT
+                              , substr(A.ZBOSUOUT,1,6)  AS PAPRYYYYMM--준공월
+                              , A.LIFNR 
+                              , C.NAME1
+                              , 0 AS CNT --건수
+                              , 0 AS OCCAMT     -- 발생금액  
+                              , COUNT(*) AS JUNG_CNT --준공대수
+                           FROM SAPHEE.ZMASTER02 AS A
+                     INNER JOIN SAPHEE.ZPST0034 AS C ON A.MANDT = C.MANDT AND A.LIFNR = C.LIFNR AND C.GBN = 'A' AND (C.SO = 'X' OR C.SO3 = 'X')  
+                          WHERE A.MANDT = #G_MANDT# 
+                            AND (substr(A.ZBOSUOUT,1,6) BETWEEN #YYYYMMF#  AND #YYYYMMT#) 
+                            AND A.TXT04      <![CDATA[ <> ]]>   'C'
+                            AND C.SO5 <![CDATA[<>]]> 'X'
+                            <isNotNull col="ZTEMNO">
+                            AND A.TEMNO2 = #ZTEMNO#
+                            </isNotNull>
+                            <isNotNull col="ZZLIFNR">
+                            AND A.LIFNR = #ZZLIFNR#      
+                            </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           AND A.ZZGUBUN = #CHK_GBN#
+                           </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           <isEqual col="CHK_GBN" value="10">
+                           AND (C.EL_INDC = 'X' OR (C.EL_INDC = 'X' AND C.ES_INDC = 'X')) AND A.LIFNR  <![CDATA[  <> ]]> '0000008001'
+                           </isEqual>
+                           </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           <isEqual col="CHK_GBN" value="11">
+                           AND (C.ES_INDC = 'X' OR (C.ES_INDC = 'X' AND C.ES_INDC = 'X')) AND A.LIFNR  <![CDATA[  <> ]]> '0000008001'
+                           </isEqual>
+                           </isNotNull>
+                     GROUP BY A.MANDT, substr(A.ZBOSUOUT,1,6),  A.LIFNR, C.NAME1
+                     )
+                     <isNotNull col="YYYYMMDD0" >
+                     UNION ALL
+                     (
+                         SELECT MANDT
+                              , substr(#YYYYMMDD0#,1,6) AS PAPRYYYYMM
+                              , LIFNR
+                              , NAME1
+                              , 0 AS CNT
+                              , 0 AS OCCAMT 
+                              , 0 AS JUNG_CNT 
+                           FROM SAPHEE.ZPST0034 
+                          WHERE MANDT=#G_MANDT# 
+                            AND GBN = 'A' 
+                            AND (SO = 'X' OR SO3 = 'X')
+                            AND SO5 <![CDATA[<>]]> 'X'
+                          <isNotNull col="ZZLIFNR">
+                            AND LIFNR = #ZZLIFNR#      
+                          </isNotNull>
+                          <isNotNull col="CHK_GBN">
+                          <isEqual col="CHK_GBN" value="10">
+                            AND (EL_INDC = 'X' OR (EL_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                          </isEqual>
+                          </isNotNull>
+                          <isNotNull col="CHK_GBN">
+                          <isEqual col="CHK_GBN" value="11">
+                            AND (ES_INDC = 'X' OR (ES_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                          </isEqual>
+                          </isNotNull>
+                     )
+                     </isNotNull>
+                     <isNotNull col="YYYYMMDD1" >
+                     UNION ALL
+                     (
+                         SELECT MANDT
+                              , substr(#YYYYMMDD1#,1,6)  AS PAPRYYYYMM
+                              , LIFNR
+                              , NAME1
+                              , 0 AS CNT
+                              , 0 AS OCCAMT 
+                              , 0 AS JUNG_CNT --준공대수
+                           FROM SAPHEE.ZPST0034 
+                          WHERE MANDT= #G_MANDT#
+                           AND GBN = 'A' 
+                           AND (SO = 'X' OR SO3 = 'X')
+                           AND SO5 <![CDATA[<>]]> 'X'
+                          <isNotNull col="ZZLIFNR">
+                            AND LIFNR = #ZZLIFNR#      
+                          </isNotNull>
+                          <isNotNull col="CHK_GBN">
+                          <isEqual col="CHK_GBN" value="10">
+                            AND (EL_INDC = 'X' OR (EL_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                          </isEqual>
+                          </isNotNull>
+                          <isNotNull col="CHK_GBN">
+                          <isEqual col="CHK_GBN" value="11">
+                            AND (ES_INDC = 'X' OR (ES_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                          </isEqual>
+                          </isNotNull>
+                     )
+                     </isNotNull>
+                     <isNotNull col="YYYYMMDD2" >
+                     UNION ALL
+                     (
+                         SELECT MANDT
+                              , substr(#YYYYMMDD2#,1,6)  AS PAPRYYYYMM
+                              , LIFNR
+                              , NAME1
+                              , 0 AS CNT
+                              , 0 AS OCCAMT 
+                              , 0 AS JUNG_CNT --준공대수
+                           FROM SAPHEE.ZPST0034 
+                          WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+                            AND SO5 <![CDATA[<>]]> 'X'
+                          <isNotNull col="ZZLIFNR">
+                            AND LIFNR = #ZZLIFNR#      
+                          </isNotNull>
+                          <isNotNull col="CHK_GBN">
+                          <isEqual col="CHK_GBN" value="10">
+                            AND (EL_INDC = 'X' OR (EL_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                          </isEqual>
+                          </isNotNull>
+                          <isNotNull col="CHK_GBN">
+                          <isEqual col="CHK_GBN" value="11">
+                            AND (ES_INDC = 'X' OR (ES_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                          </isEqual>
+                          </isNotNull>
+                     )
+                     </isNotNull>
+                     <isNotNull col="YYYYMMDD3" >
+                     UNION ALL
+                     (
+                        SELECT MANDT
+                             , substr(#YYYYMMDD3#,1,6)  AS PAPRYYYYMM
+                             , LIFNR
+                             , NAME1
+                             , 0 AS CNT
+                             , 0 AS OCCAMT 
+                             , 0 AS JUNG_CNT --준공대수
+                          FROM SAPHEE.ZPST0034 
+                         WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X')
+                           AND SO5 <![CDATA[<>]]> 'X'
+                           <isNotNull col="ZZLIFNR">
+                           AND LIFNR = #ZZLIFNR#      
+                           </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           <isEqual col="CHK_GBN" value="10">
+                           AND (EL_INDC = 'X' OR (EL_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                           </isEqual>
+                           </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           <isEqual col="CHK_GBN" value="11">
+                           AND (ES_INDC = 'X' OR (ES_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                           </isEqual>
+                           </isNotNull>
+                     )
+                     </isNotNull>
+                     <isNotNull col="YYYYMMDD4" >
+                     UNION ALL
+                     (
+                        SELECT MANDT
+                             , substr(#YYYYMMDD4#,1,6)  AS PAPRYYYYMM
+                             , LIFNR
+                             , NAME1
+                             , 0 AS CNT
+                             , 0 AS OCCAMT 
+                             , 0 AS JUNG_CNT --준공대수
+                          FROM SAPHEE.ZPST0034 
+                         WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+                           AND SO5 <![CDATA[<>]]> 'X'
+                           <isNotNull col="ZZLIFNR">
+                           AND LIFNR = #ZZLIFNR#      
+                           </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           <isEqual col="CHK_GBN" value="10">
+                           AND (EL_INDC = 'X' OR (EL_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                           </isEqual>
+                           </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           <isEqual col="CHK_GBN" value="11">
+                           AND (ES_INDC = 'X' OR (ES_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                           </isEqual>
+                           </isNotNull>
+                     )
+                     </isNotNull>
+                     <isNotNull col="YYYYMMDD5" >
+                     UNION ALL
+                     (
+                        SELECT MANDT
+                             , substr(#YYYYMMDD5#,1,6)  AS PAPRYYYYMM
+                             , LIFNR
+                             , NAME1
+                             , 0 AS CNT
+                             , 0 AS OCCAMT 
+                             , 0 AS JUNG_CNT --준공대수
+                         FROM SAPHEE.ZPST0034 
+                        WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X')
+                          AND SO5 <![CDATA[<>]]> 'X'
+                          <isNotNull col="ZZLIFNR">
+                          AND LIFNR = #ZZLIFNR#      
+                          </isNotNull> 
+                          <isNotNull col="CHK_GBN">
+                          <isEqual col="CHK_GBN" value="10">
+                          AND (EL_INDC = 'X' OR (EL_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                          </isEqual>
+                          </isNotNull>
+                          <isNotNull col="CHK_GBN">
+                          <isEqual col="CHK_GBN" value="11">
+                          AND (ES_INDC = 'X' OR (ES_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                          </isEqual>
+                          </isNotNull>
+                     )
+                     </isNotNull>
+                     <isNotNull col="YYYYMMDD6" >
+                     UNION ALL
+                     (
+                        SELECT MANDT
+                             , substr(#YYYYMMDD6#,1,6)  AS PAPRYYYYMM
+                             , LIFNR
+                             , NAME1
+                             , 0 AS CNT
+                             , 0 AS OCCAMT 
+                             , 0 AS JUNG_CNT --준공대수
+                          FROM SAPHEE.ZPST0034 
+                         WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+                           AND SO5 <![CDATA[<>]]> 'X'
+                           <isNotNull col="ZZLIFNR">
+                           AND LIFNR = #ZZLIFNR#      
+                           </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           <isEqual col="CHK_GBN" value="10">
+                           AND (EL_INDC = 'X' OR (EL_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                           </isEqual>
+                           </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           <isEqual col="CHK_GBN" value="11">
+                           AND (ES_INDC = 'X' OR (ES_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                           </isEqual>
+                           </isNotNull>
+                     )
+                     </isNotNull>
+                     <isNotNull col="YYYYMMDD7" >
+                     UNION ALL
+                     (
+                        SELECT MANDT
+                             , substr(#YYYYMMDD7#,1,6)  AS PAPRYYYYMM
+                             , LIFNR
+                             , NAME1
+                             , 0 AS CNT
+                             , 0 AS OCCAMT 
+                             , 0 AS JUNG_CNT --준공대수
+                          FROM SAPHEE.ZPST0034 
+                         WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+                           AND SO5 <![CDATA[<>]]> 'X'
+                            <isNotNull col="ZZLIFNR">
+                           AND LIFNR = #ZZLIFNR#      
+                           </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           <isEqual col="CHK_GBN" value="10">
+                           AND (EL_INDC = 'X' OR (EL_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                           </isEqual>
+                           </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           <isEqual col="CHK_GBN" value="11">
+                           AND (ES_INDC = 'X' OR (ES_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                           </isEqual>
+                           </isNotNull>
+                     )
+                     </isNotNull>
+                     <isNotNull col="YYYYMMDD8" >
+                     UNION ALL
+                     (
+                        SELECT MANDT
+                             , substr(#YYYYMMDD8#,1,6)  AS PAPRYYYYMM
+                             , LIFNR
+                             , NAME1
+                             , 0 AS CNT
+                             , 0 AS OCCAMT 
+                             , 0 AS JUNG_CNT --준공대수
+                          FROM SAPHEE.ZPST0034 
+                         WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+                           AND SO5 <![CDATA[<>]]> 'X'
+                           <isNotNull col="ZZLIFNR">
+                           AND LIFNR = #ZZLIFNR#      
+                           </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           <isEqual col="CHK_GBN" value="10">
+                           AND (EL_INDC = 'X' OR (EL_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                           </isEqual>
+                           </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           <isEqual col="CHK_GBN" value="11">
+                           AND (ES_INDC = 'X' OR (ES_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                           </isEqual>
+                           </isNotNull>
+                     )
+                     </isNotNull>
+                     <isNotNull col="YYYYMMDD9" >
+                     UNION ALL
+                     (
+                        SELECT MANDT
+                             , substr(#YYYYMMDD9#,1,6)  AS PAPRYYYYMM
+                             , LIFNR
+                             , NAME1
+                             , 0 AS CNT
+                             , 0 AS OCCAMT 
+                             , 0 AS JUNG_CNT --준공대수
+                          FROM SAPHEE.ZPST0034 
+                         WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+                           AND SO5 <![CDATA[<>]]> 'X'
+                           <isNotNull col="ZZLIFNR">
+                           AND LIFNR = #ZZLIFNR#      
+                           </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           <isEqual col="CHK_GBN" value="10">
+                           AND (EL_INDC = 'X' OR (EL_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                           </isEqual>
+                           </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           <isEqual col="CHK_GBN" value="11">
+                           AND (ES_INDC = 'X' OR (ES_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                           </isEqual>
+                           </isNotNull>
+                     )
+                     </isNotNull>
+                     <isNotNull col="YYYYMMDD10" >
+                     UNION ALL
+                     (
+                        SELECT MANDT
+                             , substr(#YYYYMMDD10#,1,6)  AS PAPRYYYYMM
+                             , LIFNR
+                             , NAME1
+                             , 0 AS CNT
+                             , 0 AS OCCAMT 
+                             , 0 AS JUNG_CNT --준공대수
+                          FROM SAPHEE.ZPST0034 
+                         WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+                           AND SO5 <![CDATA[<>]]> 'X'
+                           <isNotNull col="ZZLIFNR">
+                           AND LIFNR = #ZZLIFNR#      
+                           </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           <isEqual col="CHK_GBN" value="10">
+                           AND (EL_INDC = 'X' OR (EL_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                           </isEqual>
+                           </isNotNull>
+                           <isNotNull col="CHK_GBN">
+                           <isEqual col="CHK_GBN" value="11">
+                           AND (ES_INDC = 'X' OR (ES_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                           </isEqual>
+                           </isNotNull>
+                     )
+                     </isNotNull>
+                     <isNotNull col="YYYYMMDD11" >
+                     UNION ALL
+                     (
+                         SELECT MANDT
+                              , SUBSTR(#YYYYMMDD11#,1,6)  AS PAPRYYYYMM
+                              , LIFNR
+                              , NAME1
+                              , 0 AS CNT
+                              , 0 AS OCCAMT 
+                              , 0 AS JUNG_CNT --준공대수
+                           FROM SAPHEE.ZPST0034 
+                          WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+                            AND SO5 <![CDATA[<>]]> 'X'
+                          <isNotNull col="ZZLIFNR">
+                            AND LIFNR = #ZZLIFNR#      
+                          </isNotNull>
+                          <isNotNull col="CHK_GBN">
+                          <isEqual col="CHK_GBN" value="10">
+                            AND (EL_INDC = 'X' OR (EL_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                          </isEqual>
+                          </isNotNull>
+                          <isNotNull col="CHK_GBN">
+                          <isEqual col="CHK_GBN" value="11">
+                            AND (ES_INDC = 'X' OR (ES_INDC = 'X' AND ES_INDC = 'X')) AND LIFNR  <![CDATA[  <> ]]> '0000008001'
+                          </isEqual>
+                          </isNotNull>
+                     )
+                     </isNotNull>
+                ) GROUP BY MANDT, PAPRYYYYMM, LIFNR, NAME1
+            ) GROUP BY MANDT, PAPRYYYYMM, LIFNR, NAME1
+     ) AS Q    
+    INNER JOIN SAPHEE.ZPST0034 AS C 
+            ON Q.MANDT = C.MANDT AND Q.LIFNR = C.LIFNR AND C.GBN = 'A' AND (C.SO = 'X' OR C.SO3 = 'X')
+    LEFT OUTER JOIN SAPHEE.ZWBT010 W
+                 ON Q.MANDT = W.MANDT
+                AND Q.LIFNR = W.LIFNR
+    INNER JOIN  
+    (
+       SELECT MANDT
+            , DTEXT3 AS TEAM_CD     --팀코드
+            , DTEXT4 AS TEAM_NM     --팀명
+            , CODE2 AS ZZACTSS_CD   --지사코드
+            , CTEXT2 AS ZZACTSS_NM  --지사명
+         FROM SAPHEE.ZLCODE N 
+        WHERE N.CODE1 = 'PS003' AND N.DTEXT3  <![CDATA[ <> ]]>  '' 
+          AND N.LANG = 'ko' 
+     ) L ON W.MANDT = L.MANDT
+        AND W.ZZACTSS = L.ZZACTSS_CD
+   WHERE (W.ZZACTSS IS NOT NULL OR W.ZZACTSS != '' OR W.ZZACTSS != ' ')
+      AND C.SO5 <![CDATA[<>]]> 'X'
+       <isNotNull col="CHK_GBN">
+       <isEqual col="CHK_GBN" value="10">
+       AND (C.EL_INDC = 'X' OR (C.EL_INDC = 'X' AND C.ES_INDC = 'X')) AND Q.LIFNR  <![CDATA[  <> ]]> '0000008001'
+       </isEqual>
+       </isNotNull>
+       <isNotNull col="CHK_GBN">
+       <isEqual col="CHK_GBN" value="11">
+       AND (C.ES_INDC = 'X' OR (C.ES_INDC = 'X' AND C.ES_INDC = 'X')) AND Q.LIFNR  <![CDATA[  <> ]]> '0000008001'
+       </isEqual>
+       </isNotNull>
+      <isNotNull col="TEMNO">
+            AND W.ZZACTSS IN ( SELECT CODE2 FROM SAPHEE.ZLCODE  WHERE MANDT = Q.MANDT AND CODE1 = 'PS003' AND LANG = 'ko' AND DTEXT3 = #TEMNO# )
+       </isNotNull>
+       <isNotNull col="ZZACTSS">
+           AND W.ZZACTSS = #ZZACTSS#
+       </isNotNull>
+       ) AS P 
+    )
+  )
+  
+FOR FETCH ONLY
+WITH UR</statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_list1">
+    </output>
+</query>
+
+

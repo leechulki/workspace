@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+	SELECT D.DOCU_NO
+		 , D.APP_STATE
+		 , D.APP_CNFM_ID
+		 , D.APP_CNFM_NM
+		 , CASE WHEN D.APP_CNFM_DT = ''
+		        THEN ''
+		        ELSE SUBSTR(D.APP_CNFM_DT,1,4)||'.'||SUBSTR(D.APP_CNFM_DT,5,2)||'.'||SUBSTR(D.APP_CNFM_DT,7,2)
+		        END AS APP_CNFM_DT
+		 , D.REJT_DT
+		 , D.REJT_MEMO
+		 , D.APP_MEMO
+		 , CASE WHEN D.APP_STATE =     (
+			 								SELECT 'A'||CAST(VALUE(CAST(SUBSTR(M.APP_STATE,2,1) AS INT),0)+1 AS CHAR(3))
+			 								  FROM SAPHEE.ZPSTEA01M AS M
+			 								 WHERE M.MANDT = D.MANDT
+			 								   AND M.DOCU_NO = D.DOCU_NO
+		 					       	    )
+		        THEN 'Y'
+		        ELSE 'N'
+		        END AS APP_MEMO_INDC
+	     , HR.RANK_N RANK
+	     , HR.DEPT_N DPTNM
+	     , CASE WHEN LOCATE( '(', HR.DEPT_N) = 0
+	            THEN HR.DEPT_N
+	            ELSE SUBSTR(HR.DEPT_N,1,LOCATE( '(', HR.DEPT_N)-1)
+	            END AS DPTNM1
+         , CASE WHEN LOCATE( '(', HR.DEPT_N) = 0
+                THEN ''
+                WHEN LOCATE( ')', HR.DEPT_N) = 0
+                THEN ''
+                ELSE SUBSTRING(HR.DEPT_N,LOCATE('(', HR.DEPT_N, CODEUNITS32),LENGTH(HR.DEPT_N, CODEUNITS32), CODEUNITS32)
+                END AS DPTNM2
+	     , CASE WHEN TRIM(UR.USERMBPN) > '' 
+	            THEN UR.USERMBPN
+	            ELSE HR.TELH 
+	            END AS USERMBPN
+	     , HR.AREA_N
+	  FROM SAPHEE.ZPSTEA01D AS D
+	  LEFT OUTER JOIN SAPHEE.ZUSERF UR
+	               ON D.MANDT      = UR.MANDT
+	              AND D.APP_CNFM_ID = UR.USERNUMB
+	  LEFT OUTER JOIN SAPHEE.ZHRT001 HR
+	               ON D.MANDT      = HR.MANDT
+	              AND 'H'||D.APP_CNFM_ID = HR.PSNO
+	 WHERE D.MANDT = #G_MANDT#
+	   AND UR.USERNUMB NOT LIKE 'Z%'
+	   AND HR.DPT1_N LIKE '%' || '' || '%'
+	   AND D.DOCU_NO = #DOCU_NO#
+	 WITH UR
+	
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_detail">
+	</output>
+</query>

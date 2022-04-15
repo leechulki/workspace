@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT MAX(TT.CEO) AS CEO, SUM(TT.ALL_MAN) AS ALL_MAN, SUM(TT.D_MAN) AS D_MAN, SUM(TT.S_MAN) AS S_MAN,
+             SUM(TT.P_SITE) AS P_SITE, SUM(TT.P_CNT) AS P_CNT, MAX(TT.VDATU) AS VDATU, MAX(TT.F_DATE) AS F_DATE,
+			 MAX(TT.T_DATE) AS T_DATE, MAX(TT.SITE_NM) AS SITE_NM, MAX(TT.KUNNR) AS KUNNR
+   FROM 
+             (
+SELECT MAX(A.NAMEC) AS CEO,    COUNT(*) AS ALL_MAN ,
+			 SUM( CASE WHEN A.DIRECT = 'X' THEN 1 ELSE 0  END) AS D_MAN,
+			 SUM( CASE WHEN A.INDIRECT = 'X' THEN 1 ELSE 0  END) AS S_MAN	,
+			 0 AS P_SITE, 0 AS P_CNT,
+			 '' AS VDATU, '' AS F_DATE, '' AS T_DATE, '' AS SITE_NM, '' AS KUNNR 				 			 			
+   FROM SAPHEE.ZPST0001 AS A
+ WHERE A.MANDT = #G_MANDT#
+      AND A.LIFNR = #ZZLIFNR#
+	  AND A.RETIF &lt;&gt; 'X'
+	  AND A.DELEF &lt;&gt; 'X'
+	  AND A.GBN  = 'A'	  
+GROUP BY 	 A.LIFNR  
+
+UNION ALL
+
+SELECT '' AS CEO, 0 AS ALL_MAN, 0 AS D_MAN, 0 AS S_MAN, 
+             COUNT(*) AS P_SITE, SUM(T1.P_CNT) AS P_CNT,
+			 '' AS VDATU, '' AS F_DATE, '' AS T_DATE, '' AS SITE_NM, '' AS KUNNR 					
+  FROM (
+  	   		 SELECT A.POSID AS PSPID, COUNT(*) AS P_CNT
+   			 	FROM SAPHEE.ZMASTER01 AS A
+   			    INNER JOIN SAPHEE.ZMASTER02 AS B
+        		    ON A.MANDT = B.MANDT
+	  			   AND A.POSID  = B.POSID
+ 			  WHERE A.MANDT = #G_MANDT#
+      		       AND B.ZZGUBUN BETWEEN '10' AND '14'
+	  			   AND B.PRART IN ('01', '02', '11')
+      			   AND B.ZZSHIP1 BETWEEN '19990101' AND #CURR_DATE#   
+	  			   AND B.ZZCHAKG = 'X'
+	  			   AND B.TXT04 &lt;&gt; 'C'
+	  			   AND B.LIFNR = #ZZLIFNR#
+	  			   AND NOT EXISTS ( SELECT * 
+	                                   	   	 		FROM SAPHEE.ZMASTER02 AS C
+									 			  WHERE C.MANDT = B.MANDT
+									      		  	   AND C.POSID  = B.POSID
+										  			   AND C.POSID_1 = B.POSID_1
+										  			   AND C.ZZJUNGO = 'X'
+										  			   AND C.ZZCOMP2 &lt;= #CURR_DATE#  )
+             GROUP BY A.POSID   ) AS T1										   
+	
+<isNotNull col="PSPID">		 
+UNION ALL
+
+SELECT '' AS CEO, 0 AS ALL_MAN, 0 AS D_MAN, 0 AS S_MAN, 
+             0 AS P_SITE, 0 AS P_CNT,
+             MAX(A.VDATU) AS VDATU, MIN(B.ZZSHIP1) AS F_DATE, MAX(B.ZZCOMP2) AS T_DATE, MAX(C.ZSITE_NM) AS SITE_NM, MAX(C.KUNNR_NM) AS KUNNR 			  
+   FROM SAPHEE.VBAK AS A
+   INNER JOIN SAPHEE.ZMASTER02 AS B
+        ON A.MANDT = B.MANDT
+	  AND A.ZZPJT_ID = B.POSID
+   INNER JOIN SAPHEE.ZMASTER01 AS C
+        ON A.MANDT = C.MANDT
+	  AND A.ZZPJT_ID = C.POSID
+ WHERE A.MANDT = #G_MANDT#  
+	  AND B.ZZGUBUN BETWEEN '10' AND '14' 
+	  AND B.PRART IN ('01', '02', '11') 
+	  AND B.ZZCHAKG = 'X'
+      AND B.TXT04 &lt;&gt; 'C'
+	  AND B.LIFNR = #ZZLIFNR#
+	  AND A.ZZPJT_ID = #PSPID#
+</isNotNull>
+
+	  
+	  ) AS TT
+	  
+FOR FETCH ONLY
+WITH UR	 	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_head">
+	</output>
+</query>

@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>update</type>
+	<description><![CDATA[리모델링 실측 값 이력 입력]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+		INSERT INTO SAPHEE.ZPST1141
+		       (
+		       MANDT,
+		       SUVSN,
+		       SUVPRH,
+		       HTSER,
+		       SUVTYPE,
+		       SUVPRD,
+		       CALPRD,
+		       MODYPRD,
+		       CALNAM,
+		       CALDAT,
+		       MODYNAM,
+		       MODYDAT,
+		       ERDAT,
+		       ERZET,
+		       ERNAM,
+		       AEDAT,
+		       AEZET,
+		       AENAM
+		       )
+		SELECT MANDT,
+		       SUVSN,
+		       SUVPRH,
+		       CAST(#MAX_HTSER# AS INTEGER) AS HTSER,
+		       SUVTYPE,
+		       SUVPRD,
+		       CALPRD,
+		       MODYPRD,
+		       CALNAM,
+		       CALDAT,
+		       MODYNAM,
+		       MODYDAT,
+		       ERDAT,
+		       ERZET,
+		       ERNAM,
+		       AEDAT,
+		       AEZET,
+		       AENAM   
+		  FROM SAPHEE.ZPST1136 
+		 WHERE MANDT = #G_MANDT# 
+		   AND SUVSN = #SUVSN#
+     UNION ALL
+     SELECT A.MANDT,
+     		    A.SUVSN,
+     		    B.SUVPRH,
+     		    A.HTSER,
+     		    B.SUVTYPE AS SUBTYPE,
+     		    CAST(NVL(C.CNT,0) AS VARCHAR(200)) AS SUVPRD,
+     		    A.CALPRD,
+     		    A.MODYPRD,
+     		    A.CALNAM,
+     		    A.CALDAT,
+     		    A.MODYNAM,
+     		    A.MODYDAT,
+     		    A.ERDAT,
+     		    A.ERZET,
+     		    A.ERNAM,
+     		    A.AEDAT,
+     		    A.AEZET,
+     		    A.AENAM
+     FROM    TABLE (
+             SELECT CAST(#G_MANDT# AS VARCHAR(200)) AS MANDT,
+                    CAST(#SUVSN# AS VARCHAR(200)) AS SUVSN,
+                    CAST(#MAX_HTSER# AS INTEGER) AS HTSER,
+                    '' AS CALPRD,
+                    '' AS MODYPRD,
+                    '' AS CALNAM,
+                    '' AS CALDAT,
+                    '' AS MODYNAM,
+                    '' AS MODYDAT,
+                    HEX(CURRENT DATE) AS ERDAT,
+                    HEX(CURRENT TIME) AS ERZET,
+                    '' AS ERNAM,
+                    HEX(CURRENT DATE) AS AEDAT,
+                    HEX(CURRENT TIME) AS AEZET,
+                    '' AS AENAM
+             FROM   SYSIBM.SYSDUMMY1
+             ) AS A
+             JOIN TABLE (
+             SELECT CAST(#G_MANDT# AS VARCHAR(200)) AS MANDT
+                   ,CAST('RPT_C_CHCNT' AS VARCHAR(200)) AS SUVPRH
+                   ,CAST('C' AS VARCHAR(200)) AS SUVTYPE
+             FROM    SYSIBM.SYSDUMMY1
+             UNION ALL
+             SELECT CAST(#G_MANDT# AS VARCHAR(200)) AS MANDT
+                   ,CAST('RPT_E_CHCNT' AS VARCHAR(200)) AS SUVPRH
+                   ,CAST('E' AS VARCHAR(200)) AS SUVTYPE
+             FROM    SYSIBM.SYSDUMMY1
+             UNION ALL
+             SELECT CAST(#G_MANDT# AS VARCHAR(200)) AS MANDT
+                   ,CAST('RPT_H_CHCNT' AS VARCHAR(200)) AS SUVPRH
+                   ,CAST('H' AS VARCHAR(200)) AS SUVTYPE
+             FROM    SYSIBM.SYSDUMMY1
+             UNION ALL
+             SELECT CAST(#G_MANDT# AS VARCHAR(200)) AS MANDT
+                   ,CAST('RPT_M_CHCNT' AS VARCHAR(200)) AS SUVPRH
+                   ,CAST('M' AS VARCHAR(200)) AS SUVTYPE
+             FROM    SYSIBM.SYSDUMMY1
+             ) AS B ON A.MANDT = B.MANDT
+             LEFT OUTER JOIN TABLE (
+             SELECT SUBSTR(A.ITEMDIV, 1,1) AS SUVTYPE
+                   ,COUNT(A.MANDT) AS CNT
+             FROM   SAPHEE.ZPST1131 A
+                    LEFT OUTER JOIN SAPHEE.ZPST1141 AS B1 ON A.MANDT = B1.MANDT AND B1.SUVSN = #SUVSN# AND A.SUVPRH = B1.SUVPRH AND B1.HTSER = (#MAX_HTSER#-1)
+                    LEFT OUTER JOIN SAPHEE.ZPST1136 AS B2 ON A.MANDT = B1.MANDT AND B2.SUVSN = #SUVSN# AND A.SUVPRH = B2.SUVPRH
+             WHERE  A.MANDT = #G_MANDT#
+               AND  A.DATADIV = 'ELR'
+               AND  B1.SUVPRD != B2.SUVPRD
+             GROUP BY SUBSTR(A.ITEMDIV, 1,1)
+             ) AS C ON B.SUVTYPE = C.SUVTYPE
+     UNION ALL
+     SELECT 	A.MANDT,
+     		    A.SUVSN,
+     		    B.SUVPRH,
+     		    A.HTSER,
+     		    B.SUVTYPE AS SUBTYPE,
+     		    CAST(NVL(C.CNT,0) AS VARCHAR(200)) AS SUVPRD,
+     		    A.CALPRD,
+     		    A.MODYPRD,
+     		    A.CALNAM,
+     		    A.CALDAT,
+     		    A.MODYNAM,
+     		    A.MODYDAT,
+     		    A.ERDAT,
+     		    A.ERZET,
+     		    A.ERNAM,
+     		    A.AEDAT,
+     		    A.AEZET,
+     		    A.AENAM
+     FROM    TABLE (
+             SELECT CAST(#G_MANDT# AS VARCHAR(200)) AS MANDT,
+                    CAST(#SUVSN# AS VARCHAR(200)) AS SUVSN,
+                    CAST(#MAX_HTSER# AS INTEGER) AS HTSER,
+                    '' AS CALPRD,
+                    '' AS MODYPRD,
+                    '' AS CALNAM,
+                    '' AS CALDAT,
+                    '' AS MODYNAM,
+                    '' AS MODYDAT,
+                    HEX(CURRENT DATE) AS ERDAT,
+                    HEX(CURRENT TIME) AS ERZET,
+                    '' AS ERNAM,
+                    HEX(CURRENT DATE) AS AEDAT,
+                    HEX(CURRENT TIME) AS AEZET,
+                    '' AS AENAM
+             FROM   SYSIBM.SYSDUMMY1
+             ) AS A
+             JOIN TABLE (
+             SELECT CAST(#G_MANDT# AS VARCHAR(200)) AS MANDT
+                   ,CAST('RPT_F_CHCNT' AS VARCHAR(200)) AS SUVPRH
+                   ,CAST('F' AS VARCHAR(200)) AS SUVTYPE
+             FROM    SYSIBM.SYSDUMMY1
+             ) AS B ON A.MANDT = B.MANDT
+             LEFT OUTER JOIN TABLE (
+             SELECT CAST('F' AS VARCHAR(200)) AS SUVTYPE
+                   ,COUNT(A.MANDT) AS CNT
+             FROM   SAPHEE.ZPST1131 A
+                    LEFT OUTER JOIN SAPHEE.ZPST1142 AS B1 ON A.MANDT = B1.MANDT AND B1.SUVSN = #SUVSN# AND A.SUVPRH = B1.SUVPRH AND B1.HTSER = (#MAX_HTSER#-1)
+                    LEFT OUTER JOIN SAPHEE.ZPST1137 AS B2 ON A.MANDT = B1.MANDT AND B2.SUVSN = #SUVSN# AND A.SUVPRH = B2.SUVPRH AND B1.INORDER = B2.INORDER
+             WHERE  A.MANDT = #G_MANDT#
+               AND  A.DATADIV = 'ELR'
+               AND  B1.INORDER = B1.INORDER
+               AND  B1.SUVPRD != B2.SUVPRD
+             GROUP BY SUBSTR(A.ITEMDIV, 1,1)
+             ) AS C ON B.SUVTYPE = C.SUVTYPE
+    </statement>
+	<input default-name="ds_cond2">
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

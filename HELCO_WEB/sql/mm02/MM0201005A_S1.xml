@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[발주 유관업체 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+WITH BLOCK (MANDT,MATNR,BLOCK_NO) AS  
+   (SELECT 
+         DISTINCT 
+         MANDT
+       , MATNR
+       , BLOCK_NO 
+    FROM SAPHEE.ZMMT011 
+    WHERE MANDT=  #G_MANDT# 
+        AND BLOCK_NO IN ('E280A','E280B','E322B05','E322B06','E322B07','E322C01','E322C02','E322C03','E322C04','AR11','E322C22','E331C03',
+                         'C361A', 'C361B', 'C361C', 'C361D','A260B02','A204A01','A204A31'))
+
+SELECT
+      M13.MANDT AS  MANDT
+    , M13.EBELN AS EBELN
+    , M13.EBELP AS EBELP
+    , M13.POSID AS POSID
+    , M13.POST1 AS POST1
+    , M13.MATNR AS MATNR
+    , M13.MENGE AS MENGE
+    , M13.MEINS AS MEINS
+    , M13.TXZ01 AS TXZ01
+    , M13.LIFNR AS LIFNR
+    , M13.LNAME AS LNAME
+    , VALUE(CASE WHEN B.BLOCK_NO IN ('E280A','E280B','E322B05','E322B06','E322B07','C361A', 'C361B', 'C361C', 'C361D') THEN (
+     -- OPB, JAMB 조회시 CAR WALL 업체 표현
+                  SELECT 
+                      MAX(LNAME) 
+                  FROM SAPHEE.ZMMT013 AS M3 
+                    LEFT OUTER JOIN BLOCK AS B ON B.MANDT= M3.MANDT 
+                                               AND B.MATNR = M3.MATNR  
+	              WHERE M3.MANDT= M13.MANDT 
+                          AND M3.POSID = M13.POSID 
+                          AND B.BLOCK_NO IN  ('E322C01','E322C02','E322C03','E322C04','AR11','E322C22','E331C03') 
+                    GROUP BY M13.POSID) 
+                -- 2018.11.09 왕재영 SW 요청으로 인해 주석처리
+                -- WHEN B.BLOCK_NO IN ('B184B', 'B184A01','C371A', 'C371A02') THEN (
+     -- PIT SCREEN,TOE GUARD 조회시 JAMB 업체 표현
+                 --  SELECT 
+                   --   MAX(LNAME) 
+                  -- FROM SAPHEE.ZMMT013 AS M3 
+                   -- LEFT OUTER JOIN BLOCK AS B ON B.MANDT= M3.MANDT 
+                                              -- AND B.MATNR = M3.MATNR  
+	            -- WHERE M3.MANDT= M13.MANDT 
+                         -- AND M3.POSID = M13.POSID 
+                         -- AND B.BLOCK_NO IN  ('C361A', 'C361B', 'C361C', 'C361D')  
+                   -- GROUP BY M13.POSID) 
+			     WHEN B.BLOCK_NO IN ('A260B02') THEN (
+     -- BREAK BATTERY 조회시 CP 업체 표현 - 정석전기
+                   SELECT 
+                      MAX(LNAME) 
+                  FROM SAPHEE.ZMMT013 AS M3 
+                    LEFT OUTER JOIN BLOCK AS B ON B.MANDT= M3.MANDT 
+                                               AND B.MATNR = M3.MATNR  
+	              WHERE M3.MANDT= M13.MANDT 
+                          AND M3.POSID = M13.POSID 
+                          AND B.BLOCK_NO IN  ('A204A01','A204A31')  
+                    GROUP BY M13.POSID)  END
+        ,'') AS RLNAME
+        
+  FROM SAPHEE.ZMMT013 AS M13
+     LEFT OUTER JOIN BLOCK AS B ON B.MANDT= M13.MANDT
+	                                                AND B.MATNR = M13.MATNR
+  WHERE M13.MANDT= #G_MANDT# 
+	   AND M13.LIFNR = #LIFNR#
+<isEqual col="GUBN" value="1">
+    AND M13.UDATE BETWEEN #UDATE1# AND #UDATE2#
+</isEqual>
+<isEqual col="GUBN" value="2">
+    AND M13.SDATE BETWEEN #UDATE1# AND #UDATE2#
+</isEqual>
+
+    AND M13.STATE = '2'
+<isNotNull col="WERKS">
+    AND M13.WERKS = #WERKS#
+</isNotNull>
+<isNotNull col="LGORT">
+    AND M13.LGORT = #LGORT#
+</isNotNull>
+<isNotNull col="EKGRP">
+    AND M13.EKGRP = #EKGRP#
+</isNotNull>
+ <isNotNull col="POSID1">
+    AND M13.POSID BETWEEN  #POSID1# AND #POSID2#
+ </isNotNull>
+ <isNotNull col="MATNR">
+    AND M13.MATNR LIKE #MATNR# || '%'
+ </isNotNull>
+ <isNotNull col="EBELN">
+    AND M13.EBELN = #EBELN#
+ </isNotNull>
+<isNotNull col="EXTWG">
+    AND M13.EXTWG LIKE '%'||#EXTWG#||'%'
+</isNotNull>
+
+    AND B.BLOCK_NO IN ('E280A','E280B','E322B05','E322B06','E322B07','C361A','C361B','C361C','C361D','A260B02')
+
+  ORDER BY EBELN,EBELP,UDATE,POSID
+  FOR FETCH ONLY
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="UDATE1" size="255" type="VARCHAR" description="" /> 
+		<col name="UDATE2" size="255" type="VARCHAR" description="" /> 
+		<col name="WERKS" size="255" type="VARCHAR" description="" /> 
+		<col name="LGORT" size="255" type="VARCHAR" description="" /> 
+		<col name="EKGRP" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID1" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID2" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="255" type="VARCHAR" description="" /> 
+		<col name="EBELN" size="255" type="VARCHAR" description="" /> 
+		<col name="EXTWG" size="255" type="VARCHAR" description="" /> 
+		<col name="GUBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="EBELN" size="30" type="VARCHAR" description="" /> 
+		<col name="EBELP" size="15" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="30" type="VARCHAR" description="" /> 
+		<col name="LNAME" size="105" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MEINS" size="9" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="15" type="NUMERIC" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POST1" size="120" type="VARCHAR" description="" /> 
+		<col name="RLNAME" size="105" type="VARCHAR" description="" /> 
+		<col name="TXZ01" size="120" type="VARCHAR" description="" /> 
+	</output>
+</query>

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+	
+	SELECT A.RECAD_DA
+     , B.CDATE
+     , A.ZZPJT_ID AS POSID
+     , B.ZSITE_NM
+	 , (SELECT NAMET
+	     FROM SAPHEE.ZMASTER02 AS X
+	    WHERE X.MANDT = B.MANDT
+	      AND X.POSID = B.POSID
+	    ORDER BY X.POSID
+	    FETCH FIRST 1 ROW ONLY) AS NAMET
+	 , (SELECT X2.TEXT30
+	     FROM SAPHEE.ZMASTER02 AS X
+	     LEFT OUTER JOIN SAPHEE.J_1AACTT AS X2
+	                  ON X.MANDT = X2.MANDT
+	                 AND X.ZZACTSS = X2.J_1AACT
+	                 AND X2.SPRAS = '3'
+	    WHERE X.MANDT = B.MANDT
+	      AND X.POSID = B.POSID
+	    ORDER BY X.POSID
+	    FETCH FIRST 1 ROW ONLY) AS TEXT30
+     , B.ZMAN_NM
+     , (
+		 	  SELECT KNA1.NAME1
+				FROM SAPHEE.VBAK AS VBAK
+				  INNER JOIN SAPHEE.VBPA AS VBPA 
+				      ON VBAK.MANDT=VBPA.MANDT 
+				       AND VBAK.VBELN=VBPA.VBELN 
+				       AND VBPA.POSNR='000000' 
+				       AND VBPA.PARVW='Z2'
+				LEFT OUTER JOIN SAPHEE.ZSDT0149 AS Z149 
+				       ON VBPA.MANDT=Z149.MANDT 
+				        AND VBPA.KUNNR=Z149.DEALER
+				     AND Z149.SDFIELD = (CASE VBAK.SPART WHEN '20' THEN 'PRK' ELSE (CASE SUBSTR(VBAK.AUART,1,2) WHEN 'ZN' THEN 'REM' ELSE 'NI' END)   END)
+				LEFT OUTER JOIN SAPHEE.KNA1 AS KNA1 
+				      ON Z149.MANDT=KNA1.MANDT 
+				    AND Z149.MANAGER=KNA1.KUNNR
+				LEFT OUTER JOIN SAPHEE.ZUSERF AS ZUSERF 
+				       ON KNA1.MANDT=ZUSERF.MANDT 
+				        AND KNA1.KUNNR='H'||ZUSERF.USERNUMB
+				
+				WHERE VBAK.MANDT    = #G_MANDT#
+				  AND VBAK.ZZPJT_ID = B.POSID
+				FETCH FIRST 1 ROWS ONLY
+				WITH UR
+		 ) AS ZMMAN
+	, CASE WHEN A.SOPTP = 'X' AND SOP_Y_REGDT > '00000000' AND SOP_Y_REGDT IS NOT NULL
+	       THEN 'O'
+	       ELSE 'X'
+	       END AS SD_INDC
+	, CASE WHEN C.SOPTP_REVERSE = 'Y'
+	       THEN 'X'
+	       ELSE 'O'
+	       END AS PS_INDC
+	, ZL_BUR.CTEXT2 AS SD_TEAM
+  FROM SAPHEE.VBAK AS A
+  INNER JOIN SAPHEE.ZMASTER01 AS B
+          ON A.MANDT = B.MANDT
+         AND A.ZZPJT_ID = B.POSID
+  LEFT OUTER JOIN SAPHEE.ZPSTPM07 AS C
+               ON C.MANDT = A.MANDT
+              AND C.POSID = A.ZZPJT_ID
+  LEFT OUTER JOIN saphee.zlcode AS zl_bur ON A.mandt = zl_bur.mandt AND A.vkbur = zl_bur.code2 AND zl_bur.LANG = 'ko' AND zl_bur.code1 = 'VKBUR'
+   WHERE A.MANDT = #G_MANDT# 
+     AND B.CDATE BETWEEN #FROM_DT# AND #TO_DT#
+   ORDER BY A.RECAD_DA DESC, B.CDATE DESC      
+  WITH UR      
+         
+ 
+	
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

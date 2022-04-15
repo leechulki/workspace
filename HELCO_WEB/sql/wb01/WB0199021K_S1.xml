@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[신규계정생성자 권한부여 신청 목록 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+    USER.MANDT
+	, '' SEQ_NO
+	, CASE    WHEN SUBSTR(USER.USERNUMB, 1, 1 ) = '1' THEN '사내직원'
+		      WHEN SUBSTR(USER.USERNUMB, 1, 1 ) = '2' THEN '사내직원'
+		      WHEN SUBSTR(USER.USERNUMB, 1, 1 ) = '3' THEN '사내직원'
+		      WHEN SUBSTR(USER.USERNUMB, 1, 1 ) = '5' THEN '사내직원'      
+	  ELSE '협력사' END AS USERGBN
+	, USER.USERNUMB
+	, USER.USERNAME
+	, USER.USERCODE
+	, USER.USERTELE
+	, USER.USERMBPN
+	, USER.USERMAIL
+	, CASE WHEN USER.REGDPT = 'R' THEN '보수' WHEN USER.REGDPT = 'M' THEN '자재' WHEN USER.REGDPT = 'B' THEN '영업' WHEN USER.REGDPT = 'P' THEN '생산' WHEN USER.REGDPT = 'Q' THEN '품질' WHEN USER.REGDPT = 'D' THEN '설계' WHEN USER.REGDPT = 'E' THEN '설치' ELSE '' END AS REGDPT
+	, USER.REGDPT AS REGDPT_CD
+	, USER.SMATRY
+	, ''  REG_RM
+	, USER2.USERNAME || '(' || USER.SMATRY || ')' AS REG_NM
+	, USER.ERDAT AS REG_DT
+  , CASE WHEN HR01.PSNO IS NULL OR USER.USERCODE > '' THEN SAPHEE.GET_VENDER_NAME(USER.MANDT,USER.USERCODE)  ELSE DPT1_N END AS VEND_NAME
+  , CASE WHEN HR01.PSNO IS NULL OR USER.USERCODE_R > '' THEN SAPHEE.GET_VENDER_NAME(USER.MANDT,USER.USERCODE_R) ELSE DPT1_N END AS VEND_NAME_R
+  , CASE WHEN HR01.PSNO IS NULL OR USER.USERCODE_B > '' THEN SAPHEE.GET_VENDER_NAME(USER.MANDT,USER.USERCODE_B) ELSE DPT1_N END AS VEND_NAME_B
+  , CASE WHEN HR01.PSNO IS NULL OR USER.USERCODE_M > '' THEN SAPHEE.GET_VENDER_NAME(USER.MANDT,USER.USERCODE_M) ELSE DPT1_N END AS VEND_NAME_M
+  , CASE WHEN HR01.PSNO IS NULL OR USER.USERCODE_E > '' THEN SAPHEE.GET_VENDER_NAME(USER.MANDT,USER.USERCODE_E) ELSE DPT1_N END AS VEND_NAME_E
+	, VALUE((SELECT USERAUT1 FROM SAPHEE.ZUSERF WHERE MANDT = '183' AND USERNUMB = USER.SMATRY),'') AS USERAUT1
+	, VALUE((SELECT USERAUT2 FROM SAPHEE.ZUSERF WHERE MANDT = '183' AND USERNUMB = USER.SMATRY),'') AS USERAUT2
+	, VALUE((SELECT USERAUT3 FROM SAPHEE.ZUSERF WHERE MANDT = '183' AND USERNUMB = USER.SMATRY),'') AS USERAUT3
+	, VALUE((SELECT USERAUT4 FROM SAPHEE.ZUSERF WHERE MANDT = '183' AND USERNUMB = USER.SMATRY),'') AS USERAUT4
+	, VALUE((SELECT USERAUT5 FROM SAPHEE.ZUSERF WHERE MANDT = '183' AND USERNUMB = USER.SMATRY),'') AS USERAUT5
+	, 'ko' AS USERLANG
+	, CASE WHEN USER.USERTEAM = '' THEN 
+         	CASE WHEN SUBSTR(USER.USERNUMB, 1, 1 ) = '1' || '2' || '3' || '5' THEN USER.USERTEAM
+		     	ELSE ZWBT.VKGRP END
+      ELSE USER.USERTEAM END USERTEAM
+	, '' AS USEREXPR
+	, CASE WHEN USER.IM_YN = 'Y' THEN '승인대기중' WHEN USER.IM_YN = 'N' THEN '승인완료' ELSE '' END AS COMP_YN
+	, USER2.USERMAIL	AS REGMAIL
+	, '' AS REJECT
+	, USER.USERBIRTH 
+FROM SAPHEE.ZUSERF  AS USER
+  LEFT OUTER JOIN SAPHEE.ZHRT001 AS HR01 ON  HR01.MANDT = USER.MANDT
+                                            AND HR01.PSNO  = 'H' || USER.USERNUMB 
+  LEFT OUTER JOIN SAPHEE.ZUSERF  AS USER2 ON USER.SMATRY = USER2.USERNUMB
+  LEFT OUTER JOIN SAPHEE.ZWBT010 AS ZWBT ON USER.USERCODE = ZWBT.LIFNR AND USER.MANDT = ZWBT.MANDT
+WHERE USER.MANDT = #G_MANDT# AND USER.IM_YN &lt;&gt; ''
+<isNotNull col="USERCODE">
+  AND USER.USERCODE LIKE '%' || #USERCODE# || '%'
+</isNotNull>
+<isNotNull col="USERNAME">
+  AND USER.USERNAME LIKE '%' || #USERNAME# || '%'
+</isNotNull>
+<isNotNull col="REGDPT">
+  AND USER.REGDPT =#REGDPT#
+</isNotNull>
+<isNotNull col="COMP_YN">
+  AND USER.IM_YN =#COMP_YN#
+</isNotNull>
+--ORDER BY REQ.SEQ_NO
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="USERCODE" size="255" type="VARCHAR" description="" /> 
+		<col name="USERNAME" size="255" type="VARCHAR" description="" />
+		<col name="REGDPT" size="255" type="VARCHAR" description="" />
+		<col name="COMP_YN" size="255" type="VARCHAR" description="" />    
+	</input>
+	<output default-name="ds_list">
+		<col name="FLAG" size="0" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="USERAUT1" size="15" type="VARCHAR" description="" /> 
+		<col name="USERAUT2" size="15" type="VARCHAR" description="" /> 
+		<col name="USERAUT3" size="15" type="VARCHAR" description="" /> 
+		<col name="USERAUT4" size="15" type="VARCHAR" description="" /> 
+		<col name="USERAUT5" size="15" type="VARCHAR" description="" /> 
+		<col name="USERBACK" size="450" type="VARCHAR" description="" /> 
+		<col name="USERCODE" size="30" type="VARCHAR" description="" /> 
+		<col name="USERDESC" size="765" type="VARCHAR" description="" /> 
+		<col name="USEREXPR" size="24" type="VARCHAR" description="" /> 
+		<col name="USERFAIL" size="6" type="NUMERIC" description="" /> 
+		<col name="USERJUNO" size="42" type="VARCHAR" description="" /> 
+		<col name="USERLANG" size="6" type="VARCHAR" description="" /> 
+		<col name="USERLGIP" size="60" type="VARCHAR" description="" /> 
+		<col name="USERLGTM" size="30" type="VARCHAR" description="" /> 
+		<col name="USERMAIL" size="150" type="VARCHAR" description="" /> 
+		<col name="USERMBPN" size="60" type="VARCHAR" description="" /> 
+		<col name="USERNAME" size="90" type="VARCHAR" description="" /> 
+		<col name="USERNUMB" size="30" type="VARCHAR" description="" /> 
+		<col name="USERPASS" size="30" type="VARCHAR" description="" /> 
+		<col name="USERTELE" size="60" type="VARCHAR" description="" /> 
+		<col name="VEND_NAME" size="105" type="VARCHAR" description="" />
+		<col name="REGDPT" size="6" type="VARCHAR" description="" />
+		<col name="COMP_YN" size="6" type="VARCHAR" description="" /> 
+	</output>
+</query>

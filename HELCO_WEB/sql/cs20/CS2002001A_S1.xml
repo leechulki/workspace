@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+
+SELECT
+       A.PJT,
+       A.HNO,
+       A.SPT ,
+       A.ARA_NM,
+       A.BSU_NM,
+       A.TEM_NM,
+       A.ISD ISD,
+       A.BGT_MG,
+       A.BMT_MG,
+       A.BGT_MI,
+       A.BMT_MI,
+       A.USD ,
+       A.UGS ,
+       A.IMT ,
+       A.IMON ,
+       A.ICAL,
+       A.ABG_NM , --빌딩구분
+       A.BLD_NM ,  --건물용도
+       A.ZSPEC12, --전기기종
+       A.TGB1 ,
+       A.GMT,
+       VALUE(A.GMON,0) GMON,
+       VALUE(A.GMT - A.GMON,0) GCAL,
+       A.ZSPEC3
+       
+FROM (
+         SELECT
+                A.PJT,
+                A.HNO,
+                MAX(A.SPT) SPT,
+                MAX(A.ARA_NM) ARA_NM,
+                MAX(A.BSU_NM) BSU_NM,
+                MAX(A.TEM_NM) TEM_NM,
+                MAX(A.ISD) ISD,
+                MIN(VALUE(B.CS116_BGT,'')) BGT_MG,
+                MAX(VALUE(B.CS116_BMT,'')) BMT_MG,
+            --    VALUE((SELECT MAX(INT(CASE VALUE WHEN '' THEN '0' ELSE VALUE END)) FROM SAPHEE.ZCABT100 WHERE MANDT = #G_MANDT# AND PSPID = A.PJT AND POSID = A.PJT || A.HNO AND ATKLA = (CASE WHEN SUBSTR(A.HNO,1,1) = 'L' THEN 'EL_ZCOST' ELSE 'ES_ZCOST' END) AND ATNAM = (CASE WHEN SUBSTR(A.HNO,1,1) = 'L' THEN 'EL_ZDWUQ' ELSE 'ES_ZDWUQ' END)),0) CO_MG,
+                MIN(A.BGT) BGT_MI,
+                MAX(A.BMT) BMT_MI,
+            --    VALUE((SELECT MAX(INT(CASE VALUE WHEN '' THEN '0' ELSE VALUE END)) FROM SAPHEE.ZCABT100 WHERE MANDT = #G_MANDT# AND PSPID = A.PJT AND POSID = A.PJT || A.HNO AND ATKLA = (CASE WHEN SUBSTR(A.HNO,1,1) = 'L' THEN 'EL_ZCOST' ELSE 'ES_ZCOST' END) AND ATNAM = (CASE WHEN SUBSTR(A.HNO,1,1) = 'L' THEN 'EL_ZDNCMQ' ELSE 'ES_ZDNCMQ' END)),0) CO_MI,
+                MAX(A.USD) USD,
+                MAX(A.UGS) UGS,
+                MAX(A.IMT) IMT,
+                SUM(A.IMON) IMON,
+                MAX(A.IMT) - SUM(A.IMON) ICAL,
+                MAX(ABG_NM) ABG_NM, --빌딩구분
+                MAX(BLD_NM) BLD_NM,  --건물용도
+                MAX(ZSPEC12) ZSPEC12, --전기기종
+                MAX(TGB1) TGB1,
+                MAX(A.GMT) GMT,
+                MAX(SAPHEE.MONTH_BETWEEN(B.CS116_BGT,B.CS116_BMT,'2')) GMON,
+                MAX(ZSPEC3) ZSPEC3 --속도
+           FROM
+                (
+                 SELECT
+                        A.CS116_PJT PJT,
+                        A.CS116_HNO HNO,
+                        D.ZSITE_NM SPT,
+                        E.CTEXT2 ARA_NM,
+                        F.ABR_NM BSU_NM,
+                        G.CS101_ISD ISD,
+                        A.CS116_BGT BGT,
+                        A.CS116_BMT BMT,
+                        VALUE(B.CS126_USD,'') USD,
+                        VALUE(B.CS126_UGS,'') UGS,
+                        INT(C.ZMUSAOCNT2) IMT,
+                        SAPHEE.MONTH_BETWEEN(A.CS116_BGT,A.CS116_BMT,'2') IMON,
+                        SAPHEE.CODE_CONV(A.MANDT,'CS112',H.ABG) ABG_NM,
+                        SAPHEE.CODE_CONV(A.MANDT,'CS123',H.BLD) BLD_NM,
+                        C.ZSPEC12 ZSPEC12,
+                        B.CS126_TGB TGB1,
+                        A.CS116_TGB TGB2S,
+                        INT(C.ZMUSAOCNT) GMT,
+                        C.ZSPEC3 ZSPEC3,
+                        I.CTEXT2 TEM_NM
+                   FROM
+                        SAPHEE.ZCST116 A
+                               LEFT OUTER JOIN SAPHEE.ZCST126 B
+                                            ON A.MANDT = B.MANDT
+                                           AND A.CS116_PJT = B.CS126_PJT
+                                           AND A.CS116_HNO = B.CS126_HNO
+                                           AND B.CS126_DDT = ''
+                                           AND B.CS126_PST = 'A6'
+                                           AND B.CS126_GND = 'D'
+                                           AND B.CS126_GKD = '1'
+                                           AND B.CS126_USD BETWEEN #DAT1# AND #DAT2#,
+                        SAPHEE.ZMASTER02 C,
+                        SAPHEE.ZMASTER01 D,
+                        SAPHEE.ZLCODE E,
+                        SAPHEE.ZWBT010 F,
+                        SAPHEE.ZCST101 G,
+                        SAPHEE.ZCST111 H,
+                        SAPHEE.ZLCODE I
+                  WHERE
+                        A.MANDT = #G_MANDT#
+                    AND A.MANDT = C.MANDT
+                    AND A.CS116_PJT = C.POSID
+                    AND A.CS116_HNO = SUBSTR(C.POSID_1,7,3)
+                    AND A.MANDT = D.MANDT
+                    AND A.CS116_PJT = D.POSID
+                    AND A.MANDT = E.MANDT
+                    AND A.CS116_ARA = E.CODE2
+                    AND E.CODE1 = 'CS115'
+                    AND E.LANG = 'ko'
+                    AND A.MANDT = F.MANDT
+                    AND A.CS116_BSU = F.LGORT
+                    AND A.MANDT = G.MANDT
+                    AND A.CS116_PJT = G.CS101_PJT
+                    AND A.CS116_HNO = G.CS101_HNO
+                    AND A.MANDT = H.MANDT
+                    AND A.CS116_PJT = H.PJT
+                    AND A.CS116_HNO = H.HNO
+                    AND F.LGORT <> ''
+                    AND A.CS116_PST = 'A6'
+                    AND A.CS116_GND = 'B'
+                    AND A.CS116_BMT <= #DAT2#
+                    AND VALUE(B.CS126_PJT,'') <> ''
+                    AND A.MANDT = I.MANDT
+                    AND I.CODE1 = 'VKGRP'
+                    AND I.CODE2 = F.VKGRP  
+                    
+]]>
+             <isNotNull col="PJT">
+                    AND A.CS116_PJT = #PJT#
+             </isNotNull>
+             <isNotNull col="ARA">
+                    AND H.ARA = #ARA#
+             </isNotNull> 
+             <isNotNull col="BSU">
+                    AND H.BSU = #BSU#
+             </isNotNull> 
+             <isNotNull col="BPM">
+                    AND H.BPM = #BPM#
+             </isNotNull>  
+             <isNotNull col="TEM">
+                    AND F.VKGRP = #TEM#
+             </isNotNull>
+<![CDATA[           
+                ) A LEFT OUTER JOIN SAPHEE.ZCST116 B
+                                 ON B.MANDT = #G_MANDT#
+                                AND B.CS116_PJT = A.PJT
+                                AND B.CS116_HNO = A.HNO
+                                AND B.CS116_PST = 'A6'
+                                AND B.CS116_GND = 'A'
+                                AND B.CS116_BMT <= #DAT2#
+         GROUP BY
+                A.PJT,
+                A.HNO
+  
+         HAVING MAX(A.IMT) - SUM(A.IMON) > 0       
+      ) A
+      
+WITH UR
+  
+  ]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

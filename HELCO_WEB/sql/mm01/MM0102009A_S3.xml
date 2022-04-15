@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[사양/납기 변경 조회-납기일변경]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT 
+* 
+FROM (
+-- 출하일과 납품일 모두 정상 변경된경우 
+SELECT
+    T3.MANDT AS MANDT    -- CLIENT
+   ,T3.POSID AS POSID      -- 공사번호 
+   ,T3.POST1 AS POST1     -- 현장명
+   ,T3.MATNR AS MATNR    -- 자재번호
+   ,T3.TXZ01 AS TXZ01        -- 품명
+   ,T3.EBELN AS EBELN        -- 발주번호
+   ,T3.EBELP AS EBELP        -- 품목번호
+   ,T3.CHNDAT AS CHNDAT  -- 변경일
+   ,'5' AS GUBN                       -- 구분
+   ,T3.PO_MENGE AS PO_MENGE       -- 발주수량
+   ,T3.MENGE AS MENGE       -- 신수량
+   ,T3.MENGE1 AS MENGE1      -- 구수량
+   ,T3.BLOCK_NO AS BLOCK_NO   -- BLOCK
+    , VALUE(SAPHEE.GET_BUDAT(T3.MANDT,T3.EBELN,T3.EBELP),'') AS BUDAT         -- 입고일
+    , VALUE(SAPHEE.GET_MPASS(T3.MANDT,T3.EBELN,T3.EBELP),0) AS MPASS  -- 입고수량
+   ,T3.EINDT AS EINDT                                      -- 최초 납품 예정일
+   ,T3.UDATE AS UDATE                                   -- 변경납품 예정일
+   ,T3.SHIPDAT AS SHIPDAT    --출하일
+   ,T3.ILDAT_B AS ILDAT_B    --이전출하일
+FROM (
+	
+	SELECT 
+		    M13.MANDT AS MANDT    -- CLIENT
+		   ,M13.EBELN AS EBELN     -- 발주번호
+		   ,M13.EBELP AS EBELP     -- 품목번호
+		   ,M13.POSID AS POSID      -- 공사번호 
+		   ,M13.POST1 AS POST1     -- 현장명
+		   ,M13.MATNR AS MATNR    -- 자재번호
+		   ,M13.TXZ01 AS TXZ01        -- 품명
+		   ,M25.CHNDAT AS CHNDAT  -- 변경일
+                               ,M13.MENGE AS PO_MENGE       -- 발주수량
+		   ,M13.MENGE AS MENGE       -- 신수량
+		   ,M13.MENGE AS MENGE1      -- 구수량
+                               ,CASE WHEN M11.BLOCK_NO = ''            THEN ''
+	                           WHEN M11.BLOCK_NO LIKE 'A%'  THEN 'A'  
+                                         WHEN M11.BLOCK_NO LIKE 'B%'  THEN 'B' 
+                                         WHEN M11.BLOCK_NO LIKE 'C%'  THEN 'C'  
+	                           WHEN M11.BLOCK_NO LIKE 'D%'  THEN 'D'  
+	                           WHEN M11.BLOCK_NO LIKE 'E%'  THEN 'E' END AS BLOCK_NO   -- BLOCK
+		   ,M13.EINDT AS EINDT                                      -- 최초 납품 예정일
+		   ,M13.UDATE AS UDATE                                   -- 변경납품 예정일
+                               ,CASE WHEN M13.EXTWG IS NULL OR M13.EXTWG = '' OR (M13.BOX_CK = '' AND M13.EXTWG = 'BOX33') OR (M13.BOX_CK ='24' AND M13.EXTWG = 'BOX24') THEN
+			    (CASE WHEN M25.SHIPDAT1 IS NULL THEN '00000000'
+			    	  WHEN M11.BLOCK_NO = '' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT2 END)
+			    	  WHEN M11.BLOCK_NO LIKE 'A%' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT1 END)
+			    	  WHEN M11.BLOCK_NO LIKE 'B%' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT2 END)
+			    	  WHEN M11.BLOCK_NO LIKE 'C%' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT3 END)
+			    	  WHEN M11.BLOCK_NO LIKE 'D%' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT4 END)
+			    	  WHEN M11.BLOCK_NO LIKE 'E%' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT5 END) ELSE '00000000' END )
+		    ELSE
+		    	(CASE ( CASE WHEN M13.BOX_CK = '24' THEN (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026_1 WHERE MANDT = M13.MANDT AND BOXNO = M13.EXTWG)
+		    		         ELSE (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026 WHERE MANDT = M13.MANDT AND BOXNO = M13.EXTWG) END)
+		    		  WHEN '1' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT1 END)
+		    		  WHEN '2' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT2 END)
+		    		  WHEN '3' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT3 END)
+		    		  WHEN '4' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT4 END)
+		    		  WHEN '5' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT5 END) ELSE '00000000' END) END AS SHIPDAT
+		 ,PP27.ILDAT_B AS ILDAT_B 
+	  FROM SAPHEE.ZMMT013 AS M13
+
+	 LEFT OUTER JOIN SAPHEE.ZMMT025 AS M25 ON M13.MANDT = M25.MANDT
+	     AND M13.POSID = M25.POSID_P 
+	 LEFT OUTER JOIN SAPHEE.ZMMT011 AS M11 ON M13.MANDT = M11.MANDT
+	     AND M13.MATNR = M11.MATNR 
+               LEFT OUTER JOIN SAPHEE.ZPPT027 AS PP27 ON M13.MANDT = PP27.MANDT
+                                                                         AND PP27.PSPID = SUBSTR(M13.POSID,1,6)
+                                         								 AND PP27.POSID = SUBSTR(M13.POSID,1,9)
+                                                                         AND PP27.ACTIV = '05'
+                                                                         AND PP27.BLOCK = 'A'
+                                                                         AND PP27.GUBUN = '01'
+	
+	  WHERE M13.MANDT=#G_MANDT#
+		   AND M13.LIFNR = #LIFNR#
+	                 AND M25.CHNDAT BETWEEN #UDATE1# AND #UDATE2#
+                           --    AND M25.POSID  > '1'
+<isNotNull col="POSID">
+                               AND M13.POSID  LIKE #POSID# || '%'
+                               AND M25.POSID  LIKE #POSID# || '%'
+</isNotNull>
+<isNull col="POSID">
+                               AND M13.POSID  LIKE '_%'
+                               AND M25.POSID  LIKE '_%'
+</isNull>
+<isNotNull col="MATNR">
+                               AND M13.MATNR  LIKE #MATNR# || '%'
+</isNotNull>
+		   AND M13.STATE = '2'
+		   AND M13.UDATE &lt;&gt; M13.EINDT
+		   AND M25.PSTYPE = '02'
+) AS T3
+
+WHERE 1=1 
+
+union
+
+-- 출하일만 변경된경우(납품일 변경안됨) 
+SELECT
+    T3.MANDT AS MANDT    -- CLIENT
+   ,T3.POSID AS POSID      -- 공사번호 
+   ,T3.POST1 AS POST1     -- 현장명
+   ,T3.MATNR AS MATNR    -- 자재번호
+   ,T3.TXZ01 AS TXZ01        -- 품명
+   ,T3.EBELN AS EBELN        -- 발주번호
+   ,T3.EBELP AS EBELP        -- 품목번호
+   ,T3.CHNDAT AS CHNDAT  -- 변경일
+   ,'9' AS GUBN                       -- 구분
+   ,T3.PO_MENGE AS PO_MENGE       -- 발주수량
+   ,T3.MENGE AS MENGE       -- 신수량
+   ,T3.MENGE1 AS MENGE1      -- 구수량
+   ,T3.BLOCK_NO AS BLOCK_NO   -- BLOCK
+    , VALUE(SAPHEE.GET_BUDAT(T3.MANDT,T3.EBELN,T3.EBELP),'') AS BUDAT         -- 입고일
+    , VALUE(SAPHEE.GET_MPASS(T3.MANDT,T3.EBELN,T3.EBELP),0) AS MPASS  -- 입고수량
+   ,T3.EINDT AS EINDT                                      -- 최초 납품 예정일
+   ,T3.UDATE AS UDATE                                   -- 변경납품 예정일
+   ,T3.SHIPDAT AS SHIPDAT    --출하일
+   ,T3.ILDAT_B AS ILDAT_B    --이전출하일
+FROM (
+	
+	SELECT 
+		    M13.MANDT AS MANDT    -- CLIENT
+		   ,M13.EBELN AS EBELN     -- 발주번호
+		   ,M13.EBELP AS EBELP     -- 품목번호
+		   ,M13.POSID AS POSID      -- 공사번호 
+		   ,M13.POST1 AS POST1     -- 현장명
+		   ,M13.MATNR AS MATNR    -- 자재번호
+		   ,M13.TXZ01 AS TXZ01        -- 품명
+		   ,M25.CHNDAT AS CHNDAT  -- 변경일
+                               ,M13.MENGE AS PO_MENGE       -- 발주수량
+		   ,M13.MENGE AS MENGE       -- 신수량
+		   ,M13.MENGE AS MENGE1      -- 구수량
+                               ,CASE WHEN M11.BLOCK_NO = ''            THEN ''
+	                           WHEN M11.BLOCK_NO LIKE 'A%'  THEN 'A'  
+                                         WHEN M11.BLOCK_NO LIKE 'B%'  THEN 'B' 
+                                         WHEN M11.BLOCK_NO LIKE 'C%'  THEN 'C'  
+	                           WHEN M11.BLOCK_NO LIKE 'D%'  THEN 'D'  
+	                           WHEN M11.BLOCK_NO LIKE 'E%'  THEN 'E' END AS BLOCK_NO   -- BLOCK
+		   ,M13.EINDT AS EINDT                                      -- 최초 납품 예정일
+		   ,M13.UDATE AS UDATE                                   -- 변경납품 예정일
+                               ,CASE WHEN M13.EXTWG IS NULL OR M13.EXTWG = '' OR (M13.BOX_CK = '' AND M13.EXTWG = 'BOX33') OR (M13.BOX_CK ='24' AND M13.EXTWG = 'BOX24') THEN
+			    (CASE WHEN M25.SHIPDAT1 IS NULL THEN '00000000'
+			    	  WHEN M11.BLOCK_NO = '' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT2 END)
+			    	  WHEN M11.BLOCK_NO LIKE 'A%' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT1 END)
+			    	  WHEN M11.BLOCK_NO LIKE 'B%' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT2 END)
+			    	  WHEN M11.BLOCK_NO LIKE 'C%' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT3 END)
+			    	  WHEN M11.BLOCK_NO LIKE 'D%' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT4 END)
+			    	  WHEN M11.BLOCK_NO LIKE 'E%' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT5 END) ELSE '00000000' END )
+		    ELSE
+		    	(CASE ( CASE WHEN M13.BOX_CK = '24' THEN (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026_1 WHERE MANDT = M13.MANDT AND BOXNO = M13.EXTWG)
+		    		         ELSE (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026 WHERE MANDT = M13.MANDT AND BOXNO = M13.EXTWG) END)
+		    		  WHEN '1' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT1 END)
+		    		  WHEN '2' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT2 END)
+		    		  WHEN '3' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT3 END)
+		    		  WHEN '4' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT4 END)
+		    		  WHEN '5' THEN (CASE WHEN SUBSTR(M13.POSID,7,2) = 'NC' THEN PP27.ILDAT ELSE M25.SHIPDAT5 END) ELSE '00000000' END) END AS SHIPDAT
+		   ,PP27.ILDAT_B AS ILDAT_B 		   
+	  FROM SAPHEE.ZMMT013 AS M13
+
+	 LEFT OUTER JOIN SAPHEE.ZMMT025 AS M25 ON M13.MANDT = M25.MANDT
+	     AND M13.POSID = M25.POSID_P 
+	 LEFT OUTER JOIN SAPHEE.ZMMT011 AS M11 ON M13.MANDT = M11.MANDT
+	     AND M13.MATNR = M11.MATNR 
+               LEFT OUTER JOIN SAPHEE.ZPPT027 AS PP27 ON M13.MANDT = PP27.MANDT
+                                                                         AND PP27.PSPID = SUBSTR(M13.POSID,1,6)
+                                         								 AND PP27.POSID = SUBSTR(M13.POSID,1,9)
+                                                                         AND PP27.ACTIV = '05'
+                                                                         AND PP27.BLOCK = 'A'
+                                                                         AND PP27.GUBUN = '01'
+	
+	  WHERE M13.MANDT=#G_MANDT#
+		   AND M13.LIFNR = #LIFNR#
+	                 AND M25.CHNDAT BETWEEN #UDATE1# AND #UDATE2#
+                           --    AND M25.POSID  > '1'
+<isNotNull col="POSID">
+                               AND M13.POSID  LIKE #POSID# || '%'
+                               AND M25.POSID  LIKE #POSID# || '%'
+</isNotNull>
+<isNull col="POSID">
+                               AND M13.POSID  LIKE '_%'
+                               AND M25.POSID  LIKE '_%'
+</isNull>
+<isNotNull col="MATNR">
+                               AND M13.MATNR  LIKE #MATNR# || '%'
+</isNotNull>
+		   AND M13.STATE = '2'
+		   AND M13.UDATE = M13.EINDT
+		   AND M25.PSTYPE = '02'
+		   AND PP27.ILDAT &lt;&gt; PP27.ILDAT_B 
+		   AND PP27.ERDAT BETWEEN #UDATE1# AND #UDATE2#
+) AS T3
+
+WHERE 1=1
+) AS T	   
+
+WHERE 1=1
+<isEqual col="DTL" value = "1">
+  AND MENGE > MPASS
+</isEqual>
+<isNotNull col="POSID">
+   AND POSID  LIKE #POSID# || '%'
+</isNotNull>
+<isNotNull col="MATNR">
+   AND MATNR  LIKE #MATNR# || '%'
+</isNotNull>
+ORDER BY POSID, MATNR, CHNDAT, EINDT, UDATE
+ 
+ FOR FETCH ONLY
+ WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="G_VEND_CODE_M" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="255" type="VARCHAR" description="" /> 
+		<col name="UDATE1" size="255" type="VARCHAR" description="" /> 
+		<col name="UDATE2" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

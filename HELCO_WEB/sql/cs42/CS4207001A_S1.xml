@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+SELECT MANDT
+      ,CS126_UPN
+      ,CS126_CST
+      ,CS126_GNO
+      ,CS126_UMR
+      ,CS126_USD
+      ,CS126_BSU
+      ,MAX(KUNNR)     AS KUNNR   
+      ,MAX(CS121_NAM) AS CS121_NAM
+      ,MAX(CS121_SPT) AS CS121_SPT
+      ,MAX(S029)      AS S029    
+      ,MAX(S030)      AS S030    
+      ,MAX(S031)      AS S031    
+      ,MAX(S032)      AS S032    
+      ,MAX(VKGRP)     AS VKGRP   
+      ,MAX(VKGRP_NM)  AS VKGRP_NM
+      ,MAX(SNM)       AS SNM     
+      ,MAX(TEL)       AS TEL     
+      ,MAX(CON_KEY)   AS CON_KEY 
+      ,MAX(CS720_SEQ) AS CS720_SEQ
+      ,MAX(CS720_MDT) AS CS720_MDT
+      ,'' TRANS
+      ,'' CHK
+                      
+FROM (
+
+       SELECT 
+       				A.MANDT 
+              ,A.CS126_UPN
+              ,A.CS126_CST
+              ,A.CS126_GNO
+              ,A.CS126_UMR
+              ,A.CS126_USD
+              ,A.CS126_BSU
+              ,CS121.KUNNR
+              ,CS121.CS121_NAM
+              ,CS121.CS121_SPT
+              -- 수신처 정보
+              ,CS121.CS121_GSH||' '||CS121.CS121_CDP                        AS S029
+              ,VALUE(CS121.CS121_NZIB,CS121.CS121_ZIB)                      AS S030
+              ,DECODE(CS121.CS121_DP1B,'',CS121.CS121_P1B,CS121.CS121_DP1B) AS S031
+              ,DECODE(CS121.CS121_DP1B,'',CS121.CS121_P2B,CS121.CS121_DP2B) AS S032
+              
+              -- 수신처 정보
+              ,A.VKGRP
+              ,ZLCD1.CTEXT2 AS VKGRP_NM
+              -- 지사별 영업사원 기본 정보 테이블
+              ,ZLCD2.DTEXT1 SNM
+              ,ZLCD2.DTEXT2 TEL
+              ,CS720.CON_KEY
+              ,CS720.CS720_SEQ
+              ,CS720.CS720_MDT
+       
+       FROM (
+       
+              SELECT  CS126.MANDT
+                     ,CS126.CS126_UPN
+                     ,CS126.CS126_CST
+                     ,CS126.CS126_GNO
+                     ,CS126.CS126_UMR
+                     ,CS126.CS126_USD
+                     ,CS126.CS126_BSU
+                     ,ZW010.VKGRP
+                     ,COUNT(*) CNT
+                     
+              
+              FROM SAPHEE.ZCST126 CS126 LEFT OUTER JOIN SAPHEE.ZCST126 BCS126
+                                                ON BCS126.MANDT = CS126.MANDT
+                                               AND BCS126.CS126_PJT = CS126.CS126_PJT
+                                               AND BCS126.CS126_HNO = CS126.CS126_HNO
+                                               AND BCS126.CS126_DDT = ''
+                                               AND BCS126.CS126_PST = 'A6'
+                                               AND BCS126.CS126_UMR > CS126.CS126_UMR
+                 
+                                        LEFT OUTER JOIN SAPHEE.ZWBT010 ZW010
+                                                ON ZW010.MANDT = CS126.MANDT
+                                               AND ZW010.LGORT = CS126.CS126_BSU
+              
+              
+              WHERE CS126.MANDT = #G_MANDT#
+              -- POG 기술용역 제외
+              AND CS126.CS126_DDT = ''
+              AND CS126.CS126_PST = 'A6'
+              AND CS126.CS126_GND = 'D'
+              AND CS126.CS126_KND = ''
+              AND VALUE(CS126.CS126_SLA,'N') = 'N' 
+              AND CS126.CS126_UMR BETWEEN  SUBSTR(#DAT1#,1,6)||'01' AND #DAT1#
+              AND SUBSTR(CS126.CS126_HNO,1,1) NOT IN ('G','F')  
+              AND BCS126.CS126_PJT IS NULL
+              
+             <isNotNull col="PJT">
+              AND CS126.CS126_PJT = #PJT#            
+             </isNotNull> 
+              <isNotNull col="TEM">
+              AND ZW010.VKGRP = #TEM#            
+             </isNotNull>      
+              
+       			 GROUP BY CS126.MANDT
+                     ,CS126.CS126_UPN
+                     ,CS126.CS126_CST
+                     ,CS126.CS126_GNO
+                     ,CS126.CS126_UMR
+                     ,CS126.CS126_USD
+                     ,CS126.CS126_BSU
+                     ,ZW010.VKGRP       
+              
+         ) A     LEFT OUTER JOIN SAPHEE.ZCST121 CS121
+                         ON CS121.MANDT = A.MANDT
+                        AND CS121.CS121_UPN = A.CS126_UPN
+                        AND CS121.CS121_CST = A.CS126_CST
+                 
+                 LEFT OUTER JOIN SAPHEE.ZLCODE ZLCD1
+                         ON ZLCD1.MANDT = A.MANDT
+                        AND ZLCD1.LANG = 'ko'
+                        AND ZLCD1.CODE1 = 'VKGRP'
+                        AND ZLCD1.CODE2 = A.VKGRP
+                 
+                 LEFT OUTER JOIN SAPHEE.ZCST720 CS720
+                         ON CS720.MANDT = A.MANDT
+                        AND CS720.CS720_GNO = A.CS126_GNO
+                        
+                 LEFT OUTER JOIN SAPHEE.ZLCODE ZLCD2
+                         ON ZLCD2.MANDT = A.MANDT
+                        AND ZLCD2.LANG = 'ko'
+                        AND ZLCD2.CODE1 = 'CSSNM'
+                        AND ZLCD2.CODE2 = A.VKGRP
+        WHERE 1=1         
+         <isEqual col="TRANS" value="Y">
+          AND CS720.CON_KEY IS NOT NULL        
+         </isEqual>         
+         <isEqual col="TRANS" value="A">
+          AND CS720.CON_KEY IS NULL        
+         </isEqual> 
+)
+GROUP BY MANDT
+      ,CS126_UPN
+      ,CS126_CST
+      ,CS126_GNO
+      ,CS126_UMR
+      ,CS126_USD
+      ,CS126_BSU  
+WITH UR
+
+  </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

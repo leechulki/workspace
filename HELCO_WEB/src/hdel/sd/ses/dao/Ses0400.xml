@@ -1,0 +1,664 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.ses.dao.Ses0400D"> 
+  
+	<resultMap id="selectListHeaderMap" type="hdel.sd.ses.domain.Ses0400"> 
+	    <result property="gubun" column="GUBUN"/>
+	    <result property="mandt" column="MANDT"/>
+	    <result property="qtso_no" column="QTSO_NO"/>
+	    <result property="qtser" column="QTSER"/>
+	    <result property="qtseq" column="QTSEQ"/>
+	    <result property="hogi" column="HOGI"/>
+	    <result property="posnr" column="POSNR"/>
+	    <result property="vkbur" column="VKBUR"/>
+	    <result property="vkgrp" column="VKGRP"/>
+	    <result property="zkunnr" column="ZKUNNR"/>
+	    <result property="zkunnr_nm" column="ZKUNNR_NM"/>
+	    <result property="zagnt" column="ZAGNT"/>
+	    <result property="zagnt_nm" column="ZAGNT_NM"/>
+	    <result property="kunnr" column="KUNNR"/>
+	    <result property="kunnr_nm" column="KUNNR_NM"/>
+		<result property="gsnam" column="GSNAM"/>
+	    <result property="shangh" column="SHANGH"/>
+	    <result property="matnr" column="MATNR"/>
+	    <result property="spec" column="SPEC"/>
+	    <result property="gtype" column="GTYPE"/>
+	    <result property="type1" column="TYPE1"/>
+	    <result property="type2" column="TYPE2"/>
+	    <result property="type3" column="TYPE3"/>
+	    <result property="znumber" column="ZNUMBER"/>
+	    <result property="zuse" column="ZUSE"/>
+	    <result property="zopn" column="ZOPN"/>
+	    <result property="zlen" column="ZLEN"/>
+	    <result property="zacapa" column="ZACAPA"/>
+	    <result property="zuam" column="ZUAM"/>
+	    <result property="zcost" column="ZCOST"/>
+	    <result property="zeam" column="ZEAM"/>
+	    <result property="shang" column="SHANG"/>
+	    <result property="zrmk" column="ZRMK"/>
+	    <result property="autolp" column="AUTOLP"/>
+	</resultMap>
+	
+	<select id="selectListHeaderQtnum" parameterType="hdel.sd.ses.domain.Ses0400ParamVO" resultMap="selectListHeaderMap">
+		SELECT DISTINCT 'Q' AS GUBUN                 -- 견적
+		        , A.MANDT          -- 클라이언트
+		        , A.QTNUM AS QTSO_NO    -- 견적번호
+		        , A.QTSER             -- 견적차수
+		     --   , B.QTSEQ            -- 견적일련번호
+				, A.VKBUR
+				, A.VKGRP
+				, A.ZKUNNR
+				, A.ZAGNT
+	            , A.KUNNR
+	            , A.GSNAM
+		        --, B.SPEC               -- 스펙
+		        , VALUE((SELECT NAME1
+					 FROM SAPHEE.LFA1
+					WHERE MANDT = A.MANDT
+					  AND LIFNR = A.ZAGNT
+				   UNION
+				   SELECT NAME1
+					 FROM SAPHEE.KNA1
+					WHERE MANDT = A.MANDT
+					  AND KTOKD = 'Z004'
+			  		  AND KUNNR = A.ZAGNT
+					FETCH FIRST 1 ROW ONLY
+				  ), '') AS ZAGNT_NM         -- 대리점명
+				, (SELECT NAME1
+				     FROM SAPHEE.KNA1
+				    WHERE MANDT = A.MANDT
+				      AND KTOKD = 'Z201'
+				      AND KUNNR = A.ZKUNNR
+				   	FETCH FIRST 1 ROW ONLY
+	 			  ) AS ZKUNNR_NM         -- 사원명       
+	 			, (SELECT NAME1
+					 FROM SAPHEE.KNA1
+					WHERE MANDT = A.MANDT
+					  AND KUNNR = A.KUNNR
+					  AND KTOKD IN ( 'Z001', 'Z002', 'Z004' )
+					FETCH FIRST 1 ROW ONLY
+				  ) AS KUNNR_NM -- 거래선명
+				, A.AUTOLP
+				, a.vbeln as VBELN
+		FROM SAPHEE.ZSDT1046 AS A -- 견적 Header
+		     INNER JOIN SAPHEE.ZSDT0167 AS B ON A.MANDT=B.MANDT AND A.QTNUM=B.QTNUM AND B.TQUOT=''
+
+<!-- 2020.08.21 jss 오류정정 (주석처리)	 		
+			 INNER JOIN SAPHEE.ZSDT1047 AS B
+			   ON A.MANDT = B.MANDT AND A.QTNUM = B.QTNUM AND A.QTSER = B.QTSER
+			 <if test="query_yn != null and query_yn != ''">
+	         LEFT OUTER JOIN SAPHEE.ZSDT1058 AS C
+	             ON  B.MANDT = C.MANDT AND B.QTNUM = C.QTSO_NO AND B.QTSER = C.QTSER AND B.QTSEQ = C.QTSEQ
+		            <if test="qtso_no !=null and qtso_no != ''">
+		              AND C.QTSO_NO = #{qtso_no}
+		            </if>
+	         </if>
+ -->	         
+	         
+	   WHERE A.MANDT = #{mandt}
+ 		 AND A.QTDAT BETWEEN #{frqtdat} AND #{toqtdat}
+		<if test="vkbur !=null and vkbur !=''">     AND A.VKBUR  = #{vkbur} </if>
+		<if test="vkgrp !=null and vkgrp !=''">     AND A.VKGRP  = #{vkgrp} </if>
+		<if test="zkunnr !=null and zkunnr !=''">   AND A.ZKUNNR = #{zkunnr} </if>
+		<if test="qtso_no !=null and qtso_no !=''"> AND A.QTNUM = #{qtso_no} </if>
+		<if test="query_yn != null and query_yn != ''">
+		
+<!-- 2020.08.21 jss 오류정정 (주석처리)	
+            <if test="frzrqdat != null and frzrqdat != ''">
+               AND C.ZRQDAT BETWEEN #{frzrqdat} AND #{tozrqdat}
+            </if>
+-->            
+            
+        	<if test="zrqstat != null and zrqstat != ''">
+			  AND A.QTNUM IN ( SELECT QTNUM FROM SAPHEE.ZSDT1058 WHERE MANDT = A.MANDT AND QTNUM = A.QTNUM AND QTSER = A.QTSER AND ZRQSTAT = #{zrqstat} )
+           </if>
+        </if>
+        ORDER BY A.MANDT, QTSO_NO, A.QTSER
+		WITH UR
+	</select>
+
+	<select id="selectListHeaderProject" parameterType="hdel.sd.ses.domain.Ses0400ParamVO" resultMap="selectListHeaderMap">
+		SELECT DISTINCT 'P' AS GUBUN                 -- 프로젝트
+		        , A.MANDT          -- 클라이언트
+		        , A.ZZPJT_ID AS QTSO_NO    -- 프로젝트
+		        , B.HOGI            -- 호기
+		        , B.QTSER           --차수
+		        , B.MATNR           -- 자재번호
+		        , B.POSNR           -- 
+				, A.VKBUR
+				, A.VKGRP
+				, C.KUNNR AS ZKUNNR  -- 영업사원
+				, D.KUNNR AS ZAGNT   -- 대리점
+	            , A.KUNNR
+	            , A.BSTNK AS GSNAM
+		        , B.ARKTX AS SPEC               -- 스펙
+		        , (SELECT NAME1
+					 FROM SAPHEE.LFA1
+					WHERE MANDT = A.MANDT
+					  AND LIFNR = D.KUNNR
+				   UNION
+				   SELECT NAME1
+					 FROM SAPHEE.KNA1
+					WHERE MANDT = A.MANDT
+					  AND KTOKD = 'Z004'
+			  		  AND KUNNR = D.KUNNR
+				  ) AS ZAGNT_NM         -- 대리점명
+				, (SELECT NAME1
+				     FROM SAPHEE.KNA1
+				    WHERE MANDT = A.MANDT
+				      AND KTOKD = 'Z201'
+				      AND KUNNR = C.KUNNR
+	 			  ) AS ZKUNNR_NM         -- 사원명       
+	 			, (SELECT NAME1
+					 FROM SAPHEE.KNA1
+					WHERE MANDT = A.MANDT
+					  AND KUNNR = A.KUNNR
+					  AND KTOKD IN ( 'Z001', 'Z002', 'Z004' )
+				  ) AS KUNNR_NM -- 거래선명
+				  ,a.vbeln as VBELN
+		FROM SAPHEE.VBAK AS A
+			 INNER JOIN SAPHEE.VBAP AS B
+			 	   ON A.MANDT = B.MANDT AND A.VBELN = B.VBELN
+			 INNER JOIN TABLE (SELECT MANDT, VBELN, KUNNR FROM SAPHEE.VBPA
+			 					WHERE MANDT = A.MANDT
+			 					  AND VBELN = A.VBELN
+			 					  AND POSNR = '000000'
+			 					  AND PARVW = 'Z2'
+					<if test="zkunnr !=null and zkunnr !=''"> AND KUNNR = #{zkunnr} </if>
+			 				  ) AS C
+			 	   ON C.MANDT = A.MANDT AND C.VBELN = A.VBELN
+			 LEFT OUTER JOIN TABLE (SELECT MANDT, VBELN, KUNNR FROM SAPHEE.VBPA
+			 					WHERE MANDT = A.MANDT
+			 					  AND VBELN = A.VBELN
+			 					  AND POSNR = '000000'
+			 					  AND PARVW = 'Z1'
+			 				  ) AS D
+			 	   ON D.MANDT = A.MANDT AND D.VBELN = A.VBELN
+			 <if test="query_yn != null and query_yn != ''">
+	         LEFT OUTER JOIN SAPHEE.ZSDT1058 AS E
+	               ON  E.MANDT = A.MANDT AND E.QTSO_NO = A.ZZPJT_ID AND E.HOGI = B.HOGI
+	            <if test="qtso_no !=null and qtso_no != ''">
+	               AND E.QTSO_NO = #{qtso_no}
+	            </if>
+	         </if>
+	   WHERE A.MANDT = #{mandt}
+ 		 AND A.BSTDK BETWEEN #{frqtdat} AND #{toqtdat}
+ 		 AND A.AUART NOT LIKE 'ZR%'  -- 보수제외
+ 		 AND A.AUART NOT LIKE 'ZG%'  -- PSD제외
+ 		 AND A.AUART NOT LIKE 'ZF%'  -- 물류제외
+ 		 AND A.AUART NOT LIKE 'ZJ%'  -- 주차제외
+		<if test="vkbur !=null and vkbur !=''">     AND A.VKBUR  = #{vkbur} </if>
+		<if test="vkgrp !=null and vkgrp !=''">     AND A.VKGRP  = #{vkgrp} </if>
+		<if test="qtso_no !=null and qtso_no !=''"> AND A.ZZPJT_ID = #{qtso_no} </if>
+		<if test="query_yn != null and query_yn != ''">
+           <if test="frzrqdat != null and frzrqdat != ''">
+              AND E.ZRQDAT BETWEEN #{frzrqdat} AND #{tozrqdat}
+           </if>
+        </if>
+        ORDER BY A.MANDT, QTSO_NO, B.HOGI
+		WITH UR
+	</select>
+
+	<resultMap id="selectListDetailMap" type="hdel.sd.ses.domain.Ses0400"> 
+	    <result property="mandt" column="MANDT"/>
+	    <result property="qtso_no" column="QTSO_NO"/>
+	    <result property="qtser" column="QTSER"/>
+	    <result property="qtseq" column="QTSEQ"/>
+	    <result property="hogi" column="HOGI"/>
+	    <result property="zrqseq" column="ZRQSEQ"/>
+	    <result property="zrqflg" column="ZRQFLG"/>
+	    <result property="zrqdat" column="ZRQDAT"/>
+	    <result property="lodat" column="LODAT"/>
+	    <result property="zrqcn" column="ZRQCN"/>
+	    <result property="zrsrlt" column="ZRSRLT"/>
+	    <result property="findat" column="FINDAT"/>
+	    <result property="kunnr_z3" column="KUNNR_Z3"/>
+	    <result property="kunnr_z3_nm" column="KUNNR_Z3_NM"/>
+	    <result property="zrqstat" column="ZRQSTAT"/>
+	    <result property="cistat" column="CISTAT"/>
+	</resultMap>
+	
+	<select id="selectListDetail" parameterType="hdel.sd.ses.domain.Ses0400ParamVO" resultMap="selectListDetailMap">
+		SELECT A.MANDT           -- 클라이언트
+		     , A.QTSO_NO
+		     , A.QTSER             -- 견적차수
+		     , A.QTSEQ            -- 견적일련번호
+		     , A.HOGI
+		     , A.ZRQSEQ
+		     , A.ZRQFLG
+		     , A.ZRQDAT
+		     , A.LODAT
+		     , A.ZRQCN
+		     , A.ZRSRLT
+		     , A.FINDAT
+		     , A.KUNNR_Z3
+		     , (SELECT NAME1
+				  FROM SAPHEE.KNA1
+				 WHERE MANDT = A.MANDT
+				   AND KTOKD = 'Z201'
+				   AND KUNNR = A.KUNNR_Z3
+	 		   ) AS KUNNR_Z3_NM
+		     , A.ZRQSTAT
+		     ,(select cistat from saphee.zsdt0161 as z161 where mandt=A.mandt and zrqseq=A.zrqseq and aedat||aezet in (select max(aedat||aezet) from saphee.zsdt0161 where mandt=z161.mandt and zrqseq=z161.zrqseq)) as cistat
+		  FROM SAPHEE.ZSDT1058 AS A
+	     WHERE A.MANDT = #{mandt}
+	    <if test="qtso_no != null and qtso_no != ''"> AND A.QTSO_NO = #{qtso_no} </if>
+	    <if test="qtser != null and qtser != ''">     AND A.QTSER   = #{qtser} </if>
+	    <if test="qtseq != null and qtseq != ''">     AND A.QTSEQ   = #{qtseq} </if>
+	    <if test="hogi != null and hogi != ''">       AND A.HOGI    = #{hogi} </if>
+	    UNION
+	    SELECT A.MANDT           -- 클라이언트
+		     , A.QTSO_NO
+		     , A.QTSER             -- 견적차수
+		     , A.QTSEQ            -- 견적일련번호
+		     , '' AS HOGI
+		     , A.ZRQSEQ
+		     , A.ZRQFLG
+		     , A.ZRQDAT
+		     , '' AS LODAT
+		     , A.ZRQCN
+		     , A.ZRSRLT
+		     , A.FINDAT
+		     , A.KUNNR_Z3
+		     , (SELECT NAME1
+				  FROM SAPHEE.KNA1
+				 WHERE MANDT = A.MANDT
+				   AND KTOKD = 'Z201'
+				   AND KUNNR = A.KUNNR_Z3
+	 		   ) AS KUNNR_Z3_NM
+		     , A.ZRQSTAT
+		     , '' as cistat
+		  FROM SAPHEE.ZSDT1058S AS A
+	     WHERE A.MANDT = #{mandt}
+	    <if test="qtso_no != null and qtso_no != ''"> AND A.QTSO_NO = #{qtso_no} </if>
+	    <if test="qtser != null and qtser != ''">     AND A.QTSER   = #{qtser} </if>
+	    <if test="qtseq != null and qtseq != ''">     AND A.QTSEQ   = #{qtseq} </if>
+	    ORDER BY ZRQSEQ DESC, MANDT, QTSO_NO, QTSER, QTSEQ
+		WITH UR
+	</select>
+
+	<resultMap id="selectZSDT1079Map" type="hdel.sd.ses.domain.ZSDT1079">
+	    <result property="mandt" column="MANDT"/>
+		<result property="zrqseq" column="ZRQSEQ"/>
+	    <result property="chgchrpt" column="CHGCHRPT"/>
+	</resultMap>
+	<resultMap id="selectRequestListMap" type="hdel.sd.ses.domain.Ses0400">
+		<result property="mandt" column="MANDT"/>
+		<result property="zrqseq" column="ZRQSEQ"/>
+		<result property="gubun" column="GUBUN"/>
+		<result property="qtso_no" column="QTSO_NO"/>
+		<result property="qtser" column="QTSER"/>
+		<result property="qtseq" column="QTSEQ"/>
+		<result property="cadreqtype" column="CADREQTYPE"/>
+		<result property="hogi" column="HOGI"/>
+		<result property="zrqflg" column="ZRQFLG"/>
+		<result property="zrqdat" column="ZRQDAT"/>
+		<result property="lodat" column="LODAT"/>
+		<result property="zrqcn" column="ZRQCN"/>
+		<result property="zrsrlt" column="ZRSRLT"/>
+		<result property="findat" column="FINDAT"/>
+		<result property="kunnr_z3" column="KUNNR_Z3"/>
+		<result property="kunnr_z3_nm" column="KUNNR_Z3_NM"/>
+		<result property="kunnr_z3_tel" column="KUNNR_Z3_TEL"/>
+		<result property="zrqstat" column="ZRQSTAT"/>
+		<!-- result property="matnr" column="MATNR"/>
+		<result property="spec" column="SPEC"/>
+		<result property="gtype" column="GTYPE"/>
+		<result property="type1" column="TYPE1"/>
+		<result property="type2" column="TYPE2"/>
+		<result property="type3" column="TYPE3"/-->
+		<result property="znumber" column="ZNUMBER"/>
+		<result property="esnum" column="ESNUM"/>
+		<result property="elnum" column="ELNUM"/>
+		<result property="mwnum" column="MWNUM"/>
+		<result property="zuse" column="ZUSE"/>
+		<result property="zopn" column="ZOPN"/>
+		<result property="zlen" column="ZLEN"/>
+		<result property="zacapa" column="ZACAPA"/>
+		<result property="vkbur" column="VKBUR"/>
+		<result property="vkgrp" column="VKGRP"/>
+		<result property="zkunnr" column="ZKUNNR"/>
+		<result property="zkunnr_nm" column="ZKUNNR_NM"/>
+		<result property="zkunnr_tel" column="ZKUNNR_TEL"/>
+		<result property="zagnt" column="ZAGNT"/>
+		<result property="zagnt_nm" column="ZAGNT_NM"/>
+		<result property="posnr" column="POSNR"/>
+		<result property="gsnam" column="GSNAM"/>
+		<result property="vbeln" column="VBELN"/>
+		<result property="lp_is" column="LP_IS"/>
+		<result property="outgbn" column="OUTGBN"/>
+		<result property="outsrcdt" column="OUTSRCDT"/>
+		<result property="outfindt" column="OUTFINDT"/>
+		<result property="outcandt" column="OUTCANDT"/>
+		<result property="tp_date4" column="TP_DATE4"/>
+		<result property="bstdk" column="BSTDK"/>
+		<result property="contr_da" column="CONTR_DA"/>
+		<result property="tp_date2" column="TP_DATE2"/>
+		<result property="admitno" column="ADMITNO"/>
+		<result property="spdocu" column="SPDOCU"/>
+		<result property="lp_chn" column="LP_CHN"/>
+		<result property="lp_old" column="LP_OLD"/>
+		<result property="nonstd" column="NONSTD"/>
+		<result property="bezei" column="BEZEI"/>
+		<result property="outactdt" column="OUTACTDT"/>
+		<result property="outretdt" column="OUTRETDT"/>
+		<result property="cadbackdt" column='CADBACKDT'/>
+		<result property="cadconfdt" column='CADCONFDT'/>
+		<result property="check" column="CHECK"/>
+		<result property="dreuse" column="DREUSE"/>
+		<result property="zbdtyp" column="ZBDTYP"/>
+		<result property="lhsite" column="LHSITE"/>
+		<result property="ycont" column="YCONT"/>
+		<result property="surveyrcpdt" column="SURVEYRCPDT"/>
+		<result property="delaydays" column="DELAYDAYS"/>
+		<result property="wrkdays" column="WRKDAYS"/>
+		<result property="actts" column="ACTTS"/>
+		<result property="retts" column="RETTS"/>
+		<result property="cistat" column="CISTAT"/>
+		<result property="frcmfcdat" column="FRCMFCDAT"/>
+		<result property="zzchakd" column="ZZCHAKD"/>
+		<result property="zdesc" column="ZDESC"/>
+		<result property="zprgflg" column="ZPRGFLG"/>
+	    <collection property="zsdt1079" resultMap="selectZSDT1079Map"/>
+	</resultMap>
+	
+	<select id="selectRequestList" parameterType="hdel.sd.ses.domain.Ses0400ParamVO" resultMap="selectRequestListMap">
+		with z1058 as (
+			select z1058.mandt, 'Q' as gubun, z1058.zrqseq
+				, z1058.qtso_no
+				, ltrim(rtrim(char(z1058.qtser))) as qtser
+				, ltrim(rtrim(char(z1058.qtseq))) as qtseq
+				, z1058.cadreqtype
+				, z1058.zrqflg, z1058.zrqdat, z1058.lodat, z1058.zrqcn, z1058.zrsrlt, z1058.findat
+				, z1058.outgrd
+				, z1058.outgbn
+				, z1058.outfindt, z1058.outcandt, z1058.outactdt, z1058.outretdt, z1058.kunnr_z3, z1058.zrqstat, z1058.lp_is, z1058.spdocu
+				, z1058.lp_chn, z1058.lp_old, z1058.nonstd
+				, z1058.delaydays
+				, z1046.frcmfcdat
+				, z1058.zdesc
+			from saphee.zsdt1058 as z1058
+			INNER JOIN SAPHEE.ZSDT1046 AS z1046 ON z1058.MANDT = z1046.MANDT AND z1058.QTSO_NO = z1046.QTNUM AND z1058.QTSER = z1046.QTSER
+			where z1058.mandt= #{mandt}
+				and z1058.zrqdat between #{frzrqdat} and #{tozrqdat}
+				and z1058.zrqflg in ('D','A','B','T')
+				and z1058.hogi = ''
+			<if test="zkunnr_z3 != null and zkunnr_z3 != ''" >
+				and z1058.kunnr_z3= #{zkunnr_z3}
+			</if>
+			<if test="zrqstat != null and zrqstat != ''" >
+				and z1058.zrqstat= #{zrqstat}
+			</if>
+			<if test="qtso_no != null and qtso_no != ''" >
+				and z1058.qtso_no= #{qtso_no}
+			</if>
+			<if test="spdocu != null and spdocu != '' " >
+				and z1058.spdocu = #{spdocu}  
+			</if>
+
+			union
+			select z1058s.mandt, 'S' as gubun, z1058s.zrqseq
+				, z1058s.qtso_no
+				, ltrim(rtrim(char(z1058s.qtser))) as qtser
+				, ltrim(rtrim(char(z1058s.qtseq))) as qtseq
+				, '' as cadreqtype
+				, z1058s.zrqflg, z1058s.zrqdat, '' as lodat, '' as zrqcn, '' as zrsrlt, z1058s.findat
+				, '' as outgrd
+				, '' as outgbn
+				, '' as outfindt, '' as outcandt, '' as outactdt, '' as outretdt, z1058s.kunnr_z3, z1058s.zrqstat, '' as lp_is, '' as spdocu
+				, '' as lp_chn, '' as lp_old, '' as nonstd
+				, 0 as delaydays
+				, '' as frcmfcdat
+				, '' as zdesc
+			from saphee.zsdt1058s as z1058s
+			where mandt= #{mandt}
+				and zrqdat between #{frzrqdat} and #{tozrqdat}
+				and zrqflg in ('D','A','B','T')
+			<if test="zkunnr_z3 != null and zkunnr_z3 != ''" >
+				and kunnr_z3= #{zkunnr_z3}
+			</if>
+			<if test="zrqstat != null and zrqstat != ''" >
+				and zrqstat= #{zrqstat}
+			</if>
+			<if test="qtso_no != null and qtso_no != ''" >
+				and qtso_no= #{qtso_no}
+			</if>
+			<if test="spdocu != null and spdocu != '' " >
+				and spdocu is null  
+			</if>
+		),
+
+		ibsymbol as (
+			select ibsymbol.mandt as mandt, ibsymbol.symbol_id as symbol_id, ibsymbol.atwrt as atwrt
+			from saphee.cabn as cabn 
+				left join saphee.ibsymbol as ibsymbol on cabn.mandt=ibsymbol.mandt and cabn.atinn=ibsymbol.atinn 
+			where cabn.mandt= #{mandt} and cabn.atnam='EL_DREUSE'
+		)
+
+		select z1058.mandt
+			, z1058.gubun
+			, z1058.zrqseq
+			, z1058.qtso_no
+			, z1058.qtser            -- 견적차수
+			, z1058.qtseq            -- 견적일련번호
+			,z1058.cadreqtype
+			, z1058.zrqflg, z1058.zrqdat, z1058.lodat, z1058.zrqcn, z1058.zrsrlt, z1058.findat
+			, z1058.outgbn
+			,(select aedat from saphee.zsdt0161 where mandt=z1058.mandt and zrqseq=z1058.zrqseq and cistat='TR') as outsrcdt
+			, z1058.outfindt, z1058.outcandt, z1058.outactdt, z1058.outretdt, z1058.kunnr_z3, ptnz3.name1 as kunnr_z3_nm, ptnz3.stras as kunnr_z3_tel, z1058.zrqstat, z1058.lp_is, z1058.spdocu, z1046.vkbur, z1046.vkgrp, z1046.zkunnr, z1046.gsnam
+			, z1058.delaydays
+			, z0160.wrkdays
+			, vbak.zzpjt_id as vbeln
+			, z1046.zbdtyp
+			, case when z500.lhsite = 'Y' or z1091.qtnum is not null then 'Y' else '' end as lhsite
+			, z500.ycont
+			, z1046.zsum_znumber as znumber
+			,(select sum(znumber) from saphee.zsdt1047 where mandt = z1046.mandt and qtnum = z1046.qtnum and qtser = z1046.qtser and matnr like 'L%') as elnum
+			,(select sum(znumber) from saphee.zsdt1047 where mandt = z1046.mandt and qtnum = z1046.qtnum and qtser = z1046.qtser and matnr like 'S%') as esnum
+			,(select sum(znumber) from saphee.zsdt1047 where mandt = z1046.mandt and qtnum = z1046.qtnum and qtser = z1046.qtser and matnr like 'W%') as mwnum
+			, ptnz2.name1 as zkunnr_nm, ptnz2.stras as zkunnr_tel, z1046.zagnt, ptnz1.name1 as zagnt_nm
+			, '' as tp_date4		
+			, vbak.recad_da as bstdk
+			, vbak.contr_da
+			, (select min(tp_date2) as tp_date2
+				from saphee.vbap as vbap
+					inner join saphee.zsdt0003 as z003 on vbap.mandt = z003.mandt and vbap.vbeln = z003.vbeln and vbap.posnr = z003.posnr and z003.tp_date2 != '' AND z003.tp_date2 != '00000000'
+				where vbap.mandt = vbak.mandt and vbap.vbeln = vbak.vbeln) as tp_date2
+			, case vbak.admitno when 'X' then 'Y' else '' end as admitno
+			, z1058.lp_chn, z1046.autolp, z1058.lp_old, z1058.nonstd
+			, case when ptnwe.ort01 is null then t005u_q.bezei||' '||tzont_q.vtext else t005u_o.bezei ||' '|| tzont_o.vtext end as bezei
+			,value(ibinv.atwrt, z1048.prd) as dreuse
+			,(select cdate from saphee.zpst1113 where mandt=z1046.mandt and qtnum=z1046.qtnum) as surveyrcpdt
+			, (select aedat||aezet from saphee.zsdt0161 where mandt=z1058.mandt and zrqseq=z1058.zrqseq and cistat='TA') as actts
+			, (select aedat||aezet from saphee.zsdt0161 where mandt=z1058.mandt and zrqseq=z1058.zrqseq and cistat='TB') as retts
+			, (select aedat from saphee.zsdt0161 where mandt=z1058.mandt and zrqseq=z1058.zrqseq and cistat='TK') as cadbackdt
+			, (select aedat from saphee.zsdt0161 where mandt=z1058.mandt and zrqseq=z1058.zrqseq and cistat='TO') as cadconfdt
+			,(select cistat from saphee.zsdt0161 as z161 where mandt=z1058.mandt and zrqseq=z1058.zrqseq and aedat||aezet||erdat||erzet in (select max(aedat||aezet||erdat||erzet) from saphee.zsdt0161 where mandt=z161.mandt and zrqseq=z161.zrqseq)) as cistat
+			, z1079.chgchrpt
+			, z1058.frcmfcdat
+			, (select min(zzchakd) from saphee.zmaster02 where mandt = vbak.mandt and posid = vbak.zzpjt_id ) as zzchakd
+			, z1058.zdesc
+		    ,(SELECT DECODE(A.ZPRGFLG,'30','Y','10','Y','31','N','40','N','') 
+			    FROM SAPHEE.ZSDT1055 A 
+			    WHERE A.MANDT = z1046.MANDT 
+			    AND A.QTNUM = z1046.QTNUM 
+			    AND A.QTSER = z1046.QTSER
+			    FETCH FIRST 1 ROW ONLY) AS ZPRGFLG
+			from z1058
+			inner join saphee.zsdt1046 as z1046 on z1058.mandt=z1046.mandt and z1058.qtso_no=z1046.qtnum and z1058.qtser=z1046.qtser
+			left join saphee.zsdt0160 as z0160 on z1058.mandt=z0160.mandt and z1058.outgrd=z0160.outgrd and z1058.zrqdat between z0160.valfr and z0160.valto and z1046.zsum_znumber between z0160.numfr and z0160.numto
+			left join saphee.zsdt1079 as z1079 on z1058.mandt=z1079.mandt and z1058.zrqseq=z1079.zrqseq
+			left join saphee.zsdt0500 as z500 on z1046.mandt=z500.mandt and z1046.kunnr=z500.kunnr
+		
+			left join saphee.kna1 as ptnz3 on z1058.mandt = ptnz3.mandt and ptnz3.ktokd='Z201' and z1058.kunnr_z3=ptnz3.kunnr
+		    left join saphee.kna1 as ptnz2 on z1046.mandt = ptnz2.mandt and ptnz2.ktokd='Z201' and z1046.zkunnr=ptnz2.kunnr
+		    left join saphee.lfa1 as ptnz1 on z1046.mandt=ptnz1.mandt and z1046.zagnt=ptnz1.lifnr
+		
+			left join saphee.vbap as vbap on z1058.mandt=vbap.mandt and z1058.qtso_no=vbap.qtnum and vbap.posnr='000100'
+			left join saphee.vbak as vbak on vbap.mandt=vbak.mandt and vbap.vbeln=vbak.vbeln
+			left join saphee.vbpa as vbpa on vbak.mandt=vbpa.mandt and vbak.vbeln=vbpa.vbeln and vbpa.posnr='000000' and vbpa.parvw='WE'
+			left join saphee.kna1 as ptnwe on vbpa.mandt=ptnwe.mandt and vbpa.kunnr=ptnwe.kunnr
+		
+			left join saphee.zsdt1048 as z1048 on z1046.mandt=z1048.mandt and z1046.qtnum=z1048.qtnum and z1046.qtser=z1048.qtser and z1048.qtseq = 1 and z1048.prh='EL_DREUSE'
+			left join saphee.ibin as ibin on vbap.mandt=ibin.mandt and vbap.cuobj=ibin.instance
+			left join table (select ibsymbol.mandt as mandt, ibsymbol.atwrt as atwrt 
+				from saphee.ibinvalues	as ibinv
+					inner join ibsymbol on ibinv.mandt=ibsymbol.mandt and ibinv.symbol_id=ibsymbol.symbol_id
+				where ibinv.mandt=ibin.mandt
+				and ibinv.in_recno=ibin.in_recno 
+				) as ibinv on ibin.mandt=ibinv.mandt
+		
+			left join saphee.t005u as t005u_q on z1046.mandt=t005u_q.mandt and z1046.zlzone=t005u_q.bland and t005u_q.land1='KR' and t005u_q.spras='3'
+			left join saphee.tzont as tzont_q on z1046.mandt=tzont_q.mandt and z1046.region=tzont_q.zone1 and tzont_q.land1='KR' and tzont_q.spras='3'
+			left join saphee.t005u as t005u_o on ptnwe.mandt=t005u_o.mandt and ptnwe.regio=t005u_o.bland  and t005u_o.land1='KR' and t005u_o.spras='3'
+			left join saphee.tzont as tzont_o on ptnwe.mandt=tzont_o.mandt and ptnwe.lzone=tzont_o.zone1  and tzont_o.land1='KR' and tzont_o.spras='3'
+			
+			left join saphee.zsdt1091 as z1091 on z1046.mandt = z1091.mandt and z1046.qtnum = z1091.qtnum
+			/*    and z1046.qtser = z1091.qtser	and z1091.zaddin = 'A'  */
+  	    	   	  and z1046.qtser = z1091.qtser	and z1091.lh = 'X'    	   		
+		where z1058.mandt= #{mandt}
+		<if test="pjt != null and pjt != ''" >
+		   and vbak.zzpjt_id = #{pjt}
+		</if>
+	    <if test="frvkbur != '' and tovkbur != ''" >
+	    	and z1046.vkbur between #{frvkbur} and #{tovkbur}
+	    </if>
+	    <if test="frvkbur != '' and tovkbur == ''" >
+	    	and z1046.vkbur = #{frvkbur} 
+	    </if>
+	    <if test="frvkbur == '' and tovkbur != ''" >
+	    	and z1046.vkbur = #{tovkbur} 
+	    </if>
+	    <if test="frvkgrp != '' and tovkgrp != ''" >
+	    	and z1046.vkgrp between #{frvkgrp} and #{tovkgrp}
+	    </if>
+	    <if test="frvkgrp != '' and tovkgrp == ''" >
+	    	and z1046.vkgrp = #{frvkgrp} 
+	    </if>
+	    <if test="frvkgrp == '' and tovkgrp != ''" >
+	    	and z1046.vkgrp = #{tovkgrp} 
+	    </if>
+		<if test="zagnt != '' and zagnt != ''" >
+	    	and z1046.zagnt = #{zagnt}
+	    </if>
+		<if test="zkunnr != '' and zkunnr != ''" >
+	    	and z1046.zkunnr = #{zkunnr}
+	    </if>
+	    <if test="outgbn != '' and outgbn != ''" >
+	    	and (z1058.outgbn = #{outgbn} or z1058.outgbn = '')
+	    </if>
+	    order by z1058.gubun, z1058.qtso_no
+	    with ur
+	</select>
+
+	<resultMap id="queryOutsourcingBlueprintMap" type="hdel.sd.ses.domain.Ses0404"/>
+	<select id="queryOutsourcingBlueprint" parameterType="hdel.sd.ses.domain.Ses0404ParamVO" resultMap="queryOutsourcingBlueprintMap">
+		select
+			z1058.zrqseq,
+			z1046.qtnum,
+			z1046.qtser,
+			vbak.zzpjt_id as pjt,
+			z1046.gsnam,	--현장명
+			--case z1058.outgbn when 'K' then '광장' when 'I' then '일광' end as outgbn, --외주업체
+			z1058.outgbn,
+			z1046.zsum_znumber as znumber,	--대수
+			z1058.outgrd,	--등급
+			z1058.outloq,	--매수
+			value(z0159.outprice, 0) as outprice,
+			value(z0159.outprice,0) * value(z1058.outloq,0) * 100 as outamt, --금액 (등급 단가 * 매수)
+			z1058.zrqdat,	--요청일자
+			z1058.outsrcdt,	--외주발송일자
+			z1058.outactdt,	--외주접수일
+			z1058.outretdt,	--외주반려일
+			z1058.outfindt,	--외주완료일
+			z1058.findat,	--완료일
+			z1058.delaydays,	--도면작성지연일수 (Editable)
+			z0160.wrkdays,	--작업일수
+			-- as duedt, --외주도면납기일 = 외주접수일 + 작업일수  + 도면작성지연일수
+			--	as induedt, --납기준수여부(Y/N) = 외주완료일이 존재할때 if 외주도면납기일 &lt;= today then Y
+			z1058.outman,	--외주접수담당자
+			z1058.kunnr_z3 as ptnz3,	--영업기술담당자
+			ptnz3.name1 as ptnz3nm,	--영업기술담당자명
+			z1046.zkunnr as ptnz2,	--영업담당자
+			ptnz2.name1 as ptnz2nm,	--영업담당자명
+			z1046.vkbur,	--부서
+			z1046.vkgrp		--팀
+		from saphee.zsdt1058 as z1058
+			inner join saphee.zsdt1046 as z1046 on z1058.mandt=z1046.mandt and z1058.qtso_no=z1046.qtnum and z1058.qtser=z1046.qtser
+			left join saphee.zsdt0159 as z0159 on z1058.mandt=z0159.mandt and z1058.outgrd=z0159.outgrd and z1058.zrqdat between z0159.valfr and z0159.valto
+			left join saphee.zsdt0160 as z0160 on z1058.mandt=z0160.mandt and z1058.outgrd=z0160.outgrd and z1058.zrqdat between z0160.valfr and z0160.valto and z1046.zsum_znumber between z0160.numfr and z0160.numto
+			left join saphee.vbap as vbap on z1058.mandt=vbap.mandt and z1058.qtso_no=vbap.qtnum and vbap.posnr='000100'
+			left join saphee.vbak as vbak on vbap.mandt=vbak.mandt and vbap.vbeln=vbak.vbeln
+			left join saphee.kna1 as ptnz3 on z1058.mandt = ptnz3.mandt and ptnz3.ktokd='Z201' and z1058.kunnr_z3=ptnz3.kunnr
+			left join saphee.kna1 as ptnz2 on z1046.mandt = ptnz2.mandt and ptnz2.ktokd='Z201' and z1046.zkunnr=ptnz2.kunnr
+		where z1058.mandt = #{mandt}
+			and zrqdat between #{frzrqdat} and #{tozrqdat}
+			and z1058.outgbn != ''
+		    <if test="frvkbur != '' and tovkbur != ''" >
+		    	and z1046.vkbur between #{frvkbur} and #{tovkbur}
+		    </if>
+		    <if test="frvkbur != '' and tovkbur == ''" >
+		    	and z1046.vkbur = #{frvkbur} 
+		    </if>
+		    <if test="frvkbur == '' and tovkbur != ''" >
+		    	and z1046.vkbur = #{tovkbur} 
+		    </if>
+		    <if test="frvkgrp != '' and tovkgrp != ''" >
+		    	and z1046.vkgrp between #{frvkgrp} and #{tovkgrp}
+		    </if>
+		    <if test="frvkgrp != '' and tovkgrp == ''" >
+		    	and z1046.vkgrp = #{frvkgrp} 
+		    </if>
+		    <if test="frvkgrp == '' and tovkgrp != ''" >
+		    	and z1046.vkgrp = #{tovkgrp} 
+		    </if>
+			<if test="ptnz2 != '' and ptnz2 != ''" >
+		    	and z1046.zkunnr = #{ptnz2}	--영업담당자
+		    </if>
+			<if test="ptnz3 != '' and ptnz3 != ''" >
+		    	and z1058.kunnr_z3 = #{ptnz3}	--영업기술담당자
+		    </if>
+			<if test="zrqstat != null and zrqstat != ''" >
+				and z1058.zrqstat= #{zrqstat}
+			</if>
+			<if test="qtnum != null and qtnum != ''" >
+				and z1058.qtso_no= #{qtnum}
+			</if>
+			<!-- if test="qtser != null and qtser != ''" >
+				and z1058.qtser= #{qtser}
+			</if>
+			<if test="qtseq != null and qtseq != ''" >
+				and z1058.qtseq= #{qtseq}
+			</if-->
+			<if test="pjt != null and pjt != ''" >
+			   and vbak.zzpjt_id = #{pjt}
+			</if>
+
+			with ur
+	</select>
+	<select id="updateDelayDays" parameterType="hdel.sd.ses.domain.Ses0404">
+		update saphee.zsdt1058
+		set delaydays = #{delaydays},
+			udate = #{udate},
+			utime = #{utime},
+			uuser = #{uuser}
+		where mandt = #{mandt}
+		  and zrqseq = #{zrqseq}
+	</select>
+	
+	<resultMap id="getAtnamMap" type="hdel.sd.ses.domain.ZSDT1048"/> 	
+	<select id="getAtnam" parameterType="hdel.sd.ses.domain.Ses0400ParamVO" resultMap="getAtnamMap">
+		select z1114.atinn, z1048.prd, cabnt.atbez, z1048.qtnum, z1047.matnr
+		from saphee.zsdt1114 as z1114 
+		        left outer join saphee.cabn as cabn on z1114.mandt=cabn.mandt and z1114.atinn=cabn.atinn
+		        left outer join saphee.zsdt1048 as z1048 on z1114.mandt=z1048.mandt and cabn.atnam=z1048.prh and z1048.qtnum = #{qtso_no} and z1048.qtser = #{qtser}  
+		        left outer join saphee.zsdt1047 as z1047 on z1048.mandt=z1047.mandt and z1048.qtnum=z1047.qtnum and z1048.qtser=z1047.qtser and z1048.qtseq=z1047.qtseq 
+		        left outer join saphee.cabnt as cabnt on z1114.mandt=cabnt.mandt and cabn.atinn=cabnt.atinn and cabnt.spras='3'
+		where z1114.mandt = #{mandt}
+		  and (z1048.prd = '' or z1048.prd is null)
+		  and z1114.objek=z1047.matnr
+	</select>
+
+</mapper>

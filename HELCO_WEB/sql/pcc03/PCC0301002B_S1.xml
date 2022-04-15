@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+ A.VBELN                                                   AS VBELN
+,A.PSPID                                                   AS PSPID
+,A.FKDAT                                                   AS FKDAT
+,SAPHEE.GET_CURRENCY2(A.WAERK,A.NETWR*1.1)                     AS NETWR
+,A.WAERK                                                   AS WAERK
+,VALUE(B.BUDAT, '')                                        AS BUDAT
+,VALUE(SAPHEE.GET_CURRENCY2(B.WAERS,B.HWBAS), 0)           AS HWBAS
+,VALUE(B.WAERS, '')                                        AS WAERS
+,SAPHEE.GET_CURRENCY2(A.WAERK,(A.NETWR*1.1 - VALUE(B.HWBAS,0))) AS MISU
+,CASE WHEN (A.NETWR*1.1 - VALUE(B.HWBAS,0)) > 9 THEN SAPHEE.MONTH_BETWEEN(A.FKDAT, CAST(#SDAT# AS VARCHAR(8)), '1') ELSE 0 END AS MONTH_BT
+
+FROM SAPHEE.ZSDT0040 AS A
+      LEFT OUTER JOIN (
+                        SELECT
+                         BELNR
+                        ,MAX(BUDAT) AS BUDAT
+                        ,WAERS
+                        ,SUM(DMBTR) AS HWBAS
+                        FROM SAPHEE.ZSDT0029
+                        WHERE MANDT  = #MANDT#
+                        AND   BUKRS  = '1000'
+                        AND   KIDNO  = #PSPID#
+                        AND   ZCANYM = '000000'
+                        GROUP BY MANDT, BELNR, WAERS
+                      ) AS B ON A.VBELN = B.BELNR
+WHERE A.MANDT  = #MANDT#
+  AND A.PSPID  = #PSPID#
+  AND A.ZCANYM = '000000'
+ORDER BY A.PSPID, A.FKDAT
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="72" type="VARCHAR" description="" /> 
+		<col name="SDAT" size="24" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="VBELN" size="30" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="72" type="VARCHAR" description="" /> 
+		<col name="FKDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="NETWR" size="13" type="DECIMAL" description="" /> 
+		<col name="WAERK" size="15" type="VARCHAR" description="" /> 
+		<col name="BUDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="HWBAS" size="13" type="DECIMAL" description="" /> 
+		<col name="WAERS" size="15" type="VARCHAR" description="" /> 
+		<col name="MISU" size="13" type="DECIMAL" description="" /> 
+		<col name="MONTH_BT" size="11" type="INTEGER" description="" /> 
+	</output>
+</query>

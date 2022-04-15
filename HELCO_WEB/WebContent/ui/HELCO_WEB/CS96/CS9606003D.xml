@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="184" Id="CS9606003D" Left="8" OnKeyDown="gfn_EnterInForm" OnLoadCompleted="fn_OnLoadCompleted" OnUnloadCompleted="fn_OnUnloadCompleted" PidAttrib="7" Title="모뎀번호&#32;유효성&#32;체크" ToolTipFont="Default,0" Top="8" Ver="1.0" Width="488" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_cond_c">
+				<Contents>
+					<colinfo id="MODEMNUMA" size="256" summ="default" type="STRING"/>
+					<colinfo id="MODEMNUMB" size="256" summ="default" type="STRING"/>
+					<colinfo id="GBNDH" size="256" summ="default" type="STRING"/>
+					<record>
+						<GBNDH></GBNDH>
+						<MODEMNUMA></MODEMNUMA>
+						<MODEMNUMB></MODEMNUMB>
+					</record>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_list_c">
+				<Contents>
+					<colinfo id="MODEMNUM" size="256" summ="default" type="STRING"/>
+					<colinfo id="GBN" size="256" summ="default" type="STRING"/>
+					<colinfo id="RESULT" size="256" summ="default" type="STRING"/>
+					<colinfo id="CODE" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_gbn_code">
+				<Contents>
+					<colinfo id="CODE" size="256" summ="default" type="STRING"/>
+					<colinfo id="CODE_NAME" size="256" summ="default" type="STRING"/>
+					<record>
+						<CODE>OH</CODE>
+						<CODE_NAME>HRTS&#32;변경&#32;전</CODE_NAME>
+					</record>
+					<record>
+						<CODE>NH</CODE>
+						<CODE_NAME>HRTS&#32;변경&#32;후</CODE_NAME>
+					</record>
+					<record>
+						<CODE>OD</CODE>
+						<CODE_NAME>DIPBX&#32;변경&#32;전</CODE_NAME>
+					</record>
+					<record>
+						<CODE>ND</CODE>
+						<CODE_NAME>DIPBX&#32;변경&#32;후</CODE_NAME>
+					</record>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Div Height="36" Id="div_btn" Left="-8" TabOrder="1" Text="Div0" ToolTipFont="Default,0" Url="WB01::CommBtnForm.xml" Width="488">
+			<Contents></Contents>
+		</Div>
+		<Grid AreaSelect="TRUE" AutoFitEndLine="Hide" BindDataset="ds_list_c" BkColor2="default" BoldHead="true" Border="Flat" Bottom="176" CellMoving="TRUE" ColSelect="TRUE" ColSizing="TRUE" Editable="TRUE" Enable="true" EndLineColor="default" HeadBorder="Flat" HeadHeight="20" Height="80" Id="grd_list" InputPanel="FALSE" Left="8" LineColor="user20" LineType="ExHORZ" Right="480" RowHeight="20" Style="sty_grid" TabOrder="2" TabStop="true" Top="96" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="472">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col width="40"/>
+						<col width="102"/>
+						<col width="102"/>
+						<col width="211"/>
+					</columns>
+					<head>
+						<cell align="center" col="0" color="user21" display="text" font="굴림,9" text="NO"/>
+						<cell col="1" color="user21" display="text" font="굴림,9" text="구분"/>
+						<cell col="2" color="user21" display="text" font="굴림,9" text="번호"/>
+						<cell col="3" color="user21" display="text" font="굴림,9" text="유효성&#32;체크&#32;결과"/>
+					</head>
+					<body>
+						<cell align="center" bkcolor2="user22" col="0" display="text" expr="currow+1"/>
+						<cell align="center" bkcolor2="user22" col="1" colid="GBN" combocol="CODE" combodataset="ds_gbn_code" combotext="CODE_NAME" display="combo"/>
+						<cell align="center" bkcolor2="user22" col="2" colid="MODEMNUM" display="text" edit="numchar"/>
+						<cell align="center" bkcolor2="user22" col="3" colid="RESULT" color='expr:iif(CODE&#32;==&#32;&quot;X&quot;,&quot;RED&quot;,&#32;)' display="text"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Static Height="24" Id="st_message" Left="14" TabOrder="3" Text="text" Top="48" Width="458"></Static>
+		<Button ButtonStyle="TRUE" Cursor="HAND" Height="20" Id="btn_enter" ImageID="btn_sub_05" Left="392" LeftMargin="12" OnClick="btn_enter_OnClick" Style="sty_btn" TabOrder="4" Text="번호&#32;입력" Top="64" Transparent="TRUE" Width="88"></Button>
+	</Form>
+	<Script><![CDATA[﻿﻿﻿﻿﻿﻿/*
+ ******************************************************************************************
+ * 기      능   : 모뎀번호 유효성 체크 
+ * 작  성  자   : 이 하 림 
+ * 작성  일자   : 2017 . 06 . 09
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    : 
+ ******************************************************************************************
+ */
+#include "LIB::commons.js";	// 공통 스크립트 
+#include "LIB::common_cs.js";	// 서비스 공통 스크립트
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언 
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+var Flag_AbleTo_Enter = true ;
+var Flag_AdminSave = false;
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) {
+	// Form 로드 이벤트 맨 첫줄에 기술 
+	gfn_initForm();
+		
+			// SE 팀 체크 
+	if(gfn_getAuthGroup("ZCS73")) {
+		Flag_AdminSave = true;
+	}
+	if(G_USER_ID == "2021200" || G_USER_ID == "2023687" || G_USER_ID == "2018900" || G_USER_ID == "2029758" || G_USER_ID == "2999999") {
+		Flag_AdminSave = true;
+	}
+		
+	ds_list_c.AddRow();
+	ds_list_c.SetColumn(0,"GBN"     , "O"+p_gbnHD);
+	ds_list_c.SetColumn(0,"MODEMNUM", p_modemNumA);
+	ds_list_c.AddRow();
+	ds_list_c.SetColumn(1,"GBN"     , "N"+p_gbnHD);
+	ds_list_c.SetColumn(1,"MODEMNUM", p_modemNumB);
+	
+	
+	//trace(p_dCan);
+	if(p_dCan == "Y") {
+		//grd_list.Editable = false ;
+		st_message.Value = "해지완료처리 되었습니다. 수정이 불가합니다.";
+	} else {
+		st_message.Value = "";
+	}
+}
+
+/********************************************************************************
+* 기      능   : 공통코드가 조회된 후의 Callback 함수 
+********************************************************************************/
+function fn_completeInit(sCode, sDsObj, sCodeType) {
+	
+}
+/********************************************************************************
+* 기      능   : form UnloadCompleted 
+********************************************************************************/
+function fn_OnUnloadCompleted(obj) {
+	return gfn_isFormUnload(obj);
+}
+//=========================================================================================
+// [ PART 3 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,form닫기)
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 조회 
+********************************************************************************/
+function fn_query() {
+	
+	ds_cond_c.SetColumn(0,"MODEMNUMA", ds_list_c.GetColumn(0,"MODEMNUM"));
+	ds_cond_c.SetColumn(0,"MODEMNUMB", ds_list_c.GetColumn(1,"MODEMNUM"));
+	ds_cond_c.SetColumn(0,"GBNDH"    , p_gbnHD);
+	
+	//trace(ds_cond_c.SaveXML());
+	tit_clearActionInfo();	
+	tit_addSearchActionInfo("cs96:CS9606003D_S1");
+	tit_callService(
+        ""
+        , ""
+        , "ds_cond=ds_cond_c"
+        , "ds_list_c=ds_list"
+        , ""
+        , "fn_afterQuery"
+        , true);
+	
+	
+}
+function fn_afterQuery(errCode, errMsg) {
+	
+	for(var i=0; i<ds_list_c.RowCount(); i++) {					
+		if(ds_list_c.GetColumn(i, "CODE") == "X") {
+		
+			st_message.Value = "유효한 번호가 아닙니다. 저장이 불가능합니다.";
+			Flag_AbleTo_Enter = false ;
+			
+		}
+	}
+
+	if(Flag_AdminSave == true) {
+		alert("관리자권한으로 저장합니다.");
+	} else {
+	
+		if(!Flag_AbleTo_Enter){
+			alert("저장할 수 없습니다.");
+			return;
+		}
+
+	}
+	
+	if(p_dCan == "Y") {
+		//grd_list.Editable = false ;
+	
+		// 변경 후 번호는 변경 가능 
+		modify_modemNumA = ds_list_c.GetColumn(0, "MODEMNUM");
+		modify_modemNumB = ds_list_c.GetColumn(1, "MODEMNUM");
+		
+		if(modify_modemNumA <> p_modemNumA){
+			ds_list_c.SetColumn(0,"MODEMNUM", p_modemNumA);
+			alert("해지완료처리 되었습니다. 수정이 불가합니다.");
+			return;
+		}
+		
+	} 
+	
+	// 모뎀번호 입력 - 부모창으로 전달 
+	var arr = [
+		  ds_list_c.GetColumn(0, "MODEMNUM")
+		, ds_list_c.GetColumn(1, "MODEMNUM")
+	];
+	
+	close( arr );
+	
+}
+
+/********************************************************************************
+* 기      능   : 닫기  
+********************************************************************************/
+function fn_close() {
+	close();
+}
+
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 : 각 Component 별 이벤트 
+//=========================================================================================
+
+/********************************************************************************
+* 기      능   : 모뎀번호 입력 - 부모창으로 전달 
+********************************************************************************/
+function btn_enter_OnClick(obj)
+{	
+	var valueCheck = 0 ;
+	
+	for(var i=0; i<ds_list_c.RowCount(); i++) {	
+		valueCheck = valueCheck + length(ds_list_c.GetColumn(i, "MODEMNUM"));		
+	}	
+	Flag_AdminSave = true;
+	if(valueCheck > 0 || Flag_AdminSave = false) {
+
+		// 전후 번호를 모두 입력한 경우만 유효성 체크 
+		for(var i=0; i<ds_list_c.RowCount(); i++) {					
+			if(length(ds_list_c.GetColumn(i, "MODEMNUM")) == 0) {
+			
+				alert("번호를 입력하세요.");
+				Flag_AbleTo_Enter = false ;
+				return;
+			}
+		}
+	}
+	
+	// 유효성 체크 
+	fn_query();
+
+}]]></Script>
+</Window>

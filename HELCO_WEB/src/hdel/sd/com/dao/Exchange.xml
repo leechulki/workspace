@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.com.dao.ExchangeD">
+
+	<resultMap id="selectExchangeRate" type="hdel.sd.com.domain.ExchangeVO">
+		<result property="mandt" column="mandt"/>
+		<result property="kurst" column="kurst"/>
+		<result property="fcurr" column="fcurr"/>
+		<result property="tcurr" column="tcurr"/>
+		<result property="frdat" column="frdat"/>
+		<result property="todat" column="todat"/>
+		<result property="ukurs" column="ukurs"/>
+	</resultMap>
+	
+	<select id="selectQtExchange" parameterType="hdel.sd.com.domain.ExchangeVO" resultMap="selectExchangeRate">  
+		SELECT mandt, kurst, fcurr, tcurr, frdat, todat, ukurs
+		  FROM saphee.ztcurr 		  						
+		 WHERE mandt  = #{mandt}
+		   AND kurst  = #{kurst}
+		   AND tcurr  = #{tcurr}
+		   AND fcurr  = #{fcurr}
+		   AND #{basedt} BETWEEN frdat AND todat
+	</select>
+	<select id="selectSoExchange" parameterType="hdel.sd.com.domain.ExchangeVO" resultMap="selectExchangeRate">  
+		SELECT mandt, kurst, fcurr, tcurr, ukurs,
+			   CAST((99999999-INT(gdatu)) AS CHAR(8)) AS frdat,
+			   CAST((99999999-INT(gdatu)) AS CHAR(8)) AS todat  
+		  FROM saphee.tcurr
+		 WHERE mandt = #{mandt}
+		   AND kurst = #{kurst}
+		   AND tcurr = #{tcurr}
+		   AND fcurr = #{fcurr}
+		   AND CAST((99999999-INT(GDATU)) AS CHAR(8)) = #{basedt}
+	</select>
+	
+	<!-- 견적통화, 견적일자  -->
+	<resultMap id="selectCurrencyQtMap" type="hdel.sd.com.domain.ExchangeVO"> 
+	    <result property="mandt" column="MANDT"/>
+	    <result property="gdatu" column="GDATU"/>
+	    <result property="waerk" column="WAERK"/>
+	    <result property="auart" column="AUART"/>
+	</resultMap>
+	
+	<select id="selectCurrencyQt" parameterType="map" resultMap="selectCurrencyQtMap">
+		SELECT  mandt, qtdat AS gdatu, waerk, auart
+		  FROM  saphee.zsdt1046
+	     WHERE  mandt = #{mandt}
+ 		   AND  qtnum = #{qtnum}
+	       AND  qtser = #{qtser}
+		WITH UR
+	</select>
+	
+	<!-- 수주통화, 수주일자  -->
+	<resultMap id="selectCurrencySoMap" type="hdel.sd.com.domain.ExchangeVO"> 
+	    <result property="mandt" column="MANDT"/>
+	    <result property="gdatu" column="GDATU"/>
+	    <result property="waerk" column="WAERK"/>
+	    <result property="auart" column="AUART"/>
+	</resultMap>
+	
+	<select id="selectCurrencySo" parameterType="map" resultMap="selectCurrencySoMap">
+		SELECT  vbak.mandt, vbak.bstdk AS gdatu, zsdt0090.chwaerk AS waerk, vbak.auart
+		  FROM  saphee.zsdt0090 AS zsdt0090 INNER JOIN saphee.vbak AS vbak
+		  									   ON zsdt0090.mandt = vbak.mandt
+		  									  AND zsdt0090.vbeln = vbak.vbeln	
+	     WHERE  zsdt0090.mandt = #{mandt}
+ 		   AND  zsdt0090.pspid = #{pspid}
+	       AND  zsdt0090.seq   = #{seq}
+		WITH UR
+	</select>	
+	
+	<!-- Cost Table 배포 통화단위 -->
+	<select id="searchWaerkBase" parameterType="map" resultType="string">
+ <![CDATA[	
+		SELECT  waerk
+		  FROM  saphee.zsdt1112
+	     WHERE  mandt   = #{mandt}
+ 		   AND  basedt <= #{basedt}
+ 		 ORDER  BY basedt DESC
+ 		 FETCH  FIRST 1 ROW ONLY 
+		WITH UR
+]]>
+	</select>	
+</mapper>

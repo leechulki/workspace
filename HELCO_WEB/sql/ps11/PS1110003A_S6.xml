@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+	
+SELECT TBL.MANDT , TBL.QTNUM , TBL.QTDAT ,  TBL.CDATE, TBL.CNAME ,TBL.EDATE, TBL.ENAME,   TBL.CHECK, 
+              TBL.PSPID ,TBL.GSNAM,  TBL.ZZPJT_ID   , TBL.KUNNR, TBL.STEXT ,  TBL.RECAD_DA , 
+              TBL.ZKUNNR,
+	 		  TBL.FNAME, TBL.FPATH, TBL.FNAME_APP, TBL.FSIZE,  
+              TBL.FNAME_TMP,
+              TBL.COLOR, 
+              TBL.VBELN,             TBL.NAME1,    TBL.BIGO, TBL.CONTR_DA,
+
+              TBL.ZSPEC1,
+              TBL.ZSPEC2,
+              TBL.NAMET,
+              TBL.ZZCHAKD,
+              TBL.MESGACCP,
+              TBL.MESGTITL ,
+              TBL.MESGDESC,
+              TBL.MESGCHEK,
+              TBL.MESGACDE,
+              TBL.MESGSEDE,
+               CASE WHEN TBL.CNT_Y = 0 OR TBL.CNT_ALL = 0
+                    THEN 'X'
+                    WHEN TBL.CNT_ALL > TBL.CNT_Y
+                    THEN '△'
+                    WHEN TBL.CNT_ALL = TBL.CNT_Y
+                    THEN 'O'
+                    ELSE ''
+                    END AS DREUSE,
+              TBL.QTSER
+             
+
+FROM (	
+SELECT A.MANDT , A.QTNUM , SD.QTDAT ,  A.CDATE, A.CNAME ,A.EDATE, A.ENAME,   ''  AS CHECK, 
+              VK.PSPID ,SD.GSNAM,  VK.ZZPJT_ID   , D.KUNNR, S.STEXT ,  VK.RECAD_DA , 
+              (SELECT X.USERNAME  
+                   FROM SAPHEE.ZUSERF AS X 
+                 WHERE X.MANDT = SD.MANDT
+                     AND X.USERNUMB = SUBSTR(SD.ZKUNNR,2,7)) AS ZKUNNR,
+	 '' AS FNAME, '' AS FPATH, '' AS FNAME_APP, '' AS FSIZE,  
+              '' AS FNAME_TMP,
+            
+              CASE WHEN VALUE(A.CNAME,'') = ''  THEN 'X' ELSE '' END AS COLOR, 
+              SD.VBELN,             D.NAME1,    A.BIGO, VK.CONTR_DA,
+
+              (SELECT X.ZSPEC1  FROM SAPHEE.ZMASTER02 AS X WHERE X.MANDT = VK.MANDT AND X.POSID = VK.ZZPJT_ID   ORDER BY X.MANDT, X.POSID_1   fetch first 1 rows only ) AS ZSPEC1,
+              (SELECT X.ZSPEC2  FROM SAPHEE.ZMASTER02 AS X WHERE X.MANDT = VK.MANDT AND X.POSID = VK.ZZPJT_ID   ORDER BY X.MANDT, X.POSID_1   fetch first 1 rows only ) AS ZSPEC2,
+              (SELECT X.NAMET  FROM SAPHEE.ZMASTER02 AS X WHERE X.MANDT = VK.MANDT AND X.POSID = VK.ZZPJT_ID   ORDER BY X.MANDT, X.POSID_1   fetch first 1 rows only ) AS NAMET,
+              (SELECT X.ZZCHAKD  FROM SAPHEE.ZMASTER02 AS X WHERE X.MANDT =VK.MANDT AND X.POSID = VK.ZZPJT_ID   ORDER BY X.MANDT, X.POSID_1   fetch first 1 rows only ) AS ZZCHAKD,
+             '' AS MESGACCP,
+             '교체현장 실측치 접수' AS MESGTITL ,
+             '' AS MESGDESC,
+             'N' AS MESGCHEK,
+             'N' AS MESGACDE,
+             'N' AS MESGSEDE
+             , (
+					  	  SELECT COUNT(DISTINCT T.QTNUM||T.QTSEQ)
+						    FROM SAPHEE.ZSDT1048 T
+						    LEFT OUTER JOIN SAPHEE.ZSDT1047 AS T2
+						                ON T.MANDT = T2.MANDT
+						               AND T.QTNUM = T2.QTNUM
+						               AND T.QTSER = T2.QTSER
+						               AND T.QTSEQ = T2.QTSEQ
+						   WHERE T.MANDT   = SD.MANDT
+						     AND T.QTNUM   = SD.QTNUM
+							 AND T.QTSER   = SD.QTSER
+							 AND T2.ZPRDGBN NOT IN ('SP_01','SV_01','DW_01','WL_01')
+								
+				  ) AS CNT_ALL
+			  , (
+			  	  SELECT SUM(CASE WHEN T.PRD = 'Y'
+			  	                  THEN 1
+			  	                  ELSE 0
+			  	                  END) AS CNT_Y
+					FROM SAPHEE.ZSDT1048 T
+					LEFT OUTER JOIN SAPHEE.ZSDT1047 AS T2
+						                ON T.MANDT = T2.MANDT
+						               AND T.QTNUM = T2.QTNUM
+						               AND T.QTSER = T2.QTSER
+						               AND T.QTSEQ = T2.QTSEQ
+				   WHERE T.MANDT   = SD.MANDT
+					 AND T.QTNUM   = SD.QTNUM
+					 AND T.QTSER   = SD.QTSER
+					 AND T.PRH     = 'EL_DREUSE'
+					 AND T2.ZPRDGBN NOT IN ('SP_01','SV_01','DW_01','WL_01')
+			    ) AS CNT_Y
+			    , SD.QTSER
+
+			  
+FROM SAPHEE.ZPST1113 AS A
+-- FROM  SAPHEE.ZSDT1046 AS  SD
+  LEFT OUTER JOIN SAPHEE.ZSDT1046 AS SD
+                ON A.MANDT = SD.MANDT 
+               AND A.QTNUM = SD.QTNUM
+				   
+
+  LEFT OUTER  JOIN  SAPHEE.VBAK AS VK
+                ON SD.MANDT = VK.MANDT 
+          --  AND SD.VBELN = right(VK.VBELN,6)
+               AND SD.VBELN = VK.VBELN	
+               AND VK.VTWEG = '10' -- 유통경로 (신규/교체)
+	
+  LEFT OUTER JOIN SAPHEE.VBPA AS C 
+                ON VK.MANDT = C.MANDT 
+               AND VK.VBELN = C.VBELN 
+               AND C.PARVW = 'Z3'
+      
+  LEFT OUTER JOIN SAPHEE.KNA1 AS D 
+                ON C.MANDT= D.MANDT
+               AND C.KUNNR = D.KUNNR
+
+  LEFT OUTER JOIN  SAPHEE.ZV_SDT0008 AS S 
+               ON VK.MANDT=S.MANDT 
+             AND VK.MANDT = S.MANDT 
+             AND VK.WWBLD = S.WWBLD	
+	
+
+WHERE A.MANDT =  #G_MANDT#
+    AND SD.QTSER = (SELECT MAX(X.QTSER) 
+                                 FROM SAPHEE.ZSDT1046 AS X  
+                               WHERE A.MANDT = X.MANDT 
+                                   AND A.QTNUM = X.QTNUM )
+						
+<isNull col="QTNUM">
+  <isEqual col="PERIOD" value="A">
+     AND (A.CDATE BETWEEN #SUP_DTF# AND #SUP_DTT#)
+   </isEqual>
+   <isEqual col="PERIOD" value="B">
+      AND (A.CDATE BETWEEN #SUP_DTF# AND #SUP_DTT#)
+   </isEqual>
+</isNull>
+
+ <isNotNull col="QTNUM">
+   AND A.QTNUM = #QTNUM#
+ </isNotNull>
+
+
+ <isNotNull col="VBELN">
+   AND SD.VBELN= #VBELN#
+ </isNotNull>	
+ 
+ ) AS TBL
+ 
+ WITH UR
+ </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

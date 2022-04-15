@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[시행예산 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT
+      A.MANDT -- 클라이언트
+     ,A.OCNT_NUMB -- 수주번호
+     ,A.EBDG_MGSQ -- 시행예산관리순번
+     ,A.ESMT_TAMT -- 견적총금액
+     ,A.SLCS_RATE -- 시행율
+     ,A.WAERK -- 통화 키
+     ,A.PBDG_TAMT -- 직전시행예산총금액
+     ,A.CEBD_TAMT -- 시행예산변동총금액
+     ,A.EBDG_TAMT -- 시행예산총금액
+     ,A.SALE_COST -- 매출원가
+     ,A.MNGR -- 담당자
+     ,A.EBDG_MGST -- 시행예산관리상
+     ,(SELECT CODE_NAME FROM  SAPHEE.ZFST0100 WHERE MANDT = A.MANDT AND CODE_GROP = 'A02' AND CODE = A.EBDG_MGST) AS EBDG_MGST_NAME -- 상태
+     ,A.AFIL_NUMB -- 첨부파일번호
+     ,A.WRIT_DATE -- 작성일자
+     ,A.WRIT_TIME -- 작성시간
+     ,A.WRIT_USER -- 작성자
+     ,A.MODI_DATE -- 변경일자
+     ,A.MODI_TIME -- 변경시간
+     ,A.MODI_USER -- 변경자
+     ,B.BSTNK
+     ,C.NAME1 KUNNR_NAME -- 납품처명
+     ,(SELECT CODE_NAME FROM SAPHEE.ZFST0100 WHERE MANDT = A.MANDT AND CODE_GROP = 'A03' AND CODE = B.ORDR_TYPE) AS ORDR_TYPE_NAME
+     ,CASE   WHEN    AP.APPR_STAT NOT IN ('040', '390') 
+             THEN    CASE WHEN AP.ADIT_STAT NOT IN ('040', '250', '290') THEN AP.DRAF_STAT ELSE AP.ADIT_STAT END 
+             ELSE    AP.APPR_STAT END AS APPR_STAT -- 결재상태
+     ,AU.CODE_NAME AS APPR_STAT_NAME -- 결재상태명
+     ,AP.ADIT
+     ,AP.APPR
+     ,B.PSPID
+FROM  SAPHEE.ZFST0301 A
+       INNER JOIN SAPHEE.ZFST0304 B
+       ON  A.MANDT = B.MANDT
+       AND A.OCNT_NUMB = B.OCNT_NUMB
+       LEFT OUTER JOIN SAPHEE.KNA1 AS C
+       ON   B.MANDT = C.MANDT
+       AND  B.KUNNR = C.KUNNR
+       AND  C.KTOKD IN ( 'Z001', 'Z002', 'Z004' )
+       LEFT JOIN SAPHEE.ZFST0103 AP ON (A.MANDT = AP.MANDT AND AP.ADOC_CLAS = 'OB' AND A.OCNT_NUMB = AP.ADOC_NUMB AND A.EBDG_MGSQ = AP.ADOC_NTIM )
+       LEFT JOIN SAPHEE.ZFST0100 AU ON (AU.MANDT = AP.MANDT AND AU.CODE_GROP = 'A01'
+                                     AND  AU.CODE = CASE  WHEN    AP.APPR_STAT NOT IN ('040', '390')
+                                                          THEN    CASE WHEN AP.ADIT_STAT NOT IN ('040', '250', '290') THEN AP.DRAF_STAT ELSE AP.ADIT_STAT END
+                                                     ELSE    AP.APPR_STAT END )
+WHERE A.MANDT = #G_MANDT#
+  AND A.OCNT_NUMB = #OCNT_NUMB#
+  AND A.EBDG_MGSQ = #EBDG_MGSQ# 
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_zfst0301">
+    </output>
+</query>

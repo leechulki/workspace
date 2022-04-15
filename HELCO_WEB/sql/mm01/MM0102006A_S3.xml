@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	-- 대공정, BOM이력, 발주데이타등 main 테이블들을 바라보고 있고 조회건수들이 많음. 추가개선책으로 조회기간 조정을 요청하였으나 현업에서 불수용(2020.10.29)
+WITH P1 AS (
+
+SELECT
+         P4.MANDT
+        ,P4.WOKNUM
+        ,P4.IDNRK
+        ,SUBSTR(MB.SPEC,1,5) AS TYPE
+FROM (
+      SELECT
+               P4.MANDT
+              ,P4.WOKNUM
+              ,P4.IDNRK
+              ,P4.PRCTYP
+              ,ROW_NUMBER() OVER(PARTITION BY P4.MANDT,P4.WOKNUM,P4.MATNR,P4.IDNRK 
+                ORDER BY P4.MANDT,P4.WOKNUM,P4.MATNR,P4.IDNRK,P4.ITEM_SEQ,P4.CRDAT DESC,P4.SEQNO DESC) AS ROWNO
+      FROM SAPHEE.ZPPT027 AS P27
+--      INNER JOIN SAPHEE.ZPPT004 AS P4 ON P27.MANDT = P4.MANDT AND P27.POSID = P4.WOKNUM AND (P4.MATKL  = 'A204A' OR P4.MATKL  = 'A204A01') A204A01 제외, 이효진 사원 요청 200529 yj
+	  INNER JOIN SAPHEE.ZPPT004 AS P4 ON P27.MANDT = P4.MANDT AND P27.POSID = P4.WOKNUM AND P4.MATKL  = 'A204A'
+      WHERE P27.MANDT  = #G_MANDT#        
+<isEqual col="GUBUN" value="B">
+--                       AND P27.POSID LIKE #POSID# || '%'
+                       AND P27.ILDAT BETWEEN #SHIP_FM# AND #SHIP_TO#
+</isEqual>
+<isEqual col="GUBUN" value="A">
+                       AND P27.POSID LIKE #POSID# || '%'
+                       AND P27.ILDAT> '00000000' 
+</isEqual>
+                       AND P27.BLOCK = 'A'
+                       AND P27.ACTIV='05'
+                       AND P27.GUBUN ='01'
+                       AND SUBSTR(P27.POSID,7,1) IN ('L','X','N','Y')
+                       AND P27.POSID NOT LIKE 'T%'                          
+        
+
+     ) AS P4
+     INNER JOIN SAPHEE.ZMMT011 AS MB ON  MB.MANDT=P4.MANDT
+                                     AND MB.MATNR=P4.IDNRK
+WHERE ROWNO=1
+  AND PRCTYP&lt;&gt;'D'
+
+
+) ,
+P2 AS (
+
+SELECT
+         P4.MANDT
+        ,P4.CRDAT
+        ,P4.SEQNO
+        ,P4.WOKNUM
+        ,P4.MATNR
+        ,P4.IDNRK
+        ,P4.ITEM_SEQ
+        ,P4.MATKL
+        ,MB.SPEC
+        ,MB.ZSIZE
+FROM (
+      SELECT
+               P4.MANDT
+              ,P4.CRDAT
+              ,P4.SEQNO
+              ,P4.WOKNUM
+              ,P4.MATNR
+              ,P4.IDNRK
+              ,P4.ITEM_SEQ
+              ,P4.MATKL
+              ,P4.PRCTYP
+              ,ROW_NUMBER() OVER(PARTITION BY P4.MANDT,P4.WOKNUM,P4.MATNR,P4.IDNRK 
+               ORDER BY P4.MANDT,P4.WOKNUM,P4.MATNR,P4.IDNRK,P4.ITEM_SEQ,P4.CRDAT DESC,P4.SEQNO DESC) AS ROWNO
+      FROM SAPHEE.ZPPT027 AS P27
+	  INNER JOIN SAPHEE.ZPPT004 AS P4 ON P27.MANDT = P4.MANDT AND P27.POSID = P4.WOKNUM AND P4.MATKL  = 'A260B'
+      WHERE P27.MANDT  = #G_MANDT#   
+<isEqual col="GUBUN" value="B">
+--                       AND P27.POSID LIKE #POSID# || '%'
+                       AND P27.ILDAT BETWEEN #SHIP_FM# AND #SHIP_TO#
+</isEqual>
+<isEqual col="GUBUN" value="A">
+                       AND P27.POSID LIKE #POSID# || '%'
+                       AND P27.ILDAT> '00000000' 
+</isEqual>
+                       AND P27.BLOCK = 'A'
+                       AND P27.ACTIV='05'
+                       AND P27.GUBUN ='01'
+                       AND SUBSTR(P27.POSID,7,1) IN ('L','X','N','Y')
+                       AND P27.POSID NOT LIKE 'T%'                     
+        
+
+     ) AS P4
+LEFT OUTER JOIN SAPHEE.ZMMT011 AS MB ON MB.MANDT = P4.MANDT
+                                     AND MB.MATNR = P4.IDNRK 
+WHERE ROWNO=1
+  AND PRCTYP&lt;&gt;'D'
+),
+
+P3 AS (
+
+
+SELECT
+         P4.MANDT
+        ,P4.WOKNUM
+        ,P4.IDNRK
+        ,MB.LIFNR
+        ,MB.LNAME
+        ,M7.PRO_F
+FROM (
+      SELECT
+               P4.MANDT
+              ,P4.WOKNUM
+              ,CASE WHEN SUBSTR(P4.WOKNUM,7,1) = 'N' THEN TRIM(P4.WOKNUM)
+                          ELSE TRIM(P4.WOKNUM) || '-P' END AS POSID
+              ,P4.IDNRK
+              ,P4.PRCTYP
+              ,ROW_NUMBER() OVER(PARTITION BY P4.MANDT,P4.WOKNUM,P4.MATNR,P4.IDNRK 
+                ORDER BY P4.MANDT,P4.WOKNUM,P4.MATNR,P4.IDNRK,P4.ITEM_SEQ,P4.CRDAT DESC,P4.SEQNO DESC) AS ROWNO
+      FROM SAPHEE.ZPPT027 AS P27
+--	  INNER JOIN SAPHEE.ZPPT004 AS P4 ON P27.MANDT = P4.MANDT AND P27.POSID = P4.WOKNUM AND (P4.MATKL  = 'A204A01' OR P4.MATKL = 'A204A31')
+	  INNER JOIN SAPHEE.ZPPT004 AS P4 ON P27.MANDT = P4.MANDT AND P27.POSID = P4.WOKNUM AND (P4.MATKL  = 'A204A01' OR (P4.MATKL = 'A204A31' AND P4.IDNRK != '204106082'))
+      WHERE P27.MANDT  = #G_MANDT#       
+<isEqual col="GUBUN" value="B">
+--                       AND P27.POSID LIKE #POSID# || '%'
+                       AND P27.ILDAT BETWEEN #SHIP_FM# AND #SHIP_TO#
+</isEqual>
+<isEqual col="GUBUN" value="A">
+                       AND P27.POSID LIKE #POSID# || '%'
+                       AND P27.ILDAT> '00000000' 
+</isEqual>
+                       AND P27.BLOCK = 'A'
+                       AND P27.ACTIV='05'
+                       AND P27.GUBUN ='01'
+                       AND SUBSTR(P27.POSID,7,1) IN ('L','X','N','Y')
+                       AND P27.POSID NOT LIKE 'T%'                     
+        
+
+     ) AS P4
+     LEFT OUTER JOIN SAPHEE.ZMMT013 AS MB ON  MB.MANDT=P4.MANDT
+                                          AND MB.POSID=P4.POSID
+                                          AND MB.MATNR=P4.IDNRK
+                                          AND MB.DDATE='00000000'
+     LEFT OUTER JOIN SAPHEE.ZMMT017 AS M7 ON  M7.MANDT=P4.MANDT
+                                          AND M7.POSID=P4.POSID
+                                          AND M7.MATNR=P4.IDNRK
+                                          AND M7.PRO_F='4'
+WHERE ROWNO=1
+  AND PRCTYP&lt;&gt;'D'
+
+                     
+)
+SELECT 
+      A.POSID AS POSID
+    , A.SITE AS SITE
+    , A.TYPE AS TYPE
+    , A.ZSPEC2 AS ZSPEC2
+    , A.INV AS INV
+    , A.SPEC AS SPEC
+    , A.IDNRK AS IDNRK
+    , A.LNAME AS LNAME
+    , A.ILDAT AS SHIP1
+    , A.PROD1 AS PROD1
+    , A.CIDNRK AS CIDNRK
+    , A.STATUS AS STATUS
+    , A.SAF_MAT AS SAF_MAT
+    , A.VCON_MAT AS VCON_MAT
+    , B.MATNR_NM AS SAF_MAT_NM
+    , C.MATNR_NM AS VCON_MAT_NM
+    , A.POWR_MAT AS POWR_MAT
+FROM
+(
+SELECT 
+  PS.MANDT AS MANDT
+, PS.POSID        AS POSID
+--        ,M1.ZSITE_NM       AS SITE
+ ,CASE WHEN SUBSTR(PS.POSID,1,1) = 'H' THEN (SELECT POST1 FROM SAPHEE.PRPS WHERE MANDT = PS.MANDT AND POSID = PS.POSID)
+       ELSE M1.ZSITE_NM END AS SITE
+        ,VALUE(P1.TYPE,'') AS TYPE
+        ,M2.ZSPEC2
+--         ,CASE WHEN P2.MANDT IS NULL THEN '' ELSE VALUE((
+-- 
+--                SELECT
+--                SUBSTR(ZSIZE,1,LOCATE('KW',ZSIZE)+1)
+--                FROM SAPHEE.ZMMT011 AS MM11
+--                WHERE MM11.MANDT = P2.MANDT
+--                  AND MM11.MATNR = P2.IDNRK
+--                FETCH FIRST 1 ROWS ONLY
+-- 
+--          ),'') END AS INV
+        ,CASE WHEN P2.MANDT IS NULL THEN '' ELSE P2.ZSIZE END AS INV
+        ,CASE WHEN P2.MANDT IS NULL THEN '' ELSE P2.SPEC END AS SPEC
+        ,CASE WHEN P3.IDNRK IS NULL THEN ''   ELSE SUBSTR(P3.IDNRK,6) END AS IDNRK
+        ,CASE WHEN P3.PRO_F='4'     THEN '完' ELSE VALUE(P3.LNAME,'') END AS LNAME
+        ,PS.ildat as ILDAT
+        ,(SELECT P27.ILDAT   FROM SAPHEE.ZPPT027 AS P27 WHERE P27.MANDT=PS.MANDT   AND P27.PSPID = PS.PSPID AND P27.POSID = PS.POSID  AND 
+          P27.BLOCK = PS.BLOCK  AND P27.ACTIV = '04'  AND P27.GUBUN = PS.GUBUN  FETCH FIRST 1 ROW ONLY  )   AS PROD1
+        ,VALUE(P1.IDNRK, '') AS CIDNRK
+        , (CASE WHEN M2.TXT04 > '' AND SUBSTR(M2.TXT04,1,1) &lt;&gt; 'I' AND RTRIM(M2.TXT04) NOT IN ('P','R4','R5','R6')
+                     THEN 'CODE : '||M2.TXT04 ||' 사유: ' || M2.TXT30 ELSE '' END) AS STATUS
+        , ( SELECT IDNRK 
+               FROM SAPHEE.ZPPT004 
+              WHERE MANDT = PS.MANDT 
+                  AND WOKNUM = PS.POSID 
+                  AND IDNRK IN ('204100742', '204100743', '204101531')
+	    AND PRCTYP IN ('A', 'C') 
+	FETCH FIRST 1 ROWS ONLY 
+        ) AS SAF_MAT
+       , ( SELECT IDNRK 
+               FROM SAPHEE.ZPPT004 
+              WHERE MANDT = PS.MANDT 
+                  AND WOKNUM = PS.POSID 
+                  AND IDNRK IN ('204101530', '204102068', '204102069', '204102070')
+	    AND PRCTYP IN ('A', 'C') 
+	FETCH FIRST 1 ROWS ONLY 
+        ) AS VCON_MAT
+       , ( SELECT DZEINR 
+               FROM SAPHEE.ZPPT004 
+              WHERE MANDT = PS.MANDT 
+                  AND WOKNUM = PS.POSID 
+                  AND MATKL IN ('A204A16')
+	    AND PRCTYP IN ('A', 'C') 
+	FETCH FIRST 1 ROWS ONLY 
+        ) AS POWR_MAT		
+        
+FROM SAPHEE.ZPPT027 AS PS 
+LEFT OUTER JOIN SAPHEE.ZMASTER01 AS M1 ON M1.MANDT = PS.MANDT
+                                 AND M1.POSID = PS.PSPID
+LEFT OUTER JOIN SAPHEE.ZMASTER02 AS M2 ON M2.MANDT = PS.MANDT
+                                 AND M2.POSID = PS.PSPID 
+                                 AND M2.POSID_1 = PS.POSID
+LEFT OUTER JOIN P1 ON P1.MANDT = PS.MANDT
+                  AND P1.WOKNUM = PS.POSID 
+LEFT OUTER JOIN P2 ON P2.MANDT = PS.MANDT
+                  AND P2.WOKNUM = PS.POSID  
+LEFT OUTER JOIN P3 ON P3.MANDT = PS.MANDT
+                  AND P3.WOKNUM = PS.POSID
+WHERE PS.MANDT=#G_MANDT#
+<isEqual col="GUBUN" value="B">
+--     AND POSID LIKE #POSID# || '%'
+     AND PS.ILDAT BETWEEN #SHIP_FM# AND #SHIP_TO#
+</isEqual>
+<isEqual col="GUBUN" value="A">
+     AND PS.POSID LIKE #POSID# || '%'
+     AND PS.ILDAT> '00000000' 
+</isEqual>
+     AND PS.BLOCK = 'A'
+     AND PS.ACTIV='05'
+     AND PS.GUBUN ='01'
+     AND SUBSTR(PS.POSID,7,1) IN ('L','X','N','Y')
+     AND PS.POSID NOT LIKE 'T%'
+
+<isEqual col="GBN" value="B">
+AND P3.LIFNR = #G_VEND_CODE_M#
+</isEqual>
+ ORDER BY PS.ILDAT,PS.POSID
+) AS A 
+LEFT OUTER JOIN SAPHEE.ZMMT011 AS B ON B.MANDT = A.MANDT
+                                                              AND B.MATNR = A.SAF_MAT
+LEFT OUTER JOIN SAPHEE.ZMMT011 AS C ON C.MANDT = A.MANDT
+                                                              AND C.MATNR = A.VCON_MAT
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+		<col name="STATUS" size="100" type="VARCHAR" description="" /> 
+	</output>
+</query>

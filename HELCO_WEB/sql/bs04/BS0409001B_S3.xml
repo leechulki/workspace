@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT B.ZZPJT_ID AS PSPID, 
+             B.BSTNK, C.KUNNR, C.KUNNR_NM AS KUNNRNM, C.VDATU,
+             B.VKBUR, B.RECAD_DA,
+             (SELECT ST.BEZEI FROM SAPHEE.TVKBT AS ST 
+                WHERE ST.MANDT = B.MANDT AND ST.SPRAS = '3' AND ST.VKBUR = B.VKBUR) AS VKBURNM,
+             B.VKGRP,
+             (SELECT ST.BEZEI FROM SAPHEE.TVGRT AS ST 
+                WHERE ST.MANDT = B.MANDT AND ST.SPRAS = '3' AND ST.VKGRP = B.VKGRP) AS VKGRPNM,
+             C.ZMAN, C.ZMAN_NM, 
+
+             VALUE((SELECT --CASE WHEN B.WAERK = 'KRW' OR B.WAERK = 'JPY' THEN SUM(ST1.CHNETWR) * 100
+                                      --ELSE SUM(ST1.CHNETWR) END
+                                      SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST(SUM(ST1.CHNETWR) AS DECIMAL(13, 2) ) ) 
+                 FROM SAPHEE.ZSDT0011 AS ST1
+                INNER JOIN SAPHEE.VBAK AS ST2
+                    ON ST2.MANDT = ST1.MANDT
+                  AND ST2.VBELN = ST1.VBELN
+              WHERE ST1.MANDT = B.MANDT
+                  AND ST1.YEARM = SUBSTR(ST2.BSTDK,1,6)               
+                  AND ST1.VBELN = B.VBELN ),0) AS NETWR_F, 
+
+             VALUE((SELECT --CASE WHEN B.WAERK = 'KRW' OR B.WAERK = 'JPY' THEN SUM(ST1.CHWAVWR) * 100
+                                      --ELSE SUM(ST1.CHWAVWR) END
+                                      SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST(SUM(ST1.CHWAVWR) AS DECIMAL(13, 2) ) ) 
+                 FROM SAPHEE.ZSDT0011 AS ST1
+                INNER JOIN SAPHEE.VBAK AS ST2
+                    ON ST2.MANDT = ST1.MANDT
+                  AND ST2.VBELN = ST1.VBELN
+              WHERE ST1.MANDT = B.MANDT
+                  AND ST1.YEARM = SUBSTR(ST2.BSTDK,1,6)               
+                  AND ST1.VBELN = B.VBELN ),0) AS WAVWR_F, 
+
+             VALUE((SELECT --CASE WHEN B.WAERK = 'KRW' OR B.WAERK = 'JPY' THEN SUM(ST1.CHNETWR) * 100
+                                      --ELSE SUM(ST1.CHNETWR) END
+                                      SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST(SUM(ST1.CHNETWR) AS DECIMAL(13, 2) ) ) 
+                 FROM SAPHEE.ZSDT0011 AS ST1
+               WHERE ST1.MANDT = B.MANDT
+                   AND ST1.YEARM < ( SELECT MAX(ST2.YEARM) FROM SAPHEE.ZSDT0011 AS ST2 
+                                                   WHERE ST2.MANDT = ST1.MANDT AND ST2.VBELN = B.VBELN ) 
+                   AND ST1.VBELN = B.VBELN ),0) AS NETWR_CH, 
+
+             VALUE((SELECT --CASE WHEN B.WAERK = 'KRW' OR B.WAERK = 'JPY' THEN SUM(ST1.CHWAVWR) * 100
+                                      --ELSE SUM(ST1.CHWAVWR) END
+                                      SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST(SUM(ST1.CHWAVWR) AS DECIMAL(13, 2) ) ) 
+                 FROM SAPHEE.ZSDT0011 AS ST1
+               WHERE ST1.MANDT = B.MANDT
+                   AND ST1.YEARM < ( SELECT MAX(ST2.YEARM) FROM SAPHEE.ZSDT0011 AS ST2 
+                                                   WHERE ST2.MANDT = ST1.MANDT AND ST2.VBELN = B.VBELN ) 
+                   AND ST1.VBELN = B.VBELN ),0) AS WAVWR_CH, 
+
+             VALUE((SELECT --CASE WHEN B.WAERK = 'KRW' OR B.WAERK = 'JPY' THEN SUM(ST.CHNETWR)  * 100
+                                      --ELSE SUM(ST.CHNETWR) END 
+                                      SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST(SUM(ST.CHNETWR) AS DECIMAL(13, 2) ) ) 
+                 FROM SAPHEE.ZSDT0011 AS ST
+               WHERE ST.MANDT = B.MANDT
+                   AND ST.VBELN = B.VBELN ),0) AS NETWR_L, 
+
+             VALUE((SELECT --CASE WHEN B.WAERK = 'KRW' OR B.WAERK = 'JPY' THEN SUM(ST.CHWAVWR)  * 100
+                                      --ELSE SUM(ST.CHWAVWR) END 
+                                      SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST(SUM(ST.CHWAVWR) AS DECIMAL(13, 2) ) ) 
+                 FROM SAPHEE.ZSDT0011 AS ST
+               WHERE ST.MANDT = B.MANDT
+                   AND ST.VBELN = B.VBELN ),0) AS WAVWR_L, 
+
+             B.WAERK,
+             --'USD' AS WAERK,
+
+             VALUE( (SELECT  MAX(ST.IRATE)  FROM SAPHEE.ZSDT0020 AS ST
+                            WHERE ST.MANDT =  B.MANDT AND ST.PSPID = B.ZZPJT_ID), 0.0) AS PRO_R,
+
+             0.0 AS RATE_F, 
+             0.0 AS RATE_CH,             
+             0.0 AS RATE_L,             
+             '' AS BIGO1, 
+             CAST('' AS VARCHAR(3000)) AS BIGO2,
+             '' AS BIGO3,
+             HEX(CURRENT DATE) AS MAKE_MM,
+             0 AS CH_NETWR,
+             0 AS CH_WAVWR,
+             0 AS MR_NETWR,
+             0.0 AS MR_RATE1,
+             0.0 AS MR_RATE2,
+             '' AS ACTION,
+             '' AS TYPE,
+             VALUE((SELECT MIN(X.YEARM) 
+                            FROM SAPHEE.ZSDT0011 AS X
+                           WHERE X.MANDT = B.MANDT AND X.VBELN = B.VBELN), '') AS YEARM_F,
+             VALUE((SELECT MAX(X.YEARM) 
+                            FROM SAPHEE.ZSDT0011 AS X
+                          WHERE X.MANDT = B.MANDT AND X.VBELN = B.VBELN), '') AS YEARM_L,
+
+             VALUE((SELECT X3.NAME1
+                            FROM SAPHEE.VBAK AS X1 
+                            INNER JOIN SAPHEE.VBPA AS X2 
+                                ON X1.MANDT = X2.MANDT 
+	                AND X1.VBELN = X2.VBELN 
+	                AND X2.PARVW = 'Z1'
+                           INNER JOIN SAPHEE.LFA1 AS X3 
+                               ON X2.MANDT = X3.MANDT 
+	               AND X2.LIFNR = X3.LIFNR
+                         WHERE X1.MANDT = B.MANDT
+                             AND X1.VBELN = B.VBELN ), '') AS NAME1
+
+              ,CAST(#G_USER_ID# AS VARCHAR(36)) AS ERNAM
+              ,VALUE((SELECT ST.USERNAME FROM SAPHEE.ZUSERF AS ST 
+                           WHERE ST.MANDT = B.MANDT AND ST.USERNUMB = #G_USER_ID#), '') AS ERNAMNM
+              ,HEX(CURRENT DATE) AS ERDAT
+
+              ,'' AS AEUSN,  '' AS AEUSNNM,  '' AS AEDAT
+              ,'' AS T_DEPT, '' AS EXAM
+
+
+ 
+
+    FROM SAPHEE.VBAK AS B
+   INNER JOIN SAPHEE.ZMASTER01 AS C
+        ON B.MANDT = C.MANDT
+      AND B.ZZPJT_ID = C.POSID
+
+    
+  WHERE B.MANDT = #G_MANDT#
+      AND B.ZZPJT_ID = #PSPID#	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_master">
+	</output>
+</query>

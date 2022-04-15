@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[화면 메인 조회쿼리]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+--투입일자별 작업일보 조회 및 승인(2019) 공정표 조회
+SELECT T11.PRONR
+        , MAX(T11.VER) VER
+        , MAX(T11.PROWRK) PROWRK
+        , MAX(T12.PSPID) PSPID
+        , MAX(T12.POSID) POSID
+        , MAX(USER.USERNAME) AS APPR_NM
+        , MAX(T11.PRO_R) PRO_R
+        , MAX(T11.ZCHECK) ZCHECK
+        , MAX(T11.PRO_SUM) PRO_SUM
+        , MAX(T11.GISUNG_CHK) AS GISUNG_CHK
+        , DECODE(MAX(T13.COM_CHK), '', '0' , MAX(T13.COM_CHK)) AS COM_CHK
+        , MAX(T13.COM_CHK) AS FIX_COM_CHK
+        , MAX(T11.SAFE) AS PROCESS_BY_SAFE
+        , CASE MAX(T11.SAFE)
+               WHEN 'N' THEN 0
+               WHEN 'A' THEN 1
+               WHEN 'B' THEN 2
+               WHEN 'C' THEN 3
+          END AS PROCESS_BY_SAFE_NUM
+        , VALUE((CASE CAST(#SAFE# AS CHAR(10))
+                  WHEN 'A' THEN 1
+                  WHEN 'B' THEN 2
+                  WHEN 'C' THEN 3
+                 END), 0) AS F_SAFE_NUM
+        , '' FLAG2
+        , '' GUBUN
+        , CASE WHEN T11.FINISH_PIC = '' THEN 'N'--완료사진을 업로드 하지 않아도 되는 공정
+               ELSE (CASE WHEN MAX(T13.FSIZE) > 0 THEN 'F'--완료사진을 업로드한 공정
+                          ELSE 'Y' END)--완료사진을 업로드 해야하나 아직 업로드하지 않은 공정
+          END AS UPLOAD_YN
+        , MAX(T11.SAFE_PIC) AS SAFE_PIC
+        , MAX(T11.FINISH_PIC) AS FINISH_PIC
+        , MAX(T11.QUALITY_PIC) AS QUALITY_PIC
+        , MAX(T13.EDATE) AS EDATE
+
+        , VALUE((CASE
+        WHEN MAX(T13.ORGFNAME) &lt;&gt; '' THEN 'Y'
+        ELSE 'N'
+        END), 'N')  AS ORGFNAME_YN
+
+        , VALUE((CASE
+        WHEN MAX(T11.FINISH_PIC)  &lt;&gt; '' THEN 'Y'
+        ELSE 'N'
+        END), 'N') FINISH_PIC_YN
+
+        , VALUE((CASE
+        WHEN MAX(T11.QUALITY_PIC)  &lt;&gt; '' THEN 'Y'
+        ELSE 'N'
+        END), 'N') QUALITY_PIC_YN
+
+        --, MAX(T13.COM_CHK) AS COM_CHK
+
+        , VALUE((CASE
+        WHEN (MAX(T_12.INP_DT)) = HEX(CURRENT DATE) THEN '1'
+        ELSE '0'
+        END), '0') AS DAY_PROCESS
+
+        , CASE WHEN MAX(T13.MDATE) &lt;&gt; '' THEN '1'
+               ELSE '0'
+               END AS FLAG
+
+        , MAX(T13.FPATH) AS FPATH
+        , MAX(T13.ORGFNAME) AS ORGFNAME
+        , MAX(T13.FNAME) AS FNAME
+        , MAX(T13.FNAME) AS FNAME_TMP
+        , MAX(T13.FSIZE) AS FSIZE
+        , MAX(T13.FDATR) AS FDATR
+        , '' AS COM_CHK_DIFF
+        , MAX(T16.SAFE_CK) AS SAFE_CK
+        , '' AS APPR1_YN
+        , '' AS APPR2_YN
+        , '' AS APPR3_YN
+<isNotNull col="S2_QUERY">
+    #S2_QUERY+#
+</isNotNull>
+        , CASE WHEN (MAX(CASE WHEN T15.STEP1_DT > '10000101' AND T15.APPR1_DT > '10000101' AND (T15.RJCT1_DESC IS NULL OR T15.RJCT1_DESC = '') THEN 10
+        WHEN T15.STEP1_DT > '10000101' AND T15.APPR1_DT > '10000101' AND T15.RJCT1_DESC > '' THEN -10
+        WHEN T15.STEP1_DT > '10000101' AND (T15.APPR1_DT IS NULL OR T15.APPR1_DT = '' OR T15.APPR1_DT = '00000000') THEN -10
+        ELSE 0 END)
+        + MAX(CASE WHEN T15.STEP2_DT > '10000101' AND T15.APPR2_DT > '10000101' AND (T15.RJCT2_DESC IS NULL OR T15.RJCT2_DESC = '') THEN 100
+        WHEN T15.STEP2_DT > '10000101' AND T15.APPR2_DT > '10000101' AND T15.RJCT2_DESC > '' THEN -100
+        WHEN T15.STEP2_DT > '10000101' AND (T15.APPR2_DT IS NULL OR T15.APPR2_DT = '' OR T15.APPR2_DT = '00000000') THEN -100
+        ELSE 0 END)
+        + MAX(CASE WHEN T15.STEP3_DT > '10000101' AND T15.APPR3_DT > '10000101' AND (T15.RJCT3_DESC IS NULL OR T15.RJCT3_DESC = '') THEN 1000
+        WHEN T15.STEP3_DT > '10000101' AND T15.APPR3_DT > '10000101' AND T15.RJCT3_DESC > '' THEN -1000
+        WHEN T15.STEP3_DT > '10000101' AND (T15.APPR3_DT IS NULL OR T15.APPR3_DT = '' OR T15.APPR3_DT = '00000000') THEN -1000
+        ELSE 0 END)) > 0 THEN 1 ELSE 0 END AS RM_PROCESS
+                 
+        , MAX(DECODE(  T16.APRCD, 'Y' ,    SUBSTR(T16.APRDT, 1, 8))) AS APRDT
+        , MAX(T16.APRCD) AS APRCD        
+
+  FROM SAPHEE.ZPST0111 T11
+
+  LEFT OUTER JOIN SAPHEE.ZPST0112 T12
+    ON T11.MANDT = T12.MANDT
+   AND T11.GUBUN = T12.GUBUN AND T11.PRONR = T12.PRONR
+   AND T11.VER = T12.VER     AND T12.PSPID = #PSPID# AND T12.POSID = #POSID#
+  LEFT OUTER JOIN SAPHEE.ZUSERF AS USER
+               ON T12.MANDT = USER.MANDT
+              AND T12.CNAME = USER.USERNUMB
+  LEFT OUTER JOIN SAPHEE.ZMASTER02 R02
+    ON T12.MANDT = R02.MANDT
+   AND T12.PSPID = R02.POSID AND T12.POSID = R02.POSID_1
+   --AND R02.ZZCHAKG = 'X'
+   AND R02.TXT04 NOT IN ('C','B','R7')
+  LEFT OUTER JOIN SAPHEE.ZPST0112C AS F
+    ON R02.MANDT = F.MANDT
+   AND R02.POSID = F.PSPID   AND R02.POSID_1 = F.POSID
+
+    LEFT OUTER JOIN SAPHEE.ZPSTW0304 T_12
+    ON T11.MANDT = T_12.MANDT
+    AND T11.GUBUN = T_12.GUBUN
+    AND T11.PRONR = T_12.PRONR
+    AND T_12.PSPID = #PSPID#
+    AND T_12.POSID = #POSID#
+    AND T_12.INP_DT = HEX(CURRENT DATE)
+
+  LEFT OUTER JOIN SAPHEE.ZPSTW0304 T13
+    ON T11.MANDT = T13.MANDT
+   AND T11.GUBUN = T13.GUBUN
+   AND T11.PRONR = T13.PRONR
+   --AND T11.VER = DECODE(T13.VER,'','000',T13.VER)
+   AND T13.PSPID = #PSPID# AND T13.POSID = #POSID#
+  LEFT OUTER JOIN SAPHEE.ZMASTER02 R03
+    ON T13.MANDT = R03.MANDT
+   AND T13.PSPID = R03.POSID AND T13.POSID = R03.POSID_1
+
+  LEFT OUTER JOIN SAPHEE.ZPSTW1502 T15
+        ON T11.MANDT = T15.MANDT
+        AND T15.PSPID = #PSPID#
+        AND T15.POSID = #POSID#
+  LEFT OUTER JOIN (
+   			SELECT T1.MANDT
+			     , T1.GUBUN
+			     , T1.TYPE
+			     , T1.VER
+			     , T2.GNO
+			     , T3.PRONR
+			     , T2.SAFE_CK
+                 , AR.APRCD
+                 , AR.APRDT			     
+			  FROM SAPHEE.ZPST0111M AS T1
+			  LEFT OUTER JOIN SAPHEE.ZPST1106 AS T2
+			               ON T1.MANDT     = T2.MANDT
+			              AND T1.STEP3_GBN = T2.TYPE
+			  LEFT OUTER JOIN SAPHEE.ZPST0111T AS T3
+			               ON T3.MANDT = T1.MANDT
+			              AND T3.GUBUN = T1.GUBUN
+			              AND T3.TYPE = T1.TYPE
+			              AND T3.VER = T1.VER
+			              AND T3.GNO = T2.GNO
+	        LEFT OUTER JOIN SAPHEE.ZPST1150 AS AR
+	                    ON T1.MANDT    = AR.MANDT
+	                    AND AR.POSID   = #PSPID# 
+	                    AND AR.POSID_1 = #POSID#
+	                     AND T2.GUBUN  = AR.GUBUN
+	                     AND T2.TYPE   = AR.TYPE
+	                     AND T1.VER    = AR.VER
+	                     AND T2.GBN    = AR.GBN			              
+			 WHERE T1.MANDT = #G_MANDT#
+               AND T1.TYPE <![CDATA[<>]]> ''
+       ) AS T16
+        ON T16.MANDT = T11.MANDT
+       AND T16.GUBUN = T11.GUBUN
+       AND T16.TYPE  = T11.TYPE
+       AND T16.VER   = T11.VER
+       AND T16.PRONR = T11.PRONR
+ WHERE T11.GUBUN = #GUBUN#
+   AND T11.MANDT = #G_MANDT#
+   AND T11.TYPE  = #TYPE#
+   AND T11.VER   = #VER#
+
+GROUP BY T11.PRONR ,T11.MANDT, T11.FINISH_PIC
+ORDER BY T11.PRONR
+
+FOR FETCH ONLY
+WITH UR
+--투입일자별 작업일보 조회 및 승인(2019) 공정표 조회
+
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_pop2">
+	</output>
+</query>

@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<isEqual col="GBN" value="1">
+SELECT  T1.GUBUN2
+       ,T1.GUBUN
+       ,VALUE(T2.DESU,0) DESU
+	   ,VALUE(T2.AMT,0) AMT
+       ,VALUE(T2.DANGA,0) DANGA
+       ,VALUE(T2.SUJU_AMT,0) SUJU_AMT
+	   ,T2.TGB
+FROM   (
+        SELECT  MANDT
+               ,CODE2 GUBUN2
+               ,CTEXT2 GUBUN
+        FROM SAPHEE.ZLCODE
+        WHERE MANDT = #G_MANDT#
+        AND LANG = #G_LANG#
+        AND CODE1 = 'CS115'
+       ) T1
+       LEFT OUTER JOIN
+       (
+        SELECT  WB.MANDT
+                ,WB.ARA GUBUN2
+        		,COUNT(*) DESU
+        		,ROUND(SUM(DOUBLE(CS127B.AMT))/COUNT(*),0) DANGA
+                ,SUM(CS127B.AMT) AMT
+                ,SUM(CS127B.SUJU_AMT) SUJU_AMT
+                ,MAX(WB.TGB) TGB
+        FROM   (
+                SELECT  WB010.MANDT
+                       ,MM005.LGORT BSU
+                       ,WB010.BSU_ARA ARA
+                       ,WB010.BSU_GB TGB
+                FROM SAPHEE.ZWBT010 WB010
+                     ,SAPHEE.ZMMT005 MM005
+                     ,SAPHEE.ZMMT012 MM012
+                WHERE WB010.MANDT = #G_MANDT#
+                AND WB010.BSU_ARA > ''
+                AND MM005.MANDT = WB010.MANDT
+                AND MM005.LIFNR =WB010.LIFNR
+                AND MM012.MANDT = MM005.MANDT
+                AND MM012.LIFNR = MM005.LIFNR
+                ORDER BY WB010.BSU_ARA,MM005.LGORT
+               ) WB,
+               (
+                SELECT  CS127.MANDT
+                       ,CS127_BSU BSU
+        			   ,CS127.CS127_AMT AMT
+                       ,CS131.CS131_AMT SUJU_AMT
+                FROM   SAPHEE.ZCST127 CS127,
+                       (SELECT  CS131A.MANDT
+                               ,CS131A.CS131_UPN
+                               ,CS131A.CS131_CST
+                               ,CS131A.CS131_PJT
+                               ,CS131A.CS131_HNO
+                               ,CS131A.CS131_SEQ
+                               ,SUM(CS131A.CS131_AMT) CS131_AMT
+                        FROM SAPHEE.ZCST127 CS127A
+                             ,SAPHEE.ZCST131 CS131A
+                        WHERE CS127A.MANDT = #G_MANDT#
+                        AND CS127A.CS127_DDT = ''
+                        AND CS127A.CS127_SFR BETWEEN #YYYYMMF#||'01' AND #YYYYMMT#||'31'
+                        AND CS127A.MANDT = CS131A.MANDT
+                        AND CS127A.CS127_UPN = CS131A.CS131_UPN
+                        AND CS127A.CS127_CST = CS131A.CS131_CST
+                        AND CS127A.CS127_UPN = CS131A.CS131_PJT
+                        AND 'Z99' = CS131A.CS131_HNO
+                        AND CS127A.CS127_SEQ = CS131A.CS131_SEQ
+                        AND CS131A.CS131_MYB = ''
+        				AND CS131A.CS131_GND = 'E'
+                        GROUP BY CS131A.MANDT,CS131A.CS131_UPN,CS131A.CS131_CST
+                                ,CS131A.CS131_PJT,CS131A.CS131_HNO,CS131A.CS131_SEQ
+                       ) CS131
+                WHERE CS127.MANDT = CS131.MANDT
+                AND CS127.CS127_UPN = CS131.CS131_UPN
+                AND CS127.CS127_CST = CS131.CS131_CST
+                AND CS127.CS127_SEQ = CS131.CS131_SEQ
+               ) CS127B
+               WHERE WB.MANDT = CS127B.MANDT
+               AND WB.BSU = CS127B.BSU
+        GROUP BY WB.MANDT,WB.ARA
+       ) T2
+       ON T1.MANDT = T2.MANDT
+       AND T1.GUBUN2 = T2.GUBUN2
+
+</isEqual>
+
+<isEqual col="GBN" value="4">
+SELECT  T1.GUBUN2
+       ,T1.GUBUN
+       ,VALUE(T2.DESU,0) DESU
+	   ,VALUE(T2.AMT,0) AMT
+       ,VALUE(T2.DANGA,0) DANGA
+       ,VALUE(T2.SUJU_AMT,0) SUJU_AMT
+	   ,T2.TGB
+FROM   (
+        SELECT  DISTINCT WB.MANDT
+               ,BC.CCSB1EMP GUBUN2
+               ,BC.CCSB1EPN GUBUN
+        FROM SAPHEE.ZWBT010 WB
+             ,SAPHEE.ZTBCSB1 BC
+        WHERE WB.MANDT = #G_MANDT#
+        AND WB.BSU_ARA = 'E5'
+        AND WB.MANDT = BC.MANDT
+        AND WB.BSU_PM = BC.CCSB1EMP
+       ) T1
+       LEFT OUTER JOIN
+       (
+        SELECT  WB.MANDT
+                ,WB.BPM GUBUN2
+        		,COUNT(*) DESU
+        		,ROUND(SUM(DOUBLE(CS127B.AMT))/COUNT(*),0) DANGA
+                ,SUM(CS127B.AMT) AMT
+                ,SUM(CS127B.SUJU_AMT) SUJU_AMT
+                ,MAX(WB.TGB) TGB
+        FROM   (
+                SELECT  WB010.MANDT
+                       ,MM005.LGORT BSU
+                       ,WB010.BSU_PM BPM
+                       ,WB010.BSU_GB TGB
+                FROM SAPHEE.ZWBT010 WB010
+                     ,SAPHEE.ZMMT005 MM005
+                     ,SAPHEE.ZMMT012 MM012
+                WHERE WB010.MANDT = #G_MANDT#
+                AND WB010.BSU_ARA = 'E5'
+                AND MM005.MANDT = WB010.MANDT
+                AND MM005.LIFNR = WB010.LIFNR
+                AND MM012.MANDT = MM005.MANDT
+                AND MM012.LIFNR = MM005.LIFNR
+                ORDER BY WB010.BSU_PM
+               ) WB,
+               (
+                SELECT  CS127.MANDT
+                       ,CS127_BSU BSU
+        			   ,CS127.CS127_AMT AMT
+                       ,CS131.CS131_AMT SUJU_AMT
+                FROM   SAPHEE.ZCST127 CS127,
+                       (SELECT  CS131A.MANDT
+                               ,CS131A.CS131_UPN
+                               ,CS131A.CS131_CST
+                               ,CS131A.CS131_PJT
+                               ,CS131A.CS131_HNO
+                               ,CS131A.CS131_SEQ
+                               ,SUM(CS131A.CS131_AMT) CS131_AMT
+                        FROM SAPHEE.ZCST127 CS127A
+                             ,SAPHEE.ZCST131 CS131A
+                        WHERE CS127A.MANDT = #G_MANDT#
+                        AND CS127A.CS127_DDT = ''
+                        AND CS127A.CS127_SFR BETWEEN #YYYYMMF#||'01' AND #YYYYMMT#||'31'
+                        AND CS127A.MANDT = CS131A.MANDT
+                        AND CS127A.CS127_UPN = CS131A.CS131_UPN
+                        AND CS127A.CS127_CST = CS131A.CS131_CST
+                        AND CS127A.CS127_UPN = CS131A.CS131_PJT
+                        AND 'Z99' = CS131A.CS131_HNO
+                        AND CS127A.CS127_SEQ = CS131A.CS131_SEQ
+                        AND CS131A.CS131_MYB = ''
+        				AND CS131A.CS131_GND = 'E'
+                        GROUP BY CS131A.MANDT,CS131A.CS131_UPN,CS131A.CS131_CST
+                                ,CS131A.CS131_PJT,CS131A.CS131_HNO,CS131A.CS131_SEQ
+                       ) CS131
+                WHERE CS127.MANDT = CS131.MANDT
+                AND CS127.CS127_UPN = CS131.CS131_UPN
+                AND CS127.CS127_CST = CS131.CS131_CST
+                AND CS127.CS127_SEQ = CS131.CS131_SEQ
+               ) CS127B
+               WHERE WB.MANDT = CS127B.MANDT
+               AND WB.BSU = CS127B.BSU
+        GROUP BY WB.MANDT,WB.BPM
+       ) T2
+       ON T1.MANDT = T2.MANDT
+       AND T1.GUBUN2 = T2.GUBUN2
+
+</isEqual>
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="YYYYMMF" size="255" type="VARCHAR" description="" /> 
+		<col name="YYYYMMT" size="255" type="VARCHAR" description="" /> 
+		<col name="GBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="DANGA" size="22" type="NUMERIC" description="" /> 
+		<col name="DESU" size="11" type="NUMERIC" description="" /> 
+		<col name="GUBUN" size="60" type="VARCHAR" description="" /> 
+		<col name="GUBUN2" size="15" type="VARCHAR" description="" /> 
+		<col name="SUJU_AMT" size="22" type="NUMERIC" description="" /> 
+		<col name="TGB" size="3" type="VARCHAR" description="" /> 
+	</output>
+</query>

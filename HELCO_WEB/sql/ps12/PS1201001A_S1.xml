@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+       B.ZZACTSS
+       ,D.CTEXT2
+       ,A.LIFNR
+       ,C.NAME1
+       ,SUM( A.INCNT ) AS INCNT  
+       ,SUM( A.TRCNT ) AS TRCNT  
+       ,SUM( A.LOSCNT ) AS LOSCNT 
+       ,SUM( A.INCNT ) - SUM( A.TRCNT ) - SUM( A.LOSCNT ) AS CURCNT
+--       ,CASE WHEN SUM( A.INCNT ) > 0 THEN ( SUM( A.LOSCNT )  / SUM( A.INCNT ) ) * 100 ELSE 0 END AS LOSRATE
+       ,CASE WHEN SUM( A.INCNT ) > 0 THEN ( SUM( double(A.LOSCNT) * 100)  / SUM( double(A.INCNT) ) )  ELSE 0 END AS LOSRATE
+FROM SAPHEE.ZPST0078 AS A 
+     LEFT OUTER JOIN SAPHEE.ZWBT010 AS B ON A.MANDT = B.MANDT AND A.LIFNR = B.LIFNR
+     LEFT OUTER JOIN SAPHEE.ZMMT012 AS C ON A.MANDT = C.MANDT AND A.LIFNR = C.LIFNR
+     LEFT OUTER JOIN SAPHEE.ZLCODE AS D ON A.MANDT = D.MANDT AND D.CODE1 = 'PS003' AND D.LANG = #G_LANG# AND D.CODE2 = B.ZZACTSS
+WHERE A.MANDT = #G_MANDT#
+<isNotNull col="DATEF">
+AND A.INDATE BETWEEN #DATEF# AND #DATET#
+</isNotNull>
+<isNotNull col="PSPID">
+AND A.PSPID_R = #PSPID#
+</isNotNull>
+<isNotNull col="LIFNR">
+AND A.LIFNR = #LIFNR#
+</isNotNull>
+<isNotNull col="ZZACTSS">
+AND B.ZZACTSS = #ZZACTSS#
+</isNotNull>
+<isNotNull col="TFR">
+AND A.LIFNR IN (SELECT DISTINCT LIFNR FROM SAPHEE.ZPST0078 PS WHERE PS.MANDT = A.MANDT AND PS.INDATE BETWEEN #DATEF# AND #DATET# AND PS.ZUSE = #TFR#)
+</isNotNull>
+GROUP BY B.ZZACTSS, D.CTEXT2, A.LIFNR, C.NAME1
+ORDER BY B.ZZACTSS,LIFNR
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

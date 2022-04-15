@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form BKColor="user0" Height="22" Id="Coms001" Left="8" OnLoadCompleted="fn_OnLoadCompleted" PidAttrib="7" Title="부서" Top="8" Ver="1.0" Width="280" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_tovb_cd">
+				<Contents>
+					<colinfo id="CODE" size="12" type="STRING"/>
+					<colinfo id="CODE_NAME" size="60" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_tovg_cd">
+				<Contents>
+					<colinfo id="CODE" size="9" type="STRING"/>
+					<colinfo id="CODE_NAME" size="60" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_error">
+				<Contents>
+					<colinfo id="IDX" size="256" type="STRING"/>
+					<colinfo id="ERRMSG" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_frvb_cd">
+				<Contents>
+					<colinfo id="CODE" size="12" type="STRING"/>
+					<colinfo id="CODE_NAME" size="60" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Combo Border="Flat" CodeColumn="CODE" Column="FR_VB" DataColumn="CODE_NAME" Height="20" Id="cb_frvb" InnerDataset="ds_frvb_cd" Left="-1" OnChanged="cb_frvb_OnChanged" Style="sty_ipt_search" TabOrder="1" Top="-1" Width="250"></Combo>
+		<Static Height="16" Id="Static1" TabOrder="2" Text="시작부서/팀" Top="32" Visible="FALSE" Width="146"></Static>
+	</Form>
+	<Script><![CDATA[/*
+ ******************************************************************************************
+ * 기      능   : 부서,팀 콤보조회 기능 
+ * 작  성  자   : 
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */ 
+#include "LIB::commons.js";	// 공통 스크립트 
+#include "LIB::nsfRequest.js";	// 공통 스크립트  /* GNY 추가 */
+#include "LIB::common_hdel.js";	// 공통 스크립트  /* GNY 추가 */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+var F_USER_GROUP_B = "";  			// 사용자권한 (G_USER_GROUP_B)
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) 
+{ 
+	//SetTimer(100, 500);
+	F_USER_GROUP_B = G_USER_GROUP_B;  // 임시 추가
+	fn_init();  // 폼 초기화
+	 
+	// 폼사이즈 및 컨트롤 사이즈 재조정
+	fn_setSize();
+}
+
+// 폼 초기화
+function fn_init()
+{
+	fn_init_auth();  
+}
+
+// 사용자 권한별 설정
+function fn_init_auth()
+{ 
+	// 사용자권한에 따라 
+	switch (F_USER_GROUP_B)  
+	{
+		case "B50" :   // 부서, 팀 제어 가능
+		
+			// 부서 콤보목록 조회
+			nsfRequest("query", "combo/comboFrVb"	, "ds_frvb_cd=ds_frvb_cd"
+											, "ds_frvb_cd=ds_frvb_cd ds_error=ds_error"
+											, ""
+											, "fn_afterQuery_frvb");  
+			break;
+			
+		case "B40" :   // 부서, 팀 제어 가능
+		
+			fn_init_vbcd();
+			
+			break;
+		  
+		case "B30" : 	// 팀 제어 가능
+		
+			// 부서콤보 = 소속부서로 강제설정
+			fn_init_vbcd();
+
+			break;
+			
+		case "B20" : 	// 제어 불가능
+			
+			// 부서콤보 = 소속부서로 강제설정
+			fn_init_vbcd();
+
+			break; 
+			  
+		default:
+			break;
+	} 
+}
+
+// 부서콤보 = 소속부서로 강제설정
+function fn_init_vbcd()
+{	
+	// 시작부서코드
+	ds_frvb_cd.ClearData();
+	ds_frvb_cd.AddRow();
+	ds_frvb_cd.SetColumn(0, "CODE"		, G_SAP_USER_VBCD); // 부서코드
+	ds_frvb_cd.SetColumn(0, "CODE_NAME"	, G_SAP_USER_VBNM);	// 부서명
+	cb_frvb.index = 0;
+	cb_frvb.Enable = false;
+	 
+}
+
+/********************************************************************************
+* 기      능   : 공통코드가 조회된 후의 Callback 함수 
+********************************************************************************/
+function fn_completeInit(sCode, sDsObj, sCodeType) 
+{
+//	tit_createActionInfo();
+	
+//	SetTimer(100, 500);	
+}
+/********************************************************************************
+* 기      능   : form UnloadCompleted 
+********************************************************************************/
+function fn_OnUnloadCompleted(obj) 
+{
+
+} 
+
+// 시작부서코드목록 조회 CALL BACK함수
+function fn_afterQuery_frvb(errCode, errMsg) 
+{  
+	trace("fn_afterQuery_frvb");
+	trace(ds_frvb_cd.SaveXML());
+	
+	if (ds_frvb_cd.RowCount() == 0) return;
+	
+	gfn_InsertRowCombo(ds_frvb_cd, 0, "Y", "N"); // 시작부서코드목록에 전체 행 추가  
+	cb_frvb.index = 0; 
+}  
+
+// 시작 부서코드 선택 시 시작 팀 콤보목록 조회
+function cb_frvb_OnChanged(obj,strCode,strText,nOldIndex,nNewIndex)
+{ 
+}
+
+// 폼사이즈 및 컨트롤 사이즈 재조정
+function fn_setSize(pFormWidth, pCdWidth, pNmWidth)
+{   
+ 	if (IsValidObject(F_LIFNR_WIDTH)   ==false && F_LIFNR_WIDTH>0) 	Coms006.Width 	= F_LIFNR_WIDTH;
+ 	if (IsValidObject(F_LIFNR_CD_WIDTH)==false && F_LIFNR_CD_WIDTH>0) cb_frvb.Width= F_LIFNR_CD_WIDTH; 
+}]]></Script>
+</Window>

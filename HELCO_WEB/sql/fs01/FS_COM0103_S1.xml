@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[견적환율 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT A.CODE
+      ,A.CODE_NAME
+      ,B.UKURS
+      ,A.UKURS_RATE
+      ,B.UKURS/A.UKURS_RATE AS OT_UKURS
+      ,B.FRDAT
+      ,B.TODAT
+      ,ROW_NUMBER() OVER ( ORDER BY B.SORT, A.CODE_SEQN ) AS SORT
+      ,CAST(HEX(CURRENT DATE) AS VARCHAR(8)) AS SYS_DATE
+FROM  TABLE (
+            SELECT CODE
+                  ,CODE_NAME
+                  ,EXTN_CODE1
+                  ,CODE_SEQN
+                  ,COALESCE(NULLIF( EXTN_CODE1 ||'' , '' ), '1') AS UKURS_RATE
+            FROM   SAPHEE.ZFST0100
+            WHERE  MANDT = #G_MANDT#
+             AND  USE_YN = 'Y'
+             AND  CODE != '000'
+             AND  CODE_GROP = 'S04'
+             AND  EXTN_CODE2 = 'Y' -- 환율 처리되는 통화단위코드
+<isNotNull col="CODE">
+             AND CODE LIKE '%'|| #CODE# || '%'
+</isNotNull>
+<isNotNull col="CODE_NAME">
+             AND CODE_NAME LIKE '%'|| #CODE_NAME# || '%'
+</isNotNull>
+            ) AS A
+            LEFT OUTER JOIN TABLE
+            (
+            SELECT MAX(MANDT) AS MANDT
+                  ,MAX(FRDAT) AS FRDAT
+                  ,MAX(TODAT) AS TODAT
+                  ,FCURR AS FCURR
+                  ,MAX(UKURS) AS UKURS
+                  ,0 AS SORT
+            FROM  SAPHEE.ZTCURR
+            WHERE MANDT = #G_MANDT#
+              AND KURST = 'Q'
+              AND CAST(HEX(CURRENT DATE) AS VARCHAR(8)) &gt;= FRDAT 
+              AND CAST(HEX(CURRENT DATE) AS VARCHAR(8)) &lt;= TODAT
+            GROUP BY FCURR
+            ) AS B
+ON A.CODE = B.FCURR
+    </statement>
+    <input default-name="ds_cond">
+        <col name="SYS_DATE" size="24" type="VARCHAR" description="시스템일자" />
+    </input>
+    <output default-name="ds_ztcurr">
+    </output>
+</query>

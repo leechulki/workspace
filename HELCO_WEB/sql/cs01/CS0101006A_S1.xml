@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[주요자재 교체대상 현황]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT 
+    MANDT
+  , '' AS CHECK
+  , ARA                  -- 대지역          
+  , ZZBSU              -- 협력사          
+  , ZGUBUN           -- 건물용도         
+  , NAM	              -- 고객명          
+  , POSID	              -- 원WBS         
+  , HNO                 -- 호기           
+  , HNA                  -- 호기명          
+  , ZBEPJEO           -- 완성검사일        
+  , ZBOSUIN            -- 보수인수일        
+  , ZOIPSU              --  입주일         
+  , CASE WHEN SHEAVE   &lt; CAST(#DATE_TO# AS VARCHAR(8)) THEN SHEAVE   ELSE '' END AS SHEAVE  -- SHEAVE 출고일   
+  , CASE WHEN ROPE     &lt; CAST(#DATE_TO# AS VARCHAR(8)) THEN ROPE     ELSE '' END AS ROPE         -- ROPE 출고일     
+  , CASE WHEN ROLLER   &lt; CAST(#DATE_TO# AS VARCHAR(8)) THEN ROLLER   ELSE '' END AS ROLLER   -- ROLLER 출고일   
+  , CASE WHEN CHAIN    &lt; CAST(#DATE_TO# AS VARCHAR(8)) THEN CHAIN    ELSE '' END AS CHAIN        -- CHAIN 출고일    
+  , CASE WHEN HANDRAIL &lt; CAST(#DATE_TO# AS VARCHAR(8)) THEN HANDRAIL ELSE '' END AS HANDRAIL -- HANDRAIL 출고일 
+  , CASE WHEN WHEEL    &lt; CAST(#DATE_TO# AS VARCHAR(8)) THEN WHEEL    ELSE '' END AS WHEEL    -- WHEEL 출고일	   
+  , DATE_101
+  , DATE_102
+  , DATE_201
+  , DATE_202
+  , DATE_203
+  , DATE_204
+  , DATE_101_1 AS DATE_101_1
+  , DATE_101_2 AS DATE_101_2
+  , DATE_101_3 AS DATE_101_3
+  , DATE_102_1 AS DATE_102_1
+  , DATE_102_2 AS DATE_102_2
+  , DATE_102_3 AS DATE_102_3
+  , POSID_1 AS POSID_1
+  , FLAG
+FROM (
+   SELECT
+         ZMA.MANDT AS MANDT
+       , Z01.CS101_ARA AS ARA                                                       -- 대지역
+       , SAPHEE.GET_VENDER_NAME(ZMA2.MANDT, ZMA2.ZZBSU) AS ZZBSU         -- 협력사
+       , ZMA2.ZGUBUN   AS ZGUBUN                                               -- 건물용도
+       , ZMA.KUNNR_NM AS NAM			          -- 고객명
+       , ZMA.POSID AS POSID	                                          -- 원WBS
+       , Z01.CS101_HNO AS HNO                                       -- 호기
+       , Z01.CS101_HNA AS HNA                                        -- 호기명
+       , ZMA2.ZBEPJEO AS ZBEPJEO                                -- 완성검사일
+       , ZMA2.ZBOSUIN    AS ZBOSUIN                             -- 보수인수일
+       , ZMA2.ZOIPSU    AS ZOIPSU                                  --  입주일
+       , CASE WHEN CAST(#MAT_CODE# AS VARCHAR(3)) = '' OR CAST(#MAT_CODE# AS VARCHAR(3)) = '101' THEN  SAPHEE.GET_MM_CHANGEDATE(ZMA.MANDT,VALUE(DATE_101,''), '101') ELSE '' END AS SHEAVE         -- SHEAVE 출고일
+       , CASE WHEN CAST(#MAT_CODE# AS VARCHAR(3)) = '' OR CAST(#MAT_CODE# AS VARCHAR(3)) = '102' THEN  SAPHEE.GET_MM_CHANGEDATE(ZMA.MANDT,VALUE(DATE_102,''), '102') ELSE '' END AS ROPE             -- ROPE 출고일
+       , CASE WHEN CAST(#MAT_CODE# AS VARCHAR(3)) = '' OR CAST(#MAT_CODE# AS VARCHAR(3)) = '201' THEN  SAPHEE.GET_MM_CHANGEDATE(ZMA.MANDT,VALUE(DATE_201,''), '201') ELSE '' END AS ROLLER         -- ROLLER 출고일
+       , CASE WHEN CAST(#MAT_CODE# AS VARCHAR(3)) = '' OR CAST(#MAT_CODE# AS VARCHAR(3)) = '202' THEN  SAPHEE.GET_MM_CHANGEDATE(ZMA.MANDT,VALUE(DATE_202,''), '202') ELSE '' END AS CHAIN            -- CHAIN 출고일
+       , CASE WHEN CAST(#MAT_CODE# AS VARCHAR(3)) = '' OR CAST(#MAT_CODE# AS VARCHAR(3)) = '203' THEN  SAPHEE.GET_MM_CHANGEDATE(ZMA.MANDT,VALUE(DATE_203,''), '203') ELSE '' END AS HANDRAIL      -- HANDRAIL 출고일
+       , CASE WHEN CAST(#MAT_CODE# AS VARCHAR(3)) = '' OR CAST(#MAT_CODE# AS VARCHAR(3)) = '204' THEN  SAPHEE.GET_MM_CHANGEDATE(ZMA.MANDT,VALUE(DATE_204,''), '204') ELSE '' END AS WHEEL          -- WHEEL 출고일	
+       , SAPHEE.GET_CS_FULLMAINT(ZMA.MANDT, CS101_PJT,CS101_HNO,CAST(#DATE_FM# AS VARCHAR(8)),CAST(#DATE_TO# AS VARCHAR(8))) AS FM
+       , M78.DATE_101 AS DATE_101
+       , M78.DATE_102 AS DATE_102
+       , M78.DATE_201 AS DATE_201
+       , M78.DATE_202 AS DATE_202
+       , M78.DATE_203 AS DATE_203
+       , M78.DATE_204 AS DATE_204
+       , M89.DATE_101_1 AS DATE_101_1
+       , M89.DATE_101_2 AS DATE_101_2
+       , M89.DATE_101_3 AS DATE_101_3
+       , M89.DATE_102_1 AS DATE_102_1
+       , M89.DATE_102_2 AS DATE_102_2
+       , M89.DATE_102_3 AS DATE_102_3
+       , ZMA2.POSID_1 AS POSID_1
+       , CASE WHEN M89.POSID IS NULL THEN 'I' ELSE 'U' END AS FLAG
+    FROM SAPHEE.ZMASTER01 AS ZMA
+            LEFT OUTER JOIN SAPHEE.ZMASTER02 AS ZMA2 ON ZMA2.MANDT = ZMA.MANDT AND ZMA2.POSID = ZMA.POSID
+            LEFT OUTER JOIN SAPHEE.ZCST101 AS Z01 ON Z01.MANDT  = ZMA.MANDT	-- 보수 인수인계 정보
+               AND Z01.CS101_PJT || Z01.CS101_HNO = ZMA2.POSID_1 
+            LEFT OUTER JOIN SAPHEE.ZMMT089 AS M89 ON M89.MANDT = ZMA2.MANDT AND M89.POSID = ZMA2.POSID_1   
+            , SAPHEE.ZMMT078 AS M78 
+
+    WHERE ZMA.MANDT = #G_MANDT#
+<isNotNull col="POSID">
+       AND ZMA.POSID LIKE #POSID# || '%'
+</isNotNull>
+<isEqual col="ATYPE" value="1">
+       AND Z01.CS101_HNO LIKE 'L%'
+</isEqual>
+<isEqual col="ATYPE" value="2">
+       AND Z01.CS101_HNO LIKE 'S%'
+</isEqual>
+<isEqual col="GBN" value="A">
+	   AND ZMA2.ZZBSU = #CB3#
+</isEqual>
+<isEqual col="GBN" value="B">
+	   AND ZMA2.ZZBPM = #CB2#
+</isEqual>
+<isEqual col="GBN" value="C">
+--                 AND ZMA.ZZARA = #CB2#
+                 AND ZMA2.ZZBSU IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+		                      WHERE B010.MANDT = MM005.MANDT
+		                      AND B010.LIFNR = MM005.LIFNR
+                                                  AND B010.MANDT= #G_MANDT# 
+		                      AND B010.VKGRP LIKE #CB2# || '%')
+</isEqual>
+
+       AND M78.MANDT = ZMA2.MANDT
+       AND M78.POSID = ZMA2.POSID_1
+
+) AS A
+WHERE 1=1
+    AND FM = 'N'
+<isNotNull col="DATE_TO">
+    AND( SHEAVE &lt; #DATE_TO#
+       OR ROPE &lt; #DATE_TO#
+       OR ROLLER &lt; #DATE_TO#
+       OR CHAIN &lt; #DATE_TO#
+       OR HANDRAIL &lt; #DATE_TO#
+       OR WHEEL &lt; #DATE_TO# )
+</isNotNull>
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="DATE_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="MAT_CODE" size="255" type="VARCHAR" description="" /> 
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="ATYPE" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="ARA" size="6" type="VARCHAR" description="" /> 
+		<col name="CHAIN" size="8" type="VARCHAR" description="" /> 
+		<col name="HANDRAIL" size="8" type="VARCHAR" description="" /> 
+		<col name="HNA" size="90" type="VARCHAR" description="" /> 
+		<col name="HNO" size="9" type="VARCHAR" description="" /> 
+		<col name="NAM" size="105" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="ROLLER" size="8" type="VARCHAR" description="" /> 
+		<col name="ROPE" size="8" type="VARCHAR" description="" /> 
+		<col name="SHEAVE" size="8" type="VARCHAR" description="" /> 
+		<col name="WHEEL" size="8" type="VARCHAR" description="" /> 
+		<col name="ZBEPJEO" size="24" type="VARCHAR" description="" /> 
+		<col name="ZBOSUIN" size="24" type="VARCHAR" description="" /> 
+		<col name="ZGUBUN" size="6" type="VARCHAR" description="" /> 
+		<col name="ZOIPSU" size="24" type="VARCHAR" description="" /> 
+		<col name="ZZBSU" size="100" type="VARCHAR" description="" /> 
+	</output>
+</query>

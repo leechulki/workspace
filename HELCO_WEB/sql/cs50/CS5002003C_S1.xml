@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[통신비 입력 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+SELECT CS657_YEA AS YEA, 
+       CS657_MON AS MON, 
+       CS657_MNO AS MNO, 
+       CS657_GBN AS GBN, 
+       CS657_GBN2 AS GBN2, 
+	   COALESCE(CS657_CNT,'0') AS CNT,
+  --     CS658_ADR AS ADR,
+       CS657_TOT AS TOT 
+     ,CO300.CTSE04 , A.*
+FROM (
+SELECT 
+         CS657_YEA
+        ,CS657_MON
+        ,CS657_MNO 
+        ,CS657_TOT
+        ,CS657_CNT
+        ,CS657_GBN --유무선
+        ,CS657_GBN2 --유무선
+        
+        ,B.CS656_PJT
+        ,B.CS656_HNO
+        ,CS111.HST
+        ,CS111.ARA
+        ,CS111.BSU
+        ,WB010.ABR_NM
+        ,WB010.VKGRP
+        ,CODE1.CTEXT2 VKGRP_NM
+        ,CS101.CS101_ISD
+        ,C.POSID_1
+        ,C.MDATE
+        ,C.TEXT30 
+    --    ,C.ZSITE_NM
+        
+        ,(SELECT  MIN(CS116_BGT) FROM SAPHEE.ZCST116 WHERE MANDT = #G_MANDT# AND CS116_PJT = CS111.PJT  AND CS116_HNO = CS111.HNO AND CS116_PST = 'A6' 
+        ) MGG
+        ,(SELECT  MAX(CS116_BMT) FROM SAPHEE.ZCST116 WHERE MANDT = #G_MANDT# AND CS116_PJT = CS111.PJT  AND CS116_HNO = CS111.HNO AND CS116_PST = 'A6' 
+        ) MGM
+        ,(SELECT  MIN(CS126_USD) FROM SAPHEE.ZCST126 WHERE MANDT = #G_MANDT# AND CS126_PJT = CS111.PJT  AND CS126_HNO = CS111.HNO AND CS126_DDT = '' AND CS126_PST = 'A6'        
+        ) USD
+        ,(SELECT  MAX(CS126_UMR) FROM SAPHEE.ZCST126 WHERE MANDT = #G_MANDT# AND CS126_PJT = CS111.PJT  AND CS126_HNO = CS111.HNO AND CS126_DDT = '' AND CS126_PST = 'A6'        
+        ) UMR
+        ,(SELECT  MAX(CS143_FSD) FROM SAPHEE.ZCST144 A INNER JOIN SAPHEE.ZCST143 B ON A.MANDT = B.MANDT AND A.CS144_SEQ = B.CS143_SEQ 
+                                WHERE A.MANDT = #G_MANDT# AND CS144_PJT = CS111.PJT  AND CS144_HNO = CS111.HNO AND CS144_PST = 'A6'        
+        ) FSD
+        
+        ,(SELECT  CS126_DCE FROM SAPHEE.ZCST126 WHERE MANDT = #G_MANDT# AND CS126_PJT = CS111.PJT  AND CS126_HNO = CS111.HNO AND CS126_DDT = '' AND CS126_PST = 'A6' 
+        
+        AND HEX(CURRENT DATE) BETWEEN  CS126_USD AND CS126_UMR
+        
+        ) DCE
+        
+        ,(SELECT  CS126_DYN FROM SAPHEE.ZCST126 WHERE MANDT = #G_MANDT# AND CS126_PJT = CS111.PJT  AND CS126_HNO = CS111.HNO AND CS126_DDT = '' AND CS126_PST = 'A6' 
+        
+        AND HEX(CURRENT DATE) BETWEEN  CS126_USD AND CS126_UMR
+        
+        ) DYN
+        ,(SELECT  CS126_HYN FROM SAPHEE.ZCST126 WHERE MANDT = #G_MANDT# AND CS126_PJT = CS111.PJT  AND CS126_HNO = CS111.HNO AND CS126_DDT = '' AND CS126_PST = 'A6' 
+        
+        AND HEX(CURRENT DATE) BETWEEN  CS126_USD AND CS126_UMR
+        
+        ) HYN
+		 <![CDATA[
+        ,(SELECT SUM(CS657_TOT) 
+		      FROM SAPHEE.ZCST657 
+			WHERE MANDT = #G_MANDT#  
+			     AND CS657_MNO = A.CS657_MNO 
+				 AND CS657_YEA||SAPHEE.FILLINZERO(CS657_MON,2) <=  A.CS657_YEA||SAPHEE.FILLINZERO(A.CS657_MON,2)
+	      ) NTOT
+        ]]>  
+ FROM SAPHEE.ZCST657 A 
+                       
+	<isEqual col="TYPE" value="D">
+                       LEFT OUTER JOIN SAPHEE.ZCST656 B ON B.MANDT = #G_MANDT# 
+                                                       AND A.CS657_MNO  = B.CS656_DNO
+	</isEqual>
+	<isEqual col="TYPE" value="H">
+                       LEFT OUTER JOIN SAPHEE.ZCST656 B ON B.MANDT = #G_MANDT# 
+                                                       AND A.CS657_MNO  = B.CS656_HRNO
+	</isEqual>
+
+                       LEFT OUTER JOIN SAPHEE.ZCST111 CS111 ON CS111.MANDT = #G_MANDT# 
+                                                           AND CS111.PJT  = B.CS656_PJT 
+                                                           AND CS111.HNO  = B.CS656_HNO
+                                                           
+                       LEFT OUTER JOIN SAPHEE.ZCST101 CS101 ON CS101.MANDT = #G_MANDT# 
+                                                           AND CS101.CS101_PJT  = B.CS656_PJT 
+                                                           AND CS101.CS101_HNO  = B.CS656_HNO
+                                                           
+                       LEFT OUTER JOIN SAPHEE.ZWBT010 WB010 ON WB010.MANDT = #G_MANDT# 
+                                                           AND WB010.LGORT  = CS111.BSU
+                                                           AND WB010.LGORT  != ''
+   
+                       LEFT OUTER JOIN SAPHEE.ZMASTER02  C ON C.MANDT = #G_MANDT#  
+                                                          AND B.CS656_PJT  = C.POSID  
+                                                          AND B.CS656_PJT||B.CS656_HNO = C.POSID_1 
+                                                           
+                       LEFT OUTER JOIN SAPHEE.ZLCODE CODE1 ON CODE1.MANDT = #G_MANDT# 
+                                                           AND CODE1.CODE1 = 'VKGRP'
+                                                           AND CODE1.CODE2 = WB010.VKGRP
+   
+   
+ WHERE A.MANDT = #G_MANDT#
+	<isEqual col="TYPE" value="D">
+   AND CS657_GBN2 = 'D'
+	</isEqual>
+	<isEqual col="TYPE" value="H">
+   AND CS657_GBN2 = 'H'
+	</isEqual>
+	<isNotNull col="YEAR">
+   AND CS657_YEA = #YEAR#
+	</isNotNull>
+	<isNotNull col="MONTH">
+   AND CS657_MON = #MONTH#
+	</isNotNull>
+          
+	<isNotNull col="MODEM">
+   AND CS657_MNO = #MODEM#
+	</isNotNull>
+
+	<isNotEqual col="NOHNO" value="1">             
+			<isNotNull col="HST">
+  		 AND CS111.HST =  #HST#
+			</isNotNull>
+			
+			
+			<isNotNull col="PJT">
+				 AND CS656_PJT = #PJT#
+			</isNotNull>			 
+  		
+			<isNotNull col="TEM">
+				 AND WB010.VKGRP = #TEM# 
+			</isNotNull>
+			
+			<isNull col="TEM">
+				 <isNotNull col="DPT">
+				 	AND WB010.VKGRP IN (SELECT CODE2 AS CODE
+				 						   FROM SAPHEE.ZLCODE
+				 						  WHERE MANDT=#G_MANDT#
+				 						    AND LANG =#G_LANG#
+				 						    AND CODE1 = 'VKGRP'
+				 						    AND DTEXT1 = #DPT#)
+				 </isNotNull> 
+			</isNull>
+  		
+			<isNotNull col="ARA">
+				 AND CS111.ARA = #ARA# 
+			</isNotNull>  
+			<isNotNull col="BSU">
+				 AND CS111.BSU = #BSU# 
+			</isNotNull>  
+			
+	</isNotEqual>
+
+	<isEqual col="NOHNO" value="1">
+  AND  C.POSID_1 IS  NULL
+	</isEqual>
+ 
+
+) A LEFT OUTER JOIN SAPHEE.ZCOBT300 CO300 ON CO300.MANDT = #G_MANDT# 
+                                         AND PSPID = A.CS656_PJT  
+                                         AND POSID = A.CS656_PJT||A.CS656_HNO 
+                                         AND DIV = '5' /*시행예산*/
+
+--WHERE DCE != 'Y' AND DYN != 'Y' 
+
+ FOR FETCH ONLY
+  WITH UR	
+  </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

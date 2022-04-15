@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[해외부품 프로젝트 호기정보]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+	SELECT CS122_UPN AS UPN, 
+	       CS122_CST AS CST, 
+	       CS122_PJT AS PJT,
+	       CS122_PJT || CS122_HNO AS WBS, 
+	       CS122_HNO AS HNO, 
+	     
+           <!-- CASE WHEN CAST(ZM02.ZSPEC3 AS INTEGER) > 150 THEN 'Y'
+                ELSE 'N'
+           END AS HTY -->
+		   CASE
+		   	   WHEN ZM02.ZSPEC3 != '' THEN
+			   		CASE 
+						 WHEN CAST(ZM02.ZSPEC3 AS INTEGER) > 150 THEN 'Y'
+						 ELSE 'N'
+					END
+			   ELSE 'N'
+		   END AS HTY -- 2020.01.07 Dumb weighter의 경우 속도값 없음으로 인한 예외 처리. 이지원 대리 요청. j.h han                 
+	  FROM SAPHEE.ZCST122G CS122G INNER JOIN SAPHEE.ZCST111G CS111G 
+         	                                   ON CS111G.MANDT = CS122G.MANDT
+                                            AND CS111G.PJT = CS122G.CS122_PJT
+	                                          AND CS111G.HNO = CS122G.CS122_HNO
+	       
+                                LEFT OUTER JOIN SAPHEE.ZMASTER02 ZM02
+         	                                   ON CS111G.MANDT = ZM02.MANDT
+                                            AND CS111G.PJT   = ZM02.POSID
+                                            AND CS111G.PJT || CS111G.HNO = ZM02.POSID_1	       
+	 WHERE 1=1 	 
+	  
+	   AND CS122G.CS122_UPN = #UPN#
+	   AND CS122G.CS122_CST = #CST# 
+	   AND CS122G.MANDT = #G_MANDT#	
+	   AND SUBSTR(CS122G.CS122_HNO,1,1) NOT IN ('T','Y')
+	   AND ZM02.TXT04 != 'C'
+     ORDER BY UPN, 
+           CST, 
+           WBS 
+	   FOR FETCH ONLY
+	  WITH UR           
+</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_hna">
+	</output>
+</query>

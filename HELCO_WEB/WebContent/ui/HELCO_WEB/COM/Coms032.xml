@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="22" Id="Coms032" Left="8" PidAttrib="7" Title="Coms032" Top="8" Ver="1.0" Width="184" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_error">
+				<Contents>
+					<colinfo id="IDX" size="256" type="STRING"/>
+					<colinfo id="ERRMSG" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_cond">
+				<Contents>
+					<colinfo id="LANDCODE" size="256" summ="default" type="STRING"/>
+					<colinfo id="LANDNAME" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_list">
+				<Contents>
+					<colinfo id="LANDCODE" size="256" summ="default" type="STRING"/>
+					<colinfo id="LANDNAME" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Edit Border="Flat" Column="SMAN" Height="20" Id="ed_landCode" LeftMargin="4" OnChanged="ed_dealer_cd_OnChanged" OnCharChanged="ed_dealer_cd_OnCharChanged" OnFocus="fn_OnFocus" OnKillFocus="fn_OnKillFocus" RightMargin="4" Style="sty_ipt_form" TabOrder="1" UpperOnly="TRUE" Width="80"></Edit>
+		<Button Height="18" Id="btn_popLand" ImageID="btn_icon_search" Left="81" OnClick="fn_OnClick_popup" TabOrder="2" Text="Button0" Top="1" Transparent="TRUE" Width="18"></Button>
+		<Static Height="16" Id="Static1" Left="64" TabOrder="3" Text="지역코드/지역명" Top="56" Width="146"></Static>
+		<Edit Border="Flat" CanChange="ed_landName_OnKeyDown" CheckLength="Byte" Enable="FALSE" Height="20" Id="ed_landName" ImeMode="none" Left="100" LeftMargin="4" MaxLength="105" OnKeyDown="ed_dealer_name_OnKeyDown" RightMargin="4" Style="sty_ipt_search" TabOrder="4" Width="80"></Edit>
+	</Form>
+	<Script><![CDATA[/*
+ ******************************************************************************************
+ * 기      능   : 영업담당자 팝업 조회기능 
+ * 작  성  자   : 
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */ 
+#include "LIB::commons.js";	// 공통 스크립트 
+#include "LIB::nsfRequest.js";	// 공통 스크립트  /* GNY 추가 */
+#include "LIB::common_hdel.js";	// 공통 스크립트  /* GNY 추가 */
+#include "LIB::common_sd.js";
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) 
+{  
+	// 폼사이즈 및 컨트롤 사이즈/위치 재조정
+	fn_setSize(); 
+}
+
+function ed_landName_OnKeyDown(obj,nChar,bShift,bCtrl, bAlt,LLParam,HLParam)
+{
+	if (nChar == 13)
+	{
+		// 입력된 조건이 없으면
+		if (length(trim(ed_buyr_cd.text)) == 0 && length(trim(ed_buyr_nm.text)) == 0)
+		{
+			fn_OnClick_popup(btn_popBuyr);  // 팝업화면 호출
+		}
+		else
+		{
+			fn_query_buyr();  				// 거래선조회 서비스 호출
+		}
+	}
+	else  // 다른 키 누르면 거래처코드 clear
+	{
+		//ed_buyr_cd.text = "";
+	}
+} 
+
+function fn_OnClick_popup(obj)
+{
+	var arg = "fa_landCode= " 	+ quote(ed_landCode.text)   // 지역코드
+			 + " fa_landName = " + quote(ed_landName.text);  // 지역명
+	var arr = gfn_openPopUpUrlHdel("Com::Com0320.xml", true, arg );	 
+	
+	if (arr != null && arr != 0)
+	{  	
+		ed_landCode.text 		= arr[0];	// 거래선코드(6자리)
+		ed_landName.text 		= arr[1];	// 거래선명 
+		ed_landName.SetFocus(); 
+	}
+}
+
+/********************************************************************************
+* 기      능   : 지역조회
+********************************************************************************/
+function fn_query_land()
+{  
+	if(length(trim(ed_landcode.text)) > 2) {
+		ed_landCode.text = "";
+		ed_landName.text = "";
+		gfn_showAlert("CW00011", "2");
+		return false;
+	}
+	
+	gfn_clearMsgBar();   
+	
+	// 조회조건 항목오류검증
+	if (fn_valid_chk() == false)  return;
+	
+	// 출력데이타셋 초기화  
+	ds_list.ClearData();
+	ds_cond.ClearData();
+	ds_cond.AddRow();
+	ds_cond.SetColumn(ds_cond.row, "LANDCODE", trim(ed_landCode.text));
+	ds_cond.SetColumn(ds_cond.row, "LANDNAME", trim(ed_landName.text));
+	
+	// 서비스호출
+	nsfRequest("query"									// srvId
+				, "com0320/find"						// url
+				, "ds_cond=ds_cond ds_list=ds_list"		// inDsList
+				, "ds_list=ds_list ds_error=ds_error"	// outDsList
+				, ""									// strParam
+				, "fn_afterQuery_land"					// CallBackFunc
+				);
+ 
+}
+
+/********************************************************************************
+* 기      능   : 지역조회 Callback  
+********************************************************************************/
+function fn_afterQuery_land(errCode, errMsg)
+{  
+	// 호출결과처리
+	if(ds_error.rowcount() > 0) {  
+	} else { 	    
+		// 한 건 조회된 경우
+		if (ds_list.RowCount() = 1)	
+		{
+			// 조회해 온 값으로 협력업체 검색정보 SET
+			ed_landCode.Text = ds_list.GetColumn(ds_list_lifnr.row, "LANDCODE");
+			ed_landName.Text = ds_list.GetColumn(ds_list_lifnr.row, "LANDNAME");
+		}
+		// 다 건 조회된 경우	
+		else if (ds_list_lifnr.RowCount() > 1)	
+		{
+			// 협력업체조회 팝업화면  호출
+			fn_OnClick_popup(btn_popLand);  	
+		}  
+	}
+}  
+
+// 항목 오류 검증
+function fn_valid_chk(pProcGb)
+{   
+	if (length(trim(ed_landCode.text)) == 0 && length(trim(ed_landName.text)) == 0)
+	{
+		alert("입력된 자료가 없습니다.");
+		ed_landCode.SetFocus();
+		return false;
+	}
+	
+	return true;
+}
+
+// 폼사이즈 및 컨트롤 사이즈 재조정
+function fn_setSize()
+{  
+	btn_popLand.left = ed_landCode.left + ed_landCode.Width + 1;
+	ed_landName.left = btn_popLand.left + btn_popLand.Width + 1;   
+}]]></Script>
+</Window>

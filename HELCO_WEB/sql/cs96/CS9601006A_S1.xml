@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[원 WBS검색-부품판매]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT 
+   UPN
+ , CST
+ , SPT
+ , MAX(NAM) AS NAM
+ , PSPID
+ , SAPHEE.GET_VENDER_NAME(MANDT, MAX(BSU)) AS BSU
+ , SAPHEE.GET_BOSU_INWON(MANDT, MAX(BPM)) AS BPM
+ , STATUS
+ , CRDAT
+FROM (
+ SELECT 
+   CS001.MANDT AS MANDT 
+ , SUBSTR(CS001.MA_PSPID,1,6) AS UPN       -- 통함 Proj.
+ , SUBSTR(CS001.MA_PSPID,7) AS CST          -- 거래선
+ , CS121.CS121_SPT AS SPT							-- 현장명
+ , CS121.CS121_NAM AS NAM                          -- 고객명
+ , CS001.PS_PSPID AS PSPID                          -- 원WBS
+ , CS111.BSU AS BSU
+ , CS111.BPM AS BPM
+ , CS001.CRDAT AS CRDAT
+ , CASE WHEN VALUE(LC.CTEXT2,'') = 'Y' THEN '' 
+           ELSE VALUE((SELECT STATUS 
+                     FROM SAPHEE.ZCST005 
+                     WHERE MANDT = CS001.MANDT 
+                      AND PSPID = CS001.PS_PSPID),'')  END AS STATUS
+
+FROM SAPHEE.ZCST001 AS CS001
+    LEFT OUTER JOIN SAPHEE.ZCST121 AS CS121 ON CS001.MANDT=CS121.MANDT
+	 AND SUBSTR(CS001.MA_PSPID,1,6) = CS121.CS121_UPN
+	 AND SUBSTR(CS001.MA_PSPID,7) = CS121.CS121_CST
+    LEFT OUTER JOIN SAPHEE.ZCST122 AS CS122 ON CS001.MANDT=CS122.MANDT
+	 AND SUBSTR(CS001.MA_PSPID,1,6) = CS122.CS122_UPN
+	 AND SUBSTR(CS001.MA_PSPID,7) = CS122.CS122_CST
+    LEFT OUTER JOIN SAPHEE.ZLCODE AS LC ON LC.MANDT =  CS001.MANDT
+               AND  LC.LANG = #G_LANG#
+	 AND  LC.CODE1 = 'PAY_ST'
+	 AND  LC.CODE2 = CS001.PS_PSPID
+
+,SAPHEE.ZCST111 AS CS111	
+WHERE CS001.MANDT = #G_MANDT#
+  AND CS001.MANDT = CS111.MANDT						
+  AND CS122.CS122_PJT = CS111.PJT
+  AND CS122.CS122_HNO = CS111.HNO
+<isNotNull col="UPN">
+  AND SUBSTR(CS001.MA_PSPID,1,6) LIKE '%'||#UPN#||'%' 
+</isNotNull>
+<isNotNull col="SPT">
+  AND (CS121.CS121_SPT LIKE '%'||#SPT#||'%'  OR CS121.CS121_NAM LIKE '%'||#SPT#||'%' )
+</isNotNull>
+<isEqual col="USER_GROUP" value="10">
+  AND CS111.BSU = #G_VEND_CODE_R#
+</isEqual>
+<isEqual col="USER_GROUP" value="20">
+  AND CS111.BPM = #G_USER_ID#  
+</isEqual>
+<isEqual col="USER_GROUP" value="30">
+  AND CS111.ARA = #G_AREA_CODE#  
+</isEqual>
+ AND CS001.PS_PSPID > ''
+) AS CS001
+WHERE 1=1
+GROUP BY MANDT,UPN,CST,SPT,PSPID, STATUS, CRDAT
+ORDER BY UPN,CST,SPT,PSPID
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="UPN" size="255" type="VARCHAR" description="" /> 
+		<col name="SPT" size="255" type="VARCHAR" description="" /> 
+		<col name="G_VEND_CODE_R" size="255" type="VARCHAR" description="" /> 
+		<col name="G_USER_ID" size="255" type="VARCHAR" description="" /> 
+		<col name="G_AREA_CODE" size="255" type="VARCHAR" description="" /> 
+		<col name="USER_GROUP" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="BPM" size="20" type="VARCHAR" description="" /> 
+		<col name="BSU" size="100" type="VARCHAR" description="" /> 
+		<col name="CST" size="45" type="VARCHAR" description="" /> 
+		<col name="NAM" size="150" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="54" type="VARCHAR" description="" /> 
+		<col name="SPT" size="150" type="VARCHAR" description="" /> 
+		<col name="UPN" size="6" type="VARCHAR" description="" /> 
+	</output>
+</query>

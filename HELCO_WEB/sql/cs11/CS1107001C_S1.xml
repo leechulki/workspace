@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+
+SELECT 
+			   A.ZZPJT_ID AS ZZPJT_ID
+			 , A.HOGI     AS HOGI
+			 , A.BSTNK    AS BSTNK         --  수주문서 파트너 정보
+			 , A.KUNNR    AS KUNNR         --  수주문서 파트너 정보         
+			 , KNA1.NAME1 AS KUNNR_NM      --  수주문서 파트너 정보        
+			 , A.LIFNR    AS LIFNR         --  수주문서 파트너 정보        
+			 , A.LIFNR_NM AS LIFNR_NM      --  수주문서 파트너 정보        
+			 , CS111.BSU  AS BSU           -- 보수 호기 정보
+			 , LFA1.NAME1 AS BSU_NM        -- 보수 호기 정보
+FROM (
+
+       SELECT 
+       				  A.ZZPJT_ID 
+       				, A.HOGI 
+       				, MAX(A.BSTNK)    AS BSTNK
+       				, MAX(A.KUNNR)    AS KUNNR
+       				, MAX(A.LIFNR)    AS LIFNR
+       				, MAX(A.LIFNR_NM) AS LIFNR_NM
+       
+       FROM (
+       
+             SELECT  A.ZZPJT_ID
+                    ,A.VBELN
+                    ,A.BSTNK
+                    ,B.LIFNR
+                    ,C.NAME1    AS LIFNR_NM
+                    ,D2.HOGI_ID AS HOGI
+                    ,B2.KUNNR
+             FROM  SAPHEE.VBAK A LEFT OUTER JOIN SAPHEE.VBPA AS B 
+                                         ON B.MANDT = A.MANDT
+                                        AND B.VBELN = A.VBELN
+                                        AND B.PARVW = 'Z1'
+                                        AND B.POSNR = '000000'
+                                 
+                                 LEFT OUTER JOIN SAPHEE.VBPA AS B2 
+                                         ON B2.MANDT = A.MANDT
+                                        AND B2.VBELN = A.VBELN
+                                        AND B2.PARVW = 'AG'
+                                        AND B2.POSNR = '000000'
+                                        
+                                 LEFT OUTER JOIN SAPHEE.LFA1 AS C
+                                         ON C.MANDT = A.MANDT
+                                        AND C.LIFNR = B.LIFNR
+                                 
+                                 LEFT OUTER JOIN SAPHEE.ZCST001 AS D1
+                                         ON D1.MANDT = A.MANDT
+                                        AND D1.PS_PSPID = A.ZZPJT_ID
+                                 
+                                 LEFT OUTER JOIN SAPHEE.ZCST002 AS D2
+                                         ON D2.MANDT = A.MANDT
+                                        AND D2.QTNUM = D1.QTNUM
+                                        AND D2.SEQ   = D1.SEQ
+       								    AND D2.PS_PSPID =D1.PS_PSPID               -- 유상청구 
+       								                 
+             WHERE A.MANDT = #G_MANDT#
+              AND  A.ZZPJT_ID LIKE #ZZPJT_ID#||'%'
+              AND  A.ZZPJT_ID LIKE '%NC%'
+              AND  A.AUART = 'ZR13'
+             
+             ) AS A     
+             
+       GROUP BY A.ZZPJT_ID , A.HOGI
+       
+       )   AS A   LEFT OUTER JOIN SAPHEE.ZCST111 AS CS111 
+                              ON CS111.MANDT = #G_MANDT#
+                             AND CS111.PJT = SUBSTR(A.HOGI,1,6)
+                             AND CS111.HNO = SUBSTR(A.HOGI,7,3)
+                             
+                  LEFT OUTER JOIN SAPHEE.ZWBT010 AS WB010
+                          ON WB010.MANDT = #G_MANDT#
+                         AND WB010.LGORT = CS111.BSU
+                         
+                  LEFT OUTER JOIN SAPHEE.LFA1 AS LFA1
+                          ON LFA1.MANDT = #G_MANDT#
+                         AND LFA1.LIFNR = WB010.LIFNR
+                      
+                  LEFT OUTER JOIN SAPHEE.KNA1 AS KNA1
+                          ON KNA1.MANDT = #G_MANDT#
+                         AND KNA1.KUNNR = A.KUNNR
+                           
+  WITH UR
+  
+	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

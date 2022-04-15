@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+         CASE WHEN MM17.XWAOK=''   THEN '0'
+		           WHEN MM17.KZEAR = 'X' THEN '0' 
+		           WHEN MM17.ZSTAT3 = 'X' THEN '0'
+				   WHEN MM17.ZSTAT2 = 'X' THEN '0'
+				   WHEN MM17.ZSTAT1 = 'X' THEN '0'
+				   ELSE '1'  END AS CHK
+         ,CASE WHEN MM17.XWAOK=''   THEN ''
+		           WHEN MM17.KZEAR = 'X' THEN '' 
+		           WHEN MM17.ZSTAT3 = 'X' THEN ''
+				   WHEN MM17.ZSTAT2 = 'X' THEN ''
+				   WHEN MM17.ZSTAT1 = 'X' THEN ''
+				   ELSE 'U'  END AS FLAG		
+        ,MM17.MATNR
+        ,MM17.MAKTX
+        ,MM17.POSID
+        ,MM17.POST1
+        ,MM17.MENGE
+        ,MM17.SDATE
+        ,MM17.UDATE
+        ,MM17.BUDAT
+        ,MM28.CTEXT2
+        ,MM17.LIFNR
+        ,MM17.NAME1
+        , CASE WHEN SD135.CHK_GBN = 'X' THEN 'C' ELSE ( CASE WHEN MM17.XWAOK=''   THEN '0'
+              WHEN MM17.KZEAR ='X' THEN '0'
+              WHEN MM17.ZSTAT3='X' THEN '0'
+              WHEN MM17.ZSTAT2='X' THEN '0'
+              WHEN MM17.ZSTAT1='X' THEN '0' ELSE '1' END) END AS ZSTAT                  -- 처리상태
+        ,CASE WHEN SD135.CHK_GBN = 'X' THEN '출하보류(영업)' ELSE (CASE WHEN MM17.XWAOK='' THEN '이동금지'
+		      WHEN MM17.KZEAR ='X' THEN '출고전기'
+              WHEN MM17.ZSTAT3='X' THEN '출고전기'
+              WHEN MM17.ZSTAT2='X' THEN '납품문서'
+              WHEN MM17.ZSTAT1='X' THEN '운송계획' ELSE '처리대상' END) END AS ZSTAT_NM
+FROM (
+        SELECT
+                 MM17.MANDT                  AS MANDT                               -- 클라이언트
+                ,MM17.MATNR                  AS MATNR                               -- 자재번호
+                ,MAX(MM17.MAKTX)             AS MAKTX                               -- 자재명
+                ,MAX(SUBSTR(MM17.POSID,1,6)) AS POSID                               -- WBS 요소
+                ,MAX(MM17.POST1)             AS POST1                               -- 현장명
+                ,SUM(MM17.MENGE)             AS MENGE                               -- 수량
+                ,MAX(MM17.SDATE)             AS SDATE                               -- [MM]PO 승인일자
+                ,MAX(MM17.UDATE)             AS UDATE                               -- [MM]Update된 납기일
+                ,MAX(MM17.BUDAT)             AS BUDAT                               -- 입고 전기일자
+                ,MAX(MM17.PRO_F)             AS PRO_F                               -- 진행상태
+                ,MAX(MM17.LIFNR)             AS LIFNR                               -- 납품업체
+                ,MAX(MM17.NAME1)             AS NAME1                               -- 납품업체명
+                ,MIN(CASE WHEN LE17.ZSTAT1 IS NULL THEN '' ELSE LE17.ZSTAT1 END)            AS ZSTAT1                              -- 운송계획
+                ,MIN(CASE WHEN LE17.ZSTAT2 IS NULL THEN '' ELSE LE17.ZSTAT2 END)            AS ZSTAT2                              -- 납품문서
+                ,MIN(CASE WHEN LE17.ZSTAT3 IS NULL THEN '' ELSE LE17.ZSTAT3 END)            AS ZSTAT3                              -- 출고전기
+                ,MIN(RESB.XWAOK)             AS XWAOK                               -- 이동허용
+                ,MIN(RESB.KZEAR)             AS KZEAR                               -- 최종출고
+        FROM SAPHEE.ZMMT017 AS MM17
+             INNER JOIN SAPHEE.PRPS   AS PRPS ON  PRPS.MANDT = MM17.MANDT
+                                              AND PRPS.POSID = MM17.POSID
+             INNER JOIN SAPHEE.AUFK   AS AUFK ON  AUFK.MANDT = PRPS.MANDT
+                                              AND AUFK.PSPEL = PRPS.PSPNR
+             INNER JOIN SAPHEE.RESB   AS RESB ON  RESB.MANDT = AUFK.MANDT
+                                              AND RESB.AUFNR = AUFK.AUFNR
+                                              AND RESB.BAUGR = ''
+                                              AND RESB.XLOEK = ''
+                                              AND RESB.BWART = '281'
+                                              AND RESB.WERKS = '1000'
+                                              AND RESB.MATNR = MM17.MATNR
+
+             LEFT OUTER JOIN SAPHEE.ZLET017   AS LE17 ON  LE17.MANDT = RESB.MANDT
+                                                      AND LE17.RSNUM = RESB.RSNUM
+                                                      AND LE17.RSPOS = RESB.RSPOS
+                                                      AND LE17.ZCANC = ''
+        WHERE MM17.MANDT    = #G_MANDT#
+          AND MM17.INVNR    = #INVNR#
+          AND MM17.DEL_DATE = '00000000'
+        GROUP BY MM17.MANDT, MM17.MATNR, SUBSTR(MM17.POSID,1,6)
+
+      ) AS MM17
+      LEFT OUTER JOIN SAPHEE.ZLCODE AS MM28 ON  MM28.MANDT = MM17.MANDT AND MM28.LANG = #G_LANG# 
+                                             AND MM28.CODE1 = '6'
+                                             AND MM28.CODE2 = MM17.PRO_F
+      LEFT OUTER JOIN SAPHEE.ZSDT0135 AS SD135 ON SD135.MANDT= MM17.MANDT
+                                             AND SD135.HOGI = MM17.POSID
+
+<isNotNull col="PSPID">
+WHERE MM17.POSID = SUBSTR(#PSPID#,1,6)
+</isNotNull>
+ORDER BY MM17.MATNR
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="INVNR" size="255" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list1">
+		<col name="BUDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="CTEXT2" size="60" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="30" type="VARCHAR" description="" /> 
+		<col name="MAKTX" size="60" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="11" type="NUMERIC" description="" /> 
+		<col name="NAME1" size="105" type="VARCHAR" description="" /> 
+		<col name="POSID" size="9" type="VARCHAR" description="" /> 
+		<col name="POST1" size="120" type="VARCHAR" description="" /> 
+		<col name="SDATE" size="24" type="VARCHAR" description="" /> 
+		<col name="UDATE" size="24" type="VARCHAR" description="" /> 
+		<col name="ZSTAT" size="1" type="VARCHAR" description="" /> 
+		<col name="ZSTAT_NM" size="12" type="VARCHAR" description="" /> 
+	</output>
+</query>

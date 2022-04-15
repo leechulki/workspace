@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[주차설비 분리발주현장 공정현황]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+select 
+  '0' AS CHECK 
+, '' AS FLAG,
+posid, post1,  type1, spec, SUKEUM,
+ CASE WHEN SAPHEE.GET_ZERODATE(chulcd) >     ''  THEN '●' 
+           WHEN SAPHEE.GET_ZERODATE(mancd) >     '' THEN '⊙'
+		   WHEN SAPHEE.GET_ZERODATE(designcd) > '' THEN '◎'
+		   WHEN SAPHEE.GET_ZERODATE(speccd) >    '' THEN '○'
+		   WHEN SAPHEE.GET_ZERODATE(speccd) =    '' THEN '△'
+            END AS GONG,
+specwd,speccd,layoutwd,layoutcd,designwd,designcd,baljud,baljuc,ppspsno,ppsname,
+ppsdat,manwd,mancd,befchulwd,chulwd,chulmd,changecau,changedet,  changedep,sulcpm,sulccom,bigo  
+from (
+select 
+a.posid as posid, 
+c.zsite_nm as post1, 
+d.zspec1 as type1,
+d.zspec2 as spec,
+ CASE WHEN  (SELECT E.ZZBEFOR
+ 		                  FROM SAPHEE.VBAK AS A 
+ 		                                      INNER JOIN SAPHEE.VBAP AS B ON A.MANDT = B.MANDT  AND A.VBELN = B.VBELN
+ 	                                          INNER JOIN SAPHEE.PRPS AS C ON B.MANDT = C.MANDT AND B.HOGI = C.POSID
+ 				                              INNER JOIN SAPHEE.PROJ AS D ON C.MANDT = D.MANDT AND C.PSPHI = D.PSPNR
+ 	                                          INNER JOIN SAPHEE.PRPS AS E ON D.MANDT = E.MANDT AND D.PSPID = E.POSID
+ 		                   WHERE A.MANDT = #G_MANDT# AND C.POSID = a.posid) = 'X' THEN 'Y' 
+                      
+	         ELSE  ( CASE WHEN 
+	                                 ( SELECT SUM(D.FAKWR) AS SUM1
+ 	 		                                FROM SAPHEE.VBAK AS A 
+ 	 		                                INNER JOIN SAPHEE.VBAP AS B ON A.MANDT = B.MANDT  AND A.VBELN = B.VBELN
+ 	                                        INNER JOIN SAPHEE.VBKD AS C ON B.MANDT = C.MANDT AND B.VBELN = C.VBELN 
+ 		 		                            INNER JOIN SAPHEE.FPLT AS D ON C.MANDT = D.MANDT  AND C.FPLNR = D.FPLNR
+ 			                             WHERE A.MANDT = #G_MANDT#
+ 				                               AND C.POSNR = '000000'
+ 				                               AND B.HOGI  = a.posid
+ 				                               AND ( D.ZTERM LIKE 'A%' OR D.FPLTR = '000001') 
+                                        ) IS NULL THEN 'X' 
+                                        
+					              WHEN  ( SELECT   CASE WHEN SUM(C.HWBAS) > 0 THEN SUM(VALUE(C.HWBAS,0)) ELSE  SUM(VALUE(C.DMBTR,0)) END AS SUM2
+ 			                                        FROM SAPHEE.VBAK AS A 
+ 			                                                    INNER JOIN SAPHEE.VBAP AS B ON A.MANDT = B.MANDT  AND A.VBELN = B.VBELN 
+ 	                                                            INNER JOIN SAPHEE.ZSDT0029 AS C ON A.MANDT = C.MANDT  AND A.ZZPJT_ID = C.KIDNO 
+ 	   		                                    WHERE A.MANDT = #G_MANDT#
+ 				                                     AND B.HOGI  = a.posid
+ 				                                     AND C.BUKRS = '1000'
+ 			                                         AND C.ZCANDT &lt; '19990101'
+ 			                                         AND NOT EXISTS ( SELECT * FROM SAPHEE.BKPF AS D
+ 		                                                  WHERE D.MANDT = #G_MANDT#
+ 			 		                    	                        AND D.BELNR = C.AUGBL
+ 				                                                AND D.BUKRS = '1000'
+ 				                                                AND D.GJAHR LIKE '%'
+ 				                                                AND D.STBLG &lt;&gt; '' ) 
+                              ) -  
+                              (  SELECT SUM(D.FAKWR) AS SUM1
+ 	 		                      FROM SAPHEE.VBAK AS A 
+ 	 		                         INNER JOIN SAPHEE.VBAP AS B ON A.MANDT = B.MANDT  AND A.VBELN = B.VBELN
+ 	                                 INNER JOIN SAPHEE.VBKD AS C ON B.MANDT = C.MANDT AND B.VBELN = C.VBELN 
+ 		 		                     INNER JOIN SAPHEE.FPLT AS D ON C.MANDT = D.MANDT  AND C.FPLNR = D.FPLNR
+ 			                      WHERE A.MANDT = #G_MANDT#
+ 				                      AND C.POSNR = '000000'
+ 				                      AND B.HOGI  = a.posid
+ 				                      AND ( D.ZTERM LIKE 'A%' OR D.FPLTR = '000001') 
+ 				                      
+                               )   &gt;= 0 THEN 'O' ELSE 'X' END ) END AS SUKEUM,                   
+(select ildat from saphee.zppt027 where mandt = #G_MANDT# and posid = a.posid and block = 'A' and activ ='01' and gubun = '01') as specwd,
+(select ildat from saphee.zppt027 where mandt = #G_MANDT# and posid = a.posid and block = 'A' and activ ='01' and gubun = '02') as speccd,
+(select ildat from saphee.zppt027 where mandt = #G_MANDT# and posid = a.posid and block = 'A' and activ ='02' and gubun = '01') as layoutwd,
+(select ildat from saphee.zppt027 where mandt = #G_MANDT# and posid = a.posid and block = 'A' and activ ='02' and gubun = '02') as layoutcd,
+(select ildat from saphee.zppt027 where mandt = #G_MANDT# and posid = a.posid and block = 'A' and activ ='03' and gubun = '01') as designwd,
+(select ildat from saphee.zppt027 where mandt = #G_MANDT# and posid = a.posid and block = 'A' and activ ='03' and gubun = '02') as designcd,
+(select k.sdate from saphee.zmmt013 as k  left outer join saphee.zppt004 as b on k.posid = b.woknum||'-P' and k.matnr = b.idnrk  
+  where k.mandt = #G_MANDT# and k.mandt = b.mandt and k.posid = a.posid||'-P' and b.prctyp = 'A' and (b.matkl = 'A550A02' or b.matkl = 'A550A')
+  order by k.ebeln desc fetch first 1 rows only) as baljud,
+(select k.lname from saphee.zmmt013 as k  left outer join saphee.zppt004 as b on k.posid = b.woknum||'-P' and k.matnr = b.idnrk  
+  where k.mandt = #G_MANDT# and k.mandt = b.mandt and k.posid = a.posid||'-P' and b.prctyp = 'A' and (b.matkl = 'A550A02' or b.matkl = 'A550A')
+   order by k.ebeln desc fetch first 1 rows only) as baljuc,
+f.ppsnam as ppspsno,
+g.username  as ppsname,
+f.ppsdat as ppsdat,
+(select ildat    from saphee.zppt027 where mandt = #G_MANDT# and posid = a.posid and block = 'A' and activ ='04' and gubun = '01') as manwd,
+(select ildat    from saphee.zppt027 where mandt = #G_MANDT# and posid = a.posid and block = 'A' and activ ='04' and gubun = '02') as mancd,
+(select chang from saphee.zpst0021 where mandt = '183' and posid = a.posid and block = '1' and chasu = 
+ (select max(chasu) from saphee.zpst0021 where mandt = '183' and posid = a.posid and block = '1') - 1 ) as befchulwd,
+(select ildat    from saphee.zppt027 where mandt = #G_MANDT# and posid = a.posid and block = 'A' and activ ='05' and gubun = '01') as chulwd,
+(select erdat  from saphee.zppt027 where mandt = #G_MANDT# and posid = a.posid and block = 'A' and activ ='05' and gubun = '01') as chulmd,
+(select ildat    from saphee.zppt027 where mandt = #G_MANDT# and posid = a.posid and block = 'A' and activ ='05' and gubun = '02') as chulcd,
+VALUE((SELECT M.CTEXT2 FROM SAPHEE.ZLCODE M WHERE M.MANDT = #G_MANDT# AND M.CODE1 = 'PS001' AND M.LANG = 'ko' AND M.CODE2 = 
+ (select reaso from saphee.zpst0021 where mandt = #G_MANDT# and posid = a.posid and block = '1' order by cdate desc , ctime desc
+  fetch first 1 rows only)
+ ),'') AS changecau,
+(select txt01 from saphee.zpst0021 where mandt = #G_MANDT# and posid = a.posid and block = '1' order by cdate desc , ctime desc
+  fetch first 1 rows only) as changedet,
+VALUE((SELECT M.CTEXT2 FROM SAPHEE.ZLCODE M WHERE M.MANDT = #G_MANDT# AND M.CODE1 = 'PS002' AND M.LANG = 'ko' AND M.CODE2 = 
+(select reaqu from saphee.zpst0021 where mandt = #G_MANDT# and posid = a.posid and block = '1' order by cdate desc , ctime desc
+  fetch first 1 rows only)
+),'') AS changedep,
+
+d.namet as sulcpm,
+e.name1 as sulccom,
+f.bigo as bigo  
+
+from saphee.zppt027 as a left outer join saphee.zsdt0005 as b on a.posid = b.hogi and a.mandt = b.mandt
+ inner join saphee.zmaster01 as c on a.pspid = c.posid and a.mandt = c.mandt
+  inner join saphee.zmaster02 as d on a.posid = d.posid_1 and a.mandt = d.mandt
+  left outer join saphee.lfa1 as e on d.lifnr = e.lifnr and a.mandt = e.mandt
+  left outer join saphee.zppt062c as f on a.posid = f.posid and a.mandt = f.mandt
+  left outer join saphee.zuserf as g on f.ppsnam = g.usernumb and a.mandt = g.mandt   
+where a.mandt = #G_MANDT# and  
+a.ildat between #I_FDATE# and #I_TDATE# and 
+<isNotNull col="I_PSPID">
+a.posid like  #I_PSPID# || '%' and 
+</isNotNull>
+a.block = 'A' and a.activ = '05' and a.gubun = '01' and
+b.characteristic = 'AP_ATYP' and b.seq = '01' and b.value &lt;&gt; 'MFC' and b.value &lt;&gt; 'MPZ' and
+d.prart = '02' and d.txt04 &lt;&gt; 'C'
+)	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

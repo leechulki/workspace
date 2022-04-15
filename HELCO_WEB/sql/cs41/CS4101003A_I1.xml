@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>insert</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+INSERT INTO SAPHEE.ZMMT034
+(MANDT,LIFNR,SPMON,POSID,NAME1,DMBTR,WAERS,MWSKZ,ZTERM,BELNR,PTDAT,PTTIM,BUDAT,CRDAT,CRTIM,CRNAM,WGND,VBTYP,GUBUN) -- BS ETL 연계를 위한 식별컬럼 추가. 2021.01.19 Han J.H
+SELECT  A.MANDT
+
+      --, A.LIFNR
+      ,CASE WHEN ( B.VKGRP = 'H11'  AND (A.WGND = 'A'  OR A.WGND = 'B')  ) THEN '2768801701'      ELSE A.LIFNR END  AS LIFNR -- 자회사 사업자 번호로 변환 
+      
+      , A.SPMON
+      , A.POSID
+      , MAX(A.NAME1) AS NAME1
+      , SUM(A.DMBTR) AS DMBTR
+      , MAX(A.WAERS) AS WAERS
+      , MAX(A.MWSKZ) AS MWSKZ
+      , MAX(A.ZTERM) AS ZTERM
+      , ''         AS BELNR
+      , HEX(CURRENT DATE)  AS PTDAT
+      , HEX(CURRENT TIME)  AS PTTIM
+      , MAX(A.BUDAT) AS BUDAT
+      , HEX(CURRENT DATE) AS CRDAT
+      , HEX(CURRENT TIME) AS CRTIM
+      , CAST((#G_USER_ID#) AS VARCHAR(8)) AS CRNAM
+      , MAX(A.WGND ) AS WGND 
+      , MAX(A.VBTYP) AS VBTYP
+      , MAX(A.GUBUN) AS GUBUN	
+	
+  FROM  SAPHEE.ZCST034 A 
+  ----자회사 사업자 번호로 변환 으로 추가----
+  LEFT OUTER JOIN SAPHEE.ZWBT010 AS B
+    ON A.MANDT = B.MANDT  
+   AND A.LIFNR = B.LIFNR	   
+  ------------------------------------
+ WHERE A.MANDT = #G_MANDT#
+   AND A.GUBUN = '1'
+   AND A.SPMON = #SPMON#
+
+GROUP BY A.MANDT, 
+      --LIFNR,
+      CASE WHEN ( B.VKGRP = 'H11'  AND (A.WGND = 'A'  OR A.WGND = 'B')  ) THEN '2768801701'      ELSE A.LIFNR END, 
+      A.SPMON, A.POSID
+
+ ]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

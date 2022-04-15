@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[프로젝트 이동계획 마스터 조회]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT  XX.*
+FROM    TABLE (
+SELECT  X.MANDT
+       ,X.ORDR_TYPE
+       ,R.CODE_NAME AS ORDR_TYPE_NAME
+       ,X.PSPID      -- 프로젝트번호
+       ,X.BSTNK      -- 프로젝트명
+       ,X.BSTDK      -- 수주일
+       ,X.VDATU      -- 납품요청일
+       ,Y.ESMT_TAMT  -- 수주금액
+       ,CAST(ROUND(Y.SALE_COST/Y.ESMT_TAMT*100,2) AS DECIMAL(11,5)) AS ESMT_RATE -- 수주시행율
+       ,Y.SLCS_RATE  -- 시행예산시행율
+       ,Y.EBDG_TAMT  -- 시행예산총금액
+       ,Y.SALE_COST  -- 원가
+       ,Z.ZTERM
+       ,(SELECT CODE_NAME FROM SAPHEE.ZFST0100 WHERE MANDT = Z.MANDT AND CODE_GROP = 'S07' AND CODE = Z.ZTERM) AS ZTERM_NAME
+       ,CAST('OB' AS VARCHAR(2)) AS ADOC_CLAS -- 시행예산
+       ,X.OCNT_NUMB AS ADOC_NUMB    -- 프로젝트번호
+       ,CAST('N' AS VARCHAR(1)) AS EXE_FLAG
+       ,X.EBDG_MGSQ AS EBDG_MGSQ
+       ,Y.EBDG_MGST AS EBDG_MGST
+       ,R.CODE_SEQN
+FROM   TABLE (
+       SELECT A.MANDT
+             ,A.OCNT_NUMB
+             ,MAX(A.EBDG_MGSQ) AS EBDG_MGSQ
+             ,B.BSTDK
+             ,B.BSTNK
+             ,B.PSPID
+             ,B.ORDR_TYPE
+             ,B.VDATU
+       FROM   SAPHEE.ZFST0301 A
+              INNER JOIN SAPHEE.ZFST0304 B
+              ON  A.MANDT = B.MANDT
+              AND A.OCNT_NUMB = B.OCNT_NUMB
+              --AND A.EBDG_MGST IN ( '350', '360')
+       WHERE  A.MANDT = #G_MANDT#
+<isNotNull col="BSTDK">
+         AND  B.BSTDK >= #BSTDK#
+</isNotNull>
+<isNotNull col="EBDG_MGST">
+         AND  A.EBDG_MGST = #EBDG_MGST#
+</isNotNull>
+<isNotNull col="ORDR_TYPE">
+         AND  B.ORDR_TYPE = #ORDR_TYPE#
+</isNotNull>
+<isNotNull col="PSPID">
+         AND  B.PSPID LIKE '%'||#PSPID#||'%'
+</isNotNull>
+        GROUP BY  A.MANDT
+                 ,A.OCNT_NUMB
+                 ,B.BSTDK
+                 ,B.BSTNK
+                 ,B.PSPID
+                 ,B.ORDR_TYPE
+                 ,B.VDATU
+       ) X
+       INNER JOIN SAPHEE.ZFST0301 AS Y
+       ON  X.MANDT = Y.MANDT
+       AND X.OCNT_NUMB = Y.OCNT_NUMB
+       AND X.EBDG_MGSQ = Y.EBDG_MGSQ
+       LEFT OUTER JOIN SAPHEE.ZFST0307 AS Z
+       ON  X.MANDT = Z.MANDT
+       AND X.OCNT_NUMB = Z.OCNT_NUMB
+       AND POSNR = '000000'
+       INNER JOIN SAPHEE.ZFST0100 R
+       ON  X.MANDT = R.MANDT
+       AND R.CODE_GROP = 'A03'
+       AND X.ORDR_TYPE = R.CODE
+UNION ALL       
+SELECT B.MANDT
+       ,B.ORDR_TYPE
+       ,(SELECT CODE_NAME FROM SAPHEE.ZFST0100 WHERE MANDT = A.MANDT AND CODE_GROP = 'A03' AND CODE = B.ORDR_TYPE) AS ORDR_TYPE_NAME
+       ,'' AS PSPID
+       ,B.POST1 AS BSTNK
+       ,B.OCNT_PDDT AS BSTDK -- 수주예상일
+       ,'' AS VDATU
+       ,B.NGTT_TAMT AS ESMT_TAMT
+       ,B.MRGN_RATE AS ESMT_RATE
+       ,0 AS SLCS_RATE
+       ,0 AS EBDG_TAMT
+       ,B.ESCS_TAMT AS SALE_COST
+       ,'' AS ZTERM
+       ,'' AS ZTERM_NAME
+       ,'OB' AS ADOC_CLAS
+       ,B.ESCS_NUMB AS ADOC_NUMB
+       ,CAST('N' AS VARCHAR(1)) AS EXE_FLAG
+       ,B.ESCS_NTIM AS EBDG_MGSQ
+       ,B.ESCS_STAT AS EBDG_MGST
+       ,C.CODE_SEQN
+FROM   TABLE (
+               SELECT MANDT
+                      ,ESCS_NUMB
+                      ,MAX(ESCS_NTIM) AS ESCS_NTIM
+               FROM  SAPHEE.ZFST0200        
+               WHERE  MANDT = '183'
+                 AND  ESCS_STAT = '050'
+                 AND  OCNT_PDDT &lt;&gt; ''
+                 AND  OCNT_NUMB = ''
+<isNotNull col="BSTDK">
+                 AND  OCNT_PDDT >= #BSTDK#
+</isNotNull>
+<isNotNull col="ORDR_TYPE">
+                 AND  ORDR_TYPE = #ORDR_TYPE#
+</isNotNull>
+               GROUP BY MANDT
+                       ,ESCS_NUMB                
+               ) A
+        INNER JOIN SAPHEE.ZFST0200 B
+        ON  A.MANDT = B.MANDT
+        AND A.ESCS_NUMB = B.ESCS_NUMB
+        AND A.ESCS_NTIM = B.ESCS_NTIM
+        INNER JOIN SAPHEE.ZFST0100 C
+        ON  B.MANDT =  C.MANDT
+        AND C.CODE_GROP = 'A03'
+        AND B.ORDR_TYPE = C.CODE 
+) XX
+ORDER  BY XX.CODE_SEQN, XX.BSTDK DESC
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_pspid_list">
+    </output>
+</query>

@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT  T.MANDT, T.LIFNR ,T.NAME1,  T.TMCD,
+              T.NAMET,T.PERNO,T.NAMEE ,T.POSIT,T.GUBUN,
+			  VALUE(T2.M_MH,0) AS M_MH , VALUE(T2.A_MH,0) AS A_MH , VALUE(T2.N_MH,0) AS N_MH ,
+			 T2.TUIP_CHKA , T2.TUIP_CHKB , T2.BIGO , T2.SAYU,
+			 CASE WHEN  T2.TUIP_CHKA = 'X' OR  T2.TUIP_CHKB = 'X' THEN '입력' ELSE '미입력' END INPUT
+FROM
+(SELECT  P1.MANDT, P1.LIFNR , P1.NAME1,  P1.TEMNO AS TMCD,
+              P1.NAMET, P1.PERNO,P1.NAMEE ,
+               CASE WHEN P1.POSIT = 'X' THEN '팀장' ELSE '사원' END POSIT,
+              '대기' AS GUBUN
+FROM SAPHEE.ZPST0138 AS P1
+INNER JOIN SAPHEE.ZPST0034 AS B
+  ON P1.MANDT = B.MANDT
+  AND P1.LIFNR = B.LIFNR
+  AND B.GBN    = 'A'
+WHERE P1.MANDT =  #G_MANDT#
+  AND (SELECT CASE WHEN COUNT(P.MANDT) = 0 THEN 'B'
+                   ELSE CASE WHEN (SELECT COUNT(*) 
+         FROM SAPHEE.ZPST0143 P2
+		WHERE P2.MANDT = P1.MANDT 
+		  AND P2.LIFNR = P1.LIFNR 
+		  AND P2.PERNO = P1.PERNO 
+		  AND P2.SIGN > '') = 0 THEN 'A'
+                   WHEN (SELECT COUNT(*) 
+                           FROM SAPHEE.ZPST0143 P2
+						  WHERE P2.MANDT = P1.MANDT 
+						    AND P2.LIFNR = P1.LIFNR 
+						    AND P2.PERNO = P1.PERNO 
+						    AND P2.SIGN = '반송') > 0 OR (SELECT COUNT(*) 
+						                                    FROM SAPHEE.ZPST0143 P2 
+						                                   WHERE P2.MANDT = P1.MANDT 
+						                                     AND P2.LIFNR = P1.LIFNR
+															 AND P2.PERNO = P1.PERNO 
+															 AND P2.SIGN > '') = COUNT(P.MANDT) THEN 'D'
+                 ELSE 'C' END
+            	 END CNT
+     FROM SAPHEE.ZPST0143 AS P 
+    WHERE P.MANDT = P1.MANDT 
+      AND P.LIFNR = P1.LIFNR 
+      AND P.PERNO = P1.PERNO
+    ) IN ('A' , 'C')
+ AND (SELECT CASE WHEN COUNT(P.MANDT) = 0 THEN 'B'
+            ELSE CASE WHEN (SELECT COUNT(*) FROM SAPHEE.ZPST0143 P2
+WHERE P2.MANDT = P1.MANDT AND P2.LIFNR = P1.LIFNR AND P2.PERNO =
+P1.PERNO AND P2.SIGN > '') = 0 THEN 'A'
+                      WHEN (SELECT COUNT(*) FROM SAPHEE.ZPST0143 P2
+WHERE P2.MANDT = P1.MANDT AND P2.LIFNR = P1.LIFNR AND P2.PERNO =
+P1.PERNO AND P2.SIGN = '반송') > 0 OR (SELECT COUNT(*) FROM
+SAPHEE.ZPST0143 P2 WHERE P2.MANDT = P1.MANDT AND P2.LIFNR = P1.LIFNR
+AND P2.PERNO = P1.PERNO AND P2.SIGN > '') = COUNT(P.MANDT) THEN 'D'
+                 ELSE 'C' END
+            END CNT
+     FROM SAPHEE.ZPST0143 AS P WHERE P.MANDT = P1.MANDT AND P.LIFNR =
+P1.LIFNR AND P.PERNO = P1.PERNO
+    ) <> 'D'
+      AND P1.STATS = 'B'
+      AND P1.RETIF = ''
+      AND ( P1.POSIE  = 'X' OR  P1.POSIT = 'X')
+      AND  P1.GUBUN IN ('01','02')
+      AND  P1.TYPE = '1'  AND  P1.DIRECT = 'X'
+      AND  P1.ACTSS NOT IN ('00', '15', '16')
+       AND (P1.RETID = '' OR P1.RETID = '00000000'
+                OR P1.RETID >= #INP_DT#)
+     AND B.SO5 <> 'X'
+	 AND P1.LIFNR = #LIFNR#	
+UNION ALL
+
+
+SELECT   P1.MANDT,P1.LIFNR , P1.NAME1,  P1.TEMNO AS TMCD,
+              P1.NAMET, P1.PERNO,P1.NAMEE ,
+               CASE WHEN P1.POSIT = 'X' THEN '팀장' ELSE '사원' END POSIT,
+              '등록' AS GUBUN
+FROM SAPHEE.ZPST0001 AS P1
+WHERE P1.MANDT = #G_MANDT#
+AND P1.LIFNR = #LIFNR#
+AND P1.RETIF = ''
+AND ( P1.POSIE  = 'X' OR  P1.POSIT = 'X')
+AND  P1.GUBUN IN ('01','02')
+AND  P1.TYPE = '1'  AND  P1.DIRECT = 'X'
+AND  P1.ACTSS NOT IN ('00', '15', '16')
+AND  P1.GBN  = 'A'
+AND (P1.RETID = '' OR P1.RETID = '00000000' OR P1.RETID >= #INP_DT#)
+
+) AS T
+
+LEFT OUTER JOIN SAPHEE.ZPSTW0301 AS T2
+  ON T.MANDT = T2.MANDT
+  AND T.LIFNR = T2.LIFNR
+  AND T.PERNO = T2.PERNO 
+  AND T2.INP_DT =  #INP_DT#
+
+ORDER BY  T.TMCD 
+
+FOR FETCH ONLY WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

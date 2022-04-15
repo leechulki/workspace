@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[자재청구 등록 호기조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+    '0' AS CHECK
+  , CS111.PJT||CS111.HNO AS POSID
+  , CS101.CS101_HNA AS HNA
+  , MA01.ZSITE_NM AS ZSITE_NM
+  , ''  AS MENGE
+  , VALUE(CS126.CS126_KND,'') AS KND
+  , (   SELECT  --CASE WHEN INT(REPLACE(TRIM(MASTER02A.ZSPEC3),' ','0')) >= 150 THEN 'Y' ELSE 'N' END HTY 
+                CASE  WHEN MASTER02A.ZSPEC3 = '' THEN 'N' WHEN INT(REPLACE(TRIM(MASTER02A.ZSPEC3),' ','0')) >= 150 THEN 'Y'     ELSE 'N'      END HTY 
+		  FROM  SAPHEE.ZMASTER02 MASTER02A
+		 WHERE      MASTER02A.MANDT = CS111.MANDT
+		        AND MASTER02A.POSID = CS111.PJT
+		        AND MASTER02A.POSID_1 = CS111.PJT||CS111.HNO
+		 FETCH FIRST 1 ROW ONLY
+    ) AS HTY /* 2014.12.18 MG.J ADD 고속기종여부 */
+FROM SAPHEE.ZCST111 AS CS111
+	 LEFT OUTER JOIN SAPHEE.ZCST101 AS CS101 ON CS111.MANDT = CS101.MANDT 
+	 AND CS111.PJT = CS101.CS101_PJT 
+	 AND CS111.HNO = CS101.CS101_HNO 
+	 LEFT OUTER JOIN SAPHEE.ZMASTER01 AS MA01 ON CS111.MANDT = MA01.MANDT 
+	 AND CS111.PJT = MA01.POSID
+	 LEFT OUTER JOIN SAPHEE.ZCST126 AS CS126 ON CS111.MANDT = CS126.MANDT 
+	 AND CS111.PJT = CS126.CS126_PJT 
+	 AND CS111.HNO = CS126.CS126_HNO
+	 AND  #CUDAT# BETWEEN CS126.CS126_USD AND CS126.CS126_UMR 
+WHERE CS111.MANDT = #G_MANDT#
+   AND CS111.PJT = #PJT#
+<isEqual col="USER_GROUP" value="10">
+  AND CS111.BSU = #G_VEND_CODE_R#
+</isEqual>
+<isEqual col="USER_GROUP" value="20">
+  AND CS111.BPM = #G_USER_ID#  
+</isEqual>
+<isEqual col="USER_GROUP" value="30">
+  AND CS111.ARA = #AREA#  
+</isEqual>
+   ORDER BY CS111.PJT, CS111.HNO
+   WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="CUDAT" size="255" type="VARCHAR" description="" /> 
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="PJT" size="255" type="VARCHAR" description="" /> 
+		<col name="G_VEND_CODE" size="255" type="VARCHAR" description="" /> 
+		<col name="G_USER_ID" size="255" type="VARCHAR" description="" /> 
+		<col name="AREA" size="255" type="VARCHAR" description="" /> 
+		<col name="USER_GROUP" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_plist">
+		<col name="CHECK" size="1" type="VARCHAR" description="" /> 
+		<col name="HNA" size="90" type="VARCHAR" description="" /> 
+		<col name="KND" size="3" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="0" type="VARCHAR" description="" /> 
+		<col name="POSID" size="27" type="VARCHAR" description="" /> 
+		<col name="ZSITE_NM" size="105" type="VARCHAR" description="" /> 
+	</output>
+</query>

@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+
+SELECT A.UPN 
+      ,A.CST
+      ,A.CDT
+	   -- ,VALUE(SUM(CHK_UMS),0) AS CHK_UMS
+	  ,VALUE(SUM(CHK_UMS_2),0) AS CHK_UMS
+	  ,SUM(MINUS_UMS) AS MINUS_UMS
+      ,A.TGB
+
+FROM (
+
+         SELECT A.UPN
+               ,A.CST
+               ,A.CDT
+         	   ,VALUE(MAX(CS126_UMS),0) AS CHK_UMS
+               , VALUE( MAX(CASE WHEN CS126_UMR > CS126_UGS THEN SAPHEE.MONTH_BETWEEN(CS126_UGS,CS126_UMR,2)  
+                                 ELSE 0 END)
+                          ,0) AS CHK_UMS_2 
+               ,0 AS MINUS_UMS
+               ,A.TGB
+          FROM (
+                 SELECT 
+                          CS126_PJT AS PJT
+                        , CS126_HNO AS HNO
+                        , CS126_UPN AS UPN
+                        , CS126_CST AS CST
+                        , CS126_UMR AS UMR
+                        , REPLACE(CHAR(DATE(SAPHEE.GET_DATE_FORMAT(CS126_UMR))+1 DAY),'-','') AS CDT
+                        , CS126_TGB AS TGB
+                   FROM
+                        SAPHEE.ZCST126
+                  WHERE 
+                        MANDT = #G_MANDT#
+                    AND CS126_GNO = #GNO#
+                    AND CS126_UPN = #UPN#
+                    AND CS126_CST = #CST#
+                    AND CS126_DDT = ''
+                    AND CS126_PST = 'A6'
+         
+               ) AS A    LEFT OUTER JOIN SAPHEE.ZCST126 AS CS126
+                                      ON CS126.MANDT = #G_MANDT#
+                                     AND CS126.CS126_DDT = ''
+                                     AND CS126.CS126_PST = 'A6'
+                                     AND CS126.CS126_PJT = A.PJT
+                                     AND CS126.CS126_HNO = A.HNO
+                                     AND CS126.CS126_GND = 'D'
+                                     AND SUBSTR(CS126.CS126_UGS,1,4) = SUBSTR(A.CDT,1,4)
+          GROUP BY A.UPN
+               ,A.CST
+               ,A.CDT
+               ,CS126.CS126_GNO
+               ,A.TGB
+               
+  /* 전년도 수주 금년도 중도해지 건의 개월수 보전 체크 */  
+      UNION ALL
+      
+      SELECT    A.UPN
+               ,A.CST
+               ,A.CDT
+         	   ,0 AS CHK_UMS
+               ,0 AS CHK_UMS_2 
+         	   ,CASE WHEN MAX(CS126.CS126_CHA) != '' AND MAX(CS126.CS126_USD) <> MAX(CS126.CS126_UMR) 
+         		     THEN SAPHEE.MONTH_BETWEEN(MAX(CS126.CS126_UGS),MAX(CS126.CS126_UMR),2)- SAPHEE.MONTH_BETWEEN(MAX(CS126.CS126_UGS),MAX(CS126.CS126_UMRO),2) 
+         		     ELSE 0 END   AS MINUS_UMS
+         	   ,A.TGB
+          FROM (
+                 SELECT 
+                          CS126_PJT AS PJT
+                        , CS126_HNO AS HNO
+                        , CS126_UPN AS UPN
+                        , CS126_CST AS CST
+                        , CS126_UMR AS UMR
+                        , CS126_UGS AS CS126_UGS
+                        , CS126_UMR AS CS126_UMR
+                        , CS126_ADT AS CS126_ADT
+                        , REPLACE(CHAR(DATE(SAPHEE.GET_DATE_FORMAT(CS126_UMR))+1 DAY),'-','') AS CDT
+                        , CS126_TGB AS TGB
+                       
+                   FROM
+                        SAPHEE.ZCST126
+                  WHERE 
+                        MANDT = #G_MANDT#
+                    AND CS126_GNO = #GNO#
+                    AND CS126_UPN = #UPN#
+                    AND CS126_CST = #CST#
+                    AND CS126_DDT = ''
+                    AND CS126_PST = 'A6'
+         
+               ) AS A    LEFT OUTER JOIN SAPHEE.ZCST126 AS CS126
+                                      ON CS126.MANDT = #G_MANDT#
+                                     AND CS126.CS126_DDT = ''
+                                     AND CS126.CS126_PST = 'A6'
+                                     AND CS126.CS126_PJT = A.PJT
+                                     AND CS126.CS126_HNO = A.HNO
+                                     AND CS126.CS126_GND = 'D'
+                                     AND SUBSTR(CS126.CS126_USD,1,4) < SUBSTR(A.CDT,1,4)
+                                     AND SUBSTR(CS126.CS126_ADT,1,4) < SUBSTR(A.CDT,1,4)
+                                     AND SUBSTR(CS126.CS126_UGS,1,4) < SUBSTR(A.CDT,1,4)
+                                     AND SUBSTR(CS126.CS126_UMR,1,4) = SUBSTR(A.CDT,1,4)
+          
+   
+            
+          GROUP BY A.UPN
+               ,A.CST
+               ,A.CDT
+               ,CS126.CS126_GNO
+               ,A.TGB
+  /* 전년도 수주 금년도 중도해지 건의 개월수 보전 체크 */  
+            
+               
+
+) AS A
+ GROUP BY A.UPN
+      ,A.CST
+      ,A.CDT
+      ,A.TGB
+WITH UR
+]]>
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_chkUms">
+	</output>
+</query>

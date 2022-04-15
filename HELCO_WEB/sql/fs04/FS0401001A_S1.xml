@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[발주 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT B.PSPID
+      ,B.BSTNK
+      ,A.ORDR_NUMB
+      ,A.POST1
+      ,A.ORDR_TBDG
+      ,A.CONT_PRIC
+      ,A.CONT_CMPY
+      ,E.NAME1 AS CMPY_NAME
+      ,A.WRIT_DATE
+      ,A.ORDR_STAT
+      ,F.CODE_NAME AS ORDR_STAT_NAME
+      ,D.PROV_SEQN
+      ,D.CONT_NUMB
+      ,D.CONT_NTIM
+      ,D.CONT_STAT
+      ,G.CODE_NAME AS CONT_STAT_NAME
+      ,D.TRNS_STAT
+      ,H.CODE_NAME AS TRNS_STAT_NAME
+FROM SAPHEE.ZFST0400 A
+        LEFT JOIN SAPHEE.ZFST0304 B ON (A.MANDT = B.MANDT AND A.OCNT_NUMB = B.OCNT_NUMB)
+        LEFT JOIN SAPHEE.ZFST0302 C ON (A.MANDT = C.MANDT AND A.OCNT_NUMB = C.OCNT_NUMB AND A.EBDG_MGSQ = C.EBDG_MGSQ AND A.EBDG_ITSQ = C.EBDG_ITSQ)
+        LEFT JOIN SAPHEE.ZFST0403 D ON (A.MANDT = D.MANDT AND A.ORDR_NUMB = D.ORDR_NUMB)
+        LEFT JOIN SAPHEE.LFA1 E ON (A.MANDT = E.MANDT AND A.CONT_CMPY = E.LIFNR)
+        LEFT JOIN SAPHEE.ZFST0100 F ON (A.MANDT = F.MANDT AND F.CODE_GROP='A02' AND A.ORDR_STAT = F.CODE)
+        LEFT JOIN SAPHEE.ZFST0100 G ON (A.MANDT = G.MANDT AND G.CODE_GROP='A02' AND D.CONT_STAT = G.CODE)
+        LEFT JOIN SAPHEE.ZFST0100 H ON (A.MANDT = H.MANDT AND H.CODE_GROP='A17' AND COALESCE( D.TRNS_STAT , '020' ) = H.CODE)
+WHERE A.MANDT = #G_MANDT#
+AND TO_DATE(A.WRIT_DATE, 'YYYYMMDD') &gt;= TO_DATE( SUBSTR( #ORDR_START# , 1, 6 ) ||'01' , 'YYYYMMDD')
+AND TO_DATE(A.WRIT_DATE, 'YYYYMMDD') &lt;= LAST_DAY( TO_DATE( SUBSTR( #ORDR_END# , 1, 6 )||'01','YYYYMMDD' ) )
+<isNotNull col="PSPID">
+    <isNotEqual col="PSPID" value="">
+AND B.PSPID LIKE #PSPID# || '%'
+    </isNotEqual>
+</isNotNull>
+<isNotNull col="BSTNK">
+    <isNotEqual col="BSTNK" value="">
+AND B.BSTNK LIKE '%' || #BSTNK# || '%'
+    </isNotEqual>
+</isNotNull>
+<isNotNull col="ORDR_NUMB">
+    <isNotEqual col="ORDR_NUMB" value="">
+AND A.ORDR_NUMB LIKE #ORDR_NUMB# || '%'
+    </isNotEqual>
+</isNotNull>
+<isNotNull col="POST1">
+    <isNotEqual col="POST1" value="">
+AND A.POST1 LIKE '%' || #POST1# || '%'
+    </isNotEqual>
+</isNotNull>
+<isNotNull col="ORDR_STAT">
+    <isNotEqual col="ORDR_STAT" value="">
+AND A.ORDR_STAT = #ORDR_STAT#
+    </isNotEqual>
+</isNotNull>
+<isNotNull col="CONT_STAT">
+    <isNotEqual col="CONT_STAT" value="">
+AND D.CONT_STAT = #CONT_STAT#
+    </isNotEqual>
+</isNotNull>
+ORDER BY A.WRIT_DATE DESC
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_zfst0400_list">
+    </output>
+</query>
+<!-- 
+WITH PROJECT_ORDER ( MANDT, PSPID, BSTNK, ORDR_NUMB, POST1, ORDR_TBDG, CONT_PRIC, CONT_CMPY, CMPY_NAME, WRIT_DATE, ORDR_STAT, ORDR_STAT_NAME) AS (
+        SELECT A.MANDT, B.PSPID, B.BSTNK, A.ORDR_NUMB, A.POST1, A.ORDR_TBDG, A.CONT_PRIC, A.CONT_CMPY, E.NAME1 AS CMPY_NAME, A.WRIT_DATE, A.ORDR_STAT, F.CODE_NAME AS ORDR_STAT_NAME
+        FROM SAPHEE.ZFST0400 A
+                LEFT JOIN SAPHEE.ZFST0304 B ON (A.MANDT = B.MANDT AND A.OCNT_NUMB = B.OCNT_NUMB)
+                LEFT JOIN SAPHEE.ZFST0302 C ON (A.MANDT = C.MANDT AND A.OCNT_NUMB = C.OCNT_NUMB AND A.EBDG_MGSQ = C.EBDG_MGSQ AND A.EBDG_ITSQ = C.EBDG_ITSQ) 
+                LEFT JOIN SAPHEE.KNA1 E ON (A.MANDT = E.MANDT AND A.CONT_CMPY = E.KUNNR)
+                LEFT JOIN SAPHEE.ZFST0100 F ON (A.MANDT = F.MANDT AND F.CODE_GROP='A02' AND A.ORDR_STAT = F.CODE) 
+        WHERE A.MANDT = '183'
+        AND TO_DATE(A.WRIT_DATE) &gt;= TO_DATE( '201701'||'01' , 'YYYYMMDD')
+        AND TO_DATE(A.WRIT_DATE, 'YYYYMMDD') &lt;= LAST_DAY( TIMESTAMP_FORMAT( '201704'||'01','YYYYMMDD' ) )
+        AND B.PSPID LIKE '' || '%'
+        AND B.BSTNK LIKE '%' || '' || '%'
+        AND A.ORDR_NUMB LIKE '' || '%'
+        AND A.POST1 LIKE '%' || '' || '%'
+        AND A.ORDR_STAT = ''
+),
+RECENT_CONT(MANDT, ORDR_NUMB, PROV_SEQN) AS ( 
+        SELECT A1.MANDT, A1.ORDR_NUMB, MAX( PROV_SEQN ) AS PROV_SEQN
+        FROM SAPHEE.ZFST0403 A1, PROJECT_ORDER A
+        WHERE A1.MANDT = A.MANDT 
+        AND A1.ORDR_NUMB = A.ORDR_NUMB
+        GROUP BY A1.MANDT, A1.ORDR_NUMB
+)
+SELECT A.*, C.CONT_NUMB, C.CONT_NTIM, C.CONT_STAT, D.CODE_NAME AS CONT_STAT_NAME
+FROM PROJECT_ORDER A
+                LEFT JOIN RECENT_CONT B ON ( A.MANDT = B.MANDT AND A.ORDR_NUMB = B.ORDR_NUMB )
+                LEFT JOIN SAPHEE.ZFST0403 C ON ( B.MANDT = C.MANDT AND B.PROV_SEQN = C.PROV_SEQN )
+                LEFT JOIN SAPHEE.ZFST0100 D ON ( C.MANDT = D.MANDT AND D.CODE_GROP='A02' AND C.CONT_STAT = D.CODE )
+
+ -->

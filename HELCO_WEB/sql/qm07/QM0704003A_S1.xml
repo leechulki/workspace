@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+         A.GROUPNM        AS GROUP
+        ,A.DEPT           AS DEPT_CODE
+        ,A.GUBUN          AS GUBUN
+        ,A.DEPTNM         AS DEPT
+        ,VALUE(B.PRE_ALL_RSLTAMT, 0) AS PRE_ALL_RSLTAMT -- 전년도 연간
+        ,VALUE(C.PRE_RSLTAMT, 0)     AS PRE_RSLTAMT		-- 전년도 동월 누계
+        ,VALUE(D.YEAR_PLANAMT, 0)    AS YEAR_PLANAMT    -- 연간계획
+        ,VALUE(E.MONTH_PLANAMT, 0)   AS MONTH_PLANAMT   -- 월계획
+        ,VALUE(F.MONTH_RSLTAMT, 0)   AS MONTH_RSLTAMT   -- 월실적집계
+        ,VALUE(G.MONTH_CHKAMT, 0) - VALUE(F.MONTH_RSLTAMT, 0) AS MONTH_GAP  -- 월실적 차이 
+        ,VALUE(G.MONTH_CHKAMT, 0)    AS MONTH_CHKAMT    -- 월결과
+
+        ,ROUND(CASE WHEN VALUE(E.MONTH_PLANAMT, 0) = 0 THEN 0 ELSE VALUE(G.MONTH_CHKAMT, 0) * 100.00 / VALUE(E.MONTH_PLANAMT, 0) END , 0) AS MONTH_RATE
+
+        ,VALUE(H.MONTH_ADD_PLANAMT, 0) AS MONTH_ADD_PLANAMT -- 월누계 계획
+        ,VALUE(I.MONTH_ADD_RSLTAMT, 0) AS MONTH_ADD_RSLTAMT -- 월누계 집계
+        ,VALUE(J.MONTH_ADD_CHKAMT, 0) - VALUE(I.MONTH_ADD_RSLTAMT, 0) AS MONTH_ADD_GAP  -- 월누계 차이 
+        ,VALUE(J.MONTH_ADD_CHKAMT, 0)  AS MONTH_ADD_CHKAMT  -- 월누계 결과
+
+        ,ROUND(CASE WHEN VALUE(H.MONTH_ADD_PLANAMT, 0) = 0 THEN 0 ELSE VALUE(J.MONTH_ADD_CHKAMT, 0) * 100.00 / VALUE(H.MONTH_ADD_PLANAMT, 0) END , 0) AS MONTH_ADD_RATE
+        
+        ,ROUND(CASE WHEN VALUE(C.PRE_RSLTAMT, 0) = 0 THEN 0 ELSE (VALUE(J.MONTH_ADD_CHKAMT, 0) * 100.00 / VALUE(C.PRE_RSLTAMT, 0)) - 100 END , 0) AS YEAR_RATE
+
+  FROM (SELECT MANDT, DTEXT1 AS GROUP, DTEXT2 AS GROUPNM, CODE2 AS DEPT, CTEXT2 AS DEPTNM, CAST('A' AS VARCHAR(1)) AS GUBUN FROM SAPHEE.ZLCODE WHERE CODE1 = 'QM01'
+        UNION ALL
+        SELECT MANDT, DTEXT1 AS GROUP, DTEXT2 AS GROUPNM, CODE2 AS DEPT, CTEXT2 AS DEPTNM, CAST('N' AS VARCHAR(1)) AS GUBUN FROM SAPHEE.ZLCODE WHERE CODE1 = 'QM01' ) AS A
+
+        --LEFT OUTER JOIN TABLE(SELECT A.DEPT, B.GUBUN, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.RSLTAMT * 100 ELSE A.RSLTAMT END) AS PRE_ALL_RSLTAMT
+        LEFT OUTER JOIN TABLE(SELECT A.DEPT, B.GUBUN, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.CHKAMT * 100 ELSE A.CHKAMT END) AS PRE_ALL_RSLTAMT
+                                FROM SAPHEE.ZQMT076 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT   = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR  = #PRE_GJAHR#
+                               GROUP BY A.DEPT, B.GUBUN ) AS B
+                               ON B.DEPT= A.DEPT AND B.GUBUN = A.GUBUN
+
+        LEFT OUTER JOIN TABLE(SELECT A.DEPT, B.GUBUN, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.CHKAMT * 100 ELSE A.CHKAMT END) AS PRE_RSLTAMT
+                                FROM SAPHEE.ZQMT076 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT   = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR  = #PRE_GJAHR#
+                                 AND A.RSLTYM &lt;= #PRE_RSLTYM#
+                               GROUP BY A.DEPT, B.GUBUN ) AS C
+                               ON C.DEPT= A.DEPT AND C.GUBUN = A.GUBUN
+
+		LEFT OUTER JOIN TABLE(SELECT A.DEPT, B.GUBUN, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.PLANAMT * 100 ELSE A.PLANAMT END) AS YEAR_PLANAMT
+                                FROM SAPHEE.ZQMT072 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT  = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR = #GJAHR#
+                               GROUP BY A.DEPT, B.GUBUN ) AS D
+                               ON D.DEPT= A.DEPT AND D.GUBUN = A.GUBUN
+
+		LEFT OUTER JOIN TABLE(SELECT A.DEPT, B.GUBUN, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.PLANAMT * 100 ELSE A.PLANAMT END) AS MONTH_PLANAMT
+                                FROM SAPHEE.ZQMT072 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT  = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT   = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR  = #GJAHR#
+                                 AND A.PLANYM = #RSLTYM#
+                               GROUP BY A.DEPT, B.GUBUN ) AS E
+                               ON E.DEPT= A.DEPT AND E.GUBUN = A.GUBUN
+
+		--LEFT OUTER JOIN TABLE(SELECT A.DEPT, B.GUBUN, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.RSLTAMT * 100 ELSE A.RSLTAMT END) AS MONTH_RSLTAMT
+                            LEFT OUTER JOIN TABLE(SELECT A.DEPT, B.GUBUN, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.CHKAMT  * 100 ELSE A.CHKAMT  END) AS MONTH_RSLTAMT
+                                FROM SAPHEE.ZQMT076 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT  = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT   = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR  = #GJAHR#
+                                 AND A.RSLTYM = #RSLTYM#
+                               GROUP BY A.DEPT, B.GUBUN ) AS F
+                               ON F.DEPT= A.DEPT AND F.GUBUN = A.GUBUN
+
+		LEFT OUTER JOIN TABLE(SELECT A.DEPT, B.GUBUN, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.CHKAMT * 100 ELSE A.CHKAMT END) AS MONTH_CHKAMT
+                                FROM SAPHEE.ZQMT076 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT  = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT   = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR  = #GJAHR#
+                                 AND A.RSLTYM = #RSLTYM#
+                               GROUP BY A.DEPT, B.GUBUN ) AS G
+                               ON G.DEPT= A.DEPT AND G.GUBUN = A.GUBUN
+
+		LEFT OUTER JOIN TABLE(SELECT A.DEPT, B.GUBUN, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.PLANAMT * 100 ELSE A.PLANAMT END) AS MONTH_ADD_PLANAMT
+                                FROM SAPHEE.ZQMT072 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT  = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT   = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR  = #GJAHR#
+                                 AND A.PLANYM &lt;= #RSLTYM#
+                               GROUP BY A.DEPT, B.GUBUN ) AS H
+                               ON H.DEPT= A.DEPT AND H.GUBUN = A.GUBUN
+
+		--LEFT OUTER JOIN TABLE(SELECT A.DEPT, B.GUBUN, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.RSLTAMT * 100 ELSE A.RSLTAMT END) AS MONTH_ADD_RSLTAMT
+                            LEFT OUTER JOIN TABLE(SELECT A.DEPT, B.GUBUN, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.CHKAMT * 100 ELSE A.CHKAMT END) AS MONTH_ADD_RSLTAMT
+                                FROM SAPHEE.ZQMT076 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT  = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT   = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR  = #GJAHR#
+                                 AND A.RSLTYM &lt;= #RSLTYM#
+                               GROUP BY A.DEPT, B.GUBUN ) AS I
+                               ON I.DEPT= A.DEPT AND I.GUBUN = A.GUBUN
+
+		LEFT OUTER JOIN TABLE(SELECT A.DEPT, B.GUBUN, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.CHKAMT * 100 ELSE A.CHKAMT END) AS MONTH_ADD_CHKAMT
+                                FROM SAPHEE.ZQMT076 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT  = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT   = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR  = #GJAHR#
+                                 AND A.RSLTYM &lt;= #RSLTYM#
+                               GROUP BY A.DEPT, B.GUBUN ) AS J
+                               ON J.DEPT= A.DEPT AND J.GUBUN = A.GUBUN
+
+ WHERE A.MANDT = #G_MANDT#
+<isNotNull col="DEPT">
+   AND A.DEPT  = #DEPT#
+</isNotNull>
+
+UNION
+
+SELECT
+         A.GROUPNM        AS GROUP
+        ,A.DEPT           AS DEPT
+        ,'Z'              AS GUBUN -- 소계
+        ,A.DEPTNM         AS DEPT
+        ,VALUE(B.PRE_ALL_RSLTAMT, 0) AS PRE_ALL_RSLTAMT -- 전년도 연간
+        ,VALUE(C.PRE_RSLTAMT, 0)     AS PRE_RSLTAMT		-- 전년도 동월 누계
+        ,VALUE(D.YEAR_PLANAMT, 0)    AS YEAR_PLANAMT    -- 연간계획
+        ,VALUE(E.MONTH_PLANAMT, 0)   AS MONTH_PLANAMT   -- 월계획
+        ,VALUE(F.MONTH_RSLTAMT, 0)   AS MONTH_RSLTAMT   -- 월실적집계
+        ,VALUE(G.MONTH_CHKAMT, 0) - VALUE(F.MONTH_RSLTAMT, 0) AS MONTH_GAP  -- 월실적 차이 
+        ,VALUE(G.MONTH_CHKAMT, 0)    AS MONTH_CHKAMT    -- 월결과
+
+        ,ROUND(CASE WHEN VALUE(E.MONTH_PLANAMT, 0) = 0 THEN 0 ELSE VALUE(G.MONTH_CHKAMT, 0) * 100.00 / VALUE(E.MONTH_PLANAMT, 0) END , 0) AS MONTH_RATE
+
+        ,VALUE(H.MONTH_ADD_PLANAMT, 0) AS MONTH_ADD_PLANAMT -- 월누계 계획
+        ,VALUE(I.MONTH_ADD_RSLTAMT, 0) AS MONTH_ADD_RSLTAMT -- 월누계 집계
+        ,VALUE(J.MONTH_ADD_CHKAMT, 0) - VALUE(I.MONTH_ADD_RSLTAMT, 0) AS MONTH_ADD_GAP  -- 월누계 차이 
+        ,VALUE(J.MONTH_ADD_CHKAMT, 0)  AS MONTH_ADD_CHKAMT  -- 월누계 결과
+
+        ,ROUND(CASE WHEN VALUE(H.MONTH_ADD_PLANAMT, 0) = 0 THEN 0 ELSE VALUE(J.MONTH_ADD_CHKAMT, 0) * 100.00 / VALUE(H.MONTH_ADD_PLANAMT, 0) END , 0) AS MONTH_ADD_RATE
+        
+        ,ROUND(CASE WHEN VALUE(C.PRE_RSLTAMT, 0) = 0 THEN 0 ELSE VALUE(J.MONTH_ADD_CHKAMT, 0) * 100.00 / VALUE(C.PRE_RSLTAMT, 0) - 100 END , 0) AS YEAR_RATE
+
+  FROM (SELECT MANDT, DTEXT1 AS GROUP, DTEXT2 AS GROUPNM, CODE2 AS DEPT, CTEXT2 AS DEPTNM FROM SAPHEE.ZLCODE WHERE CODE1 = 'QM01' ) AS A
+
+        --LEFT OUTER JOIN TABLE(SELECT A.DEPT, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.RSLTAMT * 100 ELSE A.RSLTAMT END) AS PRE_ALL_RSLTAMT
+        LEFT OUTER JOIN TABLE(SELECT A.DEPT, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.CHKAMT * 100 ELSE A.CHKAMT END) AS PRE_ALL_RSLTAMT
+                                FROM SAPHEE.ZQMT076 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT   = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR  = #PRE_GJAHR#
+                               GROUP BY A.DEPT ) AS B
+                               ON B.DEPT= A.DEPT
+
+        LEFT OUTER JOIN TABLE(SELECT A.DEPT, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.CHKAMT * 100 ELSE A.CHKAMT END) AS PRE_RSLTAMT
+                                FROM SAPHEE.ZQMT076 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT   = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR  = #PRE_GJAHR#
+                                 AND A.RSLTYM &lt;= #PRE_RSLTYM#
+                               GROUP BY A.DEPT ) AS C
+                               ON C.DEPT= A.DEPT
+
+		LEFT OUTER JOIN TABLE(SELECT A.DEPT, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.PLANAMT * 100 ELSE A.PLANAMT END) AS YEAR_PLANAMT
+                                FROM SAPHEE.ZQMT072 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT  = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR = #GJAHR#
+                               GROUP BY A.DEPT ) AS D
+                               ON D.DEPT= A.DEPT
+
+		LEFT OUTER JOIN TABLE(SELECT A.DEPT, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.PLANAMT * 100 ELSE A.PLANAMT END) AS MONTH_PLANAMT
+                                FROM SAPHEE.ZQMT072 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT  = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT   = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR  = #GJAHR#
+                                 AND A.PLANYM = #RSLTYM#
+                               GROUP BY A.DEPT ) AS E
+                               ON E.DEPT= A.DEPT
+
+		--LEFT OUTER JOIN TABLE(SELECT A.DEPT, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.RSLTAMT * 100 ELSE A.RSLTAMT END) AS MONTH_RSLTAMT
+                            LEFT OUTER JOIN TABLE(SELECT A.DEPT, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.CHKAMT * 100 ELSE A.CHKAMT END) AS MONTH_RSLTAMT
+                                FROM SAPHEE.ZQMT076 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT  = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT   = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR  = #GJAHR#
+                                 AND A.RSLTYM = #RSLTYM#
+                               GROUP BY A.DEPT ) AS F
+                               ON F.DEPT= A.DEPT
+
+		LEFT OUTER JOIN TABLE(SELECT A.DEPT, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.CHKAMT * 100 ELSE A.CHKAMT END) AS MONTH_CHKAMT
+                                FROM SAPHEE.ZQMT076 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT  = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT   = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR  = #GJAHR#
+                                 AND A.RSLTYM = #RSLTYM#
+                               GROUP BY A.DEPT) AS G
+                               ON G.DEPT= A.DEPT
+
+		LEFT OUTER JOIN TABLE(SELECT A.DEPT, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.PLANAMT * 100 ELSE A.PLANAMT END) AS MONTH_ADD_PLANAMT
+                                FROM SAPHEE.ZQMT072 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT  = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT   = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR  = #GJAHR#
+                                 AND A.PLANYM &lt;= #RSLTYM#
+                               GROUP BY A.DEPT ) AS H
+                               ON H.DEPT= A.DEPT
+
+		--LEFT OUTER JOIN TABLE(SELECT A.DEPT, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.RSLTAMT * 100 ELSE A.RSLTAMT END) AS MONTH_ADD_RSLTAMT
+                            LEFT OUTER JOIN TABLE(SELECT A.DEPT, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.CHKAMT * 100 ELSE A.CHKAMT END) AS MONTH_ADD_RSLTAMT
+                                FROM SAPHEE.ZQMT076 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT  = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT   = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR  = #GJAHR#
+                                 AND A.RSLTYM &lt;= #RSLTYM#
+                               GROUP BY A.DEPT ) AS I
+                               ON I.DEPT= A.DEPT
+
+		LEFT OUTER JOIN TABLE(SELECT A.DEPT, SUM(CASE WHEN A.WAERK IN ('KRW', 'JPY') THEN A.CHKAMT * 100 ELSE A.CHKAMT END) AS MONTH_ADD_CHKAMT
+                                FROM SAPHEE.ZQMT076 A
+                                     INNER JOIN SAPHEE.ZQMT071 B  ON B.MANDT = A.MANDT AND B.DEPT = A.DEPT AND B.GJAHR = A.GJAHR AND B.ITEM = A.ITEM
+                               WHERE A.MANDT  = #G_MANDT#
+						    <isNotNull col="DEPT">
+						         AND A.DEPT   = #DEPT#
+						    </isNotNull>
+                                 AND A.GJAHR  = #GJAHR#
+                                 AND A.RSLTYM &lt;= #RSLTYM#
+                               GROUP BY A.DEPT ) AS J
+                               ON J.DEPT= A.DEPT
+
+ WHERE A.MANDT = #G_MANDT#
+<isNotNull col="DEPT">
+   AND A.DEPT  = #DEPT#
+</isNotNull>
+
+ORDER BY 1, 2, 3
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

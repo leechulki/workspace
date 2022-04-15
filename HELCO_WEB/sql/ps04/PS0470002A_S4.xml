@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT T.PSPID, T.GBN , T.TEXT , T.BIGO , T.CODE , T.UNIT , T.MEASURE, 
+              VALUE(T.AMT,0) AS AMT, VALUE(INT(T.AMT) * T.UNIT,0) AS NETWR ,  
+              ROWNUMBER() OVER(PARTITION BY T.PSPID ) AS SEQ
+FROM
+(SELECT  A.MANDT , A.POSID AS PSPID , B.GBN , B.TEXT , B.BIGO , B.CODE,
+               SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST( B.UNIT  AS DECIMAL(13, 2) ) )  AS UNIT,    
+               B.MEASURE ,   
+             CASE WHEN B.AMT = 'A' AND A.ISREMD <> 'Y' THEN MASTER02B.VALUE
+ 	        WHEN B.AMT = 'J' AND A.ISREMD =  'Y' THEN MASTER02B.VALUE
+	        WHEN B.AMT = 'B' THEN   T.ES *2
+	        WHEN B.AMT = 'C' THEN A.ZQNTY*5  
+	        WHEN B.AMT = 'D' THEN A.ZQNTY*1  
+	        WHEN B.AMT = 'E' THEN A.ZQNTY*2  ELSE 0 END AMT 
+FROM SAPHEE.ZMASTER01 AS A
+   INNER JOIN SAPHEE.ZPST0063 AS B
+      ON A.MANDT = B.MANDT
+   LEFT OUTER JOIN
+        	  ( SELECT  SD.MANDT
+        	           ,SD.POSID
+        	           ,SUM(SD.VALUE) AS VALUE
+                         ,SUM(SD.ES) AS ES
+                FROM  (
+                       SELECT  MASTER02A.MANDT
+            	                ,MASTER02A.POSID
+            	                ,ROWNUMBER() OVER(PARTITION BY SD0005.HOGI  ORDER BY SD0005.HOGI , SD0005.SEQ DESC ) AS RN
+                              ,(CASE WHEN VALUE(SD0005.VALUE,'0') = '' THEN 0 ELSE  INT(VALUE(SD0005.VALUE,'0')) END) AS VALUE
+		  ,CASE WHEN MASTER02A.ZZGUBUN = '11' THEN 1 ELSE 0 END AS ES
+                       FROM  SAPHEE.ZSDT0005 AS SD0005
+            	   	     ,SAPHEE.ZMASTER02 MASTER02A
+                       WHERE SD0005.MANDT = MASTER02A.MANDT
+         	             AND MASTER02A.MANDT = #G_MANDT#
+        	             AND MASTER02A.POSID = #PSPID#
+                           AND MASTER02A.ZZGUBUN IN ('10','13')        -- 제품구분(10:EL,13:EL선박)
+                           AND MASTER02A.PRART IN ('01','11')          -- 프로젝트유형(01:승강기(국내),11:교체공사)
+                           AND SD0005.HOGI = MASTER02A.POSID_1
+                           AND SD0005.CHARACTERISTIC = 'EL_ASTQ'    -- 정지층수
+                      ) AS SD
+                WHERE SD.RN = 1
+                GROUP BY SD.MANDT,SD.POSID ,SD.ES
+             ) AS MASTER02B
+        	 ON A.MANDT = MASTER02B.MANDT
+             AND A.POSID = MASTER02B.POSID
+        	
+
+         LEFT OUTER JOIN  
+     	(   SELECT  SD.MANDT
+        	           ,SD.POSID
+                       ,SUM(SD.ES) AS ES
+                FROM  (
+                       SELECT  MASTER02A.MANDT
+            	                ,MASTER02A.POSID
+		                        ,( SELECT CASE WHEN X.ZZGUBUN = '11' THEN 1 ELSE 0 END FROM SAPHEE.ZMASTER02 AS X WHERE X.MANDT = MASTER02A.MANDT AND X.POSID = MASTER02A.POSID AND X.POSID_1 = MASTER02A.POSID_1) AS ES
+                       FROM SAPHEE.ZMASTER02 MASTER02A
+                       WHERE MASTER02A.MANDT = #G_MANDT#
+        	             AND MASTER02A.POSID = #PSPID#  
+                         AND MASTER02A.ZZGUBUN IN ('11')  
+                         
+                      ) AS SD
+                WHERE SD.MANDT = #G_MANDT#
+
+                GROUP BY SD.MANDT,SD.POSID ,SD.ES
+		   
+          ) AS T 
+          ON A.MANDT =T.MANDT
+           AND A.POSID = T.POSID
+	  
+WHERE A.MANDT = #G_MANDT#
+    AND A.POSID = #PSPID#  
+    AND B.GBN = 'B'
+	
+ORDER BY B.SORT
+
+) AS T	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list2">
+	</output>
+</query>

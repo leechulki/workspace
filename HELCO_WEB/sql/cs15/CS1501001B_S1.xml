@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+  MAX(GBN)GBN
+  ,PJT
+  ,HNO
+  ,MAX(HNA)HNA
+  ,MAX(SPEC1)SPEC1
+  ,MAX(SPEC2)SPEC2
+  ,MAX(STATUS)STATUS
+  ,MAX(UPN)UPN
+  ,MAX(CST)CST
+  ,MAX(ISR)ISR
+  ,MAX(CHECK)CHECK
+  ,MAX(USE)USE
+--  ,MAX((CASE WHEN OHD1 &lt;&gt; '' OR PST = 'A1' THEN 'Y' ELSE 'N' END)) OHD
+  ,MAX((CASE WHEN OHD1 &lt;&gt; '' THEN 'Y' ELSE 'N' END)) OHD
+  ,MAX(PST)PST
+FROM
+(SELECT GBN
+ ,PJT
+ ,HNO
+ ,HNA
+ ,SPEC1
+ ,SPEC2
+ ,STATUS
+ ,UPN
+ ,CST
+ ,ISR
+ ,CHECK
+ ,USE
+ ,VALUE(B.CS126_PJT,'') OHD1
+ ,(SELECT VALUE(MAX(B.CS301_PST),'')PST
+     FROM SAPHEE.ZCST302 A
+               LEFT OUTER JOIN SAPHEE.ZCST301 B
+                                 ON A.MANDT = B.MANDT
+                                 AND A.CS302_TEM = B.CS301_TEM
+                                 AND A.CS302_RDT = B.CS301_RDT
+                                 AND A.CS302_SEQ = B.CS301_SEQ
+                                 AND A.CS302_SIR = B.CS301_SIR                               
+     --          INNER JOIN SAPHEE.ZCST126 C
+     --                            ON A.MANDT = C.MANDT
+     --                           AND A.CS302_PJT = C.CS126_PJT
+     --                           AND A.CS302_HNO = C.CS126_HNO
+   WHERE A.MANDT = #G_MANDT#
+      AND A.CS302_PJT = #PJT#	
+      AND A.CS302_RDT = (SELECT MAX(A.CS302_RDT)
+		            	 FROM SAPHEE.ZCST302 A
+		            		  LEFT OUTER JOIN SAPHEE.ZCST126 C
+                            	   ON A.MANDT = C.MANDT
+                            	   AND A.CS302_PJT = C.CS126_PJT
+                             	   AND A.CS302_HNO = C.CS126_HNO
+		            	 WHERE A.MANDT= #G_MANDT#
+		            	 AND A.CS302_PJT= #PJT#
+		            	 AND A.CS302_HNO = HNO
+		            	 )
+      AND A.CS302_SEQ = (SELECT MAX(CS302_SEQ)  		  									         
+		            	 FROM SAPHEE.ZCST302											          
+		            	 WHERE MANDT= #G_MANDT#
+		            	 AND CS302_PJT = #PJT#
+		            	 AND CS302_HNO = HNO
+		            	 AND CS302_RDT = (SELECT MAX(A.CS302_RDT) RDT
+                             	          FROM SAPHEE.ZCST302 A  
+                             	               LEFT OUTER JOIN SAPHEE.ZCST126 C
+                             	                   ON A.MANDT = C.MANDT
+                             	                   AND A.CS302_PJT = C.CS126_PJT                           									    
+                             	                   AND A.CS302_HNO = C.CS126_HNO										 
+                             	          WHERE A.MANDT= '183'
+		            	 AND A.CS302_PJT= #PJT#
+		            	 AND A.CS302_HNO = HNO
+		            	 )) 
+ -- AND A.CS302_HNO = HNO
+  GROUP BY A.CS302_SIR
+  ORDER BY A.CS302_SIR DESC
+  FETCH FIRST 1 ROW ONLY)
+ FROM
+(SELECT *
+  FROM (
+         SELECT  '122' GBN
+          	    ,A.CS122_PJT PJT
+          	    ,A.CS122_HNO HNO
+          	    ,C.CS101_HNA HNA
+          	    ,D.ZSPEC1 SPEC1
+          	    ,D.ZSPEC2 SPEC2
+          	    ,'' STATUS
+          	    ,A.CS122_UPN UPN
+          	    ,A.CS122_CST CST
+          	    ,'' ISR
+          	    ,'' CHECK
+          	    ,CASE WHEN VALUE(B.UPN,'') > '' THEN '' ELSE '미사용' END AS USE
+           FROM SAPHEE.ZCST122 A LEFT OUTER JOIN SAPHEE.ZCST111 B
+                                         ON B.MANDT = A.MANDT
+--                                         AND B.UPN = A.CS122_UPN
+--                                         AND B.CST = A.CS122_CST
+                                        AND B.PJT = A.CS122_PJT
+                                        AND B.HNO = A.CS122_HNO
+<isEqual col="USER_GROUP" value="10">
+                                        AND B.BSU = #G_LGORT#
+</isEqual>
+<isEqual col="USER_GROUP" value="30">
+                                        AND B.ARA = #G_AREA_CODE#
+</isEqual>
+                                 LEFT OUTER JOIN SAPHEE.ZCST101 C
+                                         ON C.MANDT = A.MANDT
+                                        AND C.CS101_PJT = A.CS122_PJT
+                                        AND C.CS101_HNO = A.CS122_HNO
+                                 LEFT OUTER JOIN SAPHEE.ZMASTER02 D
+                                         ON D.MANDT = A.MANDT
+                                        AND D.POSID_1 = A.CS122_PJT||A.CS122_HNO
+          WHERE A.MANDT = #G_MANDT#
+            AND A.CS122_UPN = #UPN#
+            AND A.CS122_CST = #CST#
+          	AND SUBSTR(B.PJT,1,1) = 'M'
+          	AND D.MDATE &lt; '20120801'
+        ) A
+
+UNION ALL
+
+SELECT *
+  FROM (
+         SELECT  '122' GBN
+          	    ,A.CS122_PJT PJT
+          	    ,A.CS122_HNO HNO
+          	    ,C.CS101_HNA HNA
+          	    ,D.ZSPEC1 SPEC1
+          	    ,D.ZSPEC2 SPEC2
+          	    ,'' STATUS
+          	    ,A.CS122_UPN UPN
+          	    ,A.CS122_CST CST
+          	    ,'' ISR
+          	    ,'' CHECK
+          	    ,CASE WHEN VALUE(B.UPN,'') > '' THEN '' ELSE '미사용' END AS USE
+           FROM SAPHEE.ZCST122 A LEFT OUTER JOIN SAPHEE.ZCST111 B
+                                         ON B.MANDT = A.MANDT
+--                                         AND B.UPN = A.CS122_UPN
+--                                         AND B.CST = A.CS122_CST
+                                        AND B.PJT = A.CS122_PJT
+                                        AND B.HNO = A.CS122_HNO
+<isEqual col="USER_GROUP" value="10">
+                                        AND B.BSU = #G_LGORT#
+</isEqual>
+<isEqual col="USER_GROUP" value="30">
+                                        AND B.ARA = #G_AREA_CODE#
+</isEqual>
+                                  LEFT OUTER JOIN SAPHEE.ZCST101 C
+                                         ON C.MANDT = A.MANDT
+                                        AND C.CS101_PJT = A.CS122_PJT
+                                        AND C.CS101_HNO = A.CS122_HNO
+                                  LEFT OUTER JOIN SAPHEE.ZMASTER02 D
+                                         ON D.MANDT = A.MANDT
+                                        AND D.POSID_1 = A.CS122_PJT||A.CS122_HNO
+                                  LEFT OUTER JOIN SAPHEE.ZCST202 K
+                                         ON K.MANDT = A.MANDT
+                                        AND K.CS202_PJT = A.CS122_PJT
+                                        AND K.CS202_HNO = A.CS122_HNO
+          WHERE A.MANDT = #G_MANDT#
+            AND A.CS122_UPN = #UPN#
+            AND A.CS122_CST = #CST#
+          	AND K.CS202_PST = 'A6'
+          	AND SUBSTR(K.CS202_PJT,1,1) = 'M'
+          	AND D.MDATE &gt;= '20120801'
+        ) A
+
+UNION ALL
+
+SELECT *
+  FROM (
+         SELECT  '122' GBN
+          	    ,A.CS122_PJT PJT
+          	    ,A.CS122_HNO HNO
+          	    ,C.CS101_HNA HNA
+          	    ,D.ZSPEC1 SPEC1
+          	    ,D.ZSPEC2 SPEC2
+          	    ,'' STATUS
+          	    ,A.CS122_UPN UPN
+          	    ,A.CS122_CST CST
+          	    ,'' ISR
+          	    ,'' CHECK
+          	    ,CASE WHEN VALUE(B.UPN,'') > '' THEN '' ELSE '미사용' END AS USE
+           FROM SAPHEE.ZCST122 A LEFT OUTER JOIN SAPHEE.ZCST111 B
+                                         ON B.MANDT = A.MANDT
+--                                         AND B.UPN = A.CS122_UPN
+--                                         AND B.CST = A.CS122_CST
+                                        AND B.PJT = A.CS122_PJT
+                                        AND B.HNO = A.CS122_HNO
+<isEqual col="USER_GROUP" value="10">
+                                        AND B.BSU = #G_LGORT#
+</isEqual>
+<isEqual col="USER_GROUP" value="30">
+                                        AND B.ARA = #G_AREA_CODE#
+</isEqual>
+                                  LEFT OUTER JOIN SAPHEE.ZCST101 C
+                                         ON C.MANDT = A.MANDT
+                                        AND C.CS101_PJT = A.CS122_PJT
+                                        AND C.CS101_HNO = A.CS122_HNO
+                                  LEFT OUTER JOIN SAPHEE.ZMASTER02 D
+                                         ON D.MANDT = A.MANDT
+                                        AND D.POSID_1 = A.CS122_PJT||A.CS122_HNO
+          WHERE A.MANDT = #G_MANDT#
+            AND CS122_UPN = #UPN#
+            AND CS122_CST = #CST#
+          	AND (SUBSTR(A.CS122_PJT,1,1) &lt;&gt; 'M' OR (SUBSTR(A.CS122_PJT,1,1) &lt;&gt; 'M' AND A.CS122_PJT IS NULL))
+        ) A
+
+UNION ALL
+
+SELECT *
+  FROM (
+         SELECT  '123' GBN
+          	    ,E.CS123_PJT PJT
+          	    ,E.CS123_HNO HNO
+          	    ,F.CS101_HNA HNA
+          	    ,G.ZSPEC1 SPEC1
+          	    ,G.ZSPEC2 SPEC2
+          	    ,'요청' STATUS
+          	    ,E.CS123_UPN UPN
+          	    ,E.CS123_CST CST
+          	    ,E.CS123_ISR ISR
+          	    ,'' CHECK
+          	    ,'' USE
+           FROM SAPHEE.ZCST123 E
+          	    ,SAPHEE.ZCST101 F
+          	    ,SAPHEE.ZMASTER02 G
+          WHERE E.MANDT = #G_MANDT#
+            AND E.MANDT = F.MANDT
+            AND F.MANDT = G.MANDT
+            AND E.CS123_UPN = #UPN#
+            AND E.CS123_CST = #CST#
+<isEqual col="USER_GROUP" value="10">                  
+            AND E.CS123_BSU = #G_LGORT# 
+</isEqual>
+            AND E.CS123_CGB = ''
+            AND E.CS123_PJT = F.CS101_PJT
+            AND E.CS123_HNO = F.CS101_HNO
+     	      AND E.CS123_PJT||E.CS123_HNO = G.POSID_1
+        ) A
+)A
+LEFT OUTER JOIN SAPHEE.ZCST126 B
+	 ON B.MANDT = #G_MANDT#
+	AND A.PJT = B.CS126_PJT 
+	AND A.CST = B.CS126_CST
+	AND A.HNO = B.CS126_HNO
+	AND B.CS126_DDT = ''
+--	AND (HEX(CURRENT DATE) BETWEEN B.CS126_USD AND B.CS126_UMR OR B.CS126_USD > HEX(CURRENT DATE))
+)A
+GROUP BY PJT,HNO
+WITH UR
+--ORDER BY PJT, HNO	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list2">
+	</output>
+</query>

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  WB.MANDT
+        ,SUBSTR(CS127B.SFR,1,6) GUBUN2
+        ,SUBSTR(CS127B.SFR,1,6) GUBUN
+		,COUNT(*) DESU
+		,ROUND(SUM(DOUBLE(CS127B.AMT))/COUNT(*),0) DANGA
+        ,SUM(CS127B.AMT) AMT
+        ,SUM(CS127B.SUJU_AMT) SUJU_AMT
+        ,MAX(WB.TGB) TGB
+FROM   (
+        SELECT  WB010.MANDT
+               ,MM005.LGORT BSU
+               ,WB010.BSU_ARA ARA
+               ,WB010.BSU_GB TGB
+        FROM SAPHEE.ZWBT010 WB010
+             ,SAPHEE.ZMMT005 MM005
+             ,SAPHEE.ZMMT012 MM012
+        WHERE WB010.MANDT = #G_MANDT#
+<isNotNull col="VEND_CODE">
+        AND MM005.LGORT = #VEND_CODE#
+</isNotNull>
+<isNotNull col="AREA_CODE">
+        AND WB010.BSU_ARA = #AREA_CODE#
+</isNotNull>
+        AND MM005.MANDT = WB010.MANDT
+        AND MM005.LIFNR =WB010.LIFNR
+        AND MM012.MANDT = MM005.MANDT
+        AND MM012.LIFNR = MM005.LIFNR
+        ORDER BY WB010.BSU_ARA,MM005.LGORT
+       ) WB,
+       (
+        SELECT  CS127.MANDT
+               ,CS127_SFR SFR
+			   ,CS127_BSU BSU
+			   ,CS127.CS127_AMT AMT
+               ,CS131.CS131_AMT SUJU_AMT
+        FROM   SAPHEE.ZCST127 CS127,
+               (SELECT  CS131A.MANDT
+                       ,CS131A.CS131_UPN
+                       ,CS131A.CS131_CST
+                       ,CS131A.CS131_PJT
+                       ,CS131A.CS131_HNO
+                       ,CS131A.CS131_SEQ
+                       ,SUM(CS131A.CS131_AMT) CS131_AMT
+                FROM SAPHEE.ZCST127 CS127A
+                     ,SAPHEE.ZCST131 CS131A
+                WHERE CS127A.MANDT = #G_MANDT#
+                AND CS127A.CS127_DDT = ''
+                AND CS127A.CS127_SFR BETWEEN #YYYYMMF#||'01' AND #YYYYMMT#||'31'
+                AND CS127A.MANDT = CS131A.MANDT
+                AND CS127A.CS127_UPN = CS131A.CS131_UPN
+                AND CS127A.CS127_CST = CS131A.CS131_CST
+                AND CS127A.CS127_UPN = CS131A.CS131_PJT
+                AND 'Z99' = CS131A.CS131_HNO
+                AND CS127A.CS127_SEQ = CS131A.CS131_SEQ
+                AND CS131A.CS131_MYB = ''
+				AND CS131A.CS131_GND = 'E'
+                GROUP BY CS131A.MANDT,CS131A.CS131_UPN,CS131A.CS131_CST
+                        ,CS131A.CS131_PJT,CS131A.CS131_HNO,CS131A.CS131_SEQ
+               ) CS131
+        WHERE CS127.MANDT = CS131.MANDT
+        AND CS127.CS127_UPN = CS131.CS131_UPN
+        AND CS127.CS127_CST = CS131.CS131_CST
+        AND CS127.CS127_SEQ = CS131.CS131_SEQ
+       ) CS127B
+       WHERE WB.MANDT = CS127B.MANDT
+       AND WB.BSU = CS127B.BSU
+GROUP BY WB.MANDT,SUBSTR(CS127B.SFR,1,6)
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

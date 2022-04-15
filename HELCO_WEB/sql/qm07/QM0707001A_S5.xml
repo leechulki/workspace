@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+             B.ITEM        AS ITEM
+            ,B.STYM        AS STYM
+      		,B.GUBUN       AS GUBUN
+      		,B.MATNR_SVAMT AS MATNR_SVAMT
+      		,B.MATNR_WAERK AS MATNR_WAERK
+      		,A.MATNR       AS MATNR
+      		,VALUE(A.MENGE, 0)  AS QNTY
+  FROM (SELECT AA.MATNR AS MATNR, SUM(MENGE) AS MENGE
+                FROM (SELECT IDNRK AS MATNR, MENGE
+                  	 		   FROM SAPHEE.ZPPT004
+                 			 WHERE MANDT = #G_MANDT#
+                   			      AND CRDAT BETWEEN #RSDATE# AND #REDATE#
+                   				  AND (PRCTYP IN ('A','N') OR (PRCTYP = 'C' AND  CTYP IN ('Q','B')))	--신규, 추가, 변경(수량, 수량주석)
+                
+				        UNION ALL
+						
+                		    SELECT IDNRK AS MATNR, CASE PRCTYP WHEN 'D'  THEN MENGE * -1 WHEN 'C'  THEN OLD_QUAN * -1 END AS MENGE
+                  			   FROM SAPHEE.ZPPT004
+                 			 WHERE MANDT = #G_MANDT#
+                   			      AND CRDAT BETWEEN #RSDATE# AND #REDATE#
+                  				  AND (PRCTYP = 'D' OR (PRCTYP = 'C' AND  CTYP IN ('Q','B')))	--삭제, 변경(수량, 수량주석)
+                            ) AS AA
+             WHERE 1 = 1
+             GROUP BY AA.MATNR
+            ) AS A
+
+  INNER JOIN TABLE( SELECT  A.MANDT  AS MANDT	   ,A.ITEM   AS ITEM
+                                              ,REPLACE(A.STYM, '000000', '') AS STYM
+   							    			  ,B.MATNR  AS MATNR    ,B.GUBUN  AS GUBUN
+                     		    			  ,CASE WHEN B.WAERK IN ('KRW', 'JPY') THEN B.SVAMT  * 100 ELSE B.SVAMT  END AS MATNR_SVAMT
+                                			  ,B.WAERK  AS MATNR_WAERK
+                                    FROM SAPHEE.ZQMT071U AS A
+                            		INNER JOIN SAPHEE.ZQMT073U B
+        	                   		     ON B.MANDT = A.MANDT AND B.DEPT  = A.DEPT AND B.GJAHR = A.GJAHR
+        	                		   AND B.ITEM  = A.ITEM  AND B.GUBUN = '1'
+                          		  WHERE A.MANDT = #G_MANDT#
+                            	       AND A.DEPT  = #DEPT#
+                            		   AND A.GJAHR = #GJAHR#
+                            		   AND (REPLACE(A.STYM, '000000', '') = '' OR A.STYM > SUBSTR(CAST(HEX(DATE(SUBSTR(#RSLTYM#, 1, 4)||'-'||SUBSTR(#RSLTYM#, 5, 2)||'-'||'01') - 12 MONTHS) AS VARCHAR(8)), 1, 6) )
+                                ) AS B
+	  ON B.MATNR = A.MATNR
+WHERE 1 = 1
+
+UNION ALL
+
+SELECT
+       	      B.ITEM        AS ITEM
+      		 ,B.STYM        AS STYM
+      		 ,B.GUBUN       AS GUBUN
+      		 ,B.MATNR_SVAMT AS MATNR_SVAMT
+      		 ,B.MATNR_WAERK AS MATNR_WAERK
+      		 ,A.DZEINR      AS MATNR
+      		 ,VALUE(A.MENGE, 0)  AS QNTY
+  FROM (SELECT AA.DZEINR AS DZEINR, SUM(MENGE) AS MENGE
+                 FROM (SELECT DZEINR AS DZEINR, MENGE
+                  	  		   FROM SAPHEE.ZPPT004
+                 			 WHERE MANDT = #G_MANDT#
+                   			      AND CRDAT BETWEEN #RSDATE# AND #REDATE#
+                   				  AND (PRCTYP IN ('A','N') OR (PRCTYP = 'C' AND  CTYP IN ('Q','B')))	--신규, 추가, 변경(수량, 수량주석)
+								  
+                            UNION ALL
+						
+                            SELECT DZEINR AS DZEINR, CASE PRCTYP WHEN 'D'  THEN MENGE * -1 WHEN 'C'  THEN OLD_QUAN * -1 END AS MENGE
+                  			   FROM SAPHEE.ZPPT004
+                            WHERE MANDT = #G_MANDT#
+                   			     AND CRDAT BETWEEN #RSDATE# AND #REDATE#
+                  				 AND (PRCTYP = 'D' OR (PRCTYP = 'C' AND  CTYP IN ('Q','B')))	--삭제, 변경(수량, 수량주석)
+                           ) AS AA
+            WHERE 1 = 1
+            GROUP BY AA.DZEINR
+            ) AS A
+
+  INNER JOIN TABLE( SELECT A.MANDT  AS MANDT        ,A.ITEM   AS ITEM
+                               		   		 ,REPLACE(A.STYM, '000000', '') AS STYM
+                               				 ,B.MATNR  AS MATNR       ,B.GUBUN  AS GUBUN
+                               				 ,CASE WHEN B.WAERK IN ('KRW', 'JPY') THEN B.SVAMT  * 100 ELSE B.SVAMT  END AS MATNR_SVAMT
+                               				 ,B.WAERK  AS MATNR_WAERK
+                                   FROM SAPHEE.ZQMT071U AS A
+                                   INNER JOIN SAPHEE.ZQMT073U B
+        	                            ON B.MANDT = A.MANDT AND B.DEPT  = A.DEPT AND B.GJAHR = A.GJAHR
+        	                          AND B.ITEM  = A.ITEM  AND B.GUBUN = '2'
+                                 WHERE A.MANDT = #G_MANDT#
+                                      AND A.DEPT  = #DEPT#
+                            		  AND A.GJAHR = #GJAHR#
+                            		  AND (REPLACE(A.STYM, '000000', '') = '' OR A.STYM > SUBSTR(CAST(HEX(DATE(SUBSTR(#RSLTYM#, 1, 4)||'-'||SUBSTR(#RSLTYM#, 5, 2)||'-'||'01') - 12 MONTHS) AS VARCHAR(8)), 1, 6) )
+                              ) AS B
+ 	   ON B.MATNR = A.DZEINR
+WHERE 1 = 1
+
+ --보수자재  
+UNION ALL
+
+SELECT
+              B.ITEM        AS ITEM
+      		 ,B.STYM        AS STYM
+      		 ,B.GUBUN       AS GUBUN
+      		 ,B.MATNR_SVAMT AS MATNR_SVAMT
+      		 ,B.MATNR_WAERK AS MATNR_WAERK
+      		 ,A.DZEINR      AS MATNR
+      		 ,VALUE(A.MENGE, 0)  AS QNTY
+  FROM (SELECT AA.DZEINR AS DZEINR, SUM(MENGE) AS MENGE
+		        FROM (							  
+								SELECT b.matnr, b.menge
+                                   FROM      SAPHEE.ekko  AS a
+						          INNER JOIN SAPHEE.ekpo  AS b  ON b.ebeln = a.ebeln and b.mandt = a.mandt
+							      INNER JOIN SAPHEE.mara  AS c  ON c.matnr = b.matnr and c.mandt = b.mandt
+							    WHERE a.mandt = #G_MANDT#
+							         and a.bedat BETWEEN #RSDATE# AND #REDATE#           --" 발주일												           
+								     AND b.werks  = '2000'                    -- " 보수플랜트
+								     AND b.knttp  in ('' , 'F')                            --  " STOCK발주만 조회												          
+								     AND b.loekz = ''  
+								  
+								  
+								  
+		                 ) AS AA
+             WHERE 1 = 1
+            GROUP BY AA.DZEINR
+           ) AS A
+
+ INNER JOIN TABLE( SELECT  A.MANDT  AS MANDT       ,A.ITEM   AS ITEM
+                               		         ,REPLACE(A.STYM, '000000', '') AS STYM
+                               				 ,B.MATNR  AS MATNR      ,B.GUBUN  AS GUBUN
+                               				 ,CASE WHEN B.WAERK IN ('KRW', 'JPY') THEN B.SVAMT  * 100 ELSE B.SVAMT  END AS MATNR_SVAMT
+                               				 ,B.WAERK  AS MATNR_WAERK
+                                  FROM SAPHEE.ZQMT071U AS A
+                                  INNER JOIN SAPHEE.ZQMT073U B
+        	                           ON B.MANDT = A.MANDT AND B.DEPT  = A.DEPT AND B.GJAHR = A.GJAHR
+        	                         AND B.ITEM  = A.ITEM  AND B.GUBUN = '1'
+                                WHERE A.MANDT = #G_MANDT#
+                            	     AND A.DEPT  = #DEPT#
+                            		 AND A.GJAHR = #GJAHR#
+                            		 AND (REPLACE(A.STYM, '000000', '') = '' OR A.STYM > SUBSTR(CAST(HEX(DATE(SUBSTR(#RSLTYM#, 1, 4)||'-'||SUBSTR(#RSLTYM#, 5, 2)||'-'||'01') - 12 MONTHS) AS VARCHAR(8)), 1, 6) )
+                          ) AS B
+    ON B.MATNR = A.DZEINR
+WHERE 1 = 1
+ 
+
+
+
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

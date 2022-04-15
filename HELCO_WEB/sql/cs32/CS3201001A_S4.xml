@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT B.COL2 COL1,
+       (SELECT NAME1
+ 	    FROM SAPHEE.ZMMT005 MM005,
+		     SAPHEE.ZMMT012 MM012
+		WHERE MM005.MANDT = B.MANDT
+		AND MM005.LGORT = B.COL2
+		AND MM005.MANDT = MM012.MANDT
+		AND MM005.LIFNR = MM012.LIFNR
+	   ) COL2
+	   <isNotNull col="S1_QUERY">
+	   	#S1_QUERY+#
+	   </isNotNull>	   
+	   <isNotNull col="S2_QUERY">
+	   	#S2_QUERY+#
+	   </isNotNull>
+	   <isNotNull col="S3_QUERY">
+	   	#S3_QUERY+#
+	   </isNotNull>
+FROM (
+       SELECT A.MANDT
+             ,A.COL1
+		     ,A.COL2
+	   <isNotNull col="S4_QUERY">
+		#S4_QUERY+#
+	   </isNotNull>
+       FROM (
+             SELECT   A1.MANDT
+                     ,A2.COL1
+                     ,A1.COL2   
+                     ,A2.CNT
+                     ,A2.AMT
+             FROM   (
+                      SELECT  M005.MANDT
+                             ,M005.LGORT COL2
+                             ,M012.NAME1 COL1
+                      FROM SAPHEE.ZWBT010 WB
+                           ,SAPHEE.ZMMT012 M012
+                      	   ,SAPHEE.ZMMT005 M005
+                      WHERE WB.MANDT = #G_MANDT#
+                     <isNotNull col="ARA">
+                      AND WB.BSU_ARA = #ARA#
+                     </isNotNull>
+                     <isNotNull col="BSU">
+                      AND M005.LGORT = #BSU#
+        	         </isNotNull>
+                      AND WB.MANDT = M012.MANDT
+                      AND WB.LIFNR = M012.LIFNR
+                      AND M012.MANDT = M005.MANDT
+                      AND M012.LIFNR = M005.LIFNR            
+                      ) A1
+                     LEFT OUTER JOIN
+                     (
+                     SELECT CS.MANDT
+        			       ,CS.CS131_YYM COL1
+        			       ,CS.CS131_BSU COL2
+        				   ,COUNT(*) CNT
+        				   ,SUM(CS.CS131_AMT) AMT
+                     FROM SAPHEE.ZCST131 CS
+                     WHERE MANDT = #G_MANDT#
+                     AND CS.CS131_GND IN ('D','E')
+                     <isNotNull col="ARA">
+                     AND CS.CS131_ARA = #ARA#
+                     </isNotNull>
+                     <isNotNull col="BSU">
+                     AND CS.CS131_BSU = #BSU#
+        	         </isNotNull>
+                     AND CS.CS131_MYB = ''
+                     AND CS.CS131_TIS = ''
+                     AND CS.CS131_YYM BETWEEN #YYYYMMF# AND #YYYYMMT#
+                     GROUP BY CS.MANDT,CS.CS131_BSU,CS.CS131_YYM
+                     ORDER BY CS.CS131_BSU,CS.CS131_YYM
+                     ) A2
+                     ON A1.MANDT = A2.MANDT
+                     AND A1.COL2 = A2.COL2             
+       ) A
+) B
+GROUP BY B.MANDT,B.COL2
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

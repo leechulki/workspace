@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  '' AS CHK  
+     , PS.LIFNR 
+     , PS.PERNO
+     , PS.NAME1 
+     , PS.NAMEE  
+     , PS.TEMNO 
+     , PS.NAMET  
+     , PS.POSIC 
+     , PS.POSIT 
+     , PS.POSIE  
+     , PS.CELLP 
+     , PS.BIRTH 
+     , PS.ENTER 
+     , PS.TYPE 
+     , 1 AS INWON  
+     , PS.SFT_SHOE  
+     , PS.SP_SUIT
+     , PS.SP_SUIT2  
+     , PS.WT_SUIT  
+     , PS.WT_SUIT2  
+     , PS.GUBUN 
+     , PS.DUTY
+     , PS.DUTY2
+     , PS.RETIF  
+     , 'A' AS STATS					  
+     , PS.PERNO2 AS PERNO2   ,PS.PERKEY  , PS.VEST  , PS.ACTSS , PS.ACTSS_NM 
+     , (SELECT CASE WHEN COUNT(*) = 0 THEN '' ELSE 'X' END 
+          FROM SAPHEE.ZPSTW1904 AS X 
+         WHERE X.MANDT = PS.MANDT  
+           AND X.BIRTH||X.NAME1 = PS.PERKEY  
+           AND X.EDUGBN = '1') AS EDU  -- 안전관리 : 신규자 교육 받았으면 X
+      , PS.CDATE
+      -- A : 등록완료, B : 등록진행, C : 퇴사진행
+	  ,CASE WHEN (SELECT CASE WHEN COUNT(P.MANDT) = 0 THEN 'B' 
+					          ELSE CASE WHEN (SELECT COUNT(*) 
+					                            FROM SAPHEE.ZPST0143 P2 
+					                           WHERE P2.MANDT = PS.MANDT 
+					                             AND P2.LIFNR = PS.LIFNR 
+					                             AND P2.PERNO = PS.PERNO
+					                             AND P2.GBN   = PS.GBN
+					                             AND P2.SIGN > '') = 0 THEN 'A' 
+					                    WHEN (SELECT COUNT(*) 
+					                            FROM SAPHEE.ZPST0143 P2 
+					                           WHERE P2.MANDT = PS.MANDT 
+					                             AND PS.LIFNR = PS.LIFNR 
+					                             AND P2.PERNO = PS.PERNO2
+					                             AND P2.GBN   = PS.GBN
+					                             AND P2.SIGN = '반송') > 0 OR (SELECT COUNT(*) 
+					                                                            FROM SAPHEE.ZPST0143 P2 
+					                                                           WHERE P2.MANDT = PS.MANDT 
+					                                                             AND P2.LIFNR = PS.LIFNR 
+					                                                             AND P2.PERNO = PS.PERNO2
+					                                                             AND P2.GBN   = PS.GBN
+					                                                             AND P2.SIGN > '') = COUNT(P.MANDT) THEN 'D'				
+					                    ELSE 'C' END 
+					                    END CNT 
+					    FROM SAPHEE.ZPST0143 AS P 
+					   WHERE P.MANDT = PS.MANDT 
+					     AND P.LIFNR = PS.LIFNR 
+					     AND P.PERNO = PS.PERNO
+					     AND P.GBN   = PS.GBN 
+					     )  = 'B'  
+     		THEN ''  ELSE 'X' END DEL -- 퇴사 예정자 
+         ,(SELECT Z.ENTER 
+             FROM SAPHEE.ZPST0001 AS Z 
+            WHERE PS.MANDT  = Z.MANDT 
+              AND PS.PERKEY = Z.PERKEY
+              AND PS.GBN    = Z.GBN
+            ORDER BY Z.ENTER 
+            FETCH FIRST 1 ROWS ONLY  ) AS FCDATE
+          , PS.GBN
+          , PS.MSRM_ID
+          , PS.KIND_6
+          , PS.KIND_7
+		  , PS.KIND_8
+		  , CASE WHEN PS.N_INP_YN > 0 AND (PS.KIND_6 = 'X' OR PS.KIND_7 = 'X')
+		  		 THEN 'O'
+		  		 ELSE 'X'
+		  		 END AS FAIL_INPUT
+		         
+			  
+FROM 
+(
+SELECT P.MANDT
+       ,P.LIFNR
+       ,P.CDATE
+     --  ,Z.PERNO
+       ,P.PERNO 
+       ,M.NAME1
+       ,P.NAMEE
+       ,P.TEMNO
+       ,P.PERKEY
+       ,P.NAMET --팀장이름 
+       ,P.POSIC
+       ,P.POSIT
+       ,P.POSIE
+       ,P.CELLP
+       ,P.BIRTH -- 생년월일 
+       ,P.ENTER --입사일 
+       ,P.TYPE
+       ,1 AS INWON 
+       ,P.SFT_SHOE
+       ,P.SP_SUIT
+       ,P.SP_SUIT2
+       ,P.WT_SUIT
+       ,P.WT_SUIT2
+       ,P.VEST
+       ,CASE P.GUBUN WHEN '01' THEN 'E/L' 
+                                WHEN '02' THEN 'E/S'
+                                WHEN '03' THEN 'PSD'
+                                WHEN '04' THEN '주차'
+                                WHEN '05' THEN '물류'
+                                WHEN '06' THEN '기타'
+        ELSE ''
+         END AS GUBUN --공사 		
+       ,CASE P.DUTY WHEN '1' THEN '설치' 
+                             WHEN '2' THEN '관리'
+                             WHEN '3' THEN '서무'
+        ELSE ''
+         END AS DUTY --공사 
+       ,P.DUTY2 --공사 
+       ,P.RETIF    
+	   ,VALUE((SELECT Z.STATS 
+	             FROM SAPHEE.ZPST0138 AS Z 
+	            WHERE P.MANDT = Z.MANDT 
+	              AND P.LIFNR = Z.LIFNR 
+	              AND P.PERKEY = Z.PERKEY
+	              --AND P.GBN    = Z.GBN
+	              AND Z.RETIF = '' 
+	            ORDER BY Z.PERNO DESC  
+	            FETCH FIRST 1 ROWS ONLY ),'') AS STATS
+	   ,(SELECT Z.PERNO 
+	       FROM SAPHEE.ZPST0138 AS Z 
+	      WHERE P.MANDT = Z.MANDT 
+	        AND P.LIFNR = Z.LIFNR 
+	        AND P.PERKEY = Z.PERKEY
+	        --AND P.GBN = Z.GBN 
+	        AND Z.RETIF = ''
+	      ORDER BY Z.CDATE  DESC  FETCH FIRST 1 ROWS ONLY ) AS PERNO2
+       , T.ACTSS_NM
+       , P.ACTSS
+       , P.GBN
+       , (
+       		SELECT USERNUMB
+       		  FROM SAPHEE.ZUSERF X
+       		 WHERE X.MANDT = P.MANDT
+       		   AND X.USERCODE = P.LIFNR
+       		   AND X.USERNAME = P.NAMEE
+       		   AND X.USERBIRTH = P.BIRTH
+       		   AND P.RETIF <![CDATA[<>]]> 'X'	 
+       		 FETCH FIRST 1 ROW ONLY
+       		 WITH UR
+         ) AS MSRM_ID
+       , CASE WHEN VALUE((
+				       		SELECT VALUE(X.EDUDAT,'') AS EDUDAT
+				       		  FROM SAPHEE.ZPSTW1904 AS X
+				       		 WHERE X.MANDT = P.MANDT
+				       		   AND X.LIFNR = P.LIFNR
+				       		   AND X.NAME1 = P.NAMEE
+				       		   AND X.BIRTH = P.BIRTH
+				       		   AND X.EDUGBN = '8'
+				       		 ORDER BY EDUDAT DESC
+				       		 FETCH FIRST 1 ROWS ONLY WITH UR
+				         ),'') = ''
+		       THEN 'X'
+		       ELSE 'O'
+		       END AS KIND_8
+       , CASE WHEN VALUE((
+				       		SELECT VALUE(X.EDUDAT,'') AS EDUDAT
+				       		  FROM SAPHEE.ZPSTW1904 AS X
+				       		 WHERE X.MANDT = P.MANDT
+				       		   AND X.LIFNR = P.LIFNR
+				       		   AND X.NAME1 = P.NAMEE
+				       		   AND X.BIRTH = P.BIRTH
+				       		   AND X.EDUGBN = '6'
+				       		 ORDER BY EDUDAT DESC
+				       		 FETCH FIRST 1 ROWS ONLY WITH UR
+				         ),'') = ''
+		       THEN 'X'
+		       ELSE 'O'
+		       END AS KIND_6
+       , CASE WHEN VALUE((
+				       		SELECT VALUE(X.EDUDAT,'') AS EDUDAT
+				       		  FROM SAPHEE.ZPSTW1904 AS X
+				       		 WHERE X.MANDT = P.MANDT
+				       		   AND X.LIFNR = P.LIFNR
+				       		   AND X.NAME1 = P.NAMEE
+				       		   AND X.BIRTH = P.BIRTH
+				       		   AND X.EDUGBN = '7'
+				       		 ORDER BY EDUDAT DESC
+				       		 FETCH FIRST 1 ROWS ONLY WITH UR
+				         ),'') = ''
+		       THEN 'X'
+		       ELSE 'O'
+		       END AS KIND_7
+	 , (
+	 		SELECT COUNT(1)
+	 		  FROM SAPHEE.ZPSTW0302 AS X
+	 		 WHERE X.MANDT = P.MANDT
+	 		   AND X.LIFNR = P.LIFNR
+	 		   AND X.PERNO = P.PERNO
+	 		   AND EXISTS (
+	 		   					 SELECT VBAP.HOGI 
+								   FROM SAPHEE.VBAP AS VBAP
+									  INNER JOIN SAPHEE.IBIN AS IBIN
+									          ON VBAP.MANDT = IBIN.MANDT
+									         AND VBAP.CUOBJ = IBIN.INSTANCE
+									  INNER JOIN SAPHEE.IBINVALUES AS IBINV 
+									          ON IBIN.MANDT = IBINV.MANDT
+									         AND IBIN.IN_RECNO = IBINV.IN_RECNO
+									  INNER JOIN SAPHEE.IBSYMBOL AS IBSYMBOL
+									          ON IBINV.MANDT = IBSYMBOL.MANDT
+									         AND IBINV.SYMBOL_ID = IBSYMBOL.SYMBOL_ID
+									  INNER JOIN SAPHEE.CABN AS CABN
+									          ON IBSYMBOL.MANDT = CABN.MANDT
+									         AND IBSYMBOL.ATINN = CABN.ATINN
+								   WHERE VBAP.MANDT = X.MANDT
+								     AND VBAP.HOGI  = X.POSID
+								     AND CABN.ATNAM = 'EL_DREUSE'
+								     AND IBSYMBOL.ATWRT = 'Y'
+	 		   				)
+	 		   
+	   ) AS N_INP_YN -- N넘버 현장 투입 여부 확인. 
+FROM SAPHEE.ZPST0001 AS P
+    INNER JOIN SAPHEE.ZMMT012 AS M
+         ON  P.MANDT = M.MANDT
+       AND P.LIFNR = M.LIFNR
+
+   LEFT OUTER JOIN SAPHEE.ZPST0000 AS T
+      ON P.MANDT = T.MANDT
+	 AND P.ACTSS = T.ACTSS
+   LEFT OUTER JOIN SAPHEE.ZPST0001 AS P2
+      ON P.MANDT = P2.MANDT
+     AND P.LIFNR = P2.LIFNR
+     AND P.PERNO = P2.PERNO
+     AND P.GBN   = P2.GBN
+     AND P2.POSIT = 'X'
+     
+WHERE P.MANDT = #G_MANDT#
+  
+<isEqual col="SO_GBN" value="Y">
+AND M.SORTL IN (#GUBUN+#)
+</isEqual>
+<isNotNull col="LIFNR">
+AND P.LIFNR = #LIFNR#
+</isNotNull>
+<isNotNull col="TYPE">
+AND P.TYPE = #TYPE#
+</isNotNull>
+<isEqual col="GBN" value="1">
+AND P.POSIC = 'X'
+</isEqual>
+<isEqual col="GBN" value="2">
+AND P.POSIT = 'X'
+</isEqual>
+<isEqual col="GBN" value="3">
+AND P.POSIE = 'X'
+</isEqual>
+<isNotNull col="NAME">
+AND P.NAMEE LIKE #NAME#||'%'
+</isNotNull>
+<isNotNull col="ZZACTSS">
+AND P.ACTSS = #ZZACTSS#
+</isNotNull>
+<isNotNull col="DUTY2">
+AND P.DUTY2 = #DUTY2#
+</isNotNull>
+<isNotNull col="CLSSFY">
+AND P.GBN   = #CLSSFY#
+</isNotNull>
+ AND  P.RETIF = '' -- OR (P.RETIF = 'X' AND P.STATS = 'A'))   -- 퇴사 시에만 조회 X
+ORDER BY P.LIFNR,P.POSIC DESC,P.POSIT DESC,P.POSIE, P.NAMEE
+) PS
+WHERE PS.MANDT = #G_MANDT#
+--AND  PS.RETIF2 = ''  OR ( PS.RETIF2 = 'X' AND PS.POSIC ='X')  -- 퇴사 결재 진행자 제외/ 대표는 제외 (web등록안되있음)
+--AND (SELECT CASE WHEN COUNT(P.MANDT) = 0 THEN 'B' 
+      --      ELSE CASE WHEN (SELECT COUNT(*) FROM SAPHEE.ZPST0143 P2 WHERE P2.MANDT = PS.MANDT AND P2.LIFNR = PS.LIFNR AND P2.PERNO = PS.PERNO AND P2.SIGN > '') = 0 THEN 'A' 
+       --               WHEN (SELECT COUNT(*) FROM SAPHEE.ZPST0143 P2 WHERE P2.MANDT = PS.MANDT AND PS.LIFNR = PS.LIFNR AND P2.PERNO = PS.PERNO2 AND P2.SIGN = '반송') > 0 OR (SELECT COUNT(*) FROM SAPHEE.ZPST0143 P2 WHERE P2.MANDT = PS.MANDT AND P2.LIFNR = PS.LIFNR AND P2.PERNO = PS.PERNO2 AND P2.SIGN > '') = COUNT(P.MANDT) THEN 'D'				
+        --         ELSE 'C' END 
+         --   END CNT 
+     --FROM SAPHEE.ZPST0143 AS P WHERE P.MANDT = PS.MANDT AND P.LIFNR = PS.LIFNR AND P.PERNO = PS.PERNO 
+    --) &lt;&gt; 'D'   -- 퇴사 진행자 제외 
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

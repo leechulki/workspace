@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+
+
+SELECT '' AS CHK
+     , T2.FNAME
+     , T2.FPATH
+     , T2.FNAME_APP
+     , T1.PSPID
+     , T1.HOGI AS POSID
+     , T2.CDATE
+     , (SELECT USERNAME 
+	     FROM SAPHEE.ZUSERF X 
+	    WHERE X.MANDT    = #G_MANDT#
+	      AND X.USERNUMB = T2.CNAME
+	     FETCH FIRST 1 ROW ONLY WITH UR
+	   ) AS CNAME -- 생성자
+     , T2.FSIZE
+     , T2.GBN
+	 , (SELECT USERNAME 
+	     FROM SAPHEE.ZUSERF X 
+	    WHERE X.MANDT = T1.MANDT
+	      AND X.USERNUMB = T1.CPUID
+	     FETCH FIRST 1 ROW ONLY WITH UR
+	   ) AS CPUNM -- 생성인
+	 , CASE WHEN T1.ART = '8960'
+	        THEN '완성'
+	        WHEN T1.ART = '8950'
+	        THEN '중간'  -- 검사유형
+	        ELSE ''
+	        END AS ART
+	 , T1.SEQ		-- 차수
+	 , T1.DSCODE	-- 판정
+	 , T1.DSKURZTEXT -- 판정
+	 , T1.PARQDT	-- 검사요청일
+	 , T1.PAPRDT	-- 검사일
+	 , ( SELECT PARTIDNM 
+		   FROM SAPHEE.ZQMT031 X
+		  WHERE	X.MANDT  = T1.MANDT
+		    AND X.PARTID = T1.PARTID
+		    AND PARTEM = 'E'
+		    AND PARTID NOT IN ('H000000', 'H2007878')
+		  FETCH FIRST 1 ROW ONLY
+		  WITH UR
+		) AS PARTIDNM	-- 검사원
+  FROM SAPHEE.ZMASTER02 AS M 
+	   INNER JOIN SAPHEE.ZQMT019 AS T1 
+		   	   ON M.MANDT = T1.MANDT 
+		   	  AND M.POSID = T1.PSPID 
+		   	  AND M.POSID_1 =  T1.HOGI
+		   	  AND T1.ART IN ('8950', '8960')
+   LEFT OUTER JOIN 
+        (
+  			SELECT A.FNAME
+			     , A.FPATH
+			     , A.FNAME_APP
+			     , A.PSPID
+			     , A.POSID
+			     , A.CDATE
+			     , A.CNAME
+			     , A.FSIZE
+			     , 'A' AS GBN
+			     , '' AS EL_TYPE
+			   FROM SAPHEE.ZQMTW0206 AS A
+			 WHERE A.MANDT = #G_MANDT#
+			
+			UNION ALL
+			
+			
+			SELECT B.FNAME
+			     , '' AS FPATH
+			     , B.FNAME AS FNAME_APP
+			     , SUBSTR(B.POSID,1,6) AS PSPID
+			     , B.POSID
+			     , SUBSTR(B.CDATE,1,8) AS CDATE
+			     , B.CID AS CNAME
+			     , B.FSIZE
+			     , 'B' AS GBN
+			     , B.EL_TYPE
+			     FROM SAPHEE.ZQMT055F AS B
+			 WHERE B.MANDT = #G_MANDT#
+
+       ) T2
+       ON T1.MANDT    = #G_MANDT#
+      AND T1.POSID    = T2.PSPID
+      AND T1.POSID_1  = T2.POSID
+      
+	WHERE M.POSID_1 NOT LIKE '______Y__'
+      AND M.POSID_1 NOT LIKE '______T__'
+	 <isNotNull col="PSPID">
+	 AND M.POSID = #PSPID#
+	 </isNotNull>
+	 <isNotNull col="PAPRDT_F">
+	 AND T1.PARQDT BETWEEN #PAPRDT_F# AND #PAPRDT_T#
+	 </isNotNull>
+	 <isNotNull col="INSP_ID">
+	 AND T1.PARTID = #INSP_ID#
+	 </isNotNull>
+	 <isNotNull col="CRTDT_F">
+	 AND T2.CDATE BETWEEN #CRTDT_F# AND #CRTDT_T#
+	 </isNotNull>
+	 <isNotEqual col="GUBUN" value="ALL">
+	 AND T2.GBN = #GUBUN#
+	 </isNotEqual>
+	 <isNotEqual col="INSP_GBN" value="ALL">
+	 AND T2.GBN = 'B'
+		 <isEqual col="INSP_GBN" value="A">
+		 AND T1.ART = '8950'
+		 AND T2.EL_TYPE = 'RA'
+		 </isEqual>
+		 <isEqual col="INSP_GBN" value="B">
+		 AND T1.ART = '8960'
+		 AND T2.EL_TYPE IN ('EL', 'ES')
+		 </isEqual>
+	 </isNotEqual>
+	ORDER BY M.POSID, M.POSID_1, T2.FNAME_APP, T1.ART, T1.SEQ
+ 
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_sajin">
+	</output>
+</query>

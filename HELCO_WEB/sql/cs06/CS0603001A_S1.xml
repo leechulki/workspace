@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT '' FLAG,
+       CAST(#PBN# AS VARCHAR(2)) PBN,
+       MAX(MASTER01A.CONTR_DA) CONTR_DA,
+       CS101A.CS101_PJT,
+       CS101A.CS101_BSU,
+       CS101A.CS101_FDT,
+       MAX(CD.CTEXT2) ARA,
+--       MAX(CS121_SPT) ZSITE_NM,
+--       MAX(CS121_NAM) KUNNR_NM,
+-- 영업현장명 변경 요청
+       MAX(MASTER01A.ZSITE_NM) AS ZSITE_NM,
+       MAX(MASTER01A.KUNNR_NM) AS KUNNR_NM,
+       (SELECT DISTINCT MM012A.NAME1 
+          FROM SAPHEE.ZMMT005 MM005A,
+               SAPHEE.ZMMT012 MM012A
+         WHERE MM005A.MANDT = CS101A.MANDT
+           AND CS101A.CS101_BSU = MM005A.LGORT
+           AND MM005A.MANDT = MM012A.MANDT
+           AND MM005A.LIFNR = MM012A.LIFNR     
+       ) NAME1,
+       (
+        SELECT 
+               A.CTEXT2 
+          FROM 
+               SAPHEE.ZLCODE A,
+               SAPHEE.ZWBT010 B
+         WHERE 
+               A.MANDT = CS101A.MANDT
+           AND A.MANDT = B.MANDT
+           AND A.CODE2 = B.VKGRP
+           AND A.LANG = #G_LANG#
+           AND A.CODE1 = 'VKGRP' 
+           AND B.LGORT = CS101A.CS101_BSU
+       ) TEM,
+       COUNT(DISTINCT CS101A.CS101_HNO) CS101_HNO,
+       SUM(INT(MASTER02A.ZSPEC9)) PLAT,
+       --MAX(MASTER01A.ADDR1)||MAX(MASTER01A.ADDR2) ADDR,
+       MAX(CS121A.CS121_P1C) || ' ' || MAX(CS121A.CS121_P2C) ADDR,      
+       MAX(MASTER01A.ZSITE_TEL) AS ZSITE_TEL,
+       SAPHEE.MONTH_BETWEEN(CS101A.CS101_FDT,HEX(CURRENT DATE),'1') AS MON
+  FROM SAPHEE.ZMASTER01 MASTER01A
+              LEFT OUTER JOIN SAPHEE.ZCST121 CS121A ON CS121A.MANDT = MASTER01A.MANDT
+                                                   AND CS121A.CS121_UPN = MASTER01A.POSID
+                                                   AND CS121A.CS121_CST = '',
+       SAPHEE.ZMASTER02 MASTER02A,
+       SAPHEE.ZCST101 CS101A,
+       SAPHEE.ZCST111 CS111A,
+       SAPHEE.ZLCODE CD,
+       SAPHEE.ZWBT010 WB010
+ WHERE MASTER01A.MANDT = #G_MANDT#
+   AND MASTER01A.MANDT = MASTER02A.MANDT
+   AND MASTER01A.POSID = MASTER02A.POSID
+   AND MASTER02A.MANDT = CS101A.MANDT
+   AND MASTER02A.POSID = CS101A.CS101_PJT
+   AND MASTER02A.POSID_1 = CS101A.CS101_PJT || CS101A.CS101_HNO
+   AND CS101A.MANDT = CS111A.MANDT
+   AND CS101A.CS101_PJT = CS111A.PJT
+   AND CS101A.CS101_HNO = CS111A.HNO
+   AND CS101A.CS101_BSU > ''
+   AND CS101A.CS101_PST = 'A6'
+   AND MASTER01A.MANDT = CD.MANDT
+   AND CD.LANG = #G_LANG#
+   AND CD.CODE1 = 'CS115'
+   AND CD.CODE2 = CS101A.CS101_ARA
+   AND CS111A.HST NOT IN ('D')
+   AND CS111A.PJT NOT LIKE 'M%'
+   AND CS101A.MANDT = WB010.MANDT
+   AND CS101A.CS101_BSU = WB010.LGORT   
+<isEqual col="GBN" value="A">
+   AND CS101A.CS101_PJT = #POSID#
+</isEqual>
+<isEqual col="GBN" value="B">
+   AND CS101A.CS101_FDT BETWEEN #CS101_FDT_F# AND #CS101_FDT_T#
+</isEqual>
+<isNotNull col="BSU">
+   AND CS101A.CS101_BSU = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+   AND CS101A.CS101_BPM = #BPM#
+</isNotNull>
+<isNotNull col="ARA">
+   AND CS101A.CS101_ARA = #ARA#
+</isNotNull>
+<isNotNull col="TEM">
+  --AND WB010.VKGRP = #TEM#
+  AND ( WB010.VKGRP = #TEM# or WB010.VKGRP_CO = #TEM# )
+</isNotNull>
+
+<isNotNull col="DPT">
+  AND SUBSTR(WB010.VKGRP,1,2) = #DPT#
+</isNotNull>
+
+
+<isEqual col="PBN" value="A">
+   AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('L','S','W') 
+</isEqual>
+<isEqual col="PBN" value="B">
+   AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('J') 
+</isEqual>
+<isEqual col="PBN" value="C">
+   AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('G') 
+</isEqual>
+<isEqual col="PBN" value="D">
+   AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('F') 
+</isEqual>
+
+GROUP BY CS101A.MANDT,CS101A.CS101_PJT,CS101A.CS101_BSU,CS101A.CS101_FDT
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="CS101_FDT_F" size="255" type="VARCHAR" description="" /> 
+		<col name="CS101_FDT_T" size="255" type="VARCHAR" description="" /> 
+		<col name="BSU" size="255" type="VARCHAR" description="" /> 
+		<col name="BPM" size="255" type="VARCHAR" description="" /> 
+		<col name="ARA" size="255" type="VARCHAR" description="" /> 
+		<col name="GBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="CS101_BSU" size="15" type="VARCHAR" description="" /> 
+		<col name="CS101_FDT" size="24" type="VARCHAR" description="" /> 
+		<col name="CS101_HNO" size="11" type="NUMERIC" description="" /> 
+		<col name="CS101_PJT" size="18" type="VARCHAR" description="" /> 
+		<col name="FLAG" size="0" type="VARCHAR" description="" /> 
+		<col name="KUNNR_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="NAME1" size="105" type="VARCHAR" description="" /> 
+		<col name="ZSITE_NM" size="105" type="VARCHAR" description="" /> 
+	</output>
+</query>

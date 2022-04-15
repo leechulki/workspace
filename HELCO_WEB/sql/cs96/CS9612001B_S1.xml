@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+        A.LIFNR
+       ,A.CS406_EDT  EDT
+       ,A.CS406_CPT  CPT
+       ,A.CS406_FCD  FCD
+       ,A.CS406_TP1  TP1
+       ,A.CS406_TP2  TP2
+       ,A.CS406_TP3  TP3
+       ,A.CS406_TP4  TP4
+       ,A.CS406_RGD  RGD
+       ,A.CS406_RGN  RGN
+       ,A.CS406_SCP  SCP
+       ,A.CS406_RNAME  RNAME
+       ,A.CS406_EMAIL  EMAIL
+       ,A.CS406_HP     HP
+       ,E.CS409_TEL    TEL
+       ,E.CS409_FAX    FAX
+       ,B.NAME1        BSU_NM 
+       ,E.CS409_ZIP    ZIPCODE
+       ,E.CS409_ADR    ADDR 
+       ,E.CS409_ADR2    ADDR2 
+       ,SAPHEE.CODE_CONV(A.MANDT,'CS115',C.BSU_ARA) ARA_NM
+       ,SAPHEE.CODE_CONV(A.MANDT,'VKGRP',C.VKGRP)   TEM_NM
+       ,C.LGORT      BSU
+       ,D.MIQ  CNT_M
+       ,D.TCQ  CNT_U
+       ,D.MIQ + D.TCQ   CNT_ALL
+       ,'' FLAG
+
+  FROM SAPHEE.ZCST406 A LEFT OUTER JOIN SAPHEE.ZMMT012 B
+                                ON A.MANDT = B.MANDT
+                               AND A.LIFNR = B.LIFNR 
+                        
+                        LEFT OUTER JOIN SAPHEE.ZWBT010 C
+                                ON A.MANDT = C.MANDT
+                               AND A.LIFNR = C.LIFNR
+                        
+                        LEFT OUTER JOIN (SELECT YYYYMM, BSU,
+                                                MIQ, TCQ, MANDT,
+                                                ROW_NUMBER() OVER(PARTITION BY BSU ORDER BY YYYYMM DESC) AS ROWN 
+                                           FROM SAPHEE.ZCST186N
+                                          WHERE MANDT =  #G_MANDT#
+                                        ) D
+
+                                ON A.MANDT = D.MANDT
+                               AND C.LGORT = D.BSU
+                               AND D.ROWN = 1
+                        
+                        LEFT OUTER JOIN SAPHEE.ZCST409 E
+                                ON A.MANDT = E.MANDT
+                               AND A.LIFNR = E.LIFNR
+  
+ WHERE A.MANDT = #G_MANDT# 
+   AND C.BSU_ARA > ''
+   AND C.BSU_GB = '1' /*직영*/
+ <isNotNull col="DEPT">
+   AND C.VKGRP IN (SELECT CODE2 AS CODE
+	     FROM SAPHEE.ZLCODE  
+	    WHERE MANDT = #G_MANDT# 
+	 	 AND CODE1 = 'VKGRP' 
+	 	 AND DTEXT1 = #DEPT#)
+</isNotNull>
+
+<isNotNull col="VKGRP">
+   AND C.VKGRP = #VKGRP#
+</isNotNull>
+ORDER BY LIFNR
+ WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

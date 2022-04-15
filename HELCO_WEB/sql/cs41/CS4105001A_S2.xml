@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+       'U' FLAG
+      ,CAST(#YYMM# AS VARCHAR(6)) YYMM
+      ,SAPHEE.CODE_CONV(A.MANDT,'CS115',A.CS126_ARA) ARA  --지역
+      ,SAPHEE.GET_VENDER_N_NAME(A.MANDT,A.CS126_BSU) BSU  --협력사
+      ,A.CS126_UPN UPN
+      ,A.CS126_PJT PJT
+      ,A.CS126_HNO HNO
+      ,A.CS121_SPT SPT
+      ,CASE Z.ZSPEC7 WHEN '' THEN 0 ELSE INT(Z.ZSPEC7) END  FNT  --층수
+      ,A.CS126_MLT MLT
+      ,VALUE(K.CS200_MLT, 0) MLT2
+      ,A.CS126_GNO GNO
+      ,K.CS200_MAN MAN
+
+  FROM (
+         SELECT A.MANDT
+               ,A.CS126_ARA
+               ,A.CS126_BSU
+               ,A.CS126_UPN
+               ,A.CS126_PJT
+               ,A.CS126_HNO
+               ,A.CS126_MLT
+               ,A.CS121_SPT
+               ,A.CS126_GNO
+         
+           FROM (
+                 SELECT A.MANDT, A.CS126_ARA, A.CS126_BSU, A.CS126_UPN, A.CS126_CST, 
+                        A.CS126_PJT, A.CS126_HNO, A.CS126_MLT, A.CS126_GNO,
+                        B.CS121_SPT
+                   FROM SAPHEE.ZCST126 A LEFT OUTER JOIN SAPHEE.ZCST121 B   --유상온핸드 현장
+                                                 ON A.MANDT = B.MANDT
+                                                AND A.CS126_UPN = B.CS121_UPN
+                                                AND A.CS126_CST = B.CS121_CST
+                  WHERE A.MANDT = #G_MANDT#
+                    AND #YYMM# || '15' BETWEEN A.CS126_USD AND A.CS126_UMR
+                    AND A.CS126_DDT = ''
+                    AND A.CS126_PST = 'A6'	
+                    AND A.CS126_GND = 'D'  
+                    AND A.CS126_TGB = '1'	--직영
+                    AND SUBSTR(A.CS126_HNO,1,1) IN ('L','S','W')
+                ) A,
+                (
+                 SELECT MANDT, CS127_UPN, CS127_CST, CS127_GNO 
+                   FROM SAPHEE.ZCST127  --유상계약별 상주현장 리스트
+                  WHERE MANDT = #G_MANDT#
+                 	 AND CS127_DDT = ''
+                 	 AND CS127_PST = 'A6'
+                  GROUP BY MANDT, CS127_UPN, CS127_CST, CS127_GNO
+                )B
+          WHERE A.MANDT = B.MANDT
+            AND A.MANDT = #G_MANDT#
+            AND A.CS126_GNO = B.CS127_GNO
+         
+       ) A LEFT OUTER JOIN SAPHEE.ZMASTER02 Z
+                        ON A.MANDT = Z.MANDT
+                       AND A.CS126_PJT = Z.POSID
+                       AND A.CS126_PJT || A.CS126_HNO = Z.POSID_1
+           LEFT OUTER JOIN SAPHEE.ZCST200 K
+                        ON A.MANDT = K.MANDT
+                       AND A.CS126_GNO = K.CS200_GNO
+                       AND A.CS126_PJT = K.CS200_PJT
+                       AND A.CS126_HNO = K.CS200_HNO
+                       AND K.CS200_YMD = #YYMM2#
+ WHERE 1=1
+<isNotNull col="ARA">
+   AND A.CS126_ARA = #ARA#
+</isNotNull>
+<isNotNull col="UPN">
+   AND A.CS126_UPN = #UPN#
+</isNotNull>
+
+ORDER BY 3,4,5,6,7
+   WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

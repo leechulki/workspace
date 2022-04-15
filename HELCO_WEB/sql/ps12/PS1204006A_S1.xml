@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+
+ SELECT   T.PSPID,  T.SEQNO , T.MINWON, T.TYPE, T.DEPT,
+	            T.MDATE,    T.ERNAM,  
+                T.ERNAMNM,T.EDATE,	T.AENAM,			
+                T.AENAMNM,
+                T.SUPR_DT ,  T.STATE , T.JDATE , T.FINSH, T.PDATE,
+			    T.RDATE , T.A_PERSON, 
+                T.C_DUTY , T.GBN ,
+			   T. BIGO,T.BIGO2,	  T.CNT, T.MAXSEQ ,
+ 
+             D.TEXT30, D.ZZACTSS,    D.ZSITE_NM,D.ZQNTY,  D.ZMAN_NM AS MAN ,D.KUNNR_NM, D.VDATU, 
+	        (SELECT X.NAMET FROM SAPHEE.ZMASTER02 AS X WHERE X.MANDT = T.MANDT AND X.POSID = T.PSPID ORDER BY X.POSID , X.POSID_1   FETCH FIRST 1 ROWS ONLY ) AS NAMET, 
+	       (SELECT X.ZSPEC2 FROM SAPHEE.ZMASTER02 AS X WHERE X.MANDT = T.MANDT AND X.POSID = T.PSPID ORDER BY X.POSID , X.POSID_1   FETCH FIRST 1 ROWS ONLY ) AS  ZSPEC2,
+	       (SELECT X.ZZSHIP1  FROM SAPHEE.ZMASTER02 AS X WHERE X.MANDT = T.MANDT AND X.POSID = T.PSPID ORDER BY X.POSID , X.POSID_1   FETCH FIRST 1 ROWS ONLY ) AS  ZZSHIP1
+FROM   
+ (
+ SELECT  A.MANDT, A.PSPID,  A.SEQNO , A.MINWON, A.TYPE, A.DEPT,
+	            A.MDATE,    A.ERNAM,  
+       CASE WHEN A.SUPR_DT = ''OR A.SUPR_DT = '00000000' THEN '' ELSE (VALUE((SELECT X.USERNAME FROM SAPHEE.ZUSERF AS X 
+	             WHERE X.MANDT = A.MANDT AND X.USERNUMB = A.ERNAM), '') ) END AS ERNAMNM,
+             A.EDATE,	    A.AENAM,			
+             VALUE((SELECT X.USERNAME FROM SAPHEE.ZUSERF AS X 
+	             WHERE X.MANDT = A.MANDT AND X.USERNUMB = A.AENAM), '') AS AENAMNM,
+             A.SUPR_DT ,  A.STATE , A.JDATE , A.FINSH, A.PDATE,
+			  A.RDATE , A.A_PERSON, 
+              A.C_DUTY , A.GBN ,
+			  CAST(A.BIGO AS VARCHAR(1000)) as BIGO,
+			  CAST(A.BIGO2 AS VARCHAR(3000))  as BIGO2,
+   
+   	         ROWNUMBER() OVER(PARTITION BY A.PSPID) AS CNT,
+		   CASE WHEN A.SEQNO =  (SELECT MAX(X.SEQNO) FROM SAPHEE.ZPSTW1307 AS X WHERE X.MANDT = A.MANDT AND X.PSPID = A.PSPID AND X.RDATE = A.RDATE AND A.STATE &lt;&gt;  'G') THEN 'X' ELSE '' END AS MAXSEQ
+		 			   
+   FROM SAPHEE.ZPSTW1307 AS A
+
+ WHERE 	A.MANDT = #G_MANDT#
+      AND A.STATE &lt;&gt;  'D'                
+        <isNotNull col="PSPID">
+      AND A.PSPID = #PSPID# 
+    </isNotNull>
+    
+   <isEqual col="PERIOD" value="B">
+      AND A.SUPR_DT BETWEEN #SUPR_DTF# AND #SUPR_DTT#
+   </isEqual>
+   <isEqual col="PERIOD" value="A">
+    AND A.RDATE BETWEEN #SUPR_DTF# AND #SUPR_DTT#
+   </isEqual>
+    <isNotNull col="SUPR_DTF">
+  
+    </isNotNull>  
+	
+    <isNotNull col="GBN">                                 
+         AND A.MINWON = #GBN#                                                     
+    </isNotNull>	
+
+   <isNotNull col="STATE">                                 
+         AND A.STATE = #STATE#                                                     
+    </isNotNull>	
+    
+    <isNotNull col="TYPE">                                 
+        AND A.TYPE = #TYPE#                                                     
+    </isNotNull>	
+	
+   <isNotNull col="DEPT">                                 
+        AND A.DEPT = #DEPT#                                                     
+    </isNotNull>		
+	
+    <isNotNull col="A_PERSON">                                 
+         AND A.A_PERSON = #A_PERSON#                                                     
+    </isNotNull>	 
+	
+		 
+UNION ALL
+
+ SELECT  A.MANDT, A.PSPID,  A.SEQNO , A.MINWON, A.TYPE, A.DEPT, 
+               A.MDATE,    A.ERNAM,
+             CASE WHEN A.SUPR_DT = ''OR A.SUPR_DT = '00000000' THEN '' ELSE (VALUE((SELECT X.USERNAME FROM SAPHEE.ZUSERF AS X 
+	             WHERE X.MANDT = A.MANDT AND X.USERNUMB = A.ERNAM), '') ) END AS ERNAMNM,
+             A.EDATE,	    A.AENAM,			
+             VALUE((SELECT X.USERNAME FROM SAPHEE.ZUSERF AS X 
+	             WHERE X.MANDT = A.MANDT AND X.USERNUMB = A.AENAM), '') AS AENAMNM,
+             A.SUPR_DT , A.STATE , A.JDATE , A.FINSH, A.PDATE,
+			  A.RDATE , A.A_PERSON, 
+              A.C_DUTY , A.GBN ,
+			  VALUE(A.B_SITUATION, '')  AS  BIGO,
+			  VALUE(A.BIGO, '') AS BIGO2,
+   
+   	       ROWNUMBER() OVER(PARTITION BY A.PSPID, A.SUPR_DT) AS CNT,
+		   ''  AS MAXSEQ
+      
+		 			   
+   FROM SAPHEE.ZPSTW1307B AS A
+
+    	
+ WHERE 	A.MANDT = #G_MANDT#
+      AND A.STATE &lt;&gt; 'D'                
+	    <isNotNull col="PSPID">
+      AND A.PSPID = #PSPID# 
+    </isNotNull>
+    
+   <isEqual col="PERIOD" value="B">
+      AND A.SUPR_DT BETWEEN #SUPR_DTF# AND #SUPR_DTT#
+   </isEqual>
+   <isEqual col="PERIOD" value="A">
+    AND A.RDATE BETWEEN #SUPR_DTF# AND #SUPR_DTT#
+   </isEqual>
+    <isNotNull col="SUPR_DTF">
+  
+    </isNotNull>  
+	
+    <isNotNull col="GBN">                                 
+         AND A.MINWON = #GBN#                                                     
+    </isNotNull>	
+
+   <isNotNull col="STATE">                                 
+         AND A.STATE = #STATE#                                                     
+    </isNotNull>	
+    
+    <isNotNull col="TYPE">                                 
+        AND A.TYPE = #TYPE#                                                     
+    </isNotNull>	
+	
+   <isNotNull col="DEPT">                                 
+        AND A.DEPT = #DEPT#                                                     
+    </isNotNull>		
+    
+    <isNotNull col="A_PERSON">                                 
+         AND A.A_PERSON = #A_PERSON#                                                     
+    </isNotNull>	 
+	
+     	 
+)	AS T
+	
+  INNER JOIN SAPHEE.ZMASTER01 AS D
+       ON T.MANDT = D.MANDT
+     AND T.PSPID = D.POSID
+
+	   <isNotNull col="ZZACTSS">                                 
+        AND D.ZZACTSS = #ZZACTSS#                                                     
+    </isNotNull>	 
+    
+ORDER BY T.MDATE
+WITH UR		</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

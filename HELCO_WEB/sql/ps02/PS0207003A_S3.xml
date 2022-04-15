@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+  <type>select</type>
+  <description><![CDATA[]]></description>
+  <reload>true</reload>
+  <monitoring>true</monitoring>
+  <result-count>0</result-count>
+  <statement>
+-- 투입일자별 작업일보 조회 및 승인화면
+-- 일부 팀장님 지적사항에 대해서는 조치(GROUP BY Fullselect 방지용 쿼리 조건 추가 - 2020.09.21)
+SELECT '' AS CHECK, B.VER, B.LIFNR, T3.PSPID, T3.POSID  ,T3.INP_DT, 
+       --T3.PRO_R,
+       VALUE(PS116.PRO_R,0) AS PRO_R,
+        VALUE(T4.PRO_R,0.0) AS TOT_PRO,
+       E.NAME1, B.ZSPEC1, B.ZSPEC2, B.ZZSHIP1, B.ZZCOMP2 , B.NAMET , B.TYPE , B.NAMET2, 
+       (CASE WHEN B.POSID_DONG = 'X' OR B.POSID_DONG = 'x' THEN '' ELSE B.POSID_DONG END ) AS POSID_DONG,
+       (SELECT X.PROWRK FROM SAPHEE.ZPSTW0304 AS X 
+         WHERE X.MANDT = T3.MANDT  AND X.PSPID = T3.PSPID AND X.POSID  = T3.POSID ORDER BY  X.PRONR DESC  
+         FETCH FIRST 1 ROWS ONLY ) AS PROWRK,
+       VALUE(F2.APPR_DT,'') AS APPR_DT , VALUE(F2.PRO_R, 0.0) AS APP_PRO, 
+       (VALUE(T4.PRO_R , 0) - VALUE(T3.PRO_R, 0.0)) AS S_PRO_TMP, 
+       (VALUE(T4.PRO_R , 0) - VALUE(PS116.PRO_R, 0.0)) AS S_PRO, 
+       (VALUE(T3.PRO_R , 0)) AS S_PRO2, 
+       B.TXT30 , B.ZZILSIC ,  B.TEXT30, G.ZSITE_NM ,
+       H.STEP1_DT, H.STEP2_DT, H.STEP3_DT , B.ZZGUBUN,
+       (CASE WHEN B.ZZGUBUN = '10' OR B.ZZGUBUN = '11' OR B.ZZGUBUN = '12'  THEN VALUE(T3.SAFE, 'N')  ELSE 'Z' END) AS SAFE,
+       (CASE WHEN B.ZZGUBUN = '10' AND  B.ZSPEC1 = 'DW' OR B.ZSPEC1 = 'STVF' OR B.ZSPEC1 = 'LXVF' OR B.ZSPEC1 = 'HSVF' OR B.ZSPEC1 = 'SUVF' OR B.ZSPEC1 = 'HYD' THEN 'MR'
+             WHEN B.ZZGUBUN = '10' AND  B.ZSPEC1 = 'SSVF'  AND B.ZSPEC1 = 'WBSS' OR B.ZSPEC12 &lt;&gt; 'WBSS2' THEN 'MRL'
+             WHEN B.ZZGUBUN = '10' AND B.ZSPEC1 = 'WBSS' AND  B.ZSPEC12 = 'WBSS2' THEN 'NEW MRL'
+             ELSE '' END) ZSPEC
+       , T3.SUM_PRO_R
+       , T3.DELEF
+
+  FROM (
+       SELECT T.CHK, T.MANDT, T.PSPID, T.POSID  ,T.INP_DT, T.DELEF,
+              (SELECT VALUE(SUM(ST2.PRO_R),0) 
+                 FROM SAPHEE.ZPST0112 AS ST2
+                 WHERE ST2.MANDT = T.MANDT 
+                 AND ST2.PSPID = T.PSPID 
+                 AND ST2.POSID = T.POSID
+                 AND ST2.CRDAT <![CDATA[<>]]> HEX(CURRENT DATE)
+               ) AS PRO_R,
+              (SELECT VALUE(SUM(ST2.PRO_R),0) 
+                 FROM SAPHEE.ZPST0112 AS ST2 
+                 WHERE ST2.MANDT = T.MANDT 
+                 AND ST2.PSPID = T.PSPID 
+                 AND ST2.POSID = T.POSID) AS SUM_PRO_R,   
+              (SELECT   MAX(E.GUBUN) 
+                 FROM SAPHEE.ZPSTW0207 AS E
+                WHERE E.MANDT = T.MANDT
+                  AND E.PSPID = T.PSPID
+                  AND E.POSID = T.POSID 
+                GROUP BY E.MANDT, E.PSPID, E.POSID)  AS SAFE 
+        FROM (SELECT 'N' AS CHK, A.MANDT , A.POSID AS PSPID, A.POSID_1 AS POSID , '00000000' AS INP_DT, D.DELEF
+                FROM SAPHEE.ZMASTER02 AS A
+                     LEFT OUTER JOIN ( SELECT X.MANDT, X.PSPID, X.POSID, SUM(X.PRO_R)  AS PRO_R
+                                         FROM SAPHEE.ZPST0116 AS X
+                                         INNER JOIN SAPHEE.ZMASTER02 AS M2
+                                                 ON M2.MANDT = X.MANDT
+                                                AND M2.POSID = X.PSPID
+                                                AND M2.POSID_1 = X.POSID
+                                        WHERE X.MANDT = #G_MANDT#              
+                                          AND X.BELNR > '0000000000'
+                                            <isNotNull col="PSPID">
+											AND X.PSPID = #PSPID#   
+											</isNotNull> 
+											<isNotNull col="ZZPMNUM">
+											AND M2.TEMNO = #ZZPMNUM#
+											</isNotNull>
+											<isNotNull col="ZZACTSS">
+											AND M2.ZZACTSS = #ZZACTSS#
+											</isNotNull>
+											<isNotNull col="ZZLIFNR">
+											AND M2.LIFNR = #ZZLIFNR#      
+											</isNotNull>
+                                        GROUP BY  X.MANDT, X.PSPID, X.POSID ) AS G         
+                                  ON A.MANDT = G.MANDT
+                                 AND A.POSID = G.PSPID
+                                 AND A.POSID_1 = G.POSID  
+                                <isNotNull col="ZZPMNUM">
+                                 AND A.TEMNO = #ZZPMNUM#
+                               </isNotNull>
+                     LEFT OUTER JOIN SAPHEE.ZPST0002 AS D
+                       ON A.MANDT = D.MANDT
+                      AND A.LIFNR = D.LIFNR
+                      AND A.TEMNO2 = D.TEMNO
+                     
+                     LEFT OUTER JOIN SAPHEE.ZPST0112C AS F
+                       ON A.MANDT = F.MANDT
+                      AND A.POSID = F.PSPID
+                      AND A.POSID_1 = F.POSID
+       
+               WHERE A.MANDT = #G_MANDT#
+            
+                 -----------------------------------------------------  
+                 -- BY ISH 아래 조건의 수정          
+                 -----------------------------------------------------                  
+                 -- AND length(A.LIFNR) > 0 
+                 -- AND length(A.TEMNO2) > 0
+                 AND A.LIFNR  > '' -- AND A.LIFNR IS NOT NULL)
+                 AND A.TEMNO2 > '' -- AND A.LIFNR IS NOT NULL)
+                 -----------------------------------------------------   
+                 
+               -----------------------------------------------------
+               -- BY ISH 아래 조건의 위치 이동
+               -----------------------------------------------------
+               <isNotNull col="ZZACTSS">
+                 AND A.ZZACTSS = #ZZACTSS#
+               </isNotNull>
+               <isNotNull col="ZZLIFNR">
+                 AND A.LIFNR = #ZZLIFNR#      
+               </isNotNull>                        
+               -----------------------------------------------------   
+    
+                 AND A.ZZGUBUN BETWEEN '10' AND '14' 
+                 AND A.PRART IN ('01', '02', '11') 
+                 --AND A.ZZCHAKG = 'X'
+                 AND (A.ZZCHAKG = 'X' OR F.POSID IS NOT NULL) 
+				 --AND (A.ZBOSUOUT <![CDATA[>=]]> HEX(CURRENT DATE - 14 DAYS) OR (A.ZBOSUOUT = '' OR A.ZBOSUOUT = '00000000'))
+                 -----------------------------------------------------  
+                 -- BY ISH 아래 조건의 수정          
+                 -----------------------------------------------------                  
+                 --AND A.TXT04  NOT IN ('C')  
+                 --AND D.DELEF NOT IN ('X')  
+                 AND A.TXT04  &lt;&gt; 'C'
+                 --AND D.DELEF  &lt;&gt; 'X'  
+                 ----------------------------------------------------- 
+                 
+                    
+                 AND NOT EXISTS (SELECT *
+                                   FROM SAPHEE.ZPSTW0302 AS ST2
+                                  WHERE ST2.MANDT  = A.MANDT
+                                    AND ST2.PSPID  = A.POSID
+                                    AND ST2.POSID  = A.POSID_1
+                                    AND ST2.INP_DT = #INP_DTF#  ) 
+                                 
+               UNION ALL 
+               
+              SELECT 'I' AS CHK, ST2.MANDT, ST2.PSPID, ST2.POSID, ST2.INP_DT, '' AS DELEF
+                FROM SAPHEE.ZPSTW0302 AS ST2
+                INNER JOIN SAPHEE.ZMASTER02 AS M2
+                        ON M2.MANDT = ST2.MANDT
+                       AND M2.POSID = ST2.PSPID
+                       AND M2.POSID_1 = ST2.POSID                               
+               WHERE ST2.MANDT  = #G_MANDT#                                     
+                 AND ST2.INP_DT = #INP_DTF#
+                 --AND (M2.ZBOSUOUT <![CDATA[>=]]> HEX(CURRENT DATE - 14 DAYS) OR (M2.ZBOSUOUT = '' OR M2.ZBOSUOUT = '00000000'))
+                <isNotNull col="PSPID">
+				AND ST2.PSPID = #PSPID#   
+				</isNotNull> 
+				<isNotNull col="ZZPMNUM">
+				AND M2.TEMNO = #ZZPMNUM#
+				</isNotNull>
+				<isNotNull col="ZZACTSS">
+				AND M2.ZZACTSS = #ZZACTSS#
+				</isNotNull>
+				<isNotNull col="ZZLIFNR">
+				AND M2.LIFNR = #ZZLIFNR#      
+				</isNotNull>                              
+               GROUP BY ST2.MANDT, ST2.PSPID, ST2.POSID, ST2.INP_DT
+       ) AS  T               
+
+        WHERE T.MANDT = #G_MANDT#
+       <isNotNull col="PSPID">
+          AND T.PSPID = #PSPID#   
+       </isNotNull>    
+       ) AS T3 
+  -----------------------------------------------------
+  -- BY ISH 집계 테이블로 대체
+  -----------------------------------------------------
+  LEFT OUTER JOIN (              
+                  SELECT Z.MANDT, Z.PSPID, Z.POSID, 
+                         MAX(Z.PRO_SUM) PRO_R
+                    FROM SAPHEE.ZPSTW0304_TOT3 AS Z
+                   INNER JOIN SAPHEE.ZMASTER02 AS M2
+                           ON M2.MANDT = Z.MANDT
+                          AND M2.POSID = Z.PSPID
+                          AND M2.POSID_1 = Z.POSID
+                   WHERE Z.MANDT =  #G_MANDT#
+                     AND Z.INP_DT <![CDATA[<=]]> #INP_DTF#
+                     <isNotNull col="PSPID">
+					AND Z.PSPID = #PSPID#   
+					</isNotNull> 
+					<isNotNull col="ZZPMNUM">
+					AND M2.TEMNO = #ZZPMNUM#
+					</isNotNull>
+					<isNotNull col="ZZACTSS">
+					AND M2.ZZACTSS = #ZZACTSS#
+					</isNotNull>
+					<isNotNull col="ZZLIFNR">
+					AND M2.LIFNR = #ZZLIFNR#      
+					</isNotNull>    
+                   GROUP BY Z.MANDT, Z.PSPID, Z.POSID  
+                   ) AS T4
+               ON T3.MANDT  = T4.MANDT
+              AND T3.PSPID  = T4.PSPID
+              AND T3.POSID  = T4.POSID
+  -----------------------------------------------------
+
+  INNER JOIN SAPHEE.ZMASTER02 AS B
+     ON T3.MANDT = B.MANDT
+    AND T3.PSPID  = B.POSID
+    AND T3.POSID = B.POSID_1
+  <isNotNull col="ZZPMNUM">
+    AND B.TEMNO = #ZZPMNUM#
+  </isNotNull>
+  <isNotNull col="ZZACTSS">
+    AND B.ZZACTSS = #ZZACTSS#
+  </isNotNull>
+  <isNotNull col="ZZLIFNR">
+    AND B.LIFNR = #ZZLIFNR#      
+  </isNotNull>    
+       
+  INNER JOIN SAPHEE.ZMASTER01 AS G
+     ON T3.MANDT = G.MANDT
+    AND T3.PSPID   = G.POSID
+   
+  LEFT OUTER JOIN SAPHEE.LFA1 AS E
+    ON B.MANDT = E.MANDT
+   AND B.LIFNR = E.LIFNR
+    
+  LEFT OUTER JOIN SAPHEE.ZPSTW0308 AS F
+    ON T3.MANDT = F.MANDT
+   AND T3.PSPID  = F.PSPID
+   AND T3.POSID = F.POSID
+   AND F.APPR_DT =  #INP_DTF#     
+  LEFT OUTER JOIN
+  (
+
+  		SELECT F.PSPID, F.POSID, SUM(F.PRO_R) AS PRO_R, MAX(F.APPR_DT) AS APPR_DT
+ 		  FROM SAPHEE.ZPSTW0308 AS F
+ 		  INNER JOIN SAPHEE.ZMASTER02 AS M2
+ 		          ON M2.MANDT = F.MANDT
+ 		         AND M2.POSID = F.PSPID
+ 		         AND M2.POSID_1 = F.POSID
+ 		 WHERE F.MANDT = #G_MANDT#
+ 		   AND F.APPR_DT <![CDATA[<=]]> #INP_DTF#
+ 		   <isNotNull col="PSPID">
+			AND F.PSPID = #PSPID#   
+			</isNotNull> 
+			<isNotNull col="ZZPMNUM">
+			AND M2.TEMNO = #ZZPMNUM#
+			</isNotNull>
+			<isNotNull col="ZZACTSS">
+			AND M2.ZZACTSS = #ZZACTSS#
+			</isNotNull>
+			<isNotNull col="ZZLIFNR">
+			AND M2.LIFNR = #ZZLIFNR#      
+			</isNotNull>
+		 GROUP BY F.PSPID, F.POSID
+
+  ) AS F2
+    ON T3.PSPID = F2.PSPID
+   AND T3.POSID = F2.POSID   
+  LEFT OUTER JOIN SAPHEE.ZPSTW1502 AS H
+    ON T3.MANDT  = H.MANDT
+   AND T3.PSPID    = H.PSPID
+   AND T3.POSID = H.POSID
+  LEFT OUTER JOIN (
+  		SELECT PS116.PSPID, PS116.POSID, ROUND(SUM(PS116.PRO_R),2) PRO_R
+        FROM  SAPHEE.ZPST0116 PS116
+             ,SAPHEE.ZPST0116A PS116A
+        WHERE PS116.MANDT = PS116A.MANDT
+        AND   PS116.PSPID = PS116A.PSPID
+        AND   PS116.POSID = PS116A.POSID
+        AND   PS116.SEQNO = PS116A.SEQNO
+        AND   PS116.MANDT = #G_MANDT#
+        AND   PS116A.GUBUN = '5'
+        AND   PS116A.STATE = 'Y'
+        AND   PS116.BELNR > ' '
+        
+       GROUP BY PS116.PSPID, PS116.POSID
+   ) AS PS116
+    ON T3.PSPID = PS116.PSPID
+   AND T3.POSID = PS116.POSID
+
+  WHERE 1=1
+  <isNotEqual col="COMP_SHOW_YN" value="1">
+	 AND T3.SUM_PRO_R BETWEEN 0 AND 99.9
+  </isNotEqual>
+
+  ORDER BY T3.PSPID, T3.POSID
+FOR FETCH ONLY
+WITH UR </statement>
+  <input default-name="ds_cond">
+  </input>
+  <output default-name="ds_list1">
+  </output>
+</query>

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[원 WBS검색-유상보수]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT 
+   UPN
+ , CST
+ , SPT
+ , MAX(NAM) AS NAM
+ , PSPID
+ , SAPHEE.GET_VENDER_NAME(MANDT, MAX(BSU)) AS BSU
+ , SAPHEE.GET_BOSU_INWON(MANDT, MAX(BPM)) AS BPM
+FROM (
+ SELECT
+   CS126.MANDT AS MANDT 
+ , CS126.CS126_UPN AS UPN       -- 통함 Proj.
+ , CS126.CS126_CST AS CST          -- 거래선
+ , CS121.CS121_SPT AS SPT							-- 현장명
+ , CS121.CS121_NAM AS NAM                          -- 고객명
+ , CS126.CS126_GNO AS PSPID                          -- 원WBS
+ , CS111.BSU AS BSU
+ , CS111.BPM AS BPM
+ , '' AS STATUS
+FROM SAPHEE.ZCST126 AS CS126
+    LEFT OUTER JOIN SAPHEE.ZCST121 AS CS121 ON CS126.MANDT=CS121.MANDT
+	 AND CS126.CS126_UPN = CS121.CS121_UPN
+	 AND CS126.CS126_CST = CS121.CS121_CST
+    LEFT OUTER JOIN SAPHEE.ZCST122 AS CS122 ON CS126.MANDT=CS122.MANDT
+	 AND CS126.CS126_UPN = CS122.CS122_UPN
+	 AND CS126.CS126_CST = CS122.CS122_CST
+	,SAPHEE.ZCST111 AS CS111	
+WHERE CS126.MANDT = #G_MANDT#
+  AND CS126.MANDT = CS111.MANDT						
+  AND CS122.CS122_PJT = CS111.PJT
+  AND CS122.CS122_HNO = CS111.HNO
+<isNotNull col="UPN">
+  AND CS126.CS126_UPN LIKE '%'||#UPN#||'%' 
+</isNotNull>
+<isNotNull col="SPT">
+  AND (CS121.CS121_SPT LIKE '%'||#SPT#||'%'  OR CS121.CS121_NAM LIKE '%'||#SPT#||'%' )
+</isNotNull>
+<isEqual col="USER_GROUP" value="10">
+  AND CS111.BSU = #G_VEND_CODE_R#
+</isEqual>
+<isEqual col="USER_GROUP" value="20">
+  AND CS111.BPM = #G_USER_ID#  
+</isEqual>
+<isEqual col="USER_GROUP" value="30">
+  AND CS111.ARA = #G_AREA_CODE#  
+</isEqual>
+ AND CS126.CS126_GNO > ''
+) AS CS126A
+WHERE 1=1
+GROUP BY MANDT,UPN,CST,SPT,PSPID 
+ORDER BY UPN,CST,SPT,PSPID
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

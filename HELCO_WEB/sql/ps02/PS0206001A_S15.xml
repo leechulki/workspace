@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT T1.LIFNR, T1.LIFNR_NM, T1.PERNO , T1.NAMEE , T1.ZZACTSS , T1.ZZACTSS_NM, T1.POSIT, T1.POSID_NM,
+             T6.INP_DT,T6.BIGO,CHAR(ROWNUMBER() OVER(PARTITION BY T1.LIFNR)) AS CNT2,
+             T2.ZSITE_NM, T3.TYPE, T1.PRONR ,
+	CASE WHEN T1.POSID_NM IS NULL AND (T6.SAYU  = '' OR T6.SAYU IS NULL)  THEN '미입력 인원' 
+	          WHEN T6.SAYU = 'A'  THEN  '병가/휴직'
+	          WHEN T6.SAYU = 'B' THEN  '휴가'
+	          WHEN T6.SAYU = 'C' THEN  '퇴사예정'
+	          WHEN T6.SAYU = 'D' THEN  '타사설치'
+	          WHEN T6.SAYU = 'G' THEN  '물량배정없음'
+	          WHEN T6.SAYU = 'I'  THEN  '당사타지역지원'
+	          WHEN T6.SAYU = 'E' THEN  '하자보수'
+	          WHEN T6.SAYU = 'J' THEN  '착공전 현장답사'
+	          WHEN T6.SAYU = 'K' THEN  '외주작업'
+	          WHEN T6.SAYU = 'F' THEN  '교육'
+	          WHEN T6.SAYU = 'H' THEN  '사무실근무'  
+                       
+                        ELSE T5.PROWRK END AS SAYOO, T6.SAYU, T6.MH, T1.ROWNUM, PS.CNT, 
+              CASE WHEN (T6.MH = '1.0' OR T6.SAYU = 'I' OR T6.SAYU = 'E' OR T6.SAYU = 'J' OR T6.SAYU = 'K' OR T6.SAYU = 'F' OR T6.SAYU = 'H' OR T6.MH = '0.5' )  AND T1.ROWNUM = '1'   THEN 'V' ELSE '' END MH1,
+	CASE WHEN (T6.SAYU = 'I' OR T6.SAYU = 'E' OR T6.SAYU = 'J' OR T6.SAYU = 'K' OR T6.SAYU = 'F' OR T6.SAYU = 'H'OR T1.ROWNUM = '2' OR PS.CNT = '1') AND T6.MH = '1.0' THEN 'V' ELSE '' END MH2
+              
+			  
+FROM 
+( 
+SELECT A.MANDT ,A.LIFNR, F.NAME1 AS LIFNR_NM , A.PERNO, A.NAMEE , A.ACTSS AS ZZACTSS ,  
+               PS.ACTSS_NM AS ZZACTSS_NM, 		  T.INP_DT, 
+               CASE WHEN A.POSIT = 'X' THEN '팀장' ELSE '사원' END POSIT  , VALUE(T.POSID,'') AS POSID_NM  , T.PRONR,
+               CHAR(ROWNUMBER() OVER(PARTITION BY A.PERNO)) AS ROWNUM
+               
+  FROM SAPHEE.ZPST0001 AS A
+  LEFT OUTER  JOIN SAPHEE.ZPSTW0205 AS T
+    ON T.MANDT = A.MANDT  
+	AND T.INP_DT =#INP_DT#
+	AND T.LIFNR = A.LIFNR  
+              AND (T.PERNO0 = A.PERNO OR T.PERNO1 = A.PERNO OR T.PERNO2 =A.PERNO OR T.PERNO3 = A.PERNO OR T.PERNO4 = A.PERNO OR T.PERNO5 = A.PERNO OR T.PERNO6 = A.PERNO OR T.PERNO7 = A.PERNO OR T.PERNO8 = A.PERNO OR T.PERNO9 = A.PERNO OR T.PERNO10 = A.PERNO)
+  
+    LEFT OUTER JOIN SAPHEE.ZPST0000 AS PS
+	   ON PS.MANDT = A.MANDT
+	  AND PS.ACTSS = A.ACTSS
+	  
+    LEFT OUTER JOIN SAPHEE.LFA1 AS F 
+                  ON F.MANDT = A.MANDT
+ 	  AND F.LIFNR = A.LIFNR
+	
+WHERE A.MANDT = #G_MANDT#
+    AND A.LIFNR   = #LIFNR#
+    AND A.RETIF <> 'X'
+    AND (A.POSIE  = 'X' OR A.POSIT = 'X')
+    AND A.GUBUN IN ('01', '02')
+    AND A.DIRECT = 'X'
+    AND A.ACTSS NOT IN ('00', '15', '16')
+    AND A.GBN = 'A'
+	
+) AS T1		
+   LEFT OUTER JOIN SAPHEE.ZMASTER01 AS T2 ON T1.MANDT = T2.MANDT AND SUBSTR(T1.POSID_NM,1,6) = T2.POSID
+   LEFT OUTER JOIN SAPHEE.ZMASTER02 AS T3 ON T1.MANDT = T3.MANDT AND SUBSTR(T1.POSID_NM,1,6) = T3.POSID AND T1.POSID_NM = T3.POSID_1
+   LEFT OUTER JOIN SAPHEE.ZPSTW0206 AS T6 ON T6.MANDT = T1.MANDT AND T6.LIFNR = T1.LIFNR AND T6.INP_DT = #INP_DT#  AND T1.PERNO = T6.PERNO
+   LEFT OUTER JOIN SAPHEE.ZPST0111 AS  T5 ON T3.MANDT = T5.MANDT AND T3.TYPE = T5.TYPE AND T1.PRONR = T5.PRONR
+   LEFT OUTER JOIN (
+                                SELECT COUNT(*) AS CNT, Z.PERNO, Z.LIFNR ,Z.MANDT
+                                   FROM 
+                               (SELECT A.MANDT,A.PERNO ,A.LIFNR
+                                    FROM SAPHEE.ZPST0001 AS A
+                                     LEFT OUTER  JOIN SAPHEE.ZPSTW0205 AS T
+                                        ON T.MANDT = A.MANDT  
+	                         AND T.INP_DT =#INP_DT#
+	                         AND T.LIFNR = A.LIFNR  
+                                       AND (T.PERNO0 = A.PERNO OR T.PERNO1 = A.PERNO OR T.PERNO2 =A.PERNO OR T.PERNO3 = A.PERNO OR T.PERNO4 = A.PERNO OR T.PERNO5 = A.PERNO OR T.PERNO6 = A.PERNO OR T.PERNO7 = A.PERNO OR T.PERNO8 = A.PERNO OR T.PERNO9 = A.PERNO OR T.PERNO10 = A.PERNO)
+	
+                                  WHERE A.MANDT = #G_MANDT#
+                                       AND A.LIFNR   = #LIFNR#
+                                       AND A.RETIF <> 'X'
+                                       AND (A.POSIE  = 'X' OR A.POSIT = 'X')
+                                       AND A.GUBUN IN ('01', '02')
+                                       AND A.ACTSS NOT IN ('00', '15', '16')
+                                       AND A.GBN = 'A'
+	) AS Z
+	
+        WHERE Z.MANDT = #G_MANDT#
+        GROUP BY Z.PERNO ,Z.LIFNR , Z.MANDT
+        ) AS PS
+     ON T1.MANDT = PS.MANDT
+    AND T1.LIFNR = PS.LIFNR
+    AND T1.PERNO = PS.PERNO	]]></statement>
+	<input default-name="ds_cond_p">
+	</input>
+	<output default-name="ds_list_p">
+	</output>
+</query>

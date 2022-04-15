@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.ses.dao.Ses0082D"> 
+
+	<resultMap id="selectListDetailMap" type="hdel.sd.ses.domain.Ses0082"> 
+	    <result property="mandt" column="MANDT"/>
+	    <result property="qtnum" column="QTNUM"/>
+	    <result property="qtser" column="QTSER"/>
+	    <result property="spart" column="SPART"/>
+	    <result property="zkunnr" column="ZKUNNR"/>
+	    <result property="zkunnr_nm" column="ZKUNNR_NM"/>
+	    <result property="zdev" column="ZDEV"/>
+	    <result property="zgnm" column="ZGNM"/>
+	    <result property="gsnam" column="GSNAM"/>
+	    <result property="zcid" column="ZCID"/>
+	    <result property="zpid" column="ZPID"/>
+	    <result property="ztel" column="ZTEL"/>
+	    <result property="zaddr_adr1" column="ZADDR_ADR1"/>
+	    <result property="zaddr_adr2" column="ZADDR_ADR2"/>
+	    <result property="zrqseq" column="ZRQSEQ"/>
+	    <result property="zapflg" column="ZAPFLG"/>
+	    <result property="zprgflg" column="ZPRGFLG"/>
+	    <result property="maxqtser_zprgflg" column="MAXQTSER_ZPRGFLG"/>
+	    <result property="zrtrsn" column="ZRTRSN"/>
+	    <result property="zrqdat" column="ZRQDAT"/>
+	    <result property="zrqcn" column="ZRQCN"/>
+	    <result property="uuser" column="UUSER"/>
+	    <result property="qtgbn" column="QTGBN"/>
+	</resultMap>
+	
+	<select id="selectListDetail" parameterType="hdel.sd.ses.domain.Ses0082ParamVO" resultMap="selectListDetailMap">
+		SELECT ZSDT1046.MANDT
+			  ,ZSDT1046.QTNUM
+			  ,ZSDT1046.QTSER	  		  
+			  ,ZSDT1046.SPART   	
+			  ,ZSDT1046.ZKUNNR
+			  ,KNA1.NAME1 AS ZKUNNR_NM	      
+			  ,ZSDT1046.ZDEV 		     
+			  ,ZSDT1046.ZGNM 		  
+			  ,ZSDT1046.GSNAM 		        
+			  ,ZSDT1046.ZPID 				   
+			  ,ZSDT1046.ZTEL 		
+			  ,ZSDT1046.ZADDR_ADR1		
+			  ,ZSDT1046.ZADDR_ADR2		
+			  ,ZSDT1046.ZPRGFLG
+			  ,(SELECT ZPRGFLG FROM SAPHEE.ZSDT1046 WHERE MANDT = '183' AND QTNUM = ZSDT1057.QTNUM ORDER BY QTSER DESC FETCH FIRST 1 ROW ONLY) AS MAXQTSER_ZPRGFLG -- 최종차수 진행상태 쿼리 개선 2021.07.20.
+			  ,ZSDT1057.ZAPFLG
+			  ,ZSDT1057.ZAPDAT
+			  ,ZSDT1057.ZRQSEQ
+			  ,ZSDT1057.ZRQCN 
+			  ,ZSDT1057.ZRTRSN
+			  ,ZSDT1057.UUSER
+			  ,CASE WHEN ZSDT1046.QTGBN = 'A' THEN '실행가' WHEN ZSDT1046.QTGBN = 'B' THEN '예산가' END QTGBN  --견적구분
+			  ,CASE WHEN ZSDT1046.JGBN = 'A' THEN '유' END AS JGBN --주차설비유무    
+		FROM SAPHEE.ZSDT1057  AS ZSDT1057
+		     INNER JOIN SAPHEE.ZSDT1046 AS ZSDT1046
+			 	ON ZSDT1057.MANDT = ZSDT1046.MANDT			 	
+			   AND ZSDT1057.QTNUM = ZSDT1046.QTNUM
+			   AND ZSDT1057.QTSER = ZSDT1046.QTSER
+			 INNER JOIN SAPHEE.KNA1 AS KNA1
+			    ON ZSDT1046.MANDT = KNA1.MANDT
+			   AND ZSDT1046.ZKUNNR = KNA1.KUNNR
+   		WHERE ZSDT1057.MANDT = #{mandt}
+	    AND ZSDT1057.ZAPFLG IN ('10', '20', '30', '40')
+	    AND ZSDT1057.ZRQFLG = '1'
+		<!-- AND (
+			  ZSDT1046.ZDEV LIKE #{zdev}||'%' OR
+			  ZSDT1046.ZGNM LIKE #{zgnm}||'%' OR
+			  ZSDT1046.GSNAM LIKE #{gsnam}||'%' OR
+			  ZSDT1046.ZTEL LIKE #{ztel}||'%'
+			) -->
+		AND REPLACE(ZSDT1046.ZADDR_ADR1||ZSDT1046.ZADDR_ADR2,' ','') LIKE #{zaddr_adr1}||'%'
+		WITH UR
+	</select>
+	
+	
+	<update id="updateZSDT1057" parameterType="hdel.sd.ses.domain.Ses0082">
+		UPDATE SAPHEE.ZSDT1057
+		   SET ZAPFLG = #{zapflg}  
+		      ,ZAPDAT = HEX(CURRENT DATE)
+		<if test="zrtrsn !=null and zrtrsn !=''"> , ZRTRSN = #{zrtrsn} </if>
+			  ,UDATE = HEX(CURRENT DATE)
+			  ,UTIME = HEX(CURRENT TIME)
+		<if test="uuser != null">,UUSER = LTRIM(''||RTRIM(#{uuser}||''))    </if>
+		<if test="uuser == null">,UUSER = ''    							</if>
+		  WHERE MANDT  = #{mandt}
+			AND QTNUM  = #{qtnum}
+			AND QTSER  = #{qtser}
+			AND ZRQSEQ = #{zrqseq}
+			AND ZRQFLG = #{zrqflg}
+		WITH UR		  
+	</update>
+	
+	
+	<!-- 견적Header -->	
+	<update id="updateZSDT1046" parameterType="hdel.sd.ses.domain.Ses0082">
+		UPDATE SAPHEE.ZSDT1046
+		   SET ZPRGFLG = #{zprgflg}
+			  ,UDATE = HEX(CURRENT DATE)
+			  ,UTIME = HEX(CURRENT TIME)
+		<if test="uuser != null">,UUSER = LTRIM(''||RTRIM(#{uuser}||''))    	</if>
+		<if test="uuser == null">,UUSER = ''    								</if>
+		 WHERE MANDT = #{mandt}
+		   AND QTNUM = #{qtnum}
+		   AND QTSER = #{qtser}
+		WITH UR			  
+	</update>
+</mapper>  

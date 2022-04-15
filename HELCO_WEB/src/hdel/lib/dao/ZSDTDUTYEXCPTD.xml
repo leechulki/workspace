@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.lib.dao.ZSDTDUTYEXCPTD"> 
+	<resultMap id="selectMap" type="hdel.lib.domain.ZSDTDUTYEXCPT">
+		<id property="mandt" column="mandt"/>
+		<id property="ordno" column="ordno"/>
+		<id property="ordseq" column="ordseq"/>
+		<association property="tstmp" javaType="hdel.lib.domain.ZBCS_TIMESTAMP" resultMap="hdel.lib.dao.ZBCS_TIMESTAMP.TimeStampMap"/>
+	</resultMap>
+
+	<select id="select" parameterType="map" resultMap="selectMap">
+		select *
+		from saphee.zsdtdutyexcpt as dutyexcpt
+		where dutyexcpt.mandt=#{mandt}
+			and dutyexcpt.ordno=#{ordno}
+	</select>
+	<update id="merge" parameterType="hdel.lib.domain.ZSDTDUTYEXCPT">
+		merge into saphee.zsdtdutyexcpt as dutyExcpt
+		using (
+			select * from table(
+				values (#{mandt}, #{ordno}, #{ordseq})
+			) as dutyExcptSet(mandt, ordno, ordseq)
+		) as dutyExcptSet on dutyExcpt.mandt=dutyExcptSet.mandt and dutyExcpt.ordno=dutyExcptSet.ordno and dutyExcpt.ordseq=dutyExcptSet.ordseq
+
+		when matched then
+			update
+			set
+				dutyExcpt.aedat = #{tstmp.aedat},
+				dutyExcpt.aezet = #{tstmp.aezet},
+				dutyExcpt.aenam = #{tstmp.aenam}
+
+		when not matched then
+			insert (mandt, ordno, ordseq, erdat, erzet, ernam, aedat, aezet, aenam)
+			values (dutyExcptSet.mandt, dutyExcptSet.ordno, dutyExcptSet.ordseq, #{tstmp.erdat}, #{tstmp.erzet}, #{tstmp.ernam}, #{tstmp.aedat}, #{tstmp.aezet}, #{tstmp.aenam})
+	</update>
+	<delete id="delete" parameterType="map">
+		delete
+		from saphee.zsdtdutyexcpt
+		where mandt=#{mandt}
+			and ordno=#{ordno}
+			and ordseq=#{ordseq}
+	</delete>
+</mapper>

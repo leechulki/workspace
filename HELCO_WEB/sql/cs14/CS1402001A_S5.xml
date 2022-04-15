@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+       GROUP_ID1,
+       GROUP_NM1,
+       GROUP_ID2,
+       GROUP_NM2,
+       SUM(CASE WHEN A.GBN = '1' THEN B.CNT ELSE 0 END) AS ERR01,
+       SUM(CASE WHEN A.GBN = '2' THEN B.CNT ELSE 0 END) AS ERR02,
+       SUM(CASE WHEN A.GBN = '3' THEN B.CNT ELSE 0 END) AS ERR03,
+       SUM(CASE WHEN A.GBN = '4' THEN B.CNT ELSE 0 END) AS ERR04,
+       0 TOT01,
+       0 TOT02
+  FROM
+       (
+        SELECT
+               CHAR(COLCOUNT) GBN,
+               CASE COLCOUNT
+                    WHEN 1 THEN '실고장'
+                    WHEN 2 THEN '사용자부주의'
+                    WHEN 3 THEN '오신고'
+                    WHEN 4 THEN '미입력'
+                    ELSE CHAR(COLCOUNT)
+               END GBN_NM
+          FROM
+               SYSIBM.SYSTABLES
+         WHERE
+               COLCOUNT IN (1,2,3,4)
+        GROUP BY
+               COLCOUNT
+       ) A,
+       (
+        SELECT
+               GROUP_ID1,
+               GROUP_NM1,
+               GROUP_ID2,
+               GROUP_NM2,
+               ERR_ID,
+               ERR_NM,
+               SUM(CNT) AS CNT
+          FROM 
+               (
+                SELECT
+                       A.AREA_CD AS GROUP_ID1,
+                       FN_CODEBOOK('CST115',A.AREA_CD) AS GROUP_NM1,
+                       A.PTNR_CD AS GROUP_ID2,
+                       MAX(VALUE(G.PTNR_NM,'')) AS GROUP_NM2,
+                       CASE 
+                            WHEN C.BKDN_CAU_CD IS NULL OR C.BKDN_CAU_CD = '' THEN '4'
+                            WHEN VALUE(E.ETC_1,'') = 'AS' THEN '1'
+                            WHEN VALUE(E.ETC_1,'') = 'UserMiss' THEN '2'
+                            ELSE C.BKDN_CAU_CD
+                       END AS ERR_ID,
+                       CASE 
+                            WHEN C.BKDN_CAU_CD IS NULL OR C.BKDN_CAU_CD = '' THEN '미입력' 
+                            ELSE
+                                 CASE 
+                                      WHEN 'C.BKDN_CAU_CD' = 'SUBSTR(BKDN_LOC_CD,1,4)' THEN FN_CODEBOOK('020000',C.BKDN_CAU_CD || '00')
+                                      ELSE FN_CODEBOOK('020000',C.BKDN_CAU_CD) 
+                                 END
+                       END AS ERR_NM,
+                       COUNT(*) AS CNT
+                  FROM 
+                       HCSADM.UC_ASS_BASE AS A
+                              LEFT OUTER JOIN HCSADM.SAP_PTNR AS G ON A.PTNR_CD = G.PTNR_CD,
+                       HCSADM.UC_ASS_PROC_HIST AS B,
+                       HCSADM.UC_ASS_FIN_RPT AS C
+                              LEFT OUTER JOIN HCSADM.UC_SYS_CODEBOOK AS E ON C.BKDN_CAU_CD = E.CD
+                                                                         AND E.LCD = '020000',
+                       HCSADM.UC_SYS_USER AS D
+                 WHERE 
+                       A.ACPT_NO = B.ACPT_NO
+                   AND B.ACPT_NO = C.ACPT_NO
+                   AND B.PROC_EGNR_USER_ID = C.PROC_USER_ID
+                   AND C.PROC_USER_ID = D.USER_ID
+                   AND A.PROC_TC NOT IN ('07006','07007')
+                   AND SUBSTR(A.ACPT_DATE,1,6) = #YYMM#
+                   AND G.PTNR_TC = '1'
+                GROUP BY 
+                       A.AREA_CD,
+                       A.PTNR_CD,
+                       C.BKDN_CAU_CD,
+                       VALUE(E.ETC_1,'')
+               ) AS TMP
+        GROUP BY 
+               GROUP_ID1, 
+               GROUP_NM1, 
+               GROUP_ID2, 
+               GROUP_NM2,
+               ERR_ID,
+               ERR_NM
+        
+        UNION ALL
+        
+        SELECT
+               A.AREA_CD AS GROUP_ID1,
+               FN_CODEBOOK('CST115',A.AREA_CD) AS GROUP_NM1,
+               A.PTNR_CD AS GROUP_ID2,
+               MAX(VALUE(G.PTNR_NM,'')) AS GROUP_NM2,
+               CASE A.PROC_TC
+                    WHEN '07006' THEN '3'
+                    WHEN '07007' THEN '3'
+                    ELSE A.PROC_TC
+               END AS ERR_ID,
+               CASE A.PROC_TC
+                    WHEN '07006' THEN '오신고'
+                    WHEN '07007' THEN '자체처리취소'
+                    ELSE A.PROC_TC
+               END AS ERR_NM,
+               COUNT(*) AS CNT
+          FROM 
+               HCSADM.UC_ASS_BASE AS A
+                      LEFT OUTER JOIN HCSADM.SAP_PTNR AS G ON A.PTNR_CD = G.PTNR_CD,
+               HCSADM.UC_ASS_PROC_HIST AS B,
+               HCSADM.UC_ASS_FIN_RPT AS C,
+               HCSADM.UC_SYS_USER AS D
+         WHERE 
+               A.ACPT_NO = B.ACPT_NO
+           AND B.ACPT_NO = C.ACPT_NO
+           AND B.PROC_EGNR_USER_ID = C.PROC_USER_ID
+           AND C.PROC_USER_ID = D.USER_ID
+           AND A.PROC_TC IN ('07006','07007')
+           AND SUBSTR(A.ACPT_DATE,1,6) = #YYMM#
+           AND G.PTNR_TC = '1'
+        GROUP BY 
+               A.AREA_CD,
+               A.PTNR_CD,
+               A.PROC_TC
+        ORDER BY 
+               GROUP_ID1, 
+               GROUP_ID2
+       ) B
+ WHERE
+       A.GBN = B.ERR_ID
+GROUP BY
+       GROUP_ID1,
+       GROUP_NM1,
+       GROUP_ID2,
+       GROUP_NM2
+FOR FETCH ONLY 
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="YYMM" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

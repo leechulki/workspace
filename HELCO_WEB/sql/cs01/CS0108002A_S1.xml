@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[BOM청구 대상조회]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>1</result-count>
+    <statement>
+        SELECT M3.MANDT
+              ,M3.REQNO
+              ,M3.REQNR
+              ,M3.VKGRP || '-' || M3.LGORT1 AS LGORT1
+              ,M3.VKGRP
+              ,M3.UPN
+              ,M3.PS_PSPID
+              ,M3.SPT
+              ,M3.REQDATE
+              ,M3.BUSSI
+              ,M3.REQKIND
+              ,M3.QTNUM
+              ,M3.CREID_N
+              ,M3.POSID2
+              ,M3.PDM_CHK
+              ,M3.ERDAT2
+              ,M3.ERDAT4
+              ,(SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = M3.MANDT AND USERNUMB = M3.ERNAM ) AS ERNAM
+              ,M3.PDM803
+              ,M3.SEQ803
+              ,CASE
+			    	WHEN (M3.MTART = 'ROH' AND M3.ZFPRDATE IS NOT NULL) THEN TO_CHAR((TO_DATE(M3.ZFPRDATE,'YYYYMMDD') + M3.WEBAZ DAYS),'YYYYMMDD')
+					ELSE M3.ILDAT
+				END AS ILDAT -- 출하예정일. ROH(외작) 일 경우 BOM 최종설계일로부터 다품목 청구시 1000번대 플랜트의 자재별 리드타임 일수를 구하여 더한 날짜. 2021.03.26 서비스자재팀 최병준 요청. Han J.H           
+              ,M3.APDAT
+              ,M3.APSTAT5 AS APSTAT5
+              ,M3.DOC5 AS DOC5
+              ,SUBSTR(M3.UPN, 7,3) AS CST
+              ,M3.VKBUR AS VKBUR
+              ,SUBSTR(M3.POSID2,1,6) AS VBELN
+              ,M3.VBELN2 AS VBELN2
+              ,M3.BSTDK
+              ,M3.SPT   AS BSTKD
+              ,M3.RDATE AS VDATU
+              ,M3.KUNNR AS KUNNR
+              ,M3.BSTDK AS CONTR_DA
+              ,CASE WHEN M3.MATNR = 'L' THEN 'L-1000'
+                    WHEN M3.MATNR = 'S' THEN 'S-1000'
+                    WHEN M3.MATNR = 'W' THEN 'W-1000'
+                    WHEN M3.MATNR = 'J' THEN 'J-1000'
+               END AS MATNR
+              ,(SELECT NAME1 FROM SAPHEE.KNA1 WHERE MANDT = M3.MANDT AND KUNNR = (SELECT KUNNR FROM SAPHEE.VBPA WHERE MANDT = M3.MANDT AND VBELN = M3.VBELN2 AND PARVW = 'Z2') ) AS ZMAN_NM
+              ,'' AS ZMAN_NM2
+              ,M3.POSID AS POSID
+              ,M3.CREID AS CREID
+              ,M3.SEQ AS SEQ
+              ,M3.CHK AS CHK
+              ,M3.LGORT AS LGORT
+              ,'' AS CHECK
+              ,'' AS FLAG
+              ,M3.RECE_F AS RECE_F
+              ,'' AS GBN
+              ,'' AS ERDAT
+              ,'' AS MESGDESC
+              ,'' AS VBELN2
+              ,'' AS ERPHONE
+              ,(SELECT MAX(TP_STATUS) FROM SAPHEE.ZSDT0005 WHERE MANDT = M3.MANDT AND HOGI = M3.POSID2) AS STATUS
+              ,M3.BILDAT2 AS BILDAT2
+              ,M3.ACTUALM AS ACTUALM
+              ,M3.LAYOUTR AS LAYOUTR
+              ,M3.LAYOUTC AS LAYOUTC
+              ,CASE WHEN M3.PROC > 0 THEN 'Y' ELSE 'N' END AS PROC
+			  ,M3.ZFPRDATE AS BOM_FRST_CHRG -- BOM 최초청구일. 서비스자재팀 최병준 요청. 2021.03.26 Han JH
+			  ,M3.ZEPRDATE AS BOM_LST_CHRG -- BOM 최종청구일. 서비스자재팀 최병준 요청. 2021.03.26 Han JH
+              ,M3.MATRMK AS MATRMK -- 서비스자재팀 출하일자로 사용. 2021.03.26 Han JH
+        FROM  (
+              SELECT X.MANDT
+                    ,X.REQNO
+                    ,X.REQNR
+                    ,X.LGORT
+                    ,SAPHEE.GET_VENDER_NAME(X.MANDT, X.LGORT) AS LGORT1
+                    ,VALUE(SAPHEE.CODE_CONV(X.MANDT, 'VKGRP', Y.VKGRP), '') AS VKGRP
+                    ,VALUE(SAPHEE.CODE_CONV(X.MANDT, 'VKBUR', Y.VKBUR), '') AS VKBUR
+                    ,Y.MA_PSPID AS UPN
+                    ,Y.PS_PSPID
+                    ,CASE WHEN LENGTH(Y.MA_PSPID) > 6 THEN
+                           (SELECT CS121_SPT FROM SAPHEE.ZCST121 WHERE MANDT = X.MANDT AND CS121_UPN = SUBSTR(Y.MA_PSPID,1,6) AND CS121_CST = SUBSTR(Y.MA_PSPID,7,3))
+                          ELSE
+                           (SELECT CS121_NAM FROM SAPHEE.ZCST121 WHERE MANDT = X.MANDT AND CS121_UPN = SUBSTR(Z.HOGI_ID,1,6) AND CS121_CST = '')
+                     END AS SPT
+                    ,X.REQDATE
+                    ,X.BUSSI
+                    ,X.REQKIND
+                    ,X.QTNUM
+                    ,(SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = X.MANDT AND USERNUMB = X.CREID ) AS CREID_N
+                    ,X.CREID
+                    ,Z.PS_PSPID AS POSID2
+                    ,(SELECT MAX(PDM_CHK) FROM SAPHEE.ZCST802 WHERE  MANDT = X.MANDT AND POSID = Z.PS_PSPID) AS PDM_CHK
+                    ,(SELECT MIN(CR_DATE) FROM SAPHEE.ZSDT0005 WHERE MANDT = X.MANDT AND HOGI = Z.PS_PSPID) AS ERDAT2
+                    ,(SELECT MAX(CR_DATE) FROM SAPHEE.ZSDT0005 WHERE MANDT = X.MANDT AND HOGI = Z.PS_PSPID) AS ERDAT4
+                    ,(SELECT MAX(ERNAM) FROM SAPHEE.ZSDT0005 WHERE MANDT = X.MANDT AND HOGI = Z.PS_PSPID) AS ERNAM
+                    ,CASE WHEN (SELECT COUNT(*) FROM SAPHEE.ZCST803 WHERE MANDT = X.MANDT AND POSID = Z.PS_PSPID AND PDM_CHK = '') > 0 THEN 'Y' ELSE 'N' END PDM803
+                    ,(SELECT VALUE(MAX(SEQ),'') FROM SAPHEE.ZCST803 WHERE MANDT = X.MANDT AND POSID = Z.PS_PSPID) SEQ803
+                    --,(SELECT VALUE(ILDAT,'') FROM SAPHEE.ZPPT027 WHERE MANDT = X.MANDT AND POSID = Z.PS_PSPID AND BLOCK = 'A' AND ACTIV = '05' AND GUBUN = '01') ILDAT
+                    ,(SELECT MAX(VALUE(ZZSHIP1,'')) FROM SAPHEE.PRPS WHERE MANDT = #G_MANDT# AND POSID = Z.PS_PSPID WITH UR) AS ILDAT -- 2021.06.10 출하예정일의 경우 CJ20N-기계실 항목의 값을 보여주기로 함.서비스자재팀 최병준 요청. J.H Han
+                    ,X.APDAT AS APDAT
+                    ,(SELECT BSTDK FROM SAPHEE.VBAK WHERE MANDT = X.MANDT AND ZZPJT_ID = Z.PS_PSPID AND VBELN = Y.VBELN) AS BSTDK
+                    ,(SELECT KUNNR FROM SAPHEE.ZCST121 WHERE MANDT = X.MANDT AND CS121_UPN = SUBSTR(Y.MA_PSPID,1,6) AND CS121_CST = SUBSTR(Y.MA_PSPID,7,3)) AS KUNNR
+                    ,(SELECT MAX(CHK) FROM SAPHEE.ZCST802 WHERE  MANDT = X.MANDT AND POSID = Z.PS_PSPID) AS CHK
+                    ,R.APSTAT AS APSTAT5
+                    ,X.SEQNO
+                    ,X.SEQ
+                    ,X.RDATE
+                    ,Y.BILDAT2
+                    ,Y.VBELN AS VBELN2
+                    ,Y.DOC5
+                    ,Z.HOGI_ID AS POSID
+                    ,SUBSTR(Z.HOGI_ID,7,1) AS MATNR
+                    ,X.RECE_F
+                    ,X.DIV||Z.PS_PSPID AS DIV_PS_PSPID
+                    ,X.ACTUALM AS ACTUALM
+                    ,X.LAYOUTR AS LAYOUTR
+                    ,X.LAYOUTC AS LAYOUTC
+                    ,(SELECT COUNT(*) FROM SAPHEE.ZCST414 WHERE MANDT = #G_MANDT# AND WBS = Y.PS_PSPID) PROC
+					,(SELECT MIN(CRDAT) FROM SAPHEE.ZPPT004 WHERE MANDT = #G_MANDT# AND WOKNUM = Z.PS_PSPID WITH UR) AS ZFPRDATE -- 2021.06.08 최병준 요구사항 변경.(기존 : 수리부품 수주잔고 관리 최초 청구일 / 변경 : PDM에서 생산으로 인터페이스된 데이터에 대한 Min 값)
+					,(SELECT MAX(CRDAT) FROM SAPHEE.ZPPT004 WHERE MANDT = #G_MANDT# AND WOKNUM = Z.PS_PSPID WITH UR) AS ZEPRDATE -- 2021.06.08 최병준 요구사항 변경.(기존 : 수리부품 수주잔고 관리 최종 청구일 / 변경 : PDM에서 생산으로 인터페이스된 데이터에 대한 Max 값)
+                    ,(
+                       SELECT
+                             CASE
+                                 WHEN (MIN(B.MTART) = MAX(B.MTART) AND MAX(B.MTART) = 'ROH') THEN 'ROH'
+                                 ELSE ''
+                             END
+                       FROM SAPHEE.ZPPT004 A
+                                LEFT OUTER JOIN SAPHEE.ZMMT011 B
+                                                ON A.MANDT = B.MANDT AND A.IDNRK = B.MATNR
+                       WHERE A.MANDT = #G_MANDT#
+                         AND A.WOKNUM = Z.PS_PSPID
+                       WITH UR
+                      ) AS MTART
+ 					--,X.WEBAZ AS WEBAZ
+                    ,(SELECT MATRMK FROM SAPHEE.ZCST001 WHERE MANDT = #G_MANDT# AND QTNUM = X.QTNUM AND SEQ = X.SEQ WITH UR) AS MATRMK
+                    , (
+                       SELECT MAX(B.WEBAZ) AS WEBAZ
+                       FROM SAPHEE.ZPPT004 A
+                                LEFT OUTER JOIN SAPHEE.MARC B
+                                                ON A.MANDT = B.MANDT AND A.IDNRK = B.MATNR AND B.WERKS = '1000'
+                       WHERE A.MANDT = #G_MANDT#
+                         AND A.WOKNUM = Z.PS_PSPID
+                       WITH UR
+                       ) AS WEBAZ -- 2021.06.10 NB-100에 대한 자재내역의 리드타임을 구해야 한다고 하여 로직 변경. 서비스자재팀 최병준 요청. J.H HAN                                        
+              FROM   (
+                      SELECT A.MANDT
+                            ,A.REQNO
+                            ,MAX(A.REQSN) AS REQSN
+                            ,CASE WHEN (MIN(A.REQKIND) &lt;&gt; MAX(A.REQKIND) AND MAX(A.REQKIND) = '6') THEN MIN(A.REQKIND) ELSE MAX(A.REQKIND) END  AS REQKIND
+                            ,MAX(A.BUSSI) AS BUSSI
+                            ,MAX(A.LGORT) AS LGORT
+                            ,MAX(A.QTNUM) AS QTNUM
+                            ,MAX(A.SEQNO) AS SEQNO
+                            ,MAX(A.SEQ) AS SEQ
+                            ,MAX(A.REQNR) AS REQNR
+                            ,MAX(A.CREID) AS CREID
+                            ,MAX(A.REQDATE) AS REQDATE
+                            ,MAX(A.RDATE) AS RDATE
+                            ,MAX(A.APDAT) AS APDAT
+                            ,MIN(A.RECE_F) AS RECE_F
+                            ,'1' AS DIV
+                            ,MAX(MM124.ACTUALM) AS ACTUALM
+                            ,MAX(MM124.LAYOUTR) AS LAYOUTR
+                            ,MAX(MM124.LAYOUTC) AS LAYOUTC
+                            --,MAX(MC.WEBAZ) AS WEBAZ -- 자재별 리드타임. 2021.03.26 서비스자재팀 최병준 요청. Han J.H
+                            ,'' AS WEBAZ
+                            ,'' AS MATRMK -- 서비스자재팀 출하일자로 사용. 2021.03.26 서비스자재팀 최병준 요청. Han J.H
+                      FROM   SAPHEE.ZMMT031 A
+                             INNER JOIN SAPHEE.ZMMT124 AS MM124 ON MM124.MANDT = A.MANDT
+                                        AND MM124.BOMNUM = A.QTNUM
+                             -- 자재별 리드타임. 2021.03.26 서비스자재팀 최병준 요청. Han J.H
+<!--  							 INNER JOIN SAPHEE.MARC AS MC ON MC.MANDT = A.MANDT -->
+<!--  							 	   		AND MC.MATNR = A.MATNR -->
+<!--  							 	   		AND MC.WERKS = '1000'                    -->
+                      WHERE  A.MANDT = #G_MANDT#
+                        AND  A.REQDATE BETWEEN #REQDATE_FM# AND #REQDATE_TO#
+                        AND  A.REQNR != ''
+                        <isNull col="REQKIND">
+                        AND  A.REQKIND IN ('1', '7', 'S', 'G')
+                        </isNull>
+                        <isNotNull col="REQKIND">
+                        AND A.REQKIND = #REQKIND#
+                        </isNotNull>
+                        <isNull col="BSU">
+                        <isNotNull col="ARA">
+                        AND A.LGORT IN (SELECT LGORT FROM SAPHEE.ZMMT005 AS MM005
+                                           WHERE MM005.MANDT = #G_MANDT#
+                                           AND MM005.REGKZ = #ARA#)
+                        </isNotNull>
+                        <isNotNull col="BPM">
+                        AND A.LGORT IN (SELECT  M005.LGORT
+                                             FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 M005
+                                           WHERE B010.MANDT = M005.MANDT
+                                           AND B010.LIFNR = M005.LIFNR
+                                           AND B010.MANDT = #G_MANDT#
+                                           AND B010.BSU_PM = #BPM#)
+                        </isNotNull>
+                        <isNotNull col="TEM">
+                        AND A.LGORT IN (  SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005, SAPHEE.ZLCODE  ZC
+                                          WHERE B010.MANDT = MM005.MANDT
+                                          AND B010.LIFNR = MM005.LIFNR
+                                          AND B010.MANDT = #G_MANDT#
+                                          AND (B010.VKGRP = #TEM# OR B010.VKGRP_CO = #TEM#)
+                                              )
+                        </isNotNull>
+                        <isNull col="TEM">
+                        <isNotNull col="DPT">
+                        AND A.LGORT IN (  SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005, SAPHEE.ZLCODE  ZC
+                                          WHERE B010.MANDT = MM005.MANDT
+                                          AND B010.LIFNR = MM005.LIFNR
+                                          AND B010.MANDT = #G_MANDT#
+                                          AND ZC.CODE1 = 'VKGRP'
+                                          AND ZC.LANG = 'ko'
+                                          AND ZC.DTEXT1 = #DPT#
+                                          AND B010.VKGRP IN (ZC.CODE2)
+                                            /* 부서 */ )
+                        </isNotNull>
+                        </isNull>
+                        </isNull>
+                        <isNotNull col="BSU">
+                        AND A.LGORT = #BSU#
+                        </isNotNull>
+                        <isNotNull col="QTNUM">
+                        AND A.QTNUM LIKE #QTNUM# ||'%'
+                        </isNotNull>
+                        <isNotNull col="REQNO">
+                        AND A.REQNO = #REQNO#
+                        </isNotNull>
+                        <isNotNull col="REQNR">
+                        AND A.REQNR = #REQNR#
+                        </isNotNull>
+                        <isNotNull col="BUSSI">
+                        AND A.BUSSI = #BUSSI#
+                        </isNotNull>
+                      GROUP BY A.MANDT
+                              ,A.REQNO
+                      UNION ALL
+                      SELECT A.MANDT AS MANDT
+                            ,'' AS REQNO
+                            ,'' AS REQSN
+                            ,MAX(A.REQKIND) AS REQKIND
+                            ,MAX(A.BUSSI) AS BUSSI
+                            ,MAX(A.BSU) AS LGORT
+                            ,A.QTNUM AS QTNUM
+                            ,MAX(C.SEQNO) AS SEQNO
+                            ,MAX(A.SEQ) AS SEQ
+                            ,'' AS REQNR
+                            ,MAX(A.CRNAM) AS CREID
+                            ,MAX(A.CRDAT) AS REQDATE
+                            ,MAX(A.SHDAT) AS RDATE
+                            ,'' AS APDAT
+                            ,'' AS RECE_F
+                            ,'2' AS DIV
+                            ,MAX(MM124.ACTUALM) AS ACTUALM
+                            ,MAX(MM124.LAYOUTR) AS LAYOUTR
+                            ,MAX(MM124.LAYOUTC) AS LAYOUTC
+                            ,'' AS WEBAZ
+                            ,'' AS MATRMK                            
+                      FROM   SAPHEE.ZCST001 A
+                             INNER JOIN SAPHEE.ZMMT124 AS MM124 ON MM124.MANDT = A.MANDT
+                                                     AND MM124.BOMNUM = A.QTNUM
+                                                     AND MM124.CHK = 'Y'
+                             INNER JOIN SAPHEE.ZCST001 B ON B.MANDT = A.MANDT AND B.QTNUM = A.QTNUM AND B.SEQ = A.SEQ
+                             INNER JOIN SAPHEE.ZCST002 C ON C.MANDT = B.MANDT AND C.QTNUM = B.QTNUM AND C.SEQ = B.SEQ
+                             LEFT OUTER JOIN SAPHEE.ZWBT010 AS WB010 ON A.MANDT = WB010.MANDT
+                                                                        AND WB010.LIFNR = A.LIFNR
+                      WHERE  A.MANDT = #G_MANDT#
+                        AND  A.CRDAT BETWEEN #REQDATE_FM# AND #REQDATE_TO#
+                        <isNull col="REQKIND">
+                        AND A.REQKIND IN ('1', '7', 'S', 'G')
+                        </isNull>
+                        <isNotNull col="REQKIND">
+                        AND A.REQKIND = #REQKIND#
+                        </isNotNull>
+                        <isNotNull col="TEM">
+                        AND A.VKGRP = #TEM#
+                        </isNotNull>
+                        <isNull col="TEM">
+                        <isNotNull col="DPT">
+                        AND A.VKGRP IN (SELECT CODE2 AS CODE
+                                           FROM SAPHEE.ZLCODE
+                                          WHERE MANDT = #G_MANDT#
+                                        AND LANG  = #G_LANG#
+                                        AND CODE1 = 'VKGRP'
+                                        AND DTEXT1 = #DPT#)
+                           </isNotNull>
+                           </isNull>
+                           <isNotNull col="QTNUM">
+                        AND A.QTNUM LIKE #QTNUM# ||'%'
+                        </isNotNull>
+                        <isNotNull col="BUSSI">
+                        AND A.BUSSI = #BUSSI#
+                        </isNotNull>
+                        <isNotNull col="ARA">
+                        AND WB010.LGORT IN (SELECT LGORT FROM SAPHEE.ZMMT005 AS MM005
+                                            WHERE MM005.MANDT = #G_MANDT#
+                                            AND MM005.REGKZ = #ARA#)
+                        </isNotNull>
+                        <isNotNull col="BSU">
+                        AND WB010.LGORT = #BSU#
+                        </isNotNull>
+                        <isNotNull col="BPM">
+                        AND WB010.BSU_PM = #BPM#
+                        </isNotNull>
+                        GROUP BY A.MANDT
+                                ,A.QTNUM
+                      ) X
+                      INNER JOIN SAPHEE.ZCST001 Y ON Y.MANDT = X.MANDT AND Y.QTNUM = X.QTNUM AND Y.SEQ = X.SEQ
+                      INNER JOIN SAPHEE.ZCST002 Z ON Z.MANDT = X.MANDT AND Z.QTNUM = X.QTNUM AND Z.SEQNO = X.SEQNO AND Z.SEQ = X.SEQ
+                      LEFT OUTER JOIN SAPHEE.ZWBAP01 R ON R.MANDT = Y.MANDT AND R.DOCNO = Y.DOC5
+                 <isNotNull col="PS_PSPID">
+                 WHERE Y.PS_PSPID LIKE #PS_PSPID# ||'%'
+                 </isNotNull>
+              ) M3
+        WHERE DIV_PS_PSPID != '1'      
+		<isNotNull col="TRANDATE_FM">
+		  AND M3.ERDAT2 BETWEEN #TRANDATE_FM# AND #TRANDATE_TO#
+		</isNotNull>
+        ORDER BY M3.REQNO, M3.REQDATE
+          FOR FETCH ONLY
+          WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_mm031">
+    </output>
+</query>

@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[작업계획 등록 - 엑셀파일]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+WITH TMP AS (
+  SELECT  CODE, NAME 
+  FROM SAPHEE.ZPPTCOD      
+  WHERE  MANDT= #G_MANDT#   AND GUBUN = '07' AND CODE NOT IN ('40','50','91','92','93','94', '60')
+  UNION 
+  SELECT 'PF' AS CODE, 'PF' AS NAME FROM SYSIBM.SYSDUMMY1
+  UNION
+  SELECT 'CE' AS CODE, 'CE' AS NAME FROM SYSIBM.SYSDUMMY1
+  UNION
+  SELECT '기타' AS CODE, '기타' AS NAME  FROM SYSIBM.SYSDUMMY1
+)
+SELECT TM.CODE, TM.NAME
+      , VALUE(A.SILJAKUP, 0) AS SILJAKUP
+      , VALUE(A.CHONGINWON, 0) AS CHONGINWON
+      , VALUE(B.JIWONINWON, 0) AS JIWONINWON
+      , VALUE(C.JIKJUBINWON, 0) AS JIKJUBINWON
+      , (VALUE(B.JIWONINWON, 0) + VALUE(C.JIKJUBINWON, 0)) AS TOTINWON
+      , VALUE(C.JAEJUCKGONGSU, 0) AS JAEJUCKGONGSU
+      , VALUE(D.HUUPGONGSU, 0) AS HUUPGONGSU
+      , CASE WHEN VALUE(C.JAEJUCKGONGSU, 0) = 0 THEN 0 ELSE  DECIMAL(ROUND((DECIMAL(VALUE(D.HUUPGONGSU, 0), 5,2) / DECIMAL(VALUE(C.JAEJUCKGONGSU, 0), 5, 2)) * 100, 2), 5, 2) END HUUPLOSS
+FROM 
+TMP TM LEFT OUTER JOIN    
+(
+    -- 실작업, 총인원
+    SELECT z044.WKBCD, C.NAME ,SUM((CASE WHEN z044.WKTYP = '8' THEN 8 
+                WHEN z044.WKTYP = '9' THEN 4
+                WHEN z044.WKTYP = '2' THEN 10
+                ELSE 0 END - z044.NWKHR) * 0.93) AS SILJAKUP, COUNT(DISTINCT z044.WKMCD) AS CHONGINWON            
+    FROM saphee.zppt044w z044 
+      INNER JOIN SAPHEE.ZPPTCOD C ON z044.WKBCD = C.CODE AND C.MANDT= #G_MANDT#   AND C.GUBUN = '07'
+      INNER JOIN SAPHEE.ZPPT028 Z028 ON z044.WKMCD = Z028.WKMCD AND Z028.MANDT = #G_MANDT#
+    WHERE WKDATS >= #WKDATS# AND WKDATE <= #WKDATE# AND C.CODE <> '60'
+    --AND WKMCD = 'H3016838'
+    GROUP BY z044.WKBCD, C.NAME
+    UNION
+    SELECT  CASE WHEN Z028.ITEM_NO = 'B120A' THEN 'PF'
+            WHEN Z028.ITEM_NO = 'E321A' THEN 'CE'
+            ELSE '기타' END WKBCD, --C.NAME
+            CASE WHEN Z028.ITEM_NO = 'B120A' THEN 'PF'
+            WHEN Z028.ITEM_NO = 'E321A' THEN 'CE'
+            ELSE '기타' END name
+            ,SUM((CASE WHEN z044.WKTYP = '8' THEN 8 
+                WHEN z044.WKTYP = '9' THEN 4
+                WHEN z044.WKTYP = '2' THEN 10
+                ELSE 0 END - z044.NWKHR) * 0.93), COUNT(DISTINCT z044.WKMCD)    
+    FROM saphee.zppt044w z044 
+          INNER JOIN SAPHEE.ZPPTCOD C ON z044.WKBCD = C.CODE AND C.MANDT= #G_MANDT#   AND C.GUBUN = '07'
+          INNER JOIN SAPHEE.ZPPT028 Z028 ON z044.WKMCD = Z028.WKMCD AND Z028.MANDT = #G_MANDT#
+    WHERE WKDATS >= #WKDATS# AND WKDATE <= #WKDATE# AND C.CODE = '60'
+    GROUP BY Z028.ITEM_NO, C.NAME
+
+) A ON TM.NAME = A.NAME LEFT OUTER JOIN 
+(
+    -- 지원인원
+    SELECT z044.WKBCD, COUNT(DISTINCT z044.WKMCD)  AS JIWONINWON
+    FROM saphee.zppt044w z044   
+      INNER JOIN SAPHEE.ZPPTCOD C ON z044.WKBCD = C.CODE AND C.MANDT= '183'   AND C.GUBUN = '07'
+      INNER JOIN SAPHEE.ZPPT028 Z028 ON z044.WKMCD = Z028.WKMCD AND Z028.MANDT = #G_MANDT# AND Z028.WK_MH = 0.0
+    WHERE WKDATS >= #WKDATS# AND WKDATE <= #WKDATE# AND C.CODE <> '60'
+    GROUP BY z044.WKBCD
+    UNION
+    SELECT CASE WHEN Z028.ITEM_NO = 'B120A' THEN 'PF'
+            WHEN Z028.ITEM_NO = 'E321A' THEN 'CE'
+            ELSE '기타' END WKBCD, COUNT(DISTINCT z044.WKMCD)  AS JIWONINWON
+    FROM saphee.zppt044w z044   
+      INNER JOIN SAPHEE.ZPPTCOD C ON z044.WKBCD = C.CODE AND C.MANDT= '183'   AND C.GUBUN = '07'
+      INNER JOIN SAPHEE.ZPPT028 Z028 ON z044.WKMCD = Z028.WKMCD AND Z028.MANDT = #G_MANDT# AND Z028.WK_MH = 0.0
+    WHERE WKDATS >= #WKDATS# AND WKDATE <= #WKDATE# AND C.CODE = '60'
+    GROUP BY z044.WKBCD , z028.item_no
+) B ON A.WKBCD = B.WKBCD
+LEFT OUTER JOIN 
+(
+    -- 직접인원    , 재적공수
+    SELECT z044.WKBCD, COUNT(DISTINCT z044.WKMCD) AS JIKJUBINWON, (COUNT(DISTINCT z044.WKMCD) * 8 * #WORKCNT#) AS JAEJUCKGONGSU
+    FROM saphee.zppt044w z044   
+      INNER JOIN SAPHEE.ZPPTCOD C ON z044.WKBCD = C.CODE AND C.MANDT= '183'   AND C.GUBUN = '07'
+      INNER JOIN SAPHEE.ZPPT028 Z028 ON z044.WKMCD = Z028.WKMCD AND Z028.MANDT = #G_MANDT# AND Z028.WK_MH = 1.0
+    WHERE WKDATS >= #WKDATS# AND WKDATE <= #WKDATE# AND C.CODE <> '60'
+    GROUP BY z044.WKBCD   
+    UNION
+    SELECT  CASE WHEN Z028.ITEM_NO = 'B120A' THEN 'PF'
+            WHEN Z028.ITEM_NO = 'E321A' THEN 'CE'
+            ELSE '기타' END WKBCD,
+            COUNT(DISTINCT z044.WKMCD) AS JIKJUBINWON, (COUNT(DISTINCT z044.WKMCD) * 8 * #WORKCNT#) AS JAEJUCKGONGSU
+    FROM saphee.zppt044w z044   
+      INNER JOIN SAPHEE.ZPPTCOD C ON z044.WKBCD = C.CODE AND C.MANDT= '183'   AND C.GUBUN = '07'
+      INNER JOIN SAPHEE.ZPPT028 Z028 ON z044.WKMCD = Z028.WKMCD AND Z028.MANDT = #G_MANDT# AND Z028.WK_MH = 1.0
+    WHERE WKDATS >= #WKDATS# AND WKDATE <= #WKDATE# AND C.CODE = '60'
+    GROUP BY z044.WKBCD  , z028.item_no
+) C ON A.WKBCD = C.WKBCD
+LEFT OUTER JOIN 
+(
+    -- 휴업공수
+    SELECT z044.WKBCD, COUNT(z044.WKMCD) * 8 AS HUUPGONGSU
+    FROM saphee.zppt044w z044   
+      INNER JOIN SAPHEE.ZPPTCOD C ON z044.WKBCD = C.CODE AND C.MANDT= '183'   AND C.GUBUN = '07'
+      INNER JOIN SAPHEE.ZPPT028 Z028 ON z044.WKMCD = Z028.WKMCD AND Z028.MANDT = #G_MANDT# AND Z028.WK_MH = 1.0
+    WHERE WKDATS >= #WKDATS# AND WKDATE <= #WKDATE# AND WKKCD <> ''AND C.CODE <> '60'
+    GROUP BY z044.WKBCD
+    UNION
+    SELECT CASE WHEN Z028.ITEM_NO = 'B120A' THEN 'PF'
+            WHEN Z028.ITEM_NO = 'E321A' THEN 'CE'
+            ELSE '기타' END WKBCD, 
+            COUNT(z044.WKMCD) * 8 AS HUUPGONGSU
+    FROM saphee.zppt044w z044   
+      INNER JOIN SAPHEE.ZPPTCOD C ON z044.WKBCD = C.CODE AND C.MANDT= '183'   AND C.GUBUN = '07'
+      INNER JOIN SAPHEE.ZPPT028 Z028 ON z044.WKMCD = Z028.WKMCD AND Z028.MANDT = #G_MANDT# AND Z028.WK_MH = 1.0
+    WHERE WKDATS >= #WKDATS# AND WKDATE <= #WKDATE# AND WKKCD <> ''AND C.CODE = '60'
+    GROUP BY z044.WKBCD , z028.item_no
+) D ON A.WKBCD = D.WKBCD
+ORDER BY CASE WHEN TM.NAME = '판금가공' THEN 1 
+          WHEN TM.NAME = 'DOOR OPER' THEN 2 
+          WHEN TM.NAME = '특수의장' THEN 3
+          WHEN TM.NAME = '천정조립' THEN 4
+          WHEN TM.NAME = 'PLATFORM조립반' THEN 5
+          WHEN TM.NAME = 'PF' THEN 6 
+          WHEN TM.NAME = 'CE' THEN 7 
+          WHEN TM.NAME = '기타' THEN 8               
+          WHEN TM.NAME = '기계가공' THEN 9 
+          WHEN TM.NAME = 'TM조립1' THEN 10 
+          WHEN TM.NAME = 'TM조립2' THEN 11
+          WHEN TM.NAME = 'TM조립3' THEN 12 
+          WHEN TM.NAME = 'C/P' THEN 13
+          ELSE 14 END 
+FOR FETCH ONLY 
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="WKDATS" size="24" type="VARCHAR" description="" /> 
+		<col name="WKDATE" size="24" type="VARCHAR" description="" /> 
+		<col name="WKMCD" size="24" type="VARCHAR" description="" />
+		<col name="WORKCNT" size="24" type="INT" description="" />
+	</input>
+	<output default-name="ds_report_a">
+		<col name="CODE" size="24" type="VARCHAR" description="" />
+		<col name="NAME" size="24" type="VARCHAR" description="" /> 
+		<col name="SILJAKUP" size="24" type="VARCHAR" description="" /> 
+		<col name="CHONGINWON" size="24" type="VARCHAR" description="" />
+		<col name="JIWONINWON" size="24" type="VARCHAR" description="" /> 
+		<col name="JIKJUBINWON" size="24" type="VARCHAR" description="" /> 
+		<col name="TOTINWON" size="24" type="VARCHAR" description="" />
+		<col name="JAEJUCKGONGSU" size="24" type="VARCHAR" description="" />
+		<col name="HUUPGONGSU" size="24" type="VARCHAR" description="" />
+		<col name="HUUPLOSS" size="24" type="VARCHAR" description="" />
+	</output>
+</query>

@@ -1,0 +1,1187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.com.dao.RadSurveyD">
+	<select id="selectEstSuvYsno" parameterType="hashMap" resultType="hashMap">
+	<![CDATA[
+		SELECT SUVSN
+		      ,NVL(DECODE(SUVST, '', 'N', SUVST), 'N') AS SUVST
+		FROM   SAPHEE.ZPST1134
+		WHERE  MANDT = #{MANDT}
+		  AND  QTNUM = #{QTNUM}
+		  AND  QTSEQ = #{QTSEQ}
+		  AND  QTSER = #{QTSER}
+		WITH   UR
+	]]>
+    </select>
+
+	<select id="selectOrderSuvYsno" parameterType="hashMap" resultType="hashMap">
+	<![CDATA[
+		SELECT A.MANDT
+		      ,A.QTNUM
+		      ,A.QTSER
+		      ,A.QTSEQ
+		      ,B.SUVSN AS QSUVSN
+		      ,C.SUVSN AS OSUVSN
+		      ,CASE WHEN B.SUVSN IS NOT NULL THEN
+		          B.SUVSN
+		       ELSE
+		          C.SUVSN
+		       END AS SUVSN
+		      ,CASE WHEN B.SUVSN IS NOT NULL THEN
+		          NVL(DECODE(B.SUVST, '', 'N', B.SUVST), 'N')
+		       ELSE
+		          NVL(DECODE(C.SUVST, '', 'N', C.SUVST), 'N')
+		       END AS SUVST
+		      ,(SELECT NVL(MAX(SEQ),0) FROM SAPHEE.ZSDT0090 WHERE MANDT = A.MANDT AND PSPID = A.VBELN) AS MAX_SEQ
+		FROM   SAPHEE.VBAP A
+		       LEFT OUTER JOIN SAPHEE.ZPST1134 AS B ON A.MANDT = B.MANDT AND A.QTNUM = B.QTNUM AND A.QTSEQ = B.QTSEQ AND A.QTSER = B.QTSER AND B.SUVST = 'Y'
+		       LEFT OUTER JOIN SAPHEE.ZPST1135 AS C ON A.MANDT = C.MANDT AND A.VBELN = C.ZZPJT_ID AND A.HOGI = C.HOGI AND C.SUVST = 'Y'
+		WHERE  A.MANDT = #{MANDT}
+		  AND  A.VBELN = #{PSPID}
+		  AND  A.HOGI  = #{HOGI}
+		WITH UR	
+	]]>
+    </select>
+
+	<select id="selectSuvPrhList" parameterType="hashMap" resultType="hdel.sd.com.domain.SuvPrhVO">
+	<![CDATA[
+		SELECT A.MANDT
+		      ,B.SUVSN   -- 실측고유번호
+		      ,A.SUVPRH  -- 실측사양
+		      ,TRIM(A.PRH) AS PRH     -- 영업사양
+		      ,(SELECT SUVPRDNAME FROM SAPHEE.ZPST1132 WHERE  MANDT = A.MANDT AND SUVPRH = 'DATA_ITEM' AND SUVPRD = SUBSTR(A.ITEMDIV,1,2)) AS ITEMDIVNM
+		      ,C.ATKLA   -- 그룹
+		      ,CASE WHEN C.PRHNAME IS NULL THEN
+		           A.SUVPRHNAME
+		       ELSE
+		           C.PRHNAME
+		       END AS PRHNAME     -- 사양명
+		      ,A.SUVPRHNAME       -- 실측사양명
+		      ,B.SUVPRD           -- 실측사양값
+		      ,C.PRD              -- 영업사양값
+		      ,C.PRD AS CHGPRD    -- 보정값 적용된 영업사양
+		      ,C.PRD AS VIEWPRD   -- 화면 영업사양
+		      ,B.CALPRD           -- 연산사양값
+              ,B.MODYPRD          -- 보정사양값
+		      ,A.MODYYSNO         -- 보정입력여부
+		      ,A.INTYPE           -- 입력타입
+		      ,A.PRHYSNO          -- 영업사양적용여부
+		      ,A.VIEWYSNO
+		      ,SUBSTR(A.ITEMDIV,1,1) AS SUVTYPE          -- 실측보고서 종류
+		      ,A.ITEMDIV
+		FROM   SAPHEE.ZPST1131 AS A
+		       LEFT OUTER JOIN SAPHEE.ZPST1136 AS B ON A.MANDT = B.MANDT AND B.SUVSN = #{SUVSN} AND A.SUVPRH = B.SUVPRH
+		       LEFT OUTER JOIN TABLE (
+									SELECT X.MANDT
+										  ,X.QTNUM
+										  ,X.QTSER
+										  ,X.QTSEQ
+										  ,X.PRH
+										  ,DECODE(X.ATFOR, 'NUM', REPLACE(Y.PRD, ',', ''), Y.PRD) AS PRD
+										  ,X.ATKLA
+										  ,X.ATINN
+										  ,X.ATFOR
+										  ,X.PRHNAME
+									FROM  (
+										  SELECT  A.MANDT
+												 ,C.QTNUM
+												 ,C.QTSER
+												 ,C.QTSEQ
+												 ,ROW_NUMBER() over(partition by C.QTSEQ) AS PRSEQ
+												 ,A.PRH
+												 ,(SELECT ATBEZ FROM SAPHEE.CABNT WHERE MANDT = B.MANDT AND ATINN = B.ATINN AND SPRAS = DECODE(A.ZPRDGBN, 'SHN_01', '3', 'SHN_02', '3', DECODE('ko', 'en', 'E', '3'))) AS PRHNAME
+												 ,(SELECT COUNT(MANDT) FROM SAPHEE.CAWN WHERE MANDT = A.MANDT AND ATINN = B.ATINN ) AS CNT
+												 ,B.ATINN
+												 ,B.ATKLA
+												 ,B.ATFOR
+												 ,A.BRNDSEQ
+												 ,A.ZPRDGBN
+												 ,A.BRNDCD
+												 ,A.DISPTP
+												 ,A.MODITP
+										   FROM   SAPHEE.ZSDT1141 AS A
+												  INNER JOIN SAPHEE.CABN AS B ON A.MANDT = B.MANDT AND A.PRH = B.ATNAM
+												  INNER JOIN TABLE (
+															  SELECT MANDT
+																 , QTNUM
+																 , QTSER
+																 , QTSEQ
+																 , BRNDSEQ
+																 , NVL(ZPRDGBN, 'ELV_01') AS ZPRDGBN
+																 , CASE WHEN TRIM(BRNDCD) = '' THEN
+																	   'NOBRND'
+																	   WHEN BRNDCD = NULL THEN 
+																	   'NOBRND'
+																	   ELSE
+																		BRNDCD
+																	END AS BRNDCD                     
+															  FROM  SAPHEE.ZSDT1047 
+															  WHERE MANDT = #{MANDT}
+															   AND  QTNUM = #{QTNUM}
+															   AND  QTSER = #{QTSER}
+															   AND  QTSEQ = #{QTSEQ}
+													) AS C ON A.MANDT = C.MANDT AND A.BRNDSEQ = C.BRNDSEQ AND A.ZPRDGBN = C.ZPRDGBN AND A.BRNDCD = C.BRNDCD
+													LEFT OUTER JOIN SAPHEE.ZSDT1073 AS D ON D.MANDT = A.MANDT AND D.CLASS = A.ZPRDGBN  AND D.ATNAM = A.PRH
+											   WHERE A.DIPSDAT > HEX(CURRENT DATE)
+												AND  D.ATNAM IS NULL
+										 )  X
+										 LEFT OUTER JOIN (
+													  SELECT R.MANDT
+														   , R.QTNUM
+														   , R.QTSER
+														   , R.QTSEQ
+														   , R.PRH
+														   , R.PRD
+														   ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = R.MANDT AND LANG = 'ko' AND CODE1 = 'SD121' AND CTEXT2 = R.PRH ) AS CTEXT2
+													   FROM  SAPHEE.ZSDT1048 R
+													   WHERE R.MANDT = #{MANDT}
+														 AND R.QTNUM = #{QTNUM}
+														 AND R.QTSER = #{QTSER}
+														 AND R.QTSEQ = #{QTSEQ}
+										 ) Y ON X.MANDT = Y.MANDT AND X.QTNUM = Y.QTNUM AND X.QTSER = Y.QTSER AND X.QTSEQ = Y.QTSEQ AND X.PRH = Y.PRH
+									) AS C ON A.MANDT = A.MANDT AND A.PRH = C.PRH
+		WHERE  A.MANDT = #{MANDT}
+	      AND  A.DATADIV IN ( 'ELC', 'ELR')
+          AND  A.SUVPRH NOT IN ('ELR_E_IDTP' ,'ELR_E_HLLC' ,'ELR_E_FSLC' ,'ELR_E_A' ,'ELR_E_B' ,'ELR_E_F' ,'ELR_E_C' ,'ELR_E_D' ,'ELR_E_E' ,'ELR_E_BXD' ,'ELR_E_H' ,'ELR_E_JAMBTP' ,'ELR_E_EFMAT' ,'ELR_E_PNLH')
+		ORDER BY VIEWORDER
+		WITH UR
+	]]>
+	</select>
+	
+	<select id="selectSapSuvPrhList" parameterType="hashMap" resultType="hdel.sd.com.domain.SuvPrhVO">
+	<![CDATA[
+		SELECT A.MANDT
+		      ,B.SUVSN   -- 실측고유번호
+		      ,A.SUVPRH  -- 실측사양
+		      ,TRIM(A.PRH) AS PRH     -- 영업사양
+		      ,(SELECT SUVPRDNAME FROM SAPHEE.ZPST1132 WHERE  MANDT = A.MANDT AND SUVPRH = 'DATA_ITEM' AND SUVPRD = SUBSTR(A.ITEMDIV,1,2)) AS ITEMDIVNM
+		      ,C.ATKLA   -- 그룹
+		      ,CASE WHEN C.PRHNAME IS NULL THEN   
+		           A.SUVPRHNAME
+		       ELSE
+		           C.PRHNAME
+		       END AS PRHNAME     -- 사양명
+		      ,A.SUVPRHNAME       -- 실측사양명
+		      ,B.SUVPRD           -- 실측사양값
+		      ,C.PRD              -- 영업사양값
+		      ,C.PRD AS CHGPRD    -- 보정값 적용된 영업사양
+		      ,C.PRD AS VIEWPRD   -- 화면 영업사양
+		      ,B.CALPRD           -- 연산사양값
+              ,B.MODYPRD          -- 보정사양값
+		      ,A.MODYYSNO         -- 보정입력여부
+		      ,A.INTYPE           -- 입력타입
+		      ,A.PRHYSNO          -- 영업사양적용여부
+		      ,A.VIEWYSNO
+		      ,SUBSTR(A.ITEMDIV,1,1) AS SUVTYPE          -- 실측보고서 종류
+		      ,A.ITEMDIV
+		FROM   SAPHEE.ZPST1131 AS A
+		       LEFT OUTER JOIN SAPHEE.ZPST1136 AS B ON A.MANDT = B.MANDT AND B.SUVSN = #{SUVSN} AND A.SUVPRH = B.SUVPRH
+		       LEFT OUTER JOIN TABLE (
+                           SELECT  X.MANDT
+                                  ,X.PRH
+                                  ,X.PRHNAME
+                                  ,X.ATKLA
+                                  ,case X.ATFOR when 'NUM' then REPLACE(Y.CHAR_VALUE, ',', '')
+                                   when 'CHAR' then (case Y.char_value when '0' then '' else Y.char_value end)
+                                   else Y.char_value end as PRD
+                           FROM  (
+                           	    SELECT A.MANDT
+                                      ,C.PSPID
+                                      ,C.POSNR
+                                      ,C.MATNR
+                                      ,C.HOGI
+                           	          ,A.PRH
+                           	          ,(SELECT ATBEZ FROM SAPHEE.CABNT WHERE MANDT = B.MANDT AND ATINN = B.ATINN AND SPRAS = '3') AS PRHNAME
+                                      ,B.ATINN
+                           	          ,B.ATKLA
+                           	          ,B.ATFOR
+                           	          ,A.BRNDSEQ
+                           	          ,A.ZPRDGBN
+                           	          ,A.BRNDCD
+                           	          ,A.DISPTP
+                           	          ,A.MODITP
+                           	     FROM  SAPHEE.ZSDT1141 AS A
+                           	           INNER JOIN SAPHEE.CABN AS B ON A.MANDT = B.MANDT AND A.PRH = B.ATNAM
+                           	           INNER JOIN TABLE (
+                                                         SELECT X.MANDT
+                                                               ,X.PSPID
+                                                               ,X.POSNR
+                                                               ,X.MATNR
+                                                               ,X.HOGI
+                                                               ,X.BRNDSEQ
+                                                               ,X.ZPRDGBN
+                                                               ,X.BRNDCD
+                                                               ,X.MAX_QTNUM
+                                                         FROM  (
+                                                         		  SELECT A.MANDT
+                                                         		        ,A.ZZPJT_ID AS PSPID
+                                                         		        ,B.POSNR
+                                                         		        ,B.MATNR
+                                                         		        ,CASE B.MATNR WHEN 'L-1000' THEN 'ELV_01'
+                                                         		                      WHEN 'L-1100' THEN 'WL_01'
+                                                         		                      WHEN 'L-1200' THEN 'DW_01'
+                                                         		                      WHEN 'L-2000' THEN 'ELV_02'
+                                                         		                      WHEN 'S-1000' THEN 'ESC_01'
+                                                         		                      WHEN 'W-1000' THEN 'MW_01'
+                                                         		                      WHEN 'J-1000' THEN 'AP_01'
+                                                         		                      WHEN 'T-1000' THEN 'SV_01'
+                                                         		                      WHEN 'Y-1000' THEN 'SP_01'
+                                                         		         END AS ZPRDGBN
+                                                         		        ,B.HOGI AS HOGI
+                                                         		        ,MAX(C.QTNUM) OVER(PARTITION BY A.MANDT, A.ZZPJT_ID) AS MAX_QTNUM
+                                                         		        ,NVL(C.QTNUM, '') AS QTNUM
+                                                         		        ,C.QTSER
+                                                         		        ,C.QTSEQ
+                                                                       ,CASE WHEN B.BRNDCD IS NULL THEN
+                                                                              'NOBRND'
+                                                                             WHEN TRIM(B.BRNDCD) = '' THEN
+                                                                              'NOBRND'
+                                                                        ELSE
+                                                                            B.BRNDCD
+                                                                        END AS BRNDCD
+                                                         		        ,B.BRNDSEQ AS BRNDSEQ
+                                                         		  FROM   SAPHEE.VBAK AS A
+                                                         		         INNER JOIN SAPHEE.VBAP AS B ON A.MANDT = B.MANDT AND A.VBELN = B.VBELN
+                                                         		         LEFT OUTER JOIN SAPHEE.ZSDT1047 AS C ON B.MANDT = B.MANDT AND B.QTNUM = C.QTNUM AND B.QTSER = C.QTSER AND B.QTSEQ = C.QTSEQ
+                                                         		  WHERE  A.MANDT = #{MANDT}
+                                                         		    AND  A.ZZPJT_ID = #{PSPID}
+                                                         		    AND  B.HOGI = #{HOGI}
+                                                         		  ) AS X
+                           		        ) AS C ON A.MANDT = C.MANDT AND A.BRNDSEQ = C.BRNDSEQ AND A.ZPRDGBN = C.ZPRDGBN AND A.BRNDCD = C.BRNDCD
+                           		        LEFT OUTER JOIN SAPHEE.ZSDT1073 AS D ON D.MANDT = A.MANDT AND D.CLASS = A.ZPRDGBN  AND D.ATNAM = A.PRH
+                           		 WHERE A.DIPSDAT > HEX(CURRENT DATE)
+                           		   AND  D.ATNAM IS NULL
+                                )  AS X
+                                LEFT OUTER JOIN (SELECT A.MANDT
+                                                        , A.ZZPJT_ID AS PSPID
+                                                        , B.POSNR
+                                                        , B.HOGI
+                                                        , B.MATNR
+                                                        , CASE F.ATWRT WHEN '' THEN TRIM(CHAR(BIGINT(VALUE(F.ATFLV,0)))) ELSE TRIM(F.ATWRT) END AS CHAR_VALUE
+                                                        , '' AS CHAR_VALUEMD
+                                                        , H.ATWTB
+                                                        , F.ATINN
+                                                   FROM SAPHEE.VBAK AS A
+                                                        INNER JOIN SAPHEE.VBAP AS B ON A.MANDT = B.MANDT AND A.VBELN = B.VBELN
+                                                        INNER JOIN SAPHEE.IBINOWN AS C ON B.MANDT = C.MANDT AND B.CUOBJ = C.INSTANCE
+                                                        INNER JOIN SAPHEE.IBIN AS D ON C.MANDT = D.MANDT AND C.INSTANCE = D.INSTANCE
+                                                        INNER JOIN SAPHEE.IBINVALUES AS E ON D.MANDT = E.MANDT AND D.IN_RECNO = E.IN_RECNO
+                                                        INNER JOIN SAPHEE.IBSYMBOL AS F  ON E.MANDT = F.MANDT AND E.SYMBOL_ID = F.SYMBOL_ID
+                                                        LEFT OUTER JOIN (SELECT T1.ATWTB, T2.ATINN, T2.ATWRT
+                                                                                 FROM SAPHEE.CAWNT AS T1
+                                                                                      INNER JOIN SAPHEE.CAWN AS T2 ON T1.MANDT = T2.MANDT AND T1.ATINN = T2.ATINN AND T1.ATZHL = T2.ATZHL AND T1.SPRAS = '3'
+                                                                                WHERE T1.MANDT = #{MANDT}
+                                                                                  AND T1.SPRAS = '3') AS H ON F.ATINN = H.ATINN AND F.ATWRT = H.ATWRT
+                                                  WHERE A.MANDT = #{MANDT}
+                                                    AND A.ZZPJT_ID = #{PSPID}
+                                                    AND B.HOGI = #{HOGI}
+                                ) AS Y ON X.MANDT = X.MANDT AND X.PSPID = Y.PSPID AND X.POSNR = Y.POSNR AND X.HOGI = Y.HOGI AND X.MATNR = Y.MATNR AND X.ATINN = Y.ATINN
+									) AS C ON A.MANDT = A.MANDT AND A.PRH = C.PRH
+		WHERE  A.MANDT = #{MANDT}
+	      AND  A.DATADIV IN ( 'ELC', 'ELR')
+          AND  A.SUVPRH NOT IN ('ELR_E_IDTP' ,'ELR_E_HLLC' ,'ELR_E_FSLC' ,'ELR_E_A' ,'ELR_E_B' ,'ELR_E_F' ,'ELR_E_C' ,'ELR_E_D' ,'ELR_E_E' ,'ELR_E_BXD' ,'ELR_E_H' ,'ELR_E_JAMBTP' ,'ELR_E_EFMAT' ,'ELR_E_PNLH')
+		ORDER BY VIEWORDER
+		WITH UR
+	]]>
+	</select>
+
+	<select id="selectOrderSuvPrhList" parameterType="hashMap" resultType="hdel.sd.com.domain.SuvPrhVO">
+	<![CDATA[
+		SELECT A.MANDT
+		      ,B.SUVSN   -- 실측고유번호
+		      ,A.SUVPRH  -- 실측사양
+		      ,TRIM(A.PRH) AS PRH     -- 영업사양
+		      ,(SELECT SUVPRDNAME FROM SAPHEE.ZPST1132 WHERE  MANDT = A.MANDT AND SUVPRH = 'DATA_ITEM' AND SUVPRD = SUBSTR(A.ITEMDIV,1,2)) AS ITEMDIVNM
+		      ,C.ATKLA   -- 그룹
+		      ,CASE WHEN C.PRHNAME IS NULL THEN   
+		           A.SUVPRHNAME
+		       ELSE
+		           C.PRHNAME
+		       END AS PRHNAME     -- 사양명
+		      ,A.SUVPRHNAME       -- 실측사양명
+		      ,B.SUVPRD           -- 실측사양값
+		      ,C.PRD              -- 영업사양값
+		      ,C.PRD AS CHGPRD    -- 보정값 적용된 영업사양
+		      ,C.PRD AS VIEWPRD   -- 화면 영업사양
+		      ,B.CALPRD           -- 연산사양값
+              ,B.MODYPRD          -- 보정사양값
+		      ,A.MODYYSNO         -- 보정입력여부
+		      ,A.INTYPE           -- 입력타입
+		      ,A.PRHYSNO          -- 영업사양적용여부
+		      ,A.VIEWYSNO
+		      ,SUBSTR(A.ITEMDIV,1,1) AS SUVTYPE          -- 실측보고서 종류
+		      ,A.ITEMDIV
+		FROM   SAPHEE.ZPST1131 AS A
+		       LEFT OUTER JOIN SAPHEE.ZPST1136 AS B ON A.MANDT = B.MANDT AND B.SUVSN = #{SUVSN} AND A.SUVPRH = B.SUVPRH
+		       LEFT OUTER JOIN TABLE (
+                           SELECT  X.MANDT
+                                  ,X.PRH
+                                  ,X.PRHNAME
+                                  ,X.ATKLA
+                                  ,Y.CHAR_VALUE AS PRD
+                           FROM  (
+                           	    SELECT A.MANDT
+                                         ,C.PSPID
+                                         ,C.POSNR
+                                         ,C.MATNR
+                                         ,C.HOGI
+                           	          ,A.PRH
+                           	          ,(SELECT ATBEZ FROM SAPHEE.CABNT WHERE MANDT = B.MANDT AND ATINN = B.ATINN AND SPRAS = '3') AS PRHNAME
+                                         ,B.ATINN
+                           	          ,B.ATKLA
+                           	          ,B.ATFOR
+                           	          ,A.BRNDSEQ
+                           	          ,A.ZPRDGBN
+                           	          ,A.BRNDCD
+                           	          ,A.DISPTP
+                           	          ,A.MODITP
+                           	     FROM  SAPHEE.ZSDT1141 AS A
+                           	           INNER JOIN SAPHEE.CABN AS B ON A.MANDT = B.MANDT AND A.PRH = B.ATNAM
+                           	           INNER JOIN TABLE (
+                                                         SELECT X.MANDT
+                                                               ,X.PSPID
+                                                               ,X.POSNR
+                                                               ,X.MATNR
+                                                               ,X.HOGI
+                                                               ,X.BRNDSEQ
+                                                               ,X.ZPRDGBN
+                                                               ,X.BRNDCD
+                                                               ,X.MAX_QTNUM
+                                                         FROM  (
+                                                               SELECT A.MANDT
+                                                                     ,A.PSPID
+                                                                     ,A.POSNR
+                                                                     ,A.MATNR
+                                                                     ,A.CLASS AS ZPRDGBN
+                                                                     ,A.HOGI
+                                                                     ,MAX(B.QTNUM) OVER(PARTITION BY A.MANDT, A.PSPID) AS MAX_QTNUM
+                                                                     ,NVL(B.QTNUM, '') AS QTNUM
+                                                                     ,B.QTSER
+                                                                     ,B.QTSEQ
+                                                                     ,CASE WHEN A.BRNDCD IS NULL THEN
+                                                                              'NOBRND'
+                                                                           WHEN TRIM(A.BRNDCD) = '' THEN
+                                                                              'NOBRND'
+                                                                      ELSE
+                                                                          A.BRNDCD
+                                                                      END AS BRNDCD
+                                                                     ,A.BRNDSEQ AS BRNDSEQ
+                                                               FROM   SAPHEE.ZSDT0091 A
+                                                                      LEFT OUTER JOIN SAPHEE.VBAP AS B ON A.MANDT = B.MANDT AND A.VBELN = B.VBELN AND A.POSNR = B.POSNR
+                                                               WHERE  A.MANDT = #{MANDT}
+                                                                 AND  A.PSPID = #{PSPID}
+                                                                 AND  B.HOGI  = #{HOGI}
+                                                                 AND  A.SEQ = #{SEQ}
+                                                         		  ) AS X
+                           		        ) AS C ON A.MANDT = C.MANDT AND A.BRNDSEQ = C.BRNDSEQ AND A.ZPRDGBN = C.ZPRDGBN AND A.BRNDCD = C.BRNDCD
+                           		        LEFT OUTER JOIN SAPHEE.ZSDT1073 AS D ON D.MANDT = A.MANDT AND D.CLASS = A.ZPRDGBN  AND D.ATNAM = A.PRH
+                           		 WHERE A.DIPSDAT > HEX(CURRENT DATE)
+                           		   AND  D.ATNAM IS NULL
+                                )  AS X
+                                LEFT OUTER JOIN (
+                                                SELECT MANDT
+                                                      ,PSPID
+                                                      ,SEQ
+                                                      ,POSNR
+                                                      ,HOGI
+                                                      ,MATNR
+                                                      ,CHAR_VALUE
+                                                      ,CHAR_VALUEMD
+                                                      ,ATWTB
+                                                      ,NAM_CHAR
+                                                      ,SUBSTR(ERDAT,1,4)||'-'||SUBSTR(ERDAT,5,2)||'-'||SUBSTR(ERDAT,7,2) AS ERDAT
+                                                      ,ERNAM
+                                                FROM   SAPHEE.ZSDT0094
+                                                WHERE  MANDT = #{MANDT}
+                                                  AND  PSPID = #{PSPID}
+                                                  AND  HOGI  = #{HOGI}
+                                                  AND  SEQ   = #{SEQ}
+                                ) AS Y ON X.MANDT = X.MANDT AND X.PSPID = Y.PSPID AND X.POSNR = Y.POSNR AND X.HOGI = Y.HOGI AND X.MATNR = Y.MATNR AND X.PRH = Y.NAM_CHAR
+									) AS C ON A.MANDT = A.MANDT AND A.PRH = C.PRH
+		WHERE  A.MANDT = #{MANDT}
+	      AND  A.DATADIV IN ( 'ELC', 'ELR')
+          AND  A.SUVPRH NOT IN ('ELR_E_IDTP' ,'ELR_E_HLLC' ,'ELR_E_FSLC' ,'ELR_E_A' ,'ELR_E_B' ,'ELR_E_F' ,'ELR_E_C' ,'ELR_E_D' ,'ELR_E_E' ,'ELR_E_BXD' ,'ELR_E_H' ,'ELR_E_JAMBTP' ,'ELR_E_EFMAT' ,'ELR_E_PNLH')
+		ORDER BY VIEWORDER
+		WITH UR
+	]]>
+	</select>
+
+	<select id="selectSuvFloorList" parameterType="hashMap" resultType="hdel.sd.com.domain.SuvFloorVO">
+	<![CDATA[
+		SELECT APPLYFLOOR
+		      ,SUVPRD
+		FROM   SAPHEE.ZPST1137
+		WHERE  MANDT = #{MANDT}
+		  AND  SUVSN = #{SUVSN}
+		  AND  SUVPRH = 'ELR_E_IDTP'
+		ORDER BY INORDER  
+		WITH   UR
+	]]>
+	</select>
+    <delete id="deleteZPST1138" parameterType="hashMap">
+	<![CDATA[
+	    DELETE FROM SAPHEE.ZPST1138
+		WHERE  MANDT = #{MANDT}
+		  AND  SUVSN = #{SUVSN}
+    ]]>
+	</delete>
+    <delete id="deleteZPST1139" parameterType="hashMap">
+	<![CDATA[
+	    DELETE FROM SAPHEE.ZPST1139
+		WHERE  MANDT = #{MANDT}
+		  AND  SUVSN = #{SUVSN}
+    ]]>
+	</delete>
+
+    <update id="updateHZPST1139" parameterType="hashMap">
+	<![CDATA[
+		UPDATE SAPHEE.ZPST1136
+		SET    CALPRD = ''
+		WHERE  MANDT = #{MANDT}
+		  AND  SUVSN = #{SUVSN}
+		  AND  (SUVPRH LIKE 'ELR_C_EF%' OR SUVPRH LIKE 'ELC_C_EF%')
+    ]]>
+	</update>
+
+    <insert id="insertZPST1138" parameterType="hdel.sd.com.domain.FloorNmVO">
+	<![CDATA[
+	    INSERT INTO SAPHEE.ZPST1138
+	    (
+	    MANDT
+       ,SUVSN
+       ,FLOOR
+       ,FLOORNM
+       ,JAMBGRP
+       ,HPIMODEL
+       ,HPBMODEL
+       ,HIPMODEL
+       ,HLTNMODEL
+       ,FSWMODEL
+	   ,ERDAT
+	   ,ERZET
+	   ,ERNAM
+	   ,AEDAT
+	   ,AEZET
+	   ,AENAM
+	    )
+	    VALUES
+	    (
+	    #{MANDT}
+       ,#{SUVSN}
+       ,#{FLOORDB}
+       ,#{FLOORNM}
+       ,#{JAMBINFO}
+       ,#{HPIMODEL}
+       ,#{HPBMODEL}
+       ,#{HIPMODEL}
+       ,#{HLTNMODEL}
+       ,#{FSWMODEL}
+	   ,HEX(CURRENT DATE)
+	   ,HEX(CURRENT TIME)
+	   ,#{ERNAM}
+	   ,HEX(CURRENT DATE)
+	   ,HEX(CURRENT TIME)
+	   ,#{AENAM}
+	    )
+    ]]>
+	</insert>
+
+    <insert id="insertZPST1139" parameterType="hdel.sd.com.domain.FloorNmVO">
+	<![CDATA[
+	    INSERT INTO SAPHEE.ZPST1139
+	    (
+	    MANDT
+       ,SUVSN
+       ,FLOOR
+       ,FLOORNM
+       ,HPIPRD
+       ,HPBPRD
+       ,HIPPRD
+       ,HLTNPRD
+       ,PRKSWPRD
+       ,FSWPRD
+       ,HPIAPPLYFLOOR
+       ,HPBAPPLYFLOOR
+       ,HIPAPPLYFLOOR
+       ,HLTNAPPLYFLOOR
+       ,PRKSWAPPLYFLOOR
+       ,FSWAPPLYFLOOR
+	   ,ERDAT
+	   ,ERZET
+	   ,ERNAM
+	   ,AEDAT
+	   ,AEZET
+	   ,AENAM
+	    )
+	    VALUES
+	    (
+	    #{MANDT}
+       ,#{SUVSN}
+       ,#{FLOORDB}
+       ,#{FLOORNM}
+       ,#{HPIPRD}
+       ,#{HPBPRD}
+       ,#{HIPPRD}
+       ,#{HLTNPRD}
+       ,#{PRKSWPRD}
+       ,#{FSWPRD}
+       ,#{HPIAPPLYFLOOR}
+       ,#{HPBAPPLYFLOOR}
+       ,#{HIPAPPLYFLOOR}
+       ,#{HLTNAPPLYFLOOR}
+       ,#{PRKSWAPPLYFLOOR}
+       ,#{FSWAPPLYFLOOR}
+	   ,HEX(CURRENT DATE)
+	   ,HEX(CURRENT TIME)
+	   ,#{ERNAM}
+	   ,HEX(CURRENT DATE)
+	   ,HEX(CURRENT TIME)
+	   ,#{AENAM}
+	    )
+    ]]>
+	</insert>
+
+    <select id="selectJampPrhSubPrhList" parameterType="hashMap" resultType="hashMap">
+	<![CDATA[
+    WITH ZPST1137 AS (
+    SELECT T.MANDT
+          ,T.SUVSN
+          ,T.APPLYFLOOR
+          ,T.INORDER
+          ,MAX(T.ELR_E_IDTP) AS ELR_E_IDTP
+          ,MAX(T.ELR_E_HLLC) AS ELR_E_HLLC
+          ,MAX(T.ELR_E_FSLC) AS ELR_E_FSLC
+          ,MAX(T.ELR_E_A) AS ELR_E_A
+          ,MAX(T.ELR_E_B) AS ELR_E_B
+          ,MAX(T.ELR_E_F) AS ELR_E_F
+          ,MAX(T.ELR_E_C) AS ELR_E_C
+          ,MAX(T.ELR_E_D) AS ELR_E_D
+          ,MAX(T.ELR_E_E) AS ELR_E_E
+          ,MAX(T.ELR_E_BXD) AS ELR_E_BXD
+          ,MAX(T.ELR_E_H) AS ELR_E_H
+    FROM  TABLE (
+                SELECT MANDT
+                      ,SUVSN
+                      ,INORDER
+                      ,APPLYFLOOR
+                      ,CASE WHEN SUVPRH =  'ELR_E_IDTP' THEN
+                           DECODE(MODYPRD,'', DECODE(CALPRD, '', SUVPRD, CALPRD), MODYPRD)
+                       END AS ELR_E_IDTP
+                      ,CASE WHEN SUVPRH =  'ELR_E_HLLC' THEN
+                           DECODE(MODYPRD,'', DECODE(CALPRD, '', SUVPRD, CALPRD), MODYPRD)
+                       END AS ELR_E_HLLC
+                      ,CASE WHEN SUVPRH =  'ELR_E_FSLC' THEN
+                           DECODE(MODYPRD,'', DECODE(CALPRD, '', SUVPRD, CALPRD), MODYPRD)
+                       END AS ELR_E_FSLC
+                      ,CASE WHEN SUVPRH =  'ELR_E_A' THEN
+                           DECODE(MODYPRD,'', DECODE(CALPRD, '', SUVPRD, CALPRD), MODYPRD)
+                       END AS ELR_E_A
+                      ,CASE WHEN SUVPRH =  'ELR_E_B' THEN
+                           DECODE(MODYPRD,'', DECODE(CALPRD, '', SUVPRD, CALPRD), MODYPRD)
+                       END AS ELR_E_B
+                      ,CASE WHEN SUVPRH =  'ELR_E_F' THEN
+                           DECODE(MODYPRD,'', DECODE(CALPRD, '', SUVPRD, CALPRD), MODYPRD)
+                       END AS ELR_E_F
+                      ,CASE WHEN SUVPRH =  'ELR_E_C' THEN
+                           DECODE(MODYPRD,'', DECODE(CALPRD, '', SUVPRD, CALPRD), MODYPRD)
+                       END AS ELR_E_C
+                      ,CASE WHEN SUVPRH =  'ELR_E_D' THEN
+                           DECODE(MODYPRD,'', DECODE(CALPRD, '', SUVPRD, CALPRD), MODYPRD)
+                       END AS ELR_E_D
+                      ,CASE WHEN SUVPRH =  'ELR_E_E' THEN
+                           DECODE(MODYPRD,'', DECODE(CALPRD, '', SUVPRD, CALPRD), MODYPRD)
+                       END AS ELR_E_E
+                      ,CASE WHEN SUVPRH =  'ELR_E_BXD' THEN
+                           DECODE(MODYPRD,'', DECODE(CALPRD, '', SUVPRD, CALPRD), MODYPRD)
+                       END AS ELR_E_BXD
+                      ,CASE WHEN SUVPRH =  'ELR_E_H' THEN
+                           DECODE(MODYPRD,'', DECODE(CALPRD, '', SUVPRD, CALPRD), MODYPRD)
+                       END AS ELR_E_H
+                FROM   SAPHEE.ZPST1137
+                WHERE  MANDT = #{MANDT}
+                  AND  SUVSN = #{SUVSN}
+                  AND  SUVPRH IN ( 'ELR_E_IDTP' , 'ELR_E_HLLC' , 'ELR_E_FSLC' , 'ELR_E_A' , 'ELR_E_B' , 'ELR_E_F' , 'ELR_E_C' , 'ELR_E_D' , 'ELR_E_E' , 'ELR_E_BXD' , 'ELR_E_H')
+                ) AS T
+    GROUP BY T.MANDT
+            ,T.SUVSN
+            ,T.APPLYFLOOR
+            ,T.INORDER
+    )
+    SELECT T.MANDT
+          ,T.SUVSN
+          ,CAST(ROW_NUMBER() OVER() AS VARCHAR(10)) AS JAMBGRPNUM
+          ,LISTAGG(T.FLOOR, ',') WITHIN GROUP(ORDER BY T.JAMBGRP, TO_NUMBER(T.FLOOR)) AS FLOOR
+          ,LISTAGG(T.FLOORNM, ',') WITHIN GROUP(ORDER BY T.JAMBGRP, TO_NUMBER(T.FLOOR)) AS FLOORNM      
+          ,T.JAMBGRP
+          ,T.JAMBMODEL
+          ,T.HPIMODEL
+          ,T.HPBMODEL
+          ,T.HIPMODEL
+          ,T.HLTNMODEL
+          ,T.FSWMODEL
+          ,T.HPI_ELR_E_A
+          ,T.HPI_ELR_E_B
+    --      ,T.HPI_ELR_E_C
+    --      ,T.HPI_ELR_E_D
+    --      ,T.HPI_ELR_E_E
+          ,T.BTN_ELR_E_A
+          ,T.BTN_ELR_E_B
+          ,T.BTN_ELR_E_F
+          ,T.BTN_ELC_E_CHB
+    --      ,T.BTN_ELR_E_C
+    --      ,T.BTN_ELR_E_D
+          ,T.BTN_ELR_E_E
+          ,T.PKS_ELR_E_A
+          ,T.PKS_ELR_E_B
+          ,T.PKS_ELR_E_F
+    --      ,T.PKS_ELR_E_C
+    --      ,T.PKS_ELR_E_D
+    --      ,T.PKS_ELR_E_E
+          ,T.HLT_ELR_E_HLLC
+          ,T.HLT_ELR_E_A
+          ,T.HLT_ELR_E_B
+          ,T.HLT_ELR_E_F
+    --      ,T.HLT_ELR_E_C
+    --      ,T.HLT_ELR_E_D
+          ,T.HLT_ELR_E_E
+    --      ,T.HLT_ELR_E_H
+          ,T.FSW_ELR_E_FSLC
+          ,T.FSW_ELR_E_A
+          ,T.FSW_ELR_E_B
+    --      ,T.FSW_ELR_E_F
+    --      ,T.FSW_ELR_E_C
+    --      ,T.FSW_ELR_E_D
+    --      ,T.FSW_ELR_E_E
+    FROM   TABLE (
+                 SELECT A.MANDT
+                       ,A.SUVSN
+                       ,A.FLOOR
+                       ,A.FLOORNM
+                       ,SUBSTR(A.JAMBGRP, 1,1) AS JAMBGRP
+                       ,SUBSTR(A.JAMBGRP, 3) AS JAMBMODEL
+                       ,A.HPIMODEL
+                       ,A.HPBMODEL
+                       ,A.HIPMODEL
+                       ,A.HLTNMODEL
+                       ,A.FSWMODEL
+                       ,(SELECT ELR_E_A      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'HPI' AND APPLYFLOOR = B.HPIAPPLYFLOOR) AS  HPI_ELR_E_A
+                       ,(SELECT ELR_E_B      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'HPI' AND APPLYFLOOR = B.HPIAPPLYFLOOR) AS  HPI_ELR_E_B
+                       ,(SELECT ELR_E_C      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'HPI' AND APPLYFLOOR = B.HPIAPPLYFLOOR) AS  HPI_ELR_E_C
+                       ,(SELECT ELR_E_D      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'HPI' AND APPLYFLOOR = B.HPIAPPLYFLOOR) AS  HPI_ELR_E_D
+                       ,(SELECT ELR_E_E      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'HPI' AND APPLYFLOOR = B.HPIAPPLYFLOOR) AS  HPI_ELR_E_E
+                       ,(SELECT ELR_E_A      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP IN ('HPB', 'HIP', 'HPBCIRCLE') AND APPLYFLOOR = DECODE(B.HPBAPPLYFLOOR, '', B.HIPAPPLYFLOOR, B.HPBAPPLYFLOOR)) AS  BTN_ELR_E_A
+                       ,(SELECT ELR_E_B      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP IN ('HPB', 'HIP', 'HPBCIRCLE') AND APPLYFLOOR = DECODE(B.HPBAPPLYFLOOR, '', B.HIPAPPLYFLOOR, B.HPBAPPLYFLOOR)) AS  BTN_ELR_E_B
+                       ,(SELECT ELR_E_F      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP IN ('HPB', 'HIP', 'HPBCIRCLE') AND APPLYFLOOR = DECODE(B.HPBAPPLYFLOOR, '', B.HIPAPPLYFLOOR, B.HPBAPPLYFLOOR)) AS  BTN_ELR_E_F
+                       ,(SELECT ELR_E_C      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP IN ('HPB', 'HIP', 'HPBCIRCLE') AND APPLYFLOOR = DECODE(B.HPBAPPLYFLOOR, '', B.HIPAPPLYFLOOR, B.HPBAPPLYFLOOR)) AS  BTN_ELR_E_C
+                       ,(SELECT ELR_E_D      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP IN ('HPB', 'HIP', 'HPBCIRCLE') AND APPLYFLOOR = DECODE(B.HPBAPPLYFLOOR, '', B.HIPAPPLYFLOOR, B.HPBAPPLYFLOOR)) AS  BTN_ELR_E_D
+                       ,(SELECT ELR_E_E      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP IN ('HPB', 'HIP', 'HPBCIRCLE') AND APPLYFLOOR = DECODE(B.HPBAPPLYFLOOR, '', B.HIPAPPLYFLOOR, B.HPBAPPLYFLOOR)) AS  BTN_ELR_E_E
+                       ,CASE WHEN (SELECT ELR_E_E      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'HPBCIRCLE' AND APPLYFLOOR = DECODE(B.HPBAPPLYFLOOR, '', B.HIPAPPLYFLOOR, B.HPBAPPLYFLOOR)) IS NOT NULL THEN
+                            'Y'
+                        ELSE
+                            'N'
+                        END AS BTN_ELC_E_CHB
+                       ,(SELECT ELR_E_A      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'PKS' AND APPLYFLOOR = B.PRKSWAPPLYFLOOR) AS  PKS_ELR_E_A
+                       ,(SELECT ELR_E_B      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'PKS' AND APPLYFLOOR = B.PRKSWAPPLYFLOOR) AS  PKS_ELR_E_B
+                       ,(SELECT ELR_E_F      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'PKS' AND APPLYFLOOR = B.PRKSWAPPLYFLOOR) AS  PKS_ELR_E_F
+                       ,(SELECT ELR_E_C      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'PKS' AND APPLYFLOOR = B.PRKSWAPPLYFLOOR) AS  PKS_ELR_E_C
+                       ,(SELECT ELR_E_D      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'PKS' AND APPLYFLOOR = B.PRKSWAPPLYFLOOR) AS  PKS_ELR_E_D
+                       ,(SELECT ELR_E_E      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'PKS' AND APPLYFLOOR = B.PRKSWAPPLYFLOOR) AS  PKS_ELR_E_E
+                       ,(SELECT ELR_E_HLLC   FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'HLT' AND APPLYFLOOR = B.HLTNAPPLYFLOOR) AS  HLT_ELR_E_HLLC
+                       ,(SELECT ELR_E_A      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'HLT' AND APPLYFLOOR = B.HLTNAPPLYFLOOR) AS  HLT_ELR_E_A
+                       ,(SELECT ELR_E_B      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'HLT' AND APPLYFLOOR = B.HLTNAPPLYFLOOR) AS  HLT_ELR_E_B
+                       ,(SELECT ELR_E_F      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'HLT' AND APPLYFLOOR = B.HLTNAPPLYFLOOR) AS  HLT_ELR_E_F
+                       ,(SELECT ELR_E_C      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'HLT' AND APPLYFLOOR = B.HLTNAPPLYFLOOR) AS  HLT_ELR_E_C
+                       ,(SELECT ELR_E_D      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'HLT' AND APPLYFLOOR = B.HLTNAPPLYFLOOR) AS  HLT_ELR_E_D
+                       ,(SELECT ELR_E_E      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'HLT' AND APPLYFLOOR = B.HLTNAPPLYFLOOR) AS  HLT_ELR_E_E
+                       ,(SELECT ELR_E_H      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'HLT' AND APPLYFLOOR = B.HLTNAPPLYFLOOR) AS  HLT_ELR_E_H
+                       ,(SELECT ELR_E_FSLC   FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'FSW' AND APPLYFLOOR = B.FSWAPPLYFLOOR) AS  FSW_ELR_E_FSLC
+                       ,(SELECT ELR_E_A      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'FSW' AND APPLYFLOOR = B.FSWAPPLYFLOOR) AS  FSW_ELR_E_A
+                       ,(SELECT ELR_E_B      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'FSW' AND APPLYFLOOR = B.FSWAPPLYFLOOR) AS  FSW_ELR_E_B
+                       ,(SELECT ELR_E_F      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'FSW' AND APPLYFLOOR = B.FSWAPPLYFLOOR) AS  FSW_ELR_E_F
+                       ,(SELECT ELR_E_C      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'FSW' AND APPLYFLOOR = B.FSWAPPLYFLOOR) AS  FSW_ELR_E_C
+                       ,(SELECT ELR_E_D      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'FSW' AND APPLYFLOOR = B.FSWAPPLYFLOOR) AS  FSW_ELR_E_D
+                       ,(SELECT ELR_E_E      FROM ZPST1137 WHERE MANDT = B.MANDT AND ELR_E_IDTP = 'FSW' AND APPLYFLOOR = B.FSWAPPLYFLOOR) AS  FSW_ELR_E_E
+                 FROM   SAPHEE.ZPST1138 A
+                        INNER JOIN SAPHEE.ZPST1139 B ON (A.MANDT = B.MANDT AND A.SUVSN = B.SUVSN AND A.FLOOR = B.FLOOR)
+                 WHERE  A.MANDT = #{MANDT}
+                   AND  A.SUVSN = #{SUVSN}
+                   AND  A.JAMBGRP <> ''
+                 ) AS T  
+    GROUP BY T.MANDT
+          ,T.SUVSN
+          ,T.JAMBGRP
+          ,T.JAMBMODEL
+          ,T.HPIMODEL
+          ,T.HPBMODEL
+          ,T.HIPMODEL
+          ,T.HLTNMODEL
+          ,T.FSWMODEL
+          ,T.HPI_ELR_E_A
+          ,T.HPI_ELR_E_B
+    --      ,T.HPI_ELR_E_C
+    --      ,T.HPI_ELR_E_D
+    --      ,T.HPI_ELR_E_E
+          ,T.BTN_ELR_E_A
+          ,T.BTN_ELR_E_B
+          ,T.BTN_ELR_E_F
+          ,T.BTN_ELC_E_CHB
+    --      ,T.BTN_ELR_E_C
+    --      ,T.BTN_ELR_E_D
+          ,T.BTN_ELR_E_E
+          ,T.PKS_ELR_E_A
+          ,T.PKS_ELR_E_B
+          ,T.PKS_ELR_E_F
+    --      ,T.PKS_ELR_E_C
+    --      ,T.PKS_ELR_E_D
+    --      ,T.PKS_ELR_E_E
+          ,T.HLT_ELR_E_HLLC
+          ,T.HLT_ELR_E_A
+          ,T.HLT_ELR_E_B
+          ,T.HLT_ELR_E_F
+    --      ,T.HLT_ELR_E_C
+    --      ,T.HLT_ELR_E_D
+          ,T.HLT_ELR_E_E
+    --      ,T.HLT_ELR_E_H
+          ,T.FSW_ELR_E_FSLC
+          ,T.FSW_ELR_E_A
+          ,T.FSW_ELR_E_B
+    --      ,T.FSW_ELR_E_F
+    --      ,T.FSW_ELR_E_C
+    --      ,T.FSW_ELR_E_D
+    --      ,T.FSW_ELR_E_E
+    ORDER BY FLOOR
+    WITH UR
+    ]]>
+    </select>
+
+    <select id="selectHpiZPST1133" parameterType="hashMap" resultType="hashMap">
+        SELECT MAX(CASE WHEN SUVATTRID = 'ELC_E_HPBX' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_HPBX
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_HPW' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_HPW       
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_HPD' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_HPD
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_M_FORM' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_M_FORM
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_BP_TYPE' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_BP_TYPE
+        FROM   SAPHEE.ZPST1133
+        WHERE  MANDT = #{MANDT}
+         AND   SUVPRH = 'ELR_E_IDTP'
+         AND   SUVATTR = #{SUVATTR}
+         AND   SUVPRD  = 'HPI'
+        WITH UR
+    </select>
+
+    <select id="selectHpbZPST1133" parameterType="hashMap" resultType="hashMap">
+        SELECT MAX(CASE WHEN SUVATTRID = 'ELC_E_HBBX' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_HBBX
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_HBW' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_HBW       
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_HBD' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_HBD
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_HBW_PKS' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_HBW_PKS       
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_HBD_PKS' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_HBD_PKS
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_M_FORM' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_M_FORM
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_BP_TYPE' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_BP_TYPE
+        FROM   SAPHEE.ZPST1133
+        WHERE  MANDT = #{MANDT}
+         AND   SUVPRH = 'ELR_E_IDTP'
+         AND   SUVATTR = #{SUVATTR}
+         AND   SUVPRD  = 'HPB'
+        WITH UR
+    </select>
+
+    <select id="selectHipZPST1133" parameterType="hashMap" resultType="hashMap">
+        SELECT MAX(CASE WHEN SUVATTRID = 'ELC_E_HBBX' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_HBBX
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_HBW' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_HBW       
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_HBD' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_HBD
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_HBW_PKS' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_HBW_PKS       
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_HBD_PKS' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_HBD_PKS
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_M_FORM' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_M_FORM
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_BP_TYPE' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_BP_TYPE
+        FROM   SAPHEE.ZPST1133
+        WHERE  MANDT = #{MANDT}
+         AND   SUVPRH = 'ELR_E_IDTP'
+         AND   SUVATTR = #{SUVATTR}
+         AND   SUVPRD  = 'HIP'
+        WITH UR
+    </select>
+
+    <select id="selectHltZPST1133" parameterType="hashMap" resultType="hashMap">
+        SELECT MAX(CASE WHEN SUVATTRID = 'ELC_E_HLBX' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_HLBX
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_HLW' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_HLW       
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_HLD' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_HLD
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_M_FORM' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_M_FORM
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_BP_TYPE' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_BP_TYPE
+        FROM   SAPHEE.ZPST1133
+        WHERE  MANDT = #{MANDT}
+         AND   SUVPRH = 'ELR_E_IDTP'
+         AND   SUVATTR = #{SUVATTR}
+         AND   SUVPRD  = 'HLT'
+        WITH UR
+    </select>
+
+    <select id="selectFswZPST1133" parameterType="hashMap" resultType="hashMap">
+        SELECT MAX(CASE WHEN SUVATTRID = 'ELC_E_FSBX' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_FSBX
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_FSW' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_FSW       
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_FSD' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_FSD
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_M_FORM' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_M_FORM
+              ,MAX(CASE WHEN SUVATTRID = 'ELC_E_BP_TYPE' THEN
+                   SUVATTRPRD
+               END) AS ELC_E_BP_TYPE
+        FROM   SAPHEE.ZPST1133
+        WHERE  MANDT = #{MANDT}
+         AND   SUVPRH = 'ELR_E_IDTP'
+         AND   SUVATTR = #{SUVATTR}
+         AND   SUVPRD  = 'FSW'
+        WITH UR
+    </select>
+
+    <select id="selectElrEPnlh" parameterType="hashMap" resultType="hashMap">
+        SELECT MAX(CASE WHEN SUVPRH =  'ELR_E_PNLH' THEN
+                 DECODE(MODYPRD,'', DECODE(CALPRD, '', SUVPRD, CALPRD), MODYPRD)
+               END) AS ELR_E_PNLH
+		      ,TO_CHAR(MAX(CASE WHEN SUVPRH =  'ELR_E_PNLH' THEN
+		         DECODE(MODYPRD,'', DECODE(CALPRD, '', SUVPRD, CALPRD), MODYPRD)
+		       END)-
+		       MIN(CASE WHEN SUVPRH =  'ELR_E_PNLH' THEN
+		         DECODE(MODYPRD,'', DECODE(CALPRD, '', SUVPRD, CALPRD), MODYPRD)
+		       END)) AS ELC_E_PNLHDEGR
+         FROM  SAPHEE.ZPST1137
+        WHERE  MANDT = #{MANDT}
+          AND  SUVSN = #{SUVSN}
+          AND  SUVPRH IN ('ELR_E_PNLH')
+        WITH UR
+    </select>
+
+    <select id="selectElrEPnlhList" parameterType="hashMap" resultType="hashMap">
+		SELECT  APPLYFLOOR
+		       ,CASE WHEN SUVPRH =  'ELR_E_JAMBTP' THEN
+		            SUVPRD
+		        END AS ELR_E_PNLH
+		 FROM   SAPHEE.ZPST1137
+		WHERE   MANDT = #{MANDT}
+		  AND   SUVSN = #{SUVSN}
+		  AND   SUVPRH IN ( 'ELR_E_JAMBTP')
+		WITH UR
+    </select>
+
+    <delete id="deleteEnterElcData" parameterType="hashMap">
+	<![CDATA[
+	    DELETE FROM SAPHEE.ZPST1136
+		WHERE  MANDT = #{MANDT}
+		  AND  SUVSN = #{SUVSN}
+          AND  SUVPRH LIKE 'ELC%'
+          AND  SUVTYPE = 'E'
+    ]]>
+	</delete>
+
+    <insert id="insertCalZPST1136" parameterType="hashMap">
+    MERGE INTO SAPHEE.ZPST1136 X        -- 리모델링실측값
+    USING (SELECT #{MANDT}   AS MANDT   -- 클라이언트
+                 ,#{SUVSN}   AS SUVSN   -- 실측고유번호
+                 ,#{SUVPRH}  AS SUVPRH  -- 실측사양
+             FROM SYSIBM.SYSDUMMY1) Y
+       ON X.MANDT  = Y.MANDT
+      AND X.SUVSN  = Y.SUVSN
+      AND X.SUVPRH = Y.SUVPRH
+     WHEN MATCHED THEN
+          UPDATE SET CALPRD  = #{CALPRD}         -- 연산사양값
+                    ,CALNAM  = #{USER_NAME}      -- 연산사양값 생성자 이름
+                    ,CALDAT  = HEX(CURRENT DATE) -- 연산사양값 생성일
+     WHEN NOT MATCHED THEN
+          INSERT (MANDT   -- 클라이언트
+                 ,SUVSN   -- 실측고유번호
+                 ,SUVPRH  -- 실측사양
+                 ,SUVTYPE -- 실측보고서종류
+                 ,SUVPRD  -- 실측사양값
+                 ,CALPRD  -- 연산사양값
+                 ,MODYPRD -- 보정사양값
+                 ,CALNAM  -- 연산사양값 생성자 이름
+                 ,CALDAT  -- 연산사양값 생성일
+                 ,MODYNAM -- 보정사양값 생성자 이름
+                 ,MODYDAT -- 보정사양값 생성일
+                 ,ERDAT   -- 레코드 생성일
+                 ,ERZET   -- 입력 시간
+                 ,ERNAM   -- 오브젝트 생성자 이름
+                 ,AEDAT   -- 변경일
+                 ,AEZET   -- 최종변경시간
+                 ,AENAM)  -- 오브젝트 변경자 이름
+          VALUES (#{MANDT}
+                 ,#{SUVSN}
+                 ,#{SUVPRH}
+                 ,#{SUVTYPE}
+                 ,''
+                 ,#{CALPRD}
+                 ,''
+                 ,#{USER_NAME}
+                 ,HEX(CURRENT DATE)
+                 ,#{USER_NAME}
+                 ,HEX(CURRENT DATE)
+                 ,HEX(CURRENT DATE)
+                 ,HEX(CURRENT TIME)
+                 ,#{USER_NAME}
+                 ,HEX(CURRENT DATE)
+                 ,HEX(CURRENT TIME)
+                 ,#{USER_NAME})
+    </insert>
+
+    <update id="updateModyPST1136" parameterType="hashMap">
+        UPDATE SAPHEE.ZPST1136
+           SET MODYPRD = #{MODYPRD}
+              ,MODYNAM = #{USER_NAME}
+              ,MODYDAT = HEX(CURRENT DATE)
+         WHERE MANDT  = #{MANDT}
+           AND SUVSN  = #{SUVSN}
+           AND SUVPRH = #{SUVPRH}
+    </update>
+
+    <update id="updateCalPST1136" parameterType="hashMap">
+        UPDATE SAPHEE.ZPST1136
+           SET CALPRD = #{CALPRD}
+              ,CALNAM = #{USER_NAME}
+              ,CALDAT = HEX(CURRENT DATE)
+         WHERE MANDT  = #{MANDT}
+           AND SUVSN  = #{SUVSN}
+           AND SUVPRH = #{SUVPRH}
+    </update>
+    
+	<select id="selectATWTB" parameterType="hashMap" resultType="String">
+	<![CDATA[
+		SELECT VALUE(F.ATWTB, CHAR(INTEGER(VALUE(E.ATFLV,0)))) AS ATWTB
+		  FROM SAPHEE.KSML AS A						
+			   INNER JOIN			SAPHEE.CABN AS B	ON A.MANDT = B.MANDT	AND A.IMERK = B.ATINN
+			   LEFT OUTER JOIN		SAPHEE.CABNT AS C	ON B.MANDT = C.MANDT	AND B.ATINN = C.ATINN
+								   AND C.SPRAS = '3'
+			   INNER JOIN			SAPHEE.KLAH AS D	ON A.MANDT = D.MANDT	AND A.CLINT = D.CLINT
+			   LEFT OUTER JOIN		SAPHEE.CAWN AS E	ON B.MANDT = E.MANDT	AND B.ATINN = E.ATINN	
+			   LEFT OUTER JOIN		SAPHEE.CAWNt AS F	ON E.MANDT = F.MANDT	AND E.ATINN = F.ATINN AND E.ATZHL = F.ATZHL
+								   AND F.SPRAS = '3'
+		 WHERE  A.MANDT	= #{MANDT}
+		   AND  A.KLART	= '300'	
+		   AND  D.CLASS = 'ELV_01'
+		   AND  B.ATNAM = #{PRH}
+		   AND  E.ATWRT = #{PRD}
+		 ORDER
+			BY	A.CLINT					
+			 ,	A.POSNR, E.ATZHL
+			 WITH UR
+	]]>
+    </select>
+
+    <select id="selectQtHGList" parameterType="hashMap" resultType="hashMap">
+		SELECT   C.MANDT
+		        ,C.SUVSN
+		        ,C.ECWTP
+		        ,C.CBRK
+		        ,C.SUVNAM
+		        ,C.SUVDAT
+		        ,A.GSNAM
+		        ,C.QTNUM AS PRJNUM
+		        ,CAST(C.QTSEQ AS VARCHAR(10)) AS HOGI
+		  FROM   SAPHEE.ZSDT1046 A
+		         INNER JOIN  SAPHEE.ZSDT1047 B ON ( A.MANDT = B.MANDT AND A.QTNUM = B.QTNUM AND A.QTSER = B.QTSER )
+		         INNER JOIN  SAPHEE.ZPST1134 C ON ( B.MANDT = C.MANDT AND B.QTNUM = C.QTNUM AND B.QTSER = C.QTSER AND B.QTSEQ = C.QTSEQ )
+		 WHERE   A.MANDT = #{MANDT}
+		   AND   A.QTNUM = #{QTNUM}
+		   AND   A.QTSER = #{QTSER}
+		   AND   C.ECWTP != ''
+		   AND   C.SUVDAT != ''
+		ORDER BY C.QTSEQ   
+		WITH UR
+    </select>
+
+    <select id="selectOrderHGList" parameterType="hashMap" resultType="hashMap">
+		SELECT   X.MANDT
+		        ,X.SUVSN
+		        ,X.ECWTP
+		        ,X.CBRK
+		        ,X.SUVNAM
+		        ,X.SUVDAT
+		        ,X.GSNAM
+		        ,NVL(X.PRJNUM, '') AS PRJNUM
+		        ,NVL(X.HOGI, '') AS HOGI
+		FROM    TABLE (
+				SELECT A.MANDT
+				      ,CASE WHEN B.SUVSN IS NOT NULL THEN
+				          B.SUVSN
+				       ELSE
+				          C.SUVSN
+				       END AS SUVSN
+				      ,CASE WHEN B.SUVSN IS NOT NULL THEN
+				          B.ECWTP
+				       ELSE
+				          C.ECWTP
+				       END AS ECWTP
+				      ,CASE WHEN B.SUVSN IS NOT NULL THEN
+				          B.CBRK
+				       ELSE
+				          C.CBRK
+				       END AS CBRK
+				      ,CASE WHEN B.SUVSN IS NOT NULL THEN
+				          B.SUVNAM
+				       ELSE
+				          C.SUVNAM
+				       END AS SUVNAM
+				      ,CASE WHEN B.SUVSN IS NOT NULL THEN
+				          B.SUVDAT
+				       ELSE
+				          C.SUVDAT
+				       END AS SUVDAT
+				      ,CASE WHEN B.SUVSN IS NOT NULL THEN
+				          (SELECT GSNAM FROM SAPHEE.ZSDT1046 WHERE MANDT = B.MANDT AND QTNUM = B.QTNUM AND QTSER = B.QTSER)
+				       ELSE
+				          (SELECT GSNAM FROM SAPHEE.ZSDT1046 WHERE MANDT = C.MANDT AND QTNUM = C.QTNUM AND QTSER = C.QTSER)
+				       END AS GSNAM
+				      ,CASE WHEN B.SUVSN IS NOT NULL THEN
+				          B.QTNUM
+				       ELSE
+				          A.VBELN
+				       END AS PRJNUM
+				      ,CASE WHEN B.SUVSN IS NOT NULL THEN
+				          CAST(B.QTSEQ  AS VARCHAR(10))
+				       ELSE
+				          C.HOGI
+				       END AS HOGI
+				FROM   SAPHEE.VBAP A
+				       LEFT OUTER JOIN SAPHEE.ZPST1134 AS B ON A.MANDT = B.MANDT AND A.QTNUM = B.QTNUM AND A.QTSEQ = B.QTSEQ AND A.QTSER = B.QTSER AND B.SUVST = 'Y'
+				       LEFT OUTER JOIN SAPHEE.ZPST1135 AS C ON A.MANDT = C.MANDT AND A.VBELN = C.ZZPJT_ID AND A.HOGI = C.HOGI AND C.SUVST = 'Y'
+				WHERE  A.MANDT = #{MANDT}
+				  AND  A.VBELN = #{PRJNUM}
+			   ) AS X
+		WHERE  X.SUVSN IS NOT NULL
+          AND  X.ECWTP  != ''
+          AND  X.SUVDAT != ''
+		WITH UR
+    </select>
+
+    <select id="selectSuvDataList" parameterType="hashMap" resultType="hashMap">
+		SELECT A.MANDT
+		      ,SUBSTR(A.ITEMDIV, 1,1) AS ITEMDIV
+		      ,A.SUVPRH
+		      ,NVL(B.SUVPRD, '')  AS SUVPRD
+		      ,NVL(C.SUVPRDNAME, NVL(B.SUVPRD, '')) AS SUVPRDNAME
+		FROM   SAPHEE.ZPST1131 A
+		       LEFT OUTER JOIN SAPHEE.ZPST1136 B ON (A.MANDT = B.MANDT AND A.SUVPRH = B.SUVPRH AND B.SUVSN = #{SUVSN})
+		       LEFT OUTER JOIN SAPHEE.ZPST1132 C ON (B.MANDT = C.MANDT AND B.SUVPRH = C.SUVPRH AND B.SUVPRD = C.SUVPRD)
+		WHERE  A.MANDT   = #{MANDT}
+		  AND  A.DATADIV = 'ELR'
+		WITH UR
+    </select>
+
+    <select id="selectSuvViewDataList" parameterType="hashMap" resultType="hashMap">
+		WITH TEMP AS (SELECT A.MANDT
+			                    ,A.SUVSN
+			                    ,A.SUVPRH
+			                    ,A.INORDER
+			                    ,A.APPLYFLOOR
+			                    ,NVL(A.SUVPRD, '') AS SUVPRD
+	                            ,C.SUVPRDNAME
+			                FROM SAPHEE.ZPST1137 A
+                                 JOIN SAPHEE.ZPST1131 B ON A.MANDT = B.MANDT AND A.SUVPRH  = B.SUVPRH AND B.DATADIV = 'ELR' AND B.ITEMDIV = 'EE'
+                                 LEFT OUTER JOIN SAPHEE.ZPST1132 C ON A.MANDT = C.MANDT AND A.SUVPRH = C.SUVPRH AND A.SUVPRD = C.SUVPRD
+			               WHERE A.MANDT = #{MANDT}
+			                 AND A.SUVSN = #{SUVSN})
+		SELECT MANDT
+		      ,SUVSN
+		      ,INORDER
+		      ,MAX(APPLYFLOOR)                           AS APPLYFLOOR /* 적용층          */
+		      ,MAX(DECODE(SUVPRH ,'ELR_E_IDTP' ,SUVPRDNAME)) AS ELR_E_IDTP /* 표시기종류      */
+		      ,VALUE(MAX(DECODE(SUVPRH ,'ELR_E_HLLC' 
+		                               ,SUVPRD)), '')    AS ELR_E_HLLC /* 홀랜턴위치      */
+		      ,VALUE(MAX(DECODE(SUVPRH ,'ELR_E_FSLC' 
+		                               ,SUVPRD)), '')    AS ELR_E_FSLC /* 소방스위치 위치 */
+		      ,MAX(DECODE(SUVPRH ,'ELR_E_A'    ,SUVPRD)) AS ELR_E_A    /* A               */
+		      ,MAX(DECODE(SUVPRH ,'ELR_E_B'    ,SUVPRD)) AS ELR_E_B    /* B               */
+		      ,MAX(DECODE(SUVPRH ,'ELR_E_C'    ,SUVPRD)) AS ELR_E_C    /* C               */
+		      ,MAX(DECODE(SUVPRH ,'ELR_E_D'    ,SUVPRD)) AS ELR_E_D    /* D               */
+		      ,MAX(DECODE(SUVPRH ,'ELR_E_E'    ,SUVPRD)) AS ELR_E_E    /* E               */
+		      ,MAX(DECODE(SUVPRH ,'ELR_E_F'    ,SUVPRD)) AS ELR_E_F    /* F               */
+		      ,MAX(DECODE(SUVPRH ,'ELR_E_BXD'  ,SUVPRD)) AS ELR_E_BXD  /* BOX깊이         */
+		      ,MAX(DECODE(SUVPRH ,'ELR_E_H'    ,SUVPRD)) AS ELR_E_H    /* H               */
+		  FROM TEMP
+		 GROUP BY MANDT ,SUVSN ,INORDER
+		 ORDER BY INORDER
+         WITH UR    
+    </select>
+
+    <select id="selectSuvJamDataList" parameterType="hashMap" resultType="hashMap">
+	    WITH TEMP AS (SELECT A.MANDT
+	                        ,A.SUVSN
+	                        ,A.SUVPRH
+	                        ,A.INORDER
+	                        ,A.APPLYFLOOR
+	                        ,NVL(A.SUVPRD, '') AS SUVPRD 
+	                    FROM SAPHEE.ZPST1137 A
+	                    JOIN SAPHEE.ZPST1131 B
+	                      ON A.MANDT   = B.MANDT
+	                     AND A.SUVPRH  = B.SUVPRH
+	                     AND B.DATADIV = 'ELR'
+	                     AND B.ITEMDIV = 'ED'
+	                   WHERE A.MANDT = #{MANDT}
+	                     AND A.SUVSN = #{SUVSN})
+	        SELECT MANDT
+	              ,SUVSN
+	              ,INORDER
+	              ,MAX(APPLYFLOOR)                             AS APPLYFLOOR   /* 적용층           */
+	              ,MAX(DECODE(SUVPRH ,'ELR_E_JAMBTP' ,SUVPRD)) AS ELR_E_JAMBTP /* JAMB타입         */
+	              ,MAX(DECODE(SUVPRH ,'ELR_E_EFMAT'  ,SUVPRD)) AS ELR_E_EFMAT  /* 출입구 마감 재질 */
+	              ,MAX(DECODE(SUVPRH ,'ELR_E_PNLH'   ,SUVPRD)) AS ELR_E_PNLH   /* 승장도어판넬높이 */
+	          FROM TEMP
+	         GROUP BY MANDT ,SUVSN ,INORDER
+	         ORDER BY INORDER
+	         WITH UR    
+    </select>
+
+</mapper>

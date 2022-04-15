@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[일일배차관리 자재 상세]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+ '0'         AS CHECK
+,T7.PSPID    AS PSPID
+,T7.POST1    AS POST1
+,T7.POSID    AS POSID
+,MS.ZSPEC1   AS ZSPEC1
+,MS.ZSPEC2   AS ZSPEC2
+--,T7.BLOCK    AS BLOCK
+,CASE WHEN T7.BOX_CK = '24' THEN (SELECT BLOCK FROM SAPHEE.ZMMT026_1 WHERE MANDT = '183' AND BOXNO = T7.EXTWG)
+                                                ELSE T7.BLOCK
+                                                 END AS BLOCK
+,T7.EXTWG    AS EXTWG
+,T7.MATNR    AS MATNR
+,T7.MATNR_NM AS MATNR_NM
+,T7.SPEC     AS SPEC
+,T7.ZSIZE    AS ZSIZE
+--,CASE WHEN T7.ZSTAT3='X' THEN 0                 ELSE T7.LFIMG END AS LFIMG
+--,CASE WHEN T7.ZSTAT3='X' AND T7.ZSTAT2 = '' THEN T7.LFIMG+T7.ENMNG
+--           WHEN T7.ZSTAT3='X' AND T7.ZSTAT2 = 'X' THEN T7.LFIMG ELSE T7.ENMNG END AS ENMNG
+,T7.ERFMG-T7.ENMNG AS LFIMG
+,T7.ENMNG AS ENMNG
+,T7.ERFMG    AS ERFMG
+,T7.VRKME    AS VRKME
+,T7.VBELN    AS VBELN
+,T7.POSNR    AS POSNR
+,T7.TABNM    AS TABNM
+,COALESCE(SUBSTR(T7.POSID,7,3),'') AS POSID2
+,''          AS LIFNR
+,VALUE(T7.NAME1,'') AS NAME1
+,CASE WHEN T7.XLOEK  = 'X'   THEN '4'
+      WHEN T7.KZEAR  = 'X'   THEN '3'
+      WHEN T7.ZSTAT3 = 'X'   THEN '3'
+      WHEN T7.ZSTAT2 = 'X'   THEN '2'
+      WHEN T7.ZSTAT1 = 'X'   THEN '1' ELSE '' END AS ZSTAT4
+,CASE WHEN MC.SBDKZ IS NULL  THEN ''
+      WHEN MC.SBDKZ='2'      THEN 'MTS' ELSE 'MTO' END SBDKZ
+,CASE WHEN MC.SBDKZ IS NULL  THEN 0.000
+      WHEN MC.SBDKZ='2'      THEN
+         VALUE((
+
+                SELECT
+                SUM(LABST)
+                FROM SAPHEE.MARD AS MD
+                WHERE MD.MANDT=T7.MANDT
+                  AND MD.MATNR=T7.MATNR
+                  AND MD.WERKS=MC.WERKS
+<isEqual col="TPLST" value="1000">
+                  AND MD.LGORT &lt; '7000'
+</isEqual>
+<isEqual col="TPLST" value="1100">
+                  AND MD.LGORT &gt;= '7000'
+</isEqual>
+<isEqual col="TPLST" value="">
+                  AND MD.LGORT=T7.LGORT
+</isEqual>
+               ),0.000)
+      ELSE 
+         VALUE((
+
+                SELECT
+                SUM(PRLAB)
+                FROM SAPHEE.MSPR AS MD
+                WHERE MD.MANDT=T7.MANDT
+                  AND MD.MATNR=T7.MATNR
+                  AND MD.WERKS=MC.WERKS
+<isEqual col="TPLST" value="1000">
+                  AND MD.LGORT &lt; '7000'
+</isEqual>
+<isEqual col="TPLST" value="1100">
+                  AND MD.LGORT &gt;= '7000'
+</isEqual>
+<isEqual col="TPLST" value="">
+                  AND MD.LGORT=T7.LGORT
+</isEqual>
+
+                  AND MD.CHARG=''
+                  AND MD.SOBKZ='Q'
+                  AND MD.PSPNR = (
+
+                                 SELECT
+                                 PSPNR
+                                 FROM SAPHEE.PRPS AS PR
+                                 WHERE PR.MANDT = T7.MANDT
+                                   AND PR.POSID = T7.POSID_1
+                               )
+
+                ),0.000)  END  AS JEAGO          -- 재고
+,CASE WHEN T7.MTART='HALB' THEN ''
+      ELSE VALUE((
+
+              SELECT
+              CASE WHEN MAX(M7.PRO_F) = '4' AND SUM(M3.MENGE) = SUM(M7.MENGE) THEN '2'
+                   WHEN MAX(M3.STATE) = '2'                                   THEN '1' ELSE '0' END AS PRO_F
+              FROM SAPHEE.ZMMT013 AS M3
+                   LEFT OUTER JOIN SAPHEE.ZMMT017 AS M7 ON  M3.MANDT = M7.MANDT
+                                                        AND M3.EBELN = M7.EBELN
+                                                        AND M3.EBELP = M7.EBELP
+                                                       -- AND M3.POSID = M7.POSID
+                                                       -- AND M3.MATNR = M7.MATNR
+                                                        AND M3.STATE = '2'
+              WHERE M3.MANDT = T7.MANDT
+                AND M3.POSID = T7.POSID_1
+                AND M3.MATNR = T7.MATNR
+              GROUP BY M3.POSID,M3.MATNR
+
+            ),'') END AS STATE              -- 발주상태
+,MC.EKGRP    AS EKGRP
+,T7.MTART    AS MTART
+,T7.ZLOG3    AS ZLOG3
+,T7.ZBELN    AS ZBELN
+,T7.ZOSNR    AS ZOSNR
+,T7.POSID_1  AS POSID3
+,''          AS BUDAT
+,''          AS PSPNR
+,T7.RSNUM    AS RSNUM
+,T7.RSPOS    AS RSPOS
+,T7.ERFME    AS ERFME
+,''          AS MBLNR
+,''          AS ZRTNVAL
+,''          AS ZRTNMSG
+,T7.VBELN7    AS VBELN7
+,T7.MJAHR    AS MJAHR
+,T7.ZKNUM    AS ZKNUM
+,T7.ZKNUM2    AS ZKNUM2
+,VALUE((
+
+        SELECT
+        '호차:' || ZKNUM || ',경유지:' || ZKNUM2
+        FROM SAPHEE.ZLET017 AS X1
+        WHERE X1.MANDT=T7.MANDT
+          AND X1.RSNUM=T7.RSNUM
+          AND X1.RSPOS=T7.RSPOS
+          AND X1.ZSTAT3=''
+          AND X1.ZCANC=''
+        FETCH FIRST ROWS ONLY
+
+      ),'') AS ZGI
+
+, '신박스' AS BOXCK
+-- 신박스로만 나타내도록 변경 2015.08.07 조영욱
+-- VALUE((SELECT 
+--        CASE WHEN MAX(M085A.BOX_CK) = '24' THEN '신박스' ELSE '구박스' END
+--          FROM SAPHEE.ZMMT085 AS M085A
+--         WHERE M085A.MANDT = T7.MANDT
+--             AND M085A.POSID = T7.POSID_1),'') AS BOXCK
+
+
+FROM (
+
+         SELECT
+          T3.MANDT    AS MANDT
+         ,T3.PSPID    AS PSPID
+         ,CASE WHEN SUBSTR(T3.PSPID,1,2)='QM' THEN SUBSTR(T3.PSPID,3,6)
+               WHEN SUBSTR(T3.PSPID,1,1)='Q'  THEN SUBSTR(T3.PSPID,2,6) ELSE T3.PSPID END AS PSPID_O
+         ,T3.POST1    AS POST1
+         ,T4.POSID    AS POSID
+         ,CASE WHEN SUBSTR(T4.POSID,1,2)='QM' THEN SUBSTR(T4.POSID,3,9)
+               WHEN SUBSTR(T4.POSID,1,1)='Q'  THEN SUBSTR(T4.POSID,2,9) ELSE T4.POSID END AS POSID_O
+         ,CASE WHEN SUBSTR(T4.POSID,1,1) IN ('Q','F') OR SUBSTR(T4.POSID,7,1) = 'N' THEN T4.POSID WHEN SUBSTR(T4.POSID,7,1) = 'F' THEN T4.POSID ELSE TRIM(T4.POSID) || '-P' END AS POSID_1
+         ,CASE WHEN COALESCE(T4.BLOCK,'') = '' THEN 'CAGE'  ELSE T4.BLOCK END AS BLOCK
+
+--         ,CASE WHEN COALESCE(T4.EXTWG,'') = '' THEN 'BOX33' ELSE T4.EXTWG END AS EXTWG
+--         ,CASE WHEN M85.BOX_CK = '24'  THEN (CASE WHEN COALESCE(MA.EXTWG2,'') = '' THEN 'BOX24' ELSE MA.EXTWG2 END)
+--                                                           ELSE (CASE WHEN COALESCE(MA.EXTWG,'') = '' THEN 'BOX33' ELSE MA.EXTWG END ) END AS EXTWG
+-- 박스번호 신박스로만 참조 2015.08.07 조영욱
+         ,CASE WHEN COALESCE(MA.EXTWG2,'') = '' THEN 'BOX24' ELSE MA.EXTWG2 END AS EXTWG
+         ,T4.MATNR    AS MATNR
+         ,L7.LFIMG    AS LFIMG
+         ,L7.NAME1   AS NAME1
+         ,T4.VRKME    AS VRKME
+         ,T4.VBELN    AS VBELN
+         ,T4.POSNR    AS POSNR
+         ,'4'         AS TABNM
+         ,L7.VBELN    AS VBELN7
+         ,L7.ZBELN    AS ZBELN
+         ,L7.ZOSNR    AS ZOSNR
+         ,L7.ZKNUM    AS ZKNUM
+         ,L7.ZKNUM2   AS ZKNUM2
+         ,L7.RSNUM    AS RSNUM
+         ,L7.RSPOS    AS RSPOS
+         ,L7.ERFME    AS ERFME
+         ,L7.LGORT    AS LGORT
+         ,RS.BDMNG    AS ERFMG
+         ,RS.ENMNG    AS ENMNG
+         ,L7.MJAHR    AS MJAHR
+         ,L7.ZSTAT1   AS ZSTAT1
+         ,L7.ZSTAT2   AS ZSTAT2
+         ,L7.ZSTAT3   AS ZSTAT3
+         ,L7.ZLOG3    AS ZLOG3
+         ,RS.XLOEK    AS XLOEK
+         ,RS.KZEAR    AS KZEAR
+         ,MA.MATNR_NM AS MATNR_NM
+         ,MA.SPEC     AS SPEC
+         ,MA.ZSIZE    AS ZSIZE
+         ,MA.MTART    AS MTART
+         ,M85.BOX_CK AS BOX_CK
+         FROM SAPHEE.ZLET003 AS T3
+              INNER JOIN SAPHEE.ZLET004 AS T4 ON  T4.MANDT = T3.MANDT
+                                              AND T4.VBELN = T3.VBELN
+                                              AND T4.ZCANC = ''
+              INNER JOIN SAPHEE.ZLET017 AS L7 ON  T4.MANDT = L7.MANDT
+                                              AND T4.VBELN = L7.ZBELN
+                                              AND T4.POSNR = L7.ZOSNR
+              INNER JOIN SAPHEE.RESB    AS RS ON  RS.MANDT = L7.MANDT
+                                              AND RS.RSNUM = L7.RSNUM
+                                              AND RS.RSPOS = L7.RSPOS
+              LEFT OUTER JOIN SAPHEE.ZMMT011 AS MA ON  MA.MANDT = L7.MANDT
+                                                   AND MA.MATNR = L7.MATNR
+              LEFT OUTER JOIN SAPHEE.ZMMT085 AS M85 ON M85.MANDT = T4.MANDT
+                                                   AND M85.POSID2 = T4.POSID
+         WHERE T3.MANDT  = #G_MANDT#
+           AND T3.ZKNUM  = #ZKNUM#
+           AND T3.ZKNUM2 = #ZKNUM2#
+           AND T3.PSPID LIKE #PSPID# ||'%'
+           AND T3.ZCANC  = ''
+         
+         UNION
+
+         SELECT
+          T7.MANDT    AS MANDT
+         ,T7.PSPID    AS PSPID
+         ,CASE WHEN SUBSTR(T7.PSPID,1,2)='QM' THEN SUBSTR(T7.PSPID,3,6)
+               WHEN SUBSTR(T7.PSPID,1,1)='Q'  THEN SUBSTR(T7.PSPID,2,6) ELSE T7.PSPID END AS PSPID_O
+         ,T7.POST1    AS POST1
+         ,T7.POSID    AS POSID
+         ,CASE WHEN SUBSTR(T7.POSID,1,2)='QM' THEN SUBSTR(T7.POSID,3,9)
+               WHEN SUBSTR(T7.POSID,1,1)='Q'  THEN SUBSTR(T7.POSID,2,9) ELSE T7.POSID END AS POSID_O
+         ,CASE WHEN SUBSTR(T7.POSID,1,1) IN ('Q','F') OR SUBSTR(T7.POSID,7,1) = 'N' THEN T7.POSID WHEN SUBSTR(T7.POSID,7,1) = 'F' THEN T7.POSID ELSE TRIM(T7.POSID) || '-P' END AS POSID_1
+         ,CASE WHEN COALESCE(T7.BLOCK,'') = '' THEN 'CAGE'  ELSE T7.BLOCK END AS BLOCK
+--         ,CASE WHEN COALESCE(MA.EXTWG,'') = '' THEN 'BOX33' ELSE MA.EXTWG END AS EXTWG
+         ,CASE WHEN COALESCE(MA.EXTWG2,'') = '' THEN 'BOX24' ELSE MA.EXTWG2 END AS EXTWG
+         ,T7.MATNR    AS MATNR
+         ,0   AS LFIMG
+         ,T7.NAME1 AS NAME1
+         ,T7.ERFME    AS VRKME
+         ,T7.EBELN    AS VBELN
+         ,T7.EBELP    AS POSNR
+         ,''          AS TABNM
+         ,''          AS VBELN7
+         ,''          AS ZBELN
+         ,''          AS ZOSNR
+         ,T7.ZKNUM    AS ZKNUM
+         ,T7.ZKNUM2  AS ZKNUM2
+         ,''          AS RSNUM
+         ,''          AS RSPOS
+         ,''          AS ERFME
+         ,''          AS LGORT
+         ,T7.ERFMG    AS ERFMG
+--         ,T7.ERFMG    AS ENMNG
+         ,ET.WEMNG AS ENMNG
+         ,''          AS MJAHR
+         ,'X'         AS ZSTAT1
+         ,'X'         AS ZSTAT2
+         ,'X'         AS ZSTAT3
+         ,''          AS ZLOG3
+         ,''          AS XLOEK
+         ,'X'         AS KZEAR
+         ,MA.MATNR_NM AS MATNR_NM
+         ,MA.SPEC     AS SPEC
+         ,MA.ZSIZE    AS ZSIZE
+         ,MA.MTART    AS MTART
+         ,M85.BOX_CK AS BOX_CK
+         FROM SAPHEE.ZLET007 AS T7
+              LEFT OUTER JOIN SAPHEE.EKET AS ET ON ET.MANDT = T7.MANDT
+                                               AND ET.EBELN = T7.EBELN
+                                               AND ET.EBELP = T7.EBELP
+              LEFT OUTER JOIN SAPHEE.ZMMT011 AS MA ON  T7.MANDT = MA.MANDT
+                                                   AND T7.MATNR = MA.MATNR
+              LEFT OUTER JOIN SAPHEE.ZMMT085 AS M85 ON M85.MANDT = T7.MANDT AND M85.POSID2 = T7.POSID
+         WHERE T7.MANDT  = #G_MANDT#
+           AND T7.ZKNUM  = #ZKNUM#
+           AND T7.ZKNUM2 = #ZKNUM2#
+           AND T7.PSPID LIKE #PSPID# ||'%'
+           AND T7.ZCANC  = ''
+
+
+      ) AS T7
+      LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MS ON  MS.MANDT  = T7.MANDT 
+                                             AND MS.POSID  = T7.PSPID_O 
+                                             AND MS.POSID_1= T7.POSID_O
+      LEFT OUTER JOIN SAPHEE.MARC      AS MC ON  MC.MANDT  = T7.MANDT 
+                                             AND MC.MATNR  = T7.MATNR 
+                                             AND MC.WERKS  = '1000'
+ORDER BY EXTWG,BLOCK,POSID2
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_subcond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="ZKNUM" size="36" type="VARCHAR" description="" /> 
+		<col name="ZKNUM2" size="6" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_detail">
+		<col name="CHECK" size="1" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="72" type="VARCHAR" description="" /> 
+		<col name="POST1" size="120" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="ZSPEC1" size="15" type="VARCHAR" description="" /> 
+		<col name="ZSPEC2" size="75" type="VARCHAR" description="" /> 
+		<col name="BLOCK" size="120" type="VARCHAR" description="" /> 
+		<col name="EXTWG" size="54" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MATNR_NM" size="120" type="VARCHAR" description="" /> 
+		<col name="SPEC" size="180" type="VARCHAR" description="" /> 
+		<col name="ZSIZE" size="180" type="VARCHAR" description="" /> 
+		<col name="LFIMG" size="16" type="DECIMAL" description="" /> 
+		<col name="ENMNG" size="17" type="DECIMAL" description="" /> 
+		<col name="ERFMG" size="15" type="DECIMAL" description="" /> 
+		<col name="VRKME" size="9" type="VARCHAR" description="" /> 
+		<col name="VBELN" size="30" type="VARCHAR" description="" /> 
+		<col name="POSNR" size="18" type="VARCHAR" description="" /> 
+		<col name="TABNM" size="1" type="VARCHAR" description="" /> 
+		<col name="POSID2" size="3" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="0" type="VARCHAR" description="" /> 
+		<col name="NAME1" size="105" type="VARCHAR" description="" /> 
+		<col name="ZSTAT4" size="1" type="VARCHAR" description="" /> 
+		<col name="SBDKZ" size="3" type="VARCHAR" description="" /> 
+		<col name="JEAGO" size="15" type="DECIMAL" description="" /> 
+		<col name="STATE" size="1" type="VARCHAR" description="" /> 
+		<col name="EKGRP" size="9" type="VARCHAR" description="" /> 
+		<col name="MTART" size="12" type="VARCHAR" description="" /> 
+		<col name="ZLOG3" size="192" type="VARCHAR" description="" /> 
+		<col name="ZBELN" size="30" type="VARCHAR" description="" /> 
+		<col name="ZOSNR" size="18" type="VARCHAR" description="" /> 
+		<col name="POSID3" size="74" type="VARCHAR" description="" /> 
+		<col name="BUDAT" size="0" type="VARCHAR" description="" /> 
+		<col name="PSPNR" size="0" type="VARCHAR" description="" /> 
+		<col name="RSNUM" size="30" type="VARCHAR" description="" /> 
+		<col name="RSPOS" size="12" type="VARCHAR" description="" /> 
+		<col name="ERFME" size="9" type="VARCHAR" description="" /> 
+		<col name="MBLNR" size="0" type="VARCHAR" description="" /> 
+		<col name="ZRTNVAL" size="0" type="VARCHAR" description="" /> 
+		<col name="ZRTNMSG" size="0" type="VARCHAR" description="" /> 
+		<col name="VBELN7" size="30" type="VARCHAR" description="" /> 
+		<col name="MJAHR" size="12" type="VARCHAR" description="" /> 
+		<col name="ZKNUM" size="36" type="VARCHAR" description="" /> 
+		<col name="ZKNUM2" size="6" type="VARCHAR" description="" /> 
+		<col name="ZGI" size="60" type="VARCHAR" description="" /> 
+	</output>
+</query>

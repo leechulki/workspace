@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT  X.MANDT, X.PSPID, X.POSID, X.ZSITE_NM, X.ZSPEC1, 
+              X.MAN, X.SPEED,  X.FLOOR,  X.RISE, X.ANGLE,		  			  
+              X.ZZSHIP1, X.ZBEPJEO, X.ZBOSUOUT, X.LIFNR, X.NAMET, 
+
+              (X.PER_SUM - X.WORK_CNT) AS PER_SUM,
+
+              (X.CNT_DAY - X.WORK_CNT) AS CNT_DAY,
+
+              ( (X.PER_SUM - WORK_CNT)  * 10 ) AS SUM_MH,
+
+
+              --X.SAFE_CNT,	X.INSP_CNT,	
+	X.WORK_CNT,	X.WERP_CNT,
+	X.GATST_CNT, X.MRLST_CNT, X.TMPST_CNT, X.SITST_CNT,
+              (SELECT ST1.SEQ
+	    FROM SAPHEE.ZQMT019 AS ST1
+	  WHERE ST1.MANDT =  X.MANDT
+	      AND ST1.WERKS = '1000'
+	      AND ST1.PSPID = X.PSPID
+	      AND ST1.ART = '8960'
+	      AND ST1.HOGI = X.POSID
+	      AND ST1.SEQ = ( SELECT MAX( ST2.SEQ )
+                                               FROM SAPHEE.ZQMT019 AS ST2
+                                              WHERE ST2.MANDT = ST1.MANDT
+			        AND ST2.WERKS = ST1.WERKS
+                                                  AND ST2.PSPID   = ST1.PSPID
+                        		        AND ST2.ART      = ST1.ART
+                        		        AND ST2.HOGI    = ST1.HOGI ) ) AS SEQ
+   
+
+   FROM (
+               SELECT  B.MANDT, B.PSPID, B.POSID, C.ZSITE_NM, A.ZSPEC1, 
+                             (CASE WHEN A.ZZGUBUN = '10' OR A.ZZGUBUN = '13'  THEN  A.ZSPEC5 ELSE '' END) AS MAN,		                             (CASE WHEN A.ZZGUBUN = '10' OR A.ZZGUBUN = '13'  THEN  CAST(REPLACE(A.ZSPEC3, ' ', '0') AS INT)                                         ELSE 0 END) AS SPEED,
+		 (CASE WHEN A.ZZGUBUN = '10' OR A.ZZGUBUN = '13'  THEN  INTEGER(A.ZSPEC7) 
+                                        ELSE 0 END) AS FLOOR,
+			  
+		 (CASE WHEN A.ZZGUBUN = '11' OR A.ZZGUBUN = '12' OR A.ZZGUBUN = '14'  THEN  A.ZSPEC5 
+                                        ELSE '' END) AS RISE,
+		 (CASE WHEN A.ZZGUBUN = '11' OR A.ZZGUBUN = '12' OR A.ZZGUBUN = '14'  THEN  A.ZSPEC4 
+                                        ELSE '' END) AS ANGLE,
+			  			  
+                             A.ZZSHIP1, A.ZBEPJEO, A.ZBOSUOUT, 
+                             (SELECT ST.NAME1 FROM SAPHEE.LFA1 AS ST
+	                  WHERE ST.MANDT = B.MANDT AND ST.LIFNR = B.LIFNR) AS LIFNR,
+                             (SELECT ST.NAMET FROM SAPHEE.ZPST0002 AS ST
+ 	                  WHERE ST.MANDT = B.MANDT AND ST.TEMNO = B.TMCD) AS NAMET,
+                             SUM(B.PER_SUM + B.JIWON_SUM) AS PER_SUM, 
+                             COUNT(*) AS CNT_DAY,
+
+
+	               --SUM(CASE WHEN B.ZSAFE = '1' OR B.ZSAFE = '2' THEN 1 ELSE 0 END) AS SAFE_CNT,
+	               
+
+                             --SUM(CASE WHEN B.ZINSP = '1' THEN 1 ELSE 0 END) AS INSP_CNT,
+
+
+                             SUM(CASE WHEN B.ZWORK = '1' THEN 1 ELSE 0 END) AS WORK_CNT,
+
+
+                             SUM(CASE WHEN B.ZWERP = '1' THEN 1 ELSE 0 END) AS WERP_CNT,
+							 
+                             SUM(CASE WHEN B.GATST = '1' THEN 1 ELSE 0 END) AS GATST_CNT,
+                             SUM(CASE WHEN B.MRLST = '1' THEN 1 ELSE 0 END) AS MRLST_CNT,
+                             SUM(CASE WHEN B.TMPST = '1' THEN 1 ELSE 0 END) AS TMPST_CNT,
+                             SUM(CASE WHEN B.SITST = '1' THEN 1 ELSE 0 END) AS SITST_CNT							 							 							 							 
+
+                  FROM  SAPHEE.ZMASTER02 AS A
+                 INNER  JOIN SAPHEE.ZPSTW0205 AS B
+                      ON  A.MANDT = B.MANDT
+                    AND  A.POSID = B.PSPID
+                    AND  A.POSID_1 = B.POSID   
+                 INNER  JOIN SAPHEE.ZMASTER01 AS C
+                      ON  A.MANDT = C.MANDT
+                    AND  A.POSID  = C.POSID	  
+                WHERE  A.MANDT = #G_MANDT#   
+                   <isNotNull col="ZZACTSS">
+                    AND A.ZZACTSS = #ZZACTSS#
+                   </isNotNull>
+ 
+                   <isNotNull col="ZZLIFNR">
+                   AND B.LIFNR = #ZZLIFNR#      
+                   </isNotNull>
+ 
+                   <isNotNull col="PSPID">
+                   AND A.POSID = #PSPID#	 
+                   </isNotNull>
+ 
+                   <isNotNull col="ZZSHIP1_F">
+                   AND A.ZZSHIP1 BETWEEN #ZZSHIP1_F# AND #ZZSHIP1_T#	 
+                   </isNotNull>
+ 
+                   <isNotNull col="ZBEPJEO_F">
+                   AND A.ZBEPJEO BETWEEN #ZBEPJEO_F# AND #ZBEPJEO_T#	 
+                   </isNotNull>
+ 
+                   <isNotNull col="BOSUOUT_F">
+                   AND A.ZBOSUOUT BETWEEN #BOSUOUT_F# AND #BOSUOUT_T#	 
+                   </isNotNull>
+
+                   <isNotNull col="INP_DT_F">
+                   AND B.INP_DT BETWEEN #INP_DT_F# AND #INP_DT_T#
+                   </isNotNull>
+
+                   <isNotNull col="ZZPMNUM">
+                   AND B.PMCD = #ZZPMNUM#
+                   </isNotNull>
+	 
+                   <isNotNull col="ZSPEC1">
+                   AND A.ZSPEC1 = #ZSPEC1#
+                   </isNotNull>		 
+	 
+                GROUP BY B.MANDT,  B.PSPID, B.POSID, C.ZSITE_NM, A.ZSPEC1, A.ZSPEC5, A.ZSPEC3, A.ZSPEC7, 
+                                A.ZSPEC4,  A.ZZSHIP1, A.ZBEPJEO, A.ZBOSUOUT, B.LIFNR, B.TMCD, A.ZZGUBUN	 
+           ) AS X				  
+
+WHERE X.MANDT = #G_MANDT# 
+  
+   <isNotNull col="MAN_F">
+    AND X.MAN = #MAN_F# 
+   </isNotNull>	  
+ 
+   <isNotNull col="SPEED_F">
+    AND X.SPEED BETWEEN #SPEED_F# AND #SPEED_T#
+   </isNotNull>
+ 
+   <isNotNull col="FLOOR_F">
+    AND X.FLOOR BETWEEN #FLOOR_F# AND #FLOOR_T#
+   </isNotNull>
+
+   <isNotNull col="RISE_F">
+    AND X.RISE = #RISE_F# 
+   </isNotNull>	
+	 
+   <isNotNull col="ANGLE_F">
+    AND X.ANGLE= #ANGLE_F# 
+   </isNotNull>		 	 
+	 	 	 
+ORDER BY X.PSPID, X.POSID
+ 
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list1">
+	</output>
+</query>

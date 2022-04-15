@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+        A.MAKE_MM
+       ,A.PSPID
+       , TRIM(CHAR(INT(ROW_NUMBER() OVER(ORDER BY A.MAKE_MM )))) AS RNO
+       ,CASE WHEN A.RNOT = 1 THEN '신규' ELSE '이월' END PLAN 
+       ,A.BSTNK
+       ,A.ACTION
+       ,A.TYPE
+       ,A.GUBUN
+       ,A.CONTENT
+       ,A.NETWR
+       ,A.ERNAMNM
+       ,A.DEPT
+  FROM
+       (
+         SELECT    A.MAKE_MM
+                        ,A.PSPID
+	          ,ROW_NUMBER() OVER(PARTITION BY A.PSPID ORDER BY A.PSPID, A.MAKE_MM) RNOT
+                        ,B. BSTNK
+                        ,A.ACTION
+                        ,A.TYPE
+                        ,A.GUBUN
+                        ,(SELECT B.CONTENT   FROM  SAPHEE.ZPSTW0404 AS B   WHERE  A.MANDT = B.MANDT  AND A.PSPID   = B.PSPID  fetch first 1 rows only) AS CONTENT 
+                        ,(SELECT SUM(SAPHEE.GET_CURRENCY2(CAST(A.WAERK AS VARCHAR(15) ), CAST(Z.NETWR  AS DECIMAL(13, 2) ) )) FROM SAPHEE.ZPSTW0404 AS Z WHERE A.MANDT = Z.MANDT AND A.PSPID=Z.PSPID) AS NETWR
+                        , (SELECT X.NAMET  FROM SAPHEE.ZPST0011 AS X
+                             WHERE X.MANDT = A.MANDT
+                                 AND X.TEMNO = A.PERSON_NM) AS ERNAMNM
+                         ,A.DEPT
+                       
+
+FROM SAPHEE.ZPSTW0403  AS A
+    INNER JOIN SAPHEE.VBAK AS B
+                 ON A.MANDT = B.MANDT
+               AND A.PSPID   = B.ZZPJT_ID
+    
+    LEFT OUTER JOIN SAPHEE.ZCURRCHG AS E
+                  ON E.MANDT  = B.MANDT
+                 AND E.WAERK  = B.WAERK    
+		
+	  
+WHERE A.MANDT = #G_MANDT#
+    AND A.MAKE_MM BETWEEN SUBSTR(#MAKF_DTT#,1,6) AND SUBSTR(#MAKT_DTT#,1,6)
+
+<isNotNull col="DEPT">
+    AND A.DEPT =  #DEPT#
+</isNotNull>
+
+<isNotNull col="TEAM">
+     AND A.TEAM = #TEAM#
+</isNotNull>
+
+
+
+       ) A
+
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list2">
+	</output>
+</query>

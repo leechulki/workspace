@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[PS1601002A_S2]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+             
+       SELECT    E.PAPRYYYYMM, E.LIFNR
+                                  , (SELECT DISTINCT NN.NAME1 FROM SAPHEE.ZPST0034 NN WHERE NN.MANDT = E.MANDT   AND NN.LIFNR = E.LIFNR  AND NN.GBN = 'A' AND (NN.SO = 'X' OR NN.SO3 = 'X')) AS LIFNRNM
+                                  , (SELECT N.DTEXT4 FROM SAPHEE.ZLCODE N WHERE N.MANDT = E.MANDT AND N.CODE1 = 'PS003' AND N.LANG = 'ko' AND N.CODE2 = W.ZZACTSS) AS TEMNM
+                                  , (SELECT MM028.CTEXT2 FROM SAPHEE.ZLCODE MM028 WHERE MM028.MANDT = E.MANDT AND MM028.CODE1 = 'PS003' AND MM028.LANG = 'ko' AND MM028.CODE2 = W.ZZACTSS) ZZACTSS
+                                  , CASE WHEN E.CNT1 IS NULL THEN 0 ELSE E.CNT1 END AS CNT1
+                                  , CASE WHEN E.CNT2 IS NULL THEN 0 ELSE E.CNT2 END AS CNT2
+                                  , CASE WHEN E.CNT3 IS NULL THEN 0 ELSE E.CNT3 END AS CNT3
+                                  , CASE WHEN E.CNT4 IS NULL THEN 0 ELSE E.CNT4 END AS CNT4
+                                  , CASE WHEN E.CNT5 IS NULL THEN 0 ELSE E.CNT5 END AS CNT5
+                                  , CASE WHEN E.POINT IS NULL THEN 0 
+                                          WHEN E.POINT <![CDATA[  < ]]> 0 THEN 0
+                                          WHEN E.POINT <![CDATA[  > ]]> 10 THEN 10
+                                   ELSE E.POINT END AS POINT
+                                  , DENSE_RANK() OVER(ORDER BY SUM( CASE WHEN E.POINT > 0 THEN E.POINT ELSE 0 END) OVER (PARTITION BY E.LIFNR ORDER BY E.LIFNR ) desc) AS RANKING
+                          FROM (
+                              SELECT  MANDT, PAPRYYYYMM, LIFNR
+                                    , SUM(CNT1) AS CNT1
+                                    , SUM(CNT2) AS CNT2
+                                    , SUM(CNT3) AS CNT3
+                                    , SUM(CNT4) AS CNT4
+                                    , SUM(CNT5) AS CNT5
+                                    ,   5 + SUM(CNT5) + ((SUM(CNT2)*2) - dec(SUM(CNT3) * 1,10,1)  ) AS POINT
+                              FROM (
+                                     SELECT MANDT, PAPRYYYYMM,  LIFNR
+                                          , SUM(CNT1) AS CNT1
+                                          , SUM(CNT2) AS CNT2
+                                          , SUM(CNT3) AS CNT3
+                                          , SUM(CNT4) AS CNT4
+                                          , SUM(CNT5) AS CNT5
+                                      FROM (
+                                       SELECT MANDT, PAPRYYYYMM,  LIFNR
+                                            , 0  AS CNT1
+                                            , SUM(CAREY_POINT) AS CNT2
+                                            , 0 AS CNT3
+                                            , 0 AS CNT4
+                                            , SUM(NEW_POINT)  AS CNT5
+                                        FROM (
+                                                SELECT MANDT, substr(ENTER,1,6) AS PAPRYYYYMM,  LIFNR, PERNO, PERKEY
+                                                     , CAREY
+                                                     , CASE WHEN CAREY   <![CDATA[ >= ]]>   '01' THEN 1 
+                                                            ELSE 0
+                                                            END AS CAREY_POINT
+                                                     , CASE WHEN CAREY = '00' THEN 1
+                                                            ELSE 0
+                                                            END AS NEW_POINT
+                                                  FROM SAPHEE.ZPST0001
+                                                 WHERE 1=1 
+                                                   AND substr(ENTER,1,6) BETWEEN #YYYYMMF# AND #YYYYMMT#
+                                                AND GBN = 'A'
+                                                AND TYPE = '1'
+                                                AND MANDT = #G_MANDT#
+                                                <isNotNull col="ZTEMNO">
+                                                    AND TEMNO = #ZTEMNO# 
+                                                </isNotNull>
+                                                <isNotNull col="ZZLIFNR">
+                                                     AND LIFNR = #ZZLIFNR#      
+                                                </isNotNull>
+                                                <isNotNull col="CHK_GBN2">
+                                                AND GUBUN = #CHK_GBN2#
+                                                </isNotNull>
+                                         --    AND LIFNR = '1321110475' 
+                                            ) GROUP BY MANDT, PAPRYYYYMM, LIFNR
+                                            UNION ALL
+                                               SELECT  MANDT, PAPRYYYYMM, LIFNR
+                                                     , 0 AS CNT1 
+                                                     , 0 AS CNT2
+                                                     , COUNT(PERKEY)  AS CNT3
+                                                     , 0 AS CNT4
+                                                     , 0 AS CNT5
+                                                 FROM (
+                                                       SELECT MANDT, substr(RETID,1,6) AS PAPRYYYYMM, LIFNR, PERNO, PERKEY
+                                                         FROM SAPHEE.ZPST0001
+                                                        WHERE 1=1 
+                                                          AND (  substr(RETID,1,6) BETWEEN #YYYYMMF# AND #YYYYMMT#  AND RETID   <![CDATA[ <> ]]>   '00000000' AND RETID   <![CDATA[ <> ]]>   '')
+                                                          AND GBN = 'A'
+                                                          AND TYPE = '1'
+                                                          AND MANDT = #G_MANDT#
+                                                          <isNotNull col="ZTEMNO">
+                                                          AND TEMNO = #ZTEMNO# 
+                                                          </isNotNull>
+                                                          <isNotNull col="ZZLIFNR">
+                                                          AND LIFNR = #ZZLIFNR#      
+                                                          </isNotNull>
+                                                          <isNotNull col="CHK_GBN2">
+                                                          AND GUBUN = #CHK_GBN2#
+                                                          </isNotNull>
+                                                        --  AND LIFNR = '1058619749'     
+                                                    ) GROUP BY MANDT, PAPRYYYYMM, LIFNR
+                                                ) GROUP BY MANDT, PAPRYYYYMM, LIFNR
+								<isNotNull col="YYYYMMDD0" >
+								 UNION ALL
+								(
+								  SELECT  MANDT, substr(#YYYYMMDD0#,1,6) AS PAPRYYYYMM, LIFNR
+											     , 0 AS CNT1 
+											     , 0 AS CNT2
+											     , 0 AS CNT3
+											     , 0 AS CNT4
+											     , 0 AS CNT5
+								 FROM SAPHEE.ZPST0034 
+								 WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+								      <isNotNull col="ZZLIFNR">
+								      AND LIFNR = #ZZLIFNR#      
+								      </isNotNull>
+								)
+								</isNotNull>
+								<isNotNull col="YYYYMMDD1" >
+								 UNION ALL
+								(
+								  SELECT  MANDT, substr(#YYYYMMDD1#,1,6) AS PAPRYYYYMM, LIFNR
+											     , 0 AS CNT1 
+											     , 0 AS CNT2
+											     , 0 AS CNT3
+											     , 0 AS CNT4
+											     , 0 AS CNT5
+								 FROM SAPHEE.ZPST0034 
+								 WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+								      <isNotNull col="ZZLIFNR">
+								      AND LIFNR = #ZZLIFNR#      
+								      </isNotNull>
+								)
+								</isNotNull>
+								<isNotNull col="YYYYMMDD2" >
+								 UNION ALL
+								(
+								  SELECT  MANDT, substr(#YYYYMMDD2#,1,6) AS PAPRYYYYMM, LIFNR
+											     , 0 AS CNT1 
+											     , 0 AS CNT2
+											     , 0 AS CNT3
+											     , 0 AS CNT4
+											     , 0 AS CNT5
+								 FROM SAPHEE.ZPST0034 
+								 WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+								      <isNotNull col="ZZLIFNR">
+								      AND LIFNR = #ZZLIFNR#      
+								      </isNotNull>
+								)
+								</isNotNull>
+								<isNotNull col="YYYYMMDD3" >
+								 UNION ALL
+								(
+								  SELECT  MANDT, substr(#YYYYMMDD3#,1,6) AS PAPRYYYYMM, LIFNR
+											     , 0 AS CNT1 
+											     , 0 AS CNT2
+											     , 0 AS CNT3
+											     , 0 AS CNT4
+											     , 0 AS CNT5
+								 FROM SAPHEE.ZPST0034 
+								 WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+								      <isNotNull col="ZZLIFNR">
+								      AND LIFNR = #ZZLIFNR#      
+								      </isNotNull>
+								)
+								</isNotNull>
+								<isNotNull col="YYYYMMDD4" >
+								 UNION ALL
+								(
+								  SELECT  MANDT, substr(#YYYYMMDD4#,1,6) AS PAPRYYYYMM, LIFNR
+											     , 0 AS CNT1 
+											     , 0 AS CNT2
+											     , 0 AS CNT3
+											     , 0 AS CNT4
+											     , 0 AS CNT5
+								 FROM SAPHEE.ZPST0034 
+								 WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+								      <isNotNull col="ZZLIFNR">
+								      AND LIFNR = #ZZLIFNR#      
+								      </isNotNull>
+								)
+								</isNotNull>
+								<isNotNull col="YYYYMMDD5" >
+								 UNION ALL
+								(
+								  SELECT  MANDT, substr(#YYYYMMDD5#,1,6) AS PAPRYYYYMM, LIFNR
+											     , 0 AS CNT1 
+											     , 0 AS CNT2
+											     , 0 AS CNT3
+											     , 0 AS CNT4
+											     , 0 AS CNT5
+								 FROM SAPHEE.ZPST0034 
+								 WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+								      <isNotNull col="ZZLIFNR">
+								      AND LIFNR = #ZZLIFNR#      
+								      </isNotNull>
+								)
+								</isNotNull>
+								<isNotNull col="YYYYMMDD6" >
+								 UNION ALL
+								(
+								  SELECT  MANDT, substr(#YYYYMMDD6#,1,6) AS PAPRYYYYMM, LIFNR
+											     , 0 AS CNT1 
+											     , 0 AS CNT2
+											     , 0 AS CNT3
+											     , 0 AS CNT4
+											     , 0 AS CNT5
+								 FROM SAPHEE.ZPST0034 
+								 WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+								      <isNotNull col="ZZLIFNR">
+								      AND LIFNR = #ZZLIFNR#      
+								      </isNotNull>
+								)
+								</isNotNull>
+								<isNotNull col="YYYYMMDD7" >
+								 UNION ALL
+								(
+								  SELECT  MANDT, substr(#YYYYMMDD7#,1,6) AS PAPRYYYYMM, LIFNR
+											     , 0 AS CNT1 
+											     , 0 AS CNT2
+											     , 0 AS CNT3
+											     , 0 AS CNT4
+											     , 0 AS CNT5
+								 FROM SAPHEE.ZPST0034 
+								 WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+								      <isNotNull col="ZZLIFNR">
+								      AND LIFNR = #ZZLIFNR#      
+								      </isNotNull>
+								)
+								</isNotNull>
+								<isNotNull col="YYYYMMDD8" >
+								 UNION ALL
+								(
+								  SELECT  MANDT, substr(#YYYYMMDD8#,1,6) AS PAPRYYYYMM, LIFNR
+											     , 0 AS CNT1 
+											     , 0 AS CNT2
+											     , 0 AS CNT3
+											     , 0 AS CNT4
+											     , 0 AS CNT5
+								 FROM SAPHEE.ZPST0034 
+								 WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+								      <isNotNull col="ZZLIFNR">
+								      AND LIFNR = #ZZLIFNR#      
+								      </isNotNull>
+								)
+								</isNotNull>
+								<isNotNull col="YYYYMMDD9" >
+								 UNION ALL
+								(
+								  SELECT  MANDT, substr(#YYYYMMDD9#,1,6) AS PAPRYYYYMM, LIFNR
+											     , 0 AS CNT1 
+											     , 0 AS CNT2
+											     , 0 AS CNT3
+											     , 0 AS CNT4
+											     , 0 AS CNT5
+								 FROM SAPHEE.ZPST0034 
+								 WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+								      <isNotNull col="ZZLIFNR">
+								      AND LIFNR = #ZZLIFNR#      
+								      </isNotNull>
+								)
+								</isNotNull>
+								<isNotNull col="YYYYMMDD10" >
+								 UNION ALL
+								(
+								  SELECT  MANDT, substr(#YYYYMMDD10#,1,6) AS PAPRYYYYMM, LIFNR
+											     , 0 AS CNT1 
+											     , 0 AS CNT2
+											     , 0 AS CNT3
+											     , 0 AS CNT4
+											     , 0 AS CNT5
+								 FROM SAPHEE.ZPST0034 
+								 WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+								      <isNotNull col="ZZLIFNR">
+								      AND LIFNR = #ZZLIFNR#      
+								      </isNotNull>
+								)
+								</isNotNull>
+								<isNotNull col="YYYYMMDD11" >
+								 UNION ALL
+								(
+								  SELECT  MANDT, substr(#YYYYMMDD11#,1,6) AS PAPRYYYYMM, LIFNR
+											     , 0 AS CNT1 
+											     , 0 AS CNT2
+											     , 0 AS CNT3
+											     , 0 AS CNT4
+											     , 0 AS CNT5
+								 FROM SAPHEE.ZPST0034 
+								 WHERE MANDT=#G_MANDT# AND GBN = 'A' AND (SO = 'X' OR SO3 = 'X') 
+								      <isNotNull col="ZZLIFNR">
+								      AND LIFNR = #ZZLIFNR#      
+								      </isNotNull>
+								)
+								</isNotNull>
+                             ) GROUP BY MANDT, PAPRYYYYMM, LIFNR
+                         ) AS E
+        INNER JOIN SAPHEE.ZPST0034 AS C 
+                ON E.MANDT = C.MANDT AND E.LIFNR = C.LIFNR AND C.GBN = 'A' AND (C.SO = 'X' OR C.SO3 = 'X')
+        LEFT OUTER JOIN SAPHEE.ZWBT010 W
+              ON E.MANDT = W.MANDT
+             AND E.LIFNR = W.LIFNR
+    WHERE E.MANDT = #G_MANDT#
+       AND (W.ZZACTSS IS NOT NULL OR W.ZZACTSS != '' OR W.ZZACTSS != ' ')
+       AND E.LIFNR <![CDATA[  <> ]]> '0000008001'
+       <isNotNull col="TEMNO">
+            AND W.ZZACTSS IN ( SELECT CODE2 FROM SAPHEE.ZLCODE  WHERE MANDT = E.MANDT AND CODE1 = 'PS003' AND LANG = 'ko' AND DTEXT3 = #TEMNO# )
+       </isNotNull>
+       <isNotNull col="ZZACTSS">
+           AND W.ZZACTSS = #ZZACTSS#
+       </isNotNull>
+      -- GROUP BY E.PAPRYYYYMM, E.MANDT, W.ZZACTSS,  E.LIFNR
+      -- HAVING SUM(E.CNT)  <![CDATA[ > ]]>  0 AND SUM(E.CNT2) <![CDATA[ > ]]>  0
+      -- HAVING  SUM(E.CNT2) <![CDATA[ > ]]>  0
+FOR FETCH ONLY
+WITH UR</statement>
+	 <input default-name="ds_cond">
+    </input>
+
+	<output default-name="ds_list1">
+	</output>
+
+</query>
+
+

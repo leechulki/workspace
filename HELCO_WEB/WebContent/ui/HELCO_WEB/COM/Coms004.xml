@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form BKColor="user0" Height="22" Id="Coms004" Left="8" OnLoadCompleted="fn_OnLoadCompleted" PidAttrib="7" Title="협력업체코드/명검색" Top="8" Ver="1.0" Width="135" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_list_lifnr">
+				<Contents>
+					<colinfo id="LIFNR" size="256" type="STRING"/>
+					<colinfo id="NAME1" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_cond_lifnr">
+				<Contents>
+					<colinfo id="LIFNR" size="10" type="STRING"/>
+					<colinfo id="NAME1" size="105" type="STRING"/>
+					<record>
+						<LIFNR_CD></LIFNR_CD>
+						<LIFNR_NM></LIFNR_NM>
+					</record>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_error_lifnr">
+				<Contents>
+					<colinfo id="IDX" size="256" type="STRING"/>
+					<colinfo id="ERRMSG" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Edit Border="Flat" Height="20" Id="ed_lifnr" LeftMargin="4" OnChanged="ed_lifnr_OnChanged" OnCharChanged="ed_lifnr_OnCharChanged" OnKeyDown="ed_lifnr_OnKeyDown" RightMargin="4" Style="sty_ipt_form" TabOrder="1" Width="114"></Edit>
+		<Button Height="18" Id="btn_popLifnr" ImageID="btn_icon_search" Left="115" OnClick="fn_OnClick_popup" TabOrder="2" Text="Button0" Top="1" Transparent="TRUE" Width="18"></Button>
+		<Edit Border="Flat" CheckLength="Byte" Height="20" Id="ed_name1" ImeMode="none" Left="135" LeftMargin="4" MaxLength="105" OnKeyDown="ed_name1_OnKeyDown" RightMargin="4" Style="sty_ipt_search" TabOrder="3" Visible="FALSE" Width="170"></Edit>
+		<Static Height="16" Id="Static1" Left="24" TabOrder="4" Text="협력업체코드/협력업체명" Top="32" Width="146"></Static>
+		<Static Height="16" Id="Static0" Left="312" TabOrder="5" Text="hidden&#32;(삭제하지마세요)" Top="40" Width="146"></Static>
+	</Form>
+	<Script><![CDATA[/*
+ ******************************************************************************************
+ * 기      능   : 부서,팀,담당자기능 
+ * 작  성  자   : 
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */ 
+#include "LIB::commons.js";	// 공통 스크립트 
+#include "LIB::nsfRequest.js";	// 공통 스크립트  /* GNY 추가 */
+#include "LIB::common_hdel.js";	// 공통 스크립트  /* GNY 추가 */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+var F_LIFNR_WIDTH 	= "";  	// 협력업체코드 서브화면 폼 WIDTH
+var F_LIFNR_CD_WIDTH	= "";  	// 협력업체코드 서브화면 코드 WIDTH
+var F_LIFNR_NM_WIDTH	= "";  	// 협력업체코드 서브화면 코드명 WIDTH 
+
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) 
+{ 
+	// 폼사이즈 및 컨트롤 사이즈/위치 재조정
+	fn_setSize();  
+}
+/********************************************************************************
+* 기      능   : 공통코드가 조회된 후의 Callback 함수 
+********************************************************************************/
+function fn_completeInit(sCode, sDsObj, sCodeType) 
+{
+	
+}
+
+/********************************************************************************
+* 기      능   : form UnloadCompleted 
+********************************************************************************/
+function fn_OnUnloadCompleted(obj) 
+{
+
+}
+
+// 협력업체명에서 엔터키 누르면
+function ed_name1_OnKeyDown(obj,nChar,bShift,bCtrl, bAlt,LLParam,HLParam)
+{
+	if(length(trim(ed_lifnr.text)) > 10) {
+		ed_lifnr.text = "";
+		ed_name1.text = "";
+		gfn_showAlert("CW00011", "10");
+		return false;
+	}
+
+	if (nChar == 13)
+	{
+		// 입력된 조건이 없으면
+		if (length(trim(ed_lifnr.text)) == 0 && length(trim(ed_name1.text)) == 0)
+		{
+			fn_OnClick_popup(btn_popLifnr);  // 팝업화면 호출
+		}
+		else
+		{
+			fn_query_lifnr();  				// 협력업체조회 서비스 호출
+		}
+	}
+	else  // 다른 키 누르면 거래처코드 clear
+	{
+	}
+}   
+
+// 협력업체코드에서 엔터키 누르면
+function ed_lifnr_OnKeyDown(obj,nChar,bShift,bCtrl, bAlt,LLParam,HLParam)
+{
+	if(length(trim(ed_lifnr.text)) > 10) {
+		ed_lifnr.text = "";
+		ed_name1.text = "";
+		gfn_showAlert("CW00011", "10");
+		return false;
+	}
+
+	if (nChar == 13)
+	{
+		// 입력된 조건이 없으면
+		// if (length(trim(ed_lifnr.text)) == 0 && length(trim(ed_name1.text)) == 0)
+		// {
+			// fn_OnClick_popup(btn_popLifnr);  // 팝업화면 호출
+		// }
+		// else
+		// {
+			// fn_query_lifnr();  				// 협력업체조회 서비스 호출
+		// }
+	}
+	else  // 다른 키 누르면 거래처명 clear
+	{
+		// Ctrl + C or trl + V
+		if (bCtrl == 1 && (nChar == 67 || nChar == 86) ) 
+		{
+		} else
+		{
+			ed_name1.text="";
+		}
+	}
+
+}
+
+/********************************************************************************
+* 기      능   : 협력업체조회
+********************************************************************************/
+function fn_query_lifnr()
+{  
+	if(length(trim(ed_lifnr.text)) > 10) {
+		ed_lifnr.text = "";
+		ed_name1.text = "";
+		gfn_showAlert("CW00011", "10");
+		return false;
+	}
+	
+	gfn_clearMsgBar();   
+	
+	// 조회조건 항목오류검증
+	if (fn_valid_chk("query_lifnr") == false)  return;
+	
+	// 조회조건 설정
+	if (fn_param_set("query_lifnr") == false)  return;
+	
+	// 출력데이타셋 초기화  
+	ds_list_lifnr.ClearData();
+	ds_cond_lifnr.ClearData();
+	ds_cond_lifnr.AddRow();
+	ds_cond_lifnr.SetColumn(ds_cond_lifnr.row, "LIFNR", trim(ed_lifnr.text));
+	ds_cond_lifnr.SetColumn(ds_cond_lifnr.row, "NAME1", trim(ed_name1.text));
+	
+	// 서비스호출
+	nsfRequest("query"									// srvId
+				, "com0020/find"						// url
+				, "ds_cond_lifnr=ds_cond_lifnr ds_list_lifnr=ds_list_lifnr"		// inDsList
+				, "ds_list_lifnr=ds_list_lifnr ds_error_lifnr=ds_error_lifnr"	// outDsList
+				, ""									// strParam
+				, "fn_afterQuery_lifnr"					// CallBackFunc
+				);
+ 
+}
+
+/********************************************************************************
+* 기      능   : 협력업체조회 Callback  
+********************************************************************************/
+function fn_afterQuery_lifnr(errCode, errMsg)
+{  
+	// 호출결과처리
+	if(ds_error_lifnr.rowcount() > 0) {  
+	} else { 	    
+		// 한 건 조회된 경우
+		if (ds_list_lifnr.RowCount() = 1)	
+		{
+			// 조회해 온 값으로 협력업체 검색정보 SET
+			ed_lifnr.Text = ds_list_lifnr.GetColumn(ds_list_lifnr.row, "LIFNR");
+			ed_name1.Text = ds_list_lifnr.GetColumn(ds_list_lifnr.row, "NAME1");
+		}
+		// 다 건 조회된 경우	
+		else if (ds_list_lifnr.RowCount() > 1)	
+		{
+			// 협력업체조회 팝업화면  호출
+			fn_OnClick_popup(btn_popLifnr);  	
+		}  
+	}
+}  
+
+function fn_OnClick_popup(obj)
+{
+	// 협력업체조회 팝업화면 OPEN
+	var arg = "fa_lifnr= " 	+ quote(ed_lifnr.text)   // 거래코드
+			 + " fa_name1 = " + quote(ed_name1.text)   // 협력업체명
+			 ;
+	var arr = gfn_openPopUpUrlHdel("Com::Com0020.xml", true, arg );	
+	
+	if (arr != null && arr != 0)
+	{
+		ed_lifnr.text = arr[0];	// 리턴된 협력업체코드로 검색조건 SET
+		ed_name1.text = arr[1];	// 리턴된 협력업체명으로 검색조건 SET
+		ed_name1.SetFocus();
+	}
+}
+
+// 항목 오류 검증
+// pProcGb : 처리구분 (query:조회,excel:엑셀)
+function fn_valid_chk(pProcGb)
+{   
+ 	switch(pProcGb)
+	{  
+		case "query_lifnr" :   // 협력업체조회
+			
+			if (length(trim(ed_lifnr.text)) == 0 && length(trim(ed_name1.text)) == 0)
+			{
+				alert("입력된 자료가 없습니다.");
+				ed_name1.SetFocus();
+				return false;
+			}
+			break;	 
+			
+		default: 
+			break; 
+	}   
+
+	return true;
+}
+
+// INPUT PARAM SET
+// pProcGb : 처리구분 (query:조회)
+function fn_param_set(pProcGb)
+{ 
+	switch(pProcGb)
+	{  
+		case "query_lifnr" :  // 협력업체조회 시
+			break; 
+			
+		default: 
+			break; 
+	}   
+
+	return true;
+	
+} 
+
+// 폼사이즈 및 컨트롤 사이즈 재조정
+function fn_setSize(pFormWidth, pCdWidth, pNmWidth)
+{   
+ 	if (IsValidObject(F_LIFNR_WIDTH)   ==false && F_LIFNR_WIDTH>0) 	Coms003.Width 	= F_LIFNR_WIDTH;
+ 	if (IsValidObject(F_LIFNR_CD_WIDTH)==false && F_LIFNR_CD_WIDTH>0) ed_lifnr.Width= F_LIFNR_CD_WIDTH;
+ 	if (IsValidObject(F_LIFNR_NM_WIDTH)==false && F_LIFNR_NM_WIDTH>0) ed_name1.Width= F_LIFNR_NM_WIDTH; 
+ 	
+	btn_popLifnr.left = ed_lifnr.left + ed_lifnr.Width + 1;
+	ed_name1.left  = btn_popLifnr.left + btn_popLifnr.Width + 1;  
+}
+
+
+// 폼사이즈 및 컨트롤 사이즈 재조정
+function fn_rsetSize(pFormWidth, pCdWidth, pNmWidth)
+{     
+ 	if ( pFormWidth > 0) this.Width 			= pFormWidth;
+ 	if ( pCdWidth   > 0) this.ed_lifnr.Width 	= pCdWidth;
+ 	if ( pNmWidth   > 0) this.ed_name1.Width 	= pNmWidth; 
+ 	
+ 	this.btn_popLifnr.left 	= this.ed_lifnr.right + 1;
+	this.ed_name1.left 		= this.btn_popLifnr.right + 1; 
+}
+
+function ed_lifnr_OnChanged(obj,strText)
+{
+	// 입력된 조건이 없으면
+	if (length(trim(ed_lifnr.text)) == 0 && length(trim(ed_name1.text)) == 0)
+	{
+		// fn_OnClick_popup(btn_popLifnr);  // 팝업화면 호출
+	} else if(length(trim(ed_lifnr.text)) > 10) {
+		ed_lifnr.text = "";
+		ed_name1.text = "";
+		gfn_showAlert("CW00011", "10");
+		return false;
+	} else {
+		fn_query_lifnr();  				// 협력업체조회 서비스 호출
+	}
+}
+
+
+// 협력업체명명 항목을 보여줄지 여부
+function fn_setShowLifnrNM(pYN)
+{
+	if (pYN == "Y")
+	{	
+		this.ed_name1.Visible = true;
+	}
+}
+function ed_lifnr_OnCharChanged(obj,strPreText,strPostText)
+{
+	if(length(trim(ed_lifnr.text)) > 10) {
+		ed_lifnr.text = "";
+		ed_name1.text = "";
+		gfn_showAlert("CW00011", "10");
+		return false;
+	}
+}
+]]></Script>
+</Window>

@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="472" Id="Com0272" Left="8" OnLoadCompleted="fn_OnLoadCompleted" OnUnloadCompleted="fn_OnUnloadCompleted" PidAttrib="7" Title="층별사양" Top="8" Ver="1.0" Width="960" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_error">
+				<Contents>
+					<colinfo id="IDX" size="256" type="STRING"/>
+					<colinfo id="ERRMSG" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Div Height="36" Id="div_btn" TabOrder="1" Text="Div0" Url="WB01::CommBtnForm.xml" Width="960">
+			<Contents></Contents>
+		</Div>
+		<Grid AreaSelect="true" AutoEnter="TRUE" AutoFitEndLine="Hide" BkColor2="default" BoldHead="true" Border="Flat" Bottom="440" ColSizing="TRUE" Editable="TRUE" Enable="true" EndLineColor="default" HeadBorder="Flat" HeadHeight="25" Height="392" Id="grd_floor" InputPanel="FALSE" Left="8" LineColor="user20" LineType="ExHORZ" Right="944" RowHeight="20" Style="sty_grid" TabOrder="2" TabStop="true" Top="48" UseAutoSizing="Col" UseDBuff="true" UseExSizing="Col" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="936">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col width="27"/>
+					</columns>
+					<head>
+						<cell col="0" color="user21" display="text" font="굴림,9" text="No"/>
+					</head>
+					<body>
+						<cell align="center" bkcolor2="user22" col="0" display="text" expr="currow+1"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+	</Form>
+	<Script><![CDATA[/*
+ ******************************************************************************************
+ * 기      능   : 층별사양확인
+ * 작  성  자   : 박수근
+ * 작성  일자   : 2020-09-015
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */   
+#include "LIB::commons.js";	// 공통 스크립트 
+#include "LIB::nsfRequest.js";	// 공통 스크립트 
+#include "LIB::common_hdel.js";	// 공통 스크립트
+
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+var F_TITLE = "층별사양";
+
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) {
+	div_btn.fn_loadUseBtn("900", F_TITLE, "", "");
+	gfn_initForm();
+	fn_init_form();
+}
+
+/********************************************************************************
+* 기      능   : form UnloadCompleted 
+********************************************************************************/
+function fn_OnUnloadCompleted(obj) {
+	return gfn_isFormUnload(obj);
+}
+
+/********************************************************************************
+* 기      능   : 폼 초기화
+********************************************************************************/
+function fn_init_form() {
+    // 동적 그리드를 생성한다.
+    fn_makeFloorGrid();
+
+    // 동적결과 데이터 생성 후 생성된 그리드와 바인딩한다.
+    fn_makeFloorDs();
+    
+	// 데이터 바인딩 설정 한다.
+	grd_floor.BindDataset = "ds_floor";
+	grd_floor.Redraw = true;
+   
+}
+
+//=========================================================================================
+// [ PART 3 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,form닫기)
+//=========================================================================================
+function fn_OnClick_btn(obj)
+{
+	var fncName = "fn_" + substr(obj.id, 4); 
+	eval( fncName + "()");
+}
+
+/********************************************************************************
+* 기      능   : 닫기  
+********************************************************************************/
+function fn_close() {
+	this.close();
+}
+
+/********************************************************************************
+* 기      능   : 화면에 표출하기 위한 그리드 생성 후 동적 데이터 바인딩 처리
+********************************************************************************/
+function fn_makeFloorGrid() {
+    var plm_out_ds_header   = object("plm_out_ds_header");
+	var head;
+	var tit;
+    var scol;
+    var sHeader;
+    var sBody;
+    var with;
+
+	// 오픈젝트생성
+	destroy("ds_floor");
+	Create("dataset", "ds_floor");
+    object("ds_floor").addColumn(head, "IDX");
+	for(var i=0; i < plm_out_ds_header.GetRowCount(); i++) {
+	    head = plm_out_ds_header.GetColumn(i, "HEAD");
+	    tit  = plm_out_ds_header.GetColumn(i, "TIT");
+	    object("ds_floor").addColumn(head, "STRING");
+	    with = 18*Length(tit);
+        scol = scol + "<col width='"+with+"'/>";
+        sHeader = sHeader + "<cell col='"+(i+1)+"' color='user21' display='text' font='굴림,9' text='"+tit+"'/>";
+        sBody = sBody + "<cell align='center' bkcolor2='user22' col='"+(i+1)+"' colid='"+head+"' display='text' />";
+	}
+
+	// 동적으로 화면 레이아웃을 생성한다.
+	fn_AddColumn(sCol, sHeader, sBody);
+
+	// 창 최대로 키우기 처리
+	fn_resize();
+}
+
+/********************************************************************************
+* 기      능   : 화면에 표출하기 위한 데이터셑 생성
+********************************************************************************/
+function fn_AddColumn(sCol, sHeader, sBody) {
+    var sContents = " "+
+    " <contents> " +
+    "  <format id='Default'> " +
+    "   <columns> " +
+    "    <col width='27'/> " +sCol+   
+    "   </columns> " +        
+    "   <head> " +         
+    "    <cell col='0' color='user21' display='text' font='굴림,9' text='No'/> " +sHeader+
+    "   </head> " +      
+    "   <body> " +
+    "    <cell align='center' bkcolor2='user22' col='0' display='text' expr='currow+1'/> " +sBody+
+    "   </body> " +
+    "  </format> " +
+    " </contents> ";
+
+    grd_floor.Contents=sContents;
+    grd_floor.Editable = false;
+}
+
+/********************************************************************************
+* 기      능   : 화면에 표출하기 위한 데이터셑 생성
+********************************************************************************/
+function fn_makeFloorDs() {
+    var plm_out_ds_template = object("plm_out_ds_template");
+    var plm_out_ds_header   = object("plm_out_ds_header");
+    var ds_floor = object("ds_floor");
+    var head;
+    var prd;
+    var findRow = -1;
+    var newRow = -1;
+	for(var i=0; i < plm_out_ds_header.GetRowCount(); i++) {
+	    head = plm_out_ds_header.GetColumn(i, "HEAD");
+	    findRow = plm_out_ds_template.FindRow("PRH", head);
+	    if(findRow > -1) {
+	        prd = plm_out_ds_template.GetColumn(findRow, "PRD");
+	        // webstyle 적용해야 emty값도 처리됨
+	        var prds = Split(prd, "^", "webstyle");
+	        for(var j=0; j < Length(prds); j++) {
+	            if(j > ds_floor.GetRowCount()-1) {
+	                // 신규값 등록
+	                newRow = ds_floor.AppendRow();
+	                ds_floor.SetColumn(newRow, head,  prds[j]);
+	            } else {
+	                // 기존데이터에 등록
+	                ds_floor.SetColumn(j, head,  prds[j]);
+	            }
+	        }
+	    }
+	}
+   //trace("ds_floor:"+ds_floor.SaveXML());
+}
+
+// 2013.02.07 사양 넓게 보이기 위해 사이즈 조정
+function fn_resize() {
+	this.onsize = "";
+
+	//this.window.showwindow("Maximize");
+	window.top    = GetPlatformInfo("WorkArea","top");
+	window.left   = GetPlatformInfo("WorkArea","left");
+	window.width  = GetPlatformInfo("WorkArea","width");
+	window.height = GetPlatformInfo("WorkArea","height");
+
+	Com0272.width  = window.width-10;
+	Com0272.height = window.height-80;
+
+	grd_floor.Width  =  Com0272.width - 18;
+	grd_floor.Height =  Com0272.height -18;
+}
+]]></Script>
+</Window>

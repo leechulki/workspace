@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[엑셀용사양조회]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+    <![CDATA[
+WITH TEMP AS (SELECT X.MANDT
+                    ,X.QTNUM
+                    ,X.QTSER
+                    ,X.QTSEQ
+                    ,X.PRH
+                    ,DECODE(X.ATFOR, 'NUM', REPLACE(Y.PRD, ',', ''), Y.PRD) AS PRD
+                    ,X.ATKLA
+                    ,X.ATINN
+                    ,X.ATFOR
+                    ,X.PRHNAME
+                FROM (SELECT A.MANDT
+                            ,C.QTNUM
+                            ,C.QTSER
+                            ,C.QTSEQ
+                            ,ROW_NUMBER() OVER(PARTITION BY C.QTSEQ) AS PRSEQ
+                            ,A.PRH
+                            ,(SELECT ATBEZ
+                                FROM SAPHEE.CABNT
+                               WHERE MANDT = B.MANDT
+                                 AND ATINN = B.ATINN
+                                 AND SPRAS =
+                                     DECODE(A.ZPRDGBN
+                                           ,'SHN_01' ,'3'
+                                           ,'SHN_02' ,'3'
+                                           ,DECODE('ko', 'en', 'E', '3'))) AS PRHNAME
+                            ,(SELECT COUNT(MANDT)
+                                FROM SAPHEE.CAWN
+                               WHERE MANDT = A.MANDT
+                                 AND ATINN = B.ATINN) AS CNT
+                            ,B.ATINN
+                            ,B.ATKLA
+                            ,B.ATFOR
+                            ,A.BRNDSEQ
+                            ,A.ZPRDGBN
+                            ,A.BRNDCD
+                            ,A.DISPTP
+                            ,A.MODITP
+                        FROM SAPHEE.ZSDT1141 AS A
+                       INNER JOIN SAPHEE.CABN AS B
+                          ON A.MANDT = B.MANDT
+                         AND A.PRH   = B.ATNAM
+                       INNER JOIN TABLE (SELECT MANDT
+                                              ,QTNUM
+                                              ,QTSER
+                                              ,QTSEQ
+                                              ,BRNDSEQ
+                                              ,NVL(ZPRDGBN, 'ELV_01') AS ZPRDGBN
+                                              ,CASE WHEN TRIM(BRNDCD) = '' THEN 'NOBRND'
+                                                    WHEN BRNDCD = NULL     THEN 'NOBRND'
+                                                    ELSE BRNDCD
+                                                END AS BRNDCD
+                                          FROM SAPHEE.ZSDT1047
+                                         WHERE MANDT = #G_MANDT#
+                                           AND QTNUM = #QTNUM#
+                                           AND QTSER = #QTSER#
+                                           AND QTSEQ = #QTSEQ#) AS C
+                          ON A.MANDT = C.MANDT
+                         AND A.BRNDSEQ = C.BRNDSEQ
+                         AND A.ZPRDGBN = C.ZPRDGBN
+                         AND A.BRNDCD = C.BRNDCD
+                        LEFT OUTER JOIN SAPHEE.ZSDT1073 AS D
+                          ON D.MANDT = A.MANDT
+                         AND D.CLASS = A.ZPRDGBN
+                         AND D.ATNAM = A.PRH
+                       WHERE A.DIPSDAT > HEX(CURRENT DATE)
+                         AND D.ATNAM IS NULL) X
+                LEFT OUTER JOIN (SELECT R.MANDT
+                                      ,R.QTNUM
+                                      ,R.QTSER
+                                      ,R.QTSEQ
+                                      ,R.PRH
+                                      ,R.PRD
+                                      ,(SELECT CTEXT2
+                                          FROM SAPHEE.ZLCODE
+                                         WHERE MANDT  = R.MANDT
+                                           AND LANG   = 'ko'
+                                           AND CODE1  = 'SD121'
+                                           AND CTEXT2 = R.PRH) AS CTEXT2
+                                  FROM SAPHEE.ZSDT1048 R
+                                 WHERE R.MANDT = #G_MANDT#
+                                   AND R.QTNUM = #QTNUM#
+                                   AND R.QTSER = #QTSER#
+                                   AND R.QTSEQ = #QTSEQ#) Y
+                  ON X.MANDT = Y.MANDT
+                 AND X.QTNUM = Y.QTNUM
+                 AND X.QTSER = Y.QTSER
+                 AND X.QTSEQ = Y.QTSEQ
+                 AND X.PRH   = Y.PRH)
+SELECT SEQ                               /* 순번             */
+      ,MAX(ATKLA)        AS ATKLA        /* 그룹             */
+      ,MAX(PRH)          AS PRH          /* 영업사양         */
+      ,MAX(PRHNAME)      AS PRHNAME      /* 영업사양명       */
+      ,MAX(PRD)          AS PRD          /* 영업사양값       */
+      ,MAX(ITEMDIVNM)    AS ITEMDIVNM    /* 실측보고서       */
+      ,MAX(SUVPRH)       AS SUVPRH       /* 실측사양         */
+      ,MAX(SUVPRHNAME)   AS SUVPRHNAME   /* 실측사양명       */
+      ,MAX(SUVPRD)       AS SUVPRD       /* 실측값           */
+      ,MAX(PRD_B)        AS PRD_B        /* 영업사양값       */
+      ,MAX(CALPRD)       AS CALPRD       /* 연산값           */
+      ,MAX(MODYPRD)      AS MODYPRD      /* 보정값           */
+      ,MAX(PRH_B)        AS PRH_B        /* 영업사양         */
+      ,MAX(ERDAT)        AS ERDAT        /* 등록일           */
+      ,MAX(ERNAM)        AS ERNAM        /* 등록자           */
+      ,MAX(AEDAT)        AS AEDAT        /* 수정일           */
+      ,MAX(AENAM)        AS AENAM        /* 수정자           */
+      ,MAX(CALDAT)       AS CALDAT       /* 연산등록일       */
+      ,MAX(CALNAM)       AS CALNAM       /* 연산등록자       */
+      ,MAX(MODYDAT)      AS MODYDAT      /* 보정등록일       */
+      ,MAX(MODYNAM)      AS MODYNAM      /* 보정등록자       */
+      ,MAX(APPLYFLOOR)   AS APPLYFLOOR   /* 적용층           */
+      ,MAX(ELR_E_IDTP)   AS ELR_E_IDTP   /* 표시기종류       */
+      ,MAX(ELR_E_HLLC)   AS ELR_E_HLLC   /* 홀랜턴 위치      */
+      ,MAX(ELR_E_FSLC)   AS ELR_E_FSLC   /* 소방스위치 위치  */
+      ,MAX(ELR_E_A)      AS ELR_E_A      /* A                */
+      ,MAX(ELR_E_B)      AS ELR_E_B      /* B                */
+      ,MAX(ELR_E_C)      AS ELR_E_C      /* F                */
+      ,MAX(ELR_E_D)      AS ELR_E_D      /* C                */
+      ,MAX(ELR_E_E)      AS ELR_E_E      /* D                */
+      ,MAX(ELR_E_F)      AS ELR_E_F      /* E                */
+      ,MAX(ELR_E_BXD)    AS ELR_E_BXD    /* BOX 깊이         */
+      ,MAX(ELR_E_H)      AS ELR_E_H      /* H                */
+      ,MAX(APPLYFLOOR_2) AS APPLYFLOOR_2 /* 적용층           */
+      ,MAX(ELR_E_JAMBTP) AS ELR_E_JAMBTP /* JAMB타입         */
+      ,MAX(ELR_E_EFMAT)  AS ELR_E_EFMAT  /* 출입구 마감 재징 */
+      ,MAX(ELR_E_PNLH)   AS ELR_E_PNLH   /* 승장도어판넬높이 */
+  FROM (SELECT *
+          FROM (SELECT ROW_NUMBER() OVER() AS SEQ
+                      ,ATKLA
+                      ,PRH
+                      ,PRHNAME
+                      ,DECODE(ATFOR, 'NUM', REPLACE(PRD, ',', ''), PRD) AS PRD
+                      ,'' AS ITEMDIVNM
+                      ,'' AS SUVPRH
+                      ,'' AS SUVPRHNAME
+                      ,'' AS SUVPRD
+                      ,'' AS PRD_B
+                      ,'' AS CALPRD
+                      ,'' AS MODYPRD
+                      ,'' AS PRH_B
+                      ,'' AS ERDAT
+                      ,'' AS ERNAM
+                      ,'' AS AEDAT
+                      ,'' AS AENAM
+                      ,'' AS CALDAT
+                      ,'' AS CALNAM
+                      ,'' AS MODYDAT
+                      ,'' AS MODYNAM
+                      ,'' AS APPLYFLOOR
+                      ,'' AS ELR_E_IDTP
+                      ,'' AS ELR_E_HLLC
+                      ,'' AS ELR_E_FSLC
+                      ,'' AS ELR_E_A
+                      ,'' AS ELR_E_B
+                      ,'' AS ELR_E_C
+                      ,'' AS ELR_E_D
+                      ,'' AS ELR_E_E
+                      ,'' AS ELR_E_F
+                      ,'' AS ELR_E_BXD
+                      ,'' AS ELR_E_H
+                      ,'' AS APPLYFLOOR_2
+                      ,'' AS ELR_E_JAMBTP
+                      ,'' AS ELR_E_EFMAT
+                      ,'' AS ELR_E_PNLH
+                  FROM TEMP
+                 ORDER BY PRHNAME) A
+        UNION ALL
+        SELECT *
+          FROM (SELECT ROW_NUMBER() OVER() AS SEQ
+                      ,'' AS ATKLA
+                      ,'' AS PRH
+                      ,'' AS PRHNAME
+                      ,'' AS PRD
+                      ,(SELECT SUVPRDNAME
+                          FROM SAPHEE.ZPST1132
+                         WHERE MANDT = A.MANDT
+                           AND SUVPRH = 'DATA_ITEM'
+                           AND SUVPRD = SUBSTR(A.ITEMDIV, 1, 2)) AS ITEMDIVNM
+                      ,A.SUVPRH
+                      ,A.SUVPRHNAME
+                      ,B.SUVPRD
+                      ,C.PRD AS PRD_B
+                      ,B.CALPRD
+                      ,B.MODYPRD
+                      ,A.PRH AS PRH_B
+                      ,B.ERDAT
+                      ,B.ERNAM
+                      ,B.AEDAT
+                      ,B.AENAM
+                      ,B.CALDAT
+                      ,B.CALNAM
+                      ,B.MODYDAT
+                      ,B.MODYNAM
+                      ,'' AS APPLYFLOOR
+                      ,'' AS ELR_E_IDTP
+                      ,'' AS ELR_E_HLLC
+                      ,'' AS ELR_E_FSLC
+                      ,'' AS ELR_E_A
+                      ,'' AS ELR_E_B
+                      ,'' AS ELR_E_C
+                      ,'' AS ELR_E_D
+                      ,'' AS ELR_E_E
+                      ,'' AS ELR_E_F
+                      ,'' AS ELR_E_BXD
+                      ,'' AS ELR_E_H
+                      ,'' AS APPLYFLOOR_2
+                      ,'' AS ELR_E_JAMBTP
+                      ,'' AS ELR_E_EFMAT
+                      ,'' AS ELR_E_PNLH
+                  FROM SAPHEE.ZPST1131 AS A
+                  LEFT OUTER JOIN SAPHEE.ZPST1136 AS B
+                    ON A.MANDT = B.MANDT
+                   AND B.SUVSN = #SUVSN#
+                   AND A.SUVPRH = B.SUVPRH
+                  LEFT OUTER JOIN TEMP C
+                    ON A.MANDT = C.MANDT
+                   AND A.PRH = C.PRH
+                 WHERE A.MANDT = #G_MANDT#
+                   AND A.DATADIV IN ('ELC', 'ELR')
+                   AND A.SUVPRH NOT IN ('ELR_E_IDTP'
+                                       ,'ELR_E_HLLC'
+                                       ,'ELR_E_FSLC'
+                                       ,'ELR_E_A'
+                                       ,'ELR_E_B'
+                                       ,'ELR_E_F'
+                                       ,'ELR_E_C'
+                                       ,'ELR_E_D'
+                                       ,'ELR_E_E'
+                                       ,'ELR_E_BXD'
+                                       ,'ELR_E_H'
+                                       ,'ELR_E_JAMBTP'
+                                       ,'ELR_E_EFMAT'
+                                       ,'ELR_E_PNLH'
+                                       ,'ELC_E_PNLH')
+                 ORDER BY VIEWORDER) B
+        UNION ALL
+        SELECT SEQ
+              ,'' AS ATKLA
+              ,'' AS PRH
+              ,'' AS PRHNAME
+              ,'' AS PRD
+              ,'' AS ITEMDIVNM
+              ,'' AS SUVPRH
+              ,'' AS SUVPRHNAME
+              ,'' AS SUVPRD
+              ,'' AS PRD_B
+              ,'' AS CALPRD
+              ,'' AS MODYPRD
+              ,'' AS PRH_B
+              ,'' AS ERDAT
+              ,'' AS ERNAM
+              ,'' AS AEDAT
+              ,'' AS AENAM
+              ,'' AS CALDAT
+              ,'' AS CALNAM
+              ,'' AS MODYDAT
+              ,'' AS MODYNAM
+              ,APPLYFLOOR
+              ,ELR_E_IDTP
+              ,ELR_E_HLLC
+              ,ELR_E_FSLC
+              ,ELR_E_A
+              ,ELR_E_B
+              ,ELR_E_C
+              ,ELR_E_D
+              ,ELR_E_E
+              ,ELR_E_F
+              ,ELR_E_BXD
+              ,ELR_E_H
+              ,'' AS APPLYFLOOR_2
+              ,'' AS ELR_E_JAMBTP
+              ,'' AS ELR_E_EFMAT
+              ,'' AS ELR_E_PNLH
+          FROM (SELECT ROW_NUMBER() OVER() AS SEQ
+                      ,MANDT
+                      ,SUVSN
+                      ,INORDER
+                      ,MAX(APPLYFLOOR) AS APPLYFLOOR
+                      ,MAX(DECODE(SUVPRH, 'ELR_E_IDTP', DECODE(MODYPRD, '', SUVPRD, MODYPRD))) AS ELR_E_IDTP
+                      ,VALUE(MAX(DECODE(SUVPRH, 'ELR_E_HLLC', DECODE(MODYPRD, '', SUVPRD, MODYPRD))),'') AS ELR_E_HLLC
+                      ,VALUE(MAX(DECODE(SUVPRH, 'ELR_E_FSLC', DECODE(MODYPRD, '', SUVPRD, MODYPRD))),'') AS ELR_E_FSLC
+                      ,MAX(DECODE(SUVPRH, 'ELR_E_A',   DECODE(MODYPRD, '', SUVPRD, MODYPRD))) AS ELR_E_A
+                      ,MAX(DECODE(SUVPRH, 'ELR_E_B',   DECODE(MODYPRD, '', SUVPRD, MODYPRD))) AS ELR_E_B
+                      ,MAX(DECODE(SUVPRH, 'ELR_E_C',   DECODE(MODYPRD, '', SUVPRD, MODYPRD))) AS ELR_E_C
+                      ,MAX(DECODE(SUVPRH, 'ELR_E_D',   DECODE(MODYPRD, '', SUVPRD, MODYPRD))) AS ELR_E_D
+                      ,MAX(DECODE(SUVPRH, 'ELR_E_E',   DECODE(MODYPRD, '', SUVPRD, MODYPRD))) AS ELR_E_E
+                      ,MAX(DECODE(SUVPRH, 'ELR_E_F',   DECODE(MODYPRD, '', SUVPRD, MODYPRD))) AS ELR_E_F
+                      ,MAX(DECODE(SUVPRH, 'ELR_E_BXD', DECODE(MODYPRD, '', SUVPRD, MODYPRD))) AS ELR_E_BXD
+                      ,MAX(DECODE(SUVPRH, 'ELR_E_H',   DECODE(MODYPRD, '', SUVPRD, MODYPRD))) AS ELR_E_H
+                  FROM (SELECT A.MANDT
+                              ,A.SUVSN
+                              ,A.SUVPRH
+                              ,A.INORDER
+                              ,A.APPLYFLOOR
+                              ,A.SUVPRD
+                              ,A.MODYPRD
+                          FROM SAPHEE.ZPST1137 A
+                          JOIN SAPHEE.ZPST1131 B
+                            ON A.MANDT = B.MANDT
+                           AND A.SUVPRH = B.SUVPRH
+                           AND B.DATADIV = 'ELR'
+                           AND B.ITEMDIV = 'EE'
+                         WHERE A.MANDT = #G_MANDT#
+                           AND A.SUVSN = #SUVSN#)
+                 GROUP BY MANDT
+                         ,SUVSN
+                         ,INORDER
+                 ORDER BY INORDER) C
+        UNION ALL
+        SELECT ROW_NUMBER() OVER() AS SEQ
+              ,'' AS ATKLA
+              ,'' AS PRH
+              ,'' AS PRHNAME
+              ,'' AS PRD
+              ,'' AS ITEMDIVNM
+              ,'' AS SUVPRH
+              ,'' AS SUVPRHNAME
+              ,'' AS SUVPRD
+              ,'' AS PRD_B
+              ,'' AS CALPRD
+              ,'' AS MODYPRD
+              ,'' AS PRH_B
+              ,'' AS ERDAT
+              ,'' AS ERNAM
+              ,'' AS AEDAT
+              ,'' AS AENAM
+              ,'' AS CALDAT
+              ,'' AS CALNAM
+              ,'' AS MODYDAT
+              ,'' AS MODYNAM
+              ,'' AS APPLYFLOOR
+              ,'' AS ELR_E_IDTP
+              ,'' AS ELR_E_HLLC
+              ,'' AS ELR_E_FSLC
+              ,'' AS ELR_E_A
+              ,'' AS ELR_E_B
+              ,'' AS ELR_E_C
+              ,'' AS ELR_E_D
+              ,'' AS ELR_E_E
+              ,'' AS ELR_E_F
+              ,'' AS ELR_E_BXD
+              ,'' AS ELR_E_H
+              ,APPLYFLOOR AS APPLYFLOOR_2
+              ,ELR_E_JAMBTP
+              ,ELR_E_EFMAT
+              ,ELR_E_PNLH
+          FROM (SELECT MANDT
+                      ,SUVSN
+                      ,INORDER
+                      ,MAX(APPLYFLOOR) AS APPLYFLOOR                               /* 적용층           */
+                      ,MAX(DECODE(SUVPRH, 'ELR_E_JAMBTP', SUVPRD)) AS ELR_E_JAMBTP /* JAMB타입         */
+                      ,MAX(DECODE(SUVPRH, 'ELR_E_EFMAT',  SUVPRD)) AS ELR_E_EFMAT  /* 출입구 마감 재질 */
+                      ,MAX(DECODE(SUVPRH, 'ELR_E_PNLH',   SUVPRD)) AS ELR_E_PNLH   /* 승장도어판넬높이 */
+                  FROM (SELECT A.MANDT
+                              ,A.SUVSN
+                              ,A.SUVPRH
+                              ,A.INORDER
+                              ,A.APPLYFLOOR
+                              ,A.SUVPRD
+                          FROM SAPHEE.ZPST1137 A
+                          JOIN SAPHEE.ZPST1131 B
+                            ON A.MANDT = B.MANDT
+                           AND A.SUVPRH = B.SUVPRH
+                           AND B.DATADIV = 'ELR'
+                           AND B.ITEMDIV = 'ED'
+                         WHERE A.MANDT = #G_MANDT#
+                           AND A.SUVSN = #SUVSN#)
+                 GROUP BY MANDT
+                         ,SUVSN
+                         ,INORDER
+                 ORDER BY INORDER) D)
+ GROUP BY SEQ
+ ]]>
+
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_excel_template">
+    </output>
+</query>

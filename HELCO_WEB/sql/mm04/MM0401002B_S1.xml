@@ -1,0 +1,471 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[전기의장품미입고 현황 조회 - BOX+ITEM]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT 
+ '0' AS CHECK 
+,MM13C.EINDT AS EINDT
+,MM13C.EBELN   AS EBELN
+,MM13C.EBELP   AS EBELP
+,MM13C.MATNR   AS MATNR
+,MM13C.TXZ01   AS TXZ01
+,MM13C.MENGE   AS MENGE
+,MM13C.MPASS   AS MPASS
+,MM13C.MFAIL   AS MFAIL
+,MM13C.NCRED   AS NCRED
+,MM13C.NSEND   AS NSEND
+,MM13C.SEND    AS SEND
+,MM13C.POSID   AS POSID
+,MM13C.POST1   AS POST1
+,MM13C.UDATE   AS UDATE
+,MM13C.SDATE   AS SDATE
+,MM13C.SHIPDAT AS SHIPDAT
+,VALUE(SAPHEE.GET_PROJ_END(MM13C.MANDT,MM13C.POSID ),'') AS P_END
+,VALUE(SAPHEE.GET_SEOLCHI_VEND_NAME(MM13C.MANDT,MM13C.POSID ),'') AS S_VEND
+,MM13C.BIGO AS BIGO
+,SAPHEE.GET_DAYS(MM13C.SDATE, SUBSTR(SAPHEE.TO_DATETIME(),1,8)) AS PERIOD
+, CAST(MA01.ZQNTY AS INT) AS ZQNTY
+,MM13C.RDATE_P   AS RDATE_P
+,MM13C.BUDAT AS BUDAT
+,MM13C.RECE_DATE AS RECE_DATE
+--투자오더 조회조건 추가로 KNTTP 필드도 ZMMT013에서 읽음 2015.09.04 조영욱
+,MM13C.KNTTP AS KNTTP
+,MA02.ZSPEC2 AS SPEC2
+,SAPHEE.GET_MATNR_JOOSUK(MM13C.MANDT,MA02.POSID_1,MM13C.MATNR) AS TEXT
+,MM13C.DZEINR AS DZEINR
+,MM13C.LIFNR AS LIFNR
+,MM13C.NAME1 AS NAME1
+,MM13C.CRDAT AS CRDAT
+,MM13C.IPSDT AS IPSDT
+,MM13C.RECDT AS RECDT
+,MM13C.CAUSE AS CAUSE
+FROM (
+
+     SELECT 
+      MM013A.MANDT AS MANDT
+     ,MAX(MM013A.EINDT) AS EINDT
+     ,MAX(MM013A.EBELN) AS EBELN
+     ,MAX(MM013A.EBELP) AS EBELP
+     ,MM013A.EXTWG AS MATNR
+     ,MAX(MM013A.TXZ01) AS TXZ01
+     ,1 AS MENGE
+     ,CASE WHEN SUM(MM013A.MFAIL) = 0 AND SUM(MM013A.MPASS) > 0 THEN 1 ELSE 0 END AS MPASS
+     ,CASE WHEN SUM(MM013A.MFAIL) > 0 THEN 1 ELSE 0 END AS MFAIL
+     ,CASE WHEN SUM(MM013A.NCRED) > 0 THEN 1 ELSE 0 END AS NCRED
+     ,CASE WHEN SUM(MM013A.NSEND) > 0 THEN 1 ELSE 0 END AS NSEND
+     ,CASE WHEN SUM(MM013A.SEND) > 0  THEN 1 ELSE 0 END AS SEND
+     ,MAX(MM013A.POSID) AS POSID
+     ,MAX(MM013A.POST1) AS POST1
+     ,MIN(MM013A.UDATE) AS UDATE
+     ,MIN(MM013A.SDATE) AS SDATE
+     ,MAX(MM013A.RDATE_P) AS RDATE_P
+     ,MIN(MM013A.SHIPDAT) AS SHIPDAT
+     ,MAX(BIGO) AS BIGO
+     ,MAX(MM013A.BUDAT) AS BUDAT
+     ,MAX(MM013A.RECE_DATE) AS RECE_DATE
+     ,''AS KNTTP
+     ,MAX(MM013A.DZEINR) AS DZEINR
+   	 ,MAX(MM013A.LIFNR) AS LIFNR 
+	 ,MAX(MM013A.NAME1) AS NAME1
+	 ,MAX(MM013A.CRDAT) AS CRDAT
+	 , (select ipsdt from SAPHEE.ZMMT172 AS MM172 where  MM172.MANDT= MM013A.MANDT
+                                                                                         AND MM172.POSID = MAX(MM013A.POSID)
+				                														 AND MM172.MATNR = MAX(MM013A.MATNR)
+																						 AND MM172.EBELN = MAX(MM013A.EBELN)
+																						 AND MM172.LIFNR = max(mm013A.lifnr))
+	 , (select recdt from SAPHEE.ZMMT172 AS MM172 where  MM172.MANDT= MM013A.MANDT
+                                                                                         AND MM172.POSID = MAX(MM013A.POSID)
+				                														 AND MM172.MATNR = MAX(MM013A.MATNR)
+																						 AND MM172.EBELN = MAX(MM013A.EBELN)
+																						 AND MM172.LIFNR = max(mm013A.lifnr))
+	 , (select cause from SAPHEE.ZMMT172 AS MM172 where  MM172.MANDT= MM013A.MANDT
+                                                                                         AND MM172.POSID = MAX(MM013A.POSID)
+				                														 AND MM172.MATNR = MAX(MM013A.MATNR)
+																						 AND MM172.EBELN = MAX(MM013A.EBELN)
+																						 AND MM172.LIFNR = max(mm013A.lifnr))			
+     FROM (
+
+         SELECT
+          SAPHEE.GET_ZERODATE(MM013.EINDT) AS EINDT
+         ,MM013.EBELN AS EBELN
+         ,MM013.EBELP AS EBELP
+         ,MM013.EXTWG AS EXTWG
+         ,MM013.EXTWG AS MATNR
+         ,MM013.TXZ01 AS TXZ01
+         ,MM013.MANDT AS MANDT
+         ,COALESCE(MM013.MENGE, 0) AS MENGE
+         ,COALESCE(MM017A.MPASS, 0) AS MPASS
+         ,COALESCE(MM017A.MFAIL, 0) AS MFAIL
+         ,COALESCE((MM013.MENGE - COALESCE((MM017A.MPASS+MM017A.NSEND+MM017A.SEND), 0)), 0) AS NCRED
+         ,COALESCE(MM017A.NSEND, 0) AS NSEND
+         ,COALESCE(MM017A.SEND, 0) AS SEND
+         ,MM013.POSID AS POSID
+         ,MM013.POST1 AS POST1
+         ,SAPHEE.GET_ZERODATE(MM013.UDATE) AS UDATE
+         ,SAPHEE.GET_ZERODATE(MM013.SDATE) AS SDATE
+         ,SAPHEE.GET_ZERODATE(MM013.RDATE_P) AS RDATE_P
+
+           -- NB,NS 의 경우 PRPS에서 출하일 가져옴 2014.05.16 HSS
+           , CASE WHEN SUBSTR(MM013.POSID,7,2) IN ('NB','NS','NC') THEN (CASE WHEN MM013.EXTWG IS NULL OR MM013.EXTWG = '' OR (MM013.BOX_CK = '' AND MM013.EXTWG = 'BOX33') OR (MM013.BOX_CK = '24' AND MM013.EXTWG='BOX24') THEN 
+         	  (CASE WHEN PP027.ILDAT  IS NULL    THEN '00000000'
+                   WHEN MM011.BLOCK_NO = ''       THEN PP027.ILDAT 
+                   WHEN MM011.BLOCK_NO LIKE 'A%'  THEN PP027.ILDAT 
+                   WHEN MM011.BLOCK_NO LIKE 'B%'  THEN PP027.ILDAT 
+                   WHEN MM011.BLOCK_NO LIKE 'C%'  THEN PP027.ILDAT 
+                   WHEN MM011.BLOCK_NO LIKE 'D%'  THEN PP027.ILDAT 
+                   WHEN MM011.BLOCK_NO LIKE 'E%'  THEN PP027.ILDAT ELSE '00000000' END) 
+         	   ELSE		   
+         	   (CASE ( CASE WHEN MM013.BOX_CK = '24' THEN  (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026_1 WHERE MANDT= MM013.MANDT AND BOXNO = MM013.EXTWG)
+                                     ELSE  (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026 WHERE MANDT= MM013.MANDT AND BOXNO = MM013.EXTWG) END )
+         		    WHEN '1' THEN PP027.ILDAT
+         		    WHEN '2' THEN PP027.ILDAT 
+         		    WHEN '3' THEN PP027.ILDAT 
+         		    WHEN '4' THEN PP027.ILDAT 
+         		    WHEN '5' THEN PP027.ILDAT ELSE '00000000' END)  END )
+              ELSE (
+                CASE WHEN MM013.EXTWG IS NULL OR MM013.EXTWG = '' OR (MM013.BOX_CK = '' AND MM013.EXTWG = 'BOX33') OR (MM013.BOX_CK = '24' AND MM013.EXTWG='BOX24') THEN 
+         	    (CASE WHEN MM025.SHIPDAT1 IS NULL    THEN '00000000'
+                   WHEN MM011.BLOCK_NO = ''       THEN MM025.SHIPDAT2
+                   WHEN MM011.BLOCK_NO LIKE 'A%'  THEN MM025.SHIPDAT1
+                   WHEN MM011.BLOCK_NO LIKE 'B%'  THEN MM025.SHIPDAT2 
+                   WHEN MM011.BLOCK_NO LIKE 'C%'  THEN MM025.SHIPDAT3  
+                   WHEN MM011.BLOCK_NO LIKE 'D%'  THEN MM025.SHIPDAT4  
+                   WHEN MM011.BLOCK_NO LIKE 'E%'  THEN MM025.SHIPDAT5 ELSE '00000000' END) 
+         	   ELSE		   
+         	   (CASE ( CASE WHEN MM013.BOX_CK = '24' THEN  (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026_1 WHERE MANDT= MM013.MANDT AND BOXNO = MM013.EXTWG)
+                                     ELSE  (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026 WHERE MANDT= MM013.MANDT AND BOXNO = MM013.EXTWG) END )
+         		    WHEN '1' THEN MM025.SHIPDAT1
+         		    WHEN '2' THEN MM025.SHIPDAT2
+         		    WHEN '3' THEN MM025.SHIPDAT3
+         		    WHEN '4' THEN MM025.SHIPDAT4
+         		    WHEN '5' THEN MM025.SHIPDAT5  ELSE '00000000' END)  END
+              ) END 
+                  AS SHIPDAT 
+
+            , CASE WHEN MM013.WERKS &lt;&gt; '2000' THEN SAPHEE.GET_JAJEA_POOMOK(MM013.MANDT, MM013.POSID,MM013.MATNR) ELSE 'N' END   AS BIGO
+       --   ,'N' AS BIGO
+          , SAPHEE.GET_ZERODATE(MM017A.BUDAT) AS BUDAT
+          , SAPHEE.GET_ZERODATE(MM017A.RECE_DATE) AS RECE_DATE
+          , '' AS KNTTP
+          , MM011.DZEINR AS DZEINR
+          , MM013.LIFNR AS LIFNR
+		  , LF.NAME1 AS NAME1
+		  , PP005.CRDAT
+         FROM SAPHEE.ZMMT013 AS MM013
+              LEFT OUTER JOIN ( 
+
+                        SELECT 
+		                 MANDT AS MANDT
+		                ,EBELN AS EBELN
+		                ,EBELP AS EBELP
+		                ,SUM(NSEND) AS NSEND
+		                ,SUM(SEND) AS SEND
+		                ,SUM(MPASS) AS MPASS
+		                ,SUM(MFAIL) AS MFAIL
+                                            ,MAX(BUDAT)  AS BUDAT
+                                            ,MAX(RECE_DATE)  AS RECE_DATE
+			FROM (
+		                	 SELECT 
+		                 	 MM017.MANDT AS MANDT
+		                	 ,MM017.EBELN AS EBELN
+		                	 ,MM017.EBELP AS EBELP
+		                	 ,CASE WHEN PRO_F = '1' THEN COALESCE(SUM(MM017.MENGE),0) ELSE 0 END AS NSEND
+		                	 ,CASE WHEN PRO_F = '2' THEN COALESCE(SUM(MM017.MENGE),0) ELSE 0 END AS SEND
+		                	 ,CASE WHEN PRO_F = '4' THEN COALESCE(SUM(MM017.MENGE),0) ELSE 0 END AS MPASS
+		                	 ,CASE WHEN PRO_F = '4' THEN COALESCE(SUM(MM017.B_MENGE),0) ELSE 0 END AS MFAIL
+		                	 ,MAX(MM017.BUDAT) AS BUDAT
+		                	 ,MAX(MM017.RECE_DATE) AS RECE_DATE
+                        FROM SAPHEE.ZMMT017 AS MM017
+                        WHERE MM017.MANDT = #G_MANDT#
+                          AND MM017.LIFNR = #LIFNR#                      
+	  <isEqual col="DGBN" value="2">
+	           AND MM017.UDATE BETWEEN #UDATE1# AND #UDATE2#
+	  </isEqual>
+	  <isEqual col="DGBN" value="3">
+	            AND MM017.SDATE BETWEEN #UDATE1# AND #UDATE2#
+	  </isEqual>
+                <isNotNull col="WERKS">
+                          AND MM017.WERKS = #WERKS#
+                </isNotNull>
+                <isNotNull col="POSID1">
+                          AND MM017.POSID BETWEEN  #POSID1# AND #POSID2#
+                </isNotNull>
+                          AND MM017.POTYPE = 'X'
+                          AND MM017.PRO_F &gt;= '1'
+                        GROUP BY MM017.MANDT,MM017.EBELN,MM017.EBELP,MM017.PRO_F) AS S
+                               WHERE 1=1
+		   GROUP BY S.MANDT,S.EBELN,S.EBELP  
+                        
+              ) AS MM017A ON  MM013.MANDT = MM017A.MANDT 
+                          AND MM013.EBELN = MM017A.EBELN
+                          AND MM013.EBELP = MM017A.EBELP
+	 INNER JOIN SAPHEE.ZMMT011      AS MM011 ON  MM013.MANDT = MM011.MANDT
+	                                         AND MM013.MATNR = MM011.MATNR
+
+--	 LEFT OUTER JOIN SAPHEE.ZMMT026 AS MM026 ON  MM011.MANDT = MM026.MANDT
+--	                     AND MM011.EXTWG = MM026.BOXNO
+
+	 LEFT OUTER JOIN SAPHEE.ZMMT025 AS MM025 ON  MM013.MANDT = MM025.MANDT
+	                                         AND SUBSTR(MM013.POSID,1,9) = MM025.POSID
+	                                         AND MM025.PSTYPE = '02'
+
+        -- NB,NS 의 경우 PRPS에서 출하일 가져옴 2014.05.16 HSS
+--               LEFT OUTER JOIN SAPHEE.PRPS AS PR ON PR.MANDT= MM013.MANDT
+--                                                                         AND PR.POSID = MM013.POSID
+        -- NB,NS,NC의 경우 ZPPT027에서 출하일 가져옴 2015.12.09 조영욱
+     LEFT OUTER JOIN SAPHEE.ZPPT027 AS PP027 ON MM013.MANDT = PP027.MANDT
+                                            AND MM013.POSID = PP027.POSID
+                                            AND PP027.ACTIV = '05'
+                                            AND PP027.BLOCK = 'A'
+                                            AND PP027.GUBUN = '01'
+     LEFT OUTER JOIN SAPHEE.LFA1 AS LF ON LF.MANDT= MM013.MANDT AND LF.LIFNR = MM013.LIFNR
+     
+     LEFT OUTER JOIN SAPHEE.ZPPT005 AS PP005 ON PP005.MANDT= MM013.MANDT AND MM013.POSID = PP005.WOKNUM 
+																		 AND MM011.MATNR = PP005.IDNRK		     
+
+
+         WHERE MM013.MANDT = #G_MANDT# 
+           AND MM013.LIFNR = #LIFNR#
+           AND MM013.STATE = '2'
+<isEqual col="DGBN" value="2">
+	   AND MM013.UDATE BETWEEN #UDATE1# AND #UDATE2#
+</isEqual>
+<isEqual col="DGBN" value="3">
+	   AND MM013.SDATE BETWEEN #UDATE1# AND #UDATE2#
+</isEqual>
+      <isNotNull col="WERKS">
+           AND MM013.WERKS = #WERKS#
+      </isNotNull>
+       <isNotNull col="POSID1">
+           AND MM013.POSID BETWEEN  #POSID1# AND #POSID2#
+       </isNotNull>
+           AND MM013.POTYPE = 'X'
+           AND MM013.EXTWG = 'BOX23'
+      ) AS MM013A
+      WHERE 1=1
+      GROUP BY MM013A.MANDT, MM013A.POSID, MM013A.EXTWG
+
+      UNION
+
+      SELECT
+       MM013.MANDT AS MANDT
+      ,SAPHEE.GET_ZERODATE(MM013.EINDT) AS EINDT
+      ,MM013.EBELN AS EBELN
+      ,MM013.EBELP AS EBELP
+      ,MM013.MATNR AS MATNR
+      ,MM013.TXZ01 AS TXZ01
+      ,COALESCE(MM013.MENGE, 0) AS MENGE
+      ,COALESCE(MM017A.MPASS, 0) AS MPASS
+      ,COALESCE(MM017A.MFAIL, 0) AS MFAIL
+      ,COALESCE((MM013.MENGE - COALESCE((MM017A.MPASS+MM017A.NSEND+MM017A.SEND), 0)), 0) AS NCRED
+      ,COALESCE(MM017A.NSEND, 0) AS NSEND
+      ,COALESCE(MM017A.SEND, 0) AS SEND
+      ,MM013.POSID AS POSID
+      ,MM013.POST1 AS POST1
+      ,SAPHEE.GET_ZERODATE(MM013.UDATE) AS UDATE
+      ,SAPHEE.GET_ZERODATE(MM013.SDATE) AS SDATE 
+      ,SAPHEE.GET_ZERODATE(MM013.RDATE_P) AS RDATE_P
+
+           -- NB,NS 의 경우 PRPS에서 출하일 가져옴 2014.05.16 HSS
+           , CASE WHEN SUBSTR(MM013.POSID,7,2) IN ('NB','NS','NC') THEN (CASE WHEN MM013.EXTWG IS NULL OR MM013.EXTWG = '' OR (MM013.BOX_CK = '' AND MM013.EXTWG = 'BOX33') OR (MM013.BOX_CK = '24' AND MM013.EXTWG='BOX24') THEN 
+         	  (CASE WHEN PR.ZZPRO01  IS NULL    THEN '00000000'
+                   WHEN MM011.BLOCK_NO = ''       THEN PR.ZZPRO02 
+                   WHEN MM011.BLOCK_NO LIKE 'A%'  THEN PR.ZZPRO01 
+                   WHEN MM011.BLOCK_NO LIKE 'B%'  THEN PR.ZZPRO02 
+                   WHEN MM011.BLOCK_NO LIKE 'C%'  THEN PR.ZZPRO03 
+                   WHEN MM011.BLOCK_NO LIKE 'D%'  THEN PR.ZZPRO04 
+                   WHEN MM011.BLOCK_NO LIKE 'E%'  THEN PR.ZZPRO05 ELSE '00000000' END) 
+         	   ELSE		   
+         	   (CASE ( CASE WHEN MM013.BOX_CK = '24' THEN  (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026_1 WHERE MANDT= MM013.MANDT AND BOXNO = MM013.EXTWG)
+                                     ELSE  (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026 WHERE MANDT= MM013.MANDT AND BOXNO = MM013.EXTWG) END )
+         		    WHEN '1' THEN PR.ZZPRO01 
+         		    WHEN '2' THEN PR.ZZPRO02 
+         		    WHEN '3' THEN PR.ZZPRO03 
+         		    WHEN '4' THEN PR.ZZPRO04 
+         		    WHEN '5' THEN PR.ZZPRO05 ELSE '00000000' END)  END )
+              ELSE (
+                CASE WHEN MM013.EXTWG IS NULL OR MM013.EXTWG = '' OR (MM013.BOX_CK = '' AND MM013.EXTWG = 'BOX33') OR (MM013.BOX_CK = '24' AND MM013.EXTWG='BOX24') THEN 
+         	    (CASE WHEN MM025.SHIPDAT1 IS NULL    THEN '00000000'
+                   WHEN MM011.BLOCK_NO = ''       THEN MM025.SHIPDAT2
+                   WHEN MM011.BLOCK_NO LIKE 'A%'  THEN MM025.SHIPDAT1
+                   WHEN MM011.BLOCK_NO LIKE 'B%'  THEN MM025.SHIPDAT2 
+                   WHEN MM011.BLOCK_NO LIKE 'C%'  THEN MM025.SHIPDAT3  
+                   WHEN MM011.BLOCK_NO LIKE 'D%'  THEN MM025.SHIPDAT4  
+                   WHEN MM011.BLOCK_NO LIKE 'E%'  THEN MM025.SHIPDAT5 ELSE '00000000' END) 
+         	   ELSE		   
+         	   (CASE ( CASE WHEN MM013.BOX_CK = '24' THEN  (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026_1 WHERE MANDT= MM013.MANDT AND BOXNO = MM013.EXTWG)
+                                     ELSE  (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026 WHERE MANDT= MM013.MANDT AND BOXNO = MM013.EXTWG) END )
+         		    WHEN '1' THEN MM025.SHIPDAT1
+         		    WHEN '2' THEN MM025.SHIPDAT2
+         		    WHEN '3' THEN MM025.SHIPDAT3
+         		    WHEN '4' THEN MM025.SHIPDAT4
+         		    WHEN '5' THEN MM025.SHIPDAT5  ELSE '00000000' END)  END
+              ) END 
+                  AS SHIPDAT 
+
+            , CASE WHEN MM013.WERKS &lt;&gt; '2000' THEN SAPHEE.GET_JAJEA_POOMOK(MM013.MANDT, MM013.POSID,MM013.MATNR) ELSE 'N' END   AS BIGO
+          , SAPHEE.GET_ZERODATE(MM017A.BUDAT) AS BUDAT
+          , SAPHEE.GET_ZERODATE(MM017A.RECE_DATE) AS RECE_DATE
+          , MM013.KNTTP AS KNTTP
+          , MM011.DZEINR AS DZEINR
+          , MM013.LIFNR AS LIFNR
+		  , LF.NAME1 AS NAME1
+		  , PP005.CRDAT
+		  , MM172.IPSDT
+		  , MM172.RECDT
+		  , MM172.CAUSE
+      FROM SAPHEE.ZMMT013 AS MM013
+           LEFT OUTER JOIN ( 
+
+                     SELECT 
+		                 MANDT AS MANDT
+		                ,EBELN AS EBELN
+		                ,EBELP AS EBELP
+		                ,SUM(NSEND) AS NSEND
+		                ,SUM(SEND) AS SEND
+		                ,SUM(MPASS) AS MPASS
+		                ,SUM(MFAIL) AS MFAIL
+                                            ,MAX(BUDAT)  AS BUDAT
+                                            ,MAX(RECE_DATE)  AS RECE_DATE
+			FROM (
+		                	 SELECT 
+		                 	 MM017.MANDT AS MANDT
+		                	 ,MM017.EBELN AS EBELN
+		                	 ,MM017.EBELP AS EBELP
+		                	 ,CASE WHEN PRO_F = '1' THEN COALESCE(SUM(MM017.MENGE),0) ELSE 0 END AS NSEND
+		                	 ,CASE WHEN PRO_F = '2' THEN COALESCE(SUM(MM017.MENGE),0) ELSE 0 END AS SEND
+		                	 ,CASE WHEN PRO_F = '4' THEN COALESCE(SUM(MM017.MENGE),0) ELSE 0 END AS MPASS
+		                	 ,CASE WHEN PRO_F = '4' THEN COALESCE(SUM(MM017.B_MENGE),0) ELSE 0 END AS MFAIL
+		                	 ,MAX(MM017.BUDAT) AS BUDAT
+		                	 ,MAX(MM017.RECE_DATE) AS RECE_DATE
+                        FROM SAPHEE.ZMMT017 AS MM017
+                     WHERE MM017.MANDT = #G_MANDT#
+                       AND MM017.LIFNR = #LIFNR#                
+             <isEqual col="DGBN" value="2">
+                       AND MM017.UDATE BETWEEN #UDATE1# AND #UDATE2#
+             </isEqual>
+             <isEqual col="DGBN" value="3">
+                       AND MM017.SDATE BETWEEN #UDATE1# AND #UDATE2#
+             </isEqual>
+             <isNotNull col="WERKS">
+                       AND MM017.WERKS = #WERKS#
+             </isNotNull>
+             <isNotNull col="POSID1">
+                       AND MM017.POSID BETWEEN  #POSID1# AND #POSID2#
+             </isNotNull>
+                       AND MM017.POTYPE = ''
+                       AND MM017.PRO_F &gt;= '1'
+                     GROUP BY MM017.MANDT,MM017.EBELN,MM017.EBELP,MM017.PRO_F ) AS S
+                            WHERE 1=1
+		   GROUP BY S.MANDT,S.EBELN,S.EBELP  
+              
+           ) AS MM017A ON  MM013.MANDT = MM017A.MANDT 
+                       AND MM013.EBELN = MM017A.EBELN
+                       AND MM013.EBELP = MM017A.EBELP
+	 INNER JOIN SAPHEE.ZMMT011      AS MM011 ON  MM013.MANDT = MM011.MANDT
+	                                         AND MM013.MATNR = MM011.MATNR
+
+--	 LEFT OUTER JOIN SAPHEE.ZMMT026 AS MM026 ON  MM011.MANDT = MM026.MANDT
+--	                     AND MM011.EXTWG = MM026.BOXNO
+
+	 LEFT OUTER JOIN SAPHEE.ZMMT025 AS MM025 ON  MM013.MANDT = MM025.MANDT
+	                                         AND SUBSTR(MM013.POSID,1,9) = MM025.POSID
+	                                         AND MM025.PSTYPE = '02'
+
+
+        -- NB,NS 의 경우 PRPS에서 출하일 가져옴 2014.05.16 HSS
+               LEFT OUTER JOIN SAPHEE.PRPS AS PR ON PR.MANDT= MM013.MANDT
+                                                                         AND PR.POSID = MM013.POSID
+               LEFT OUTER JOIN SAPHEE.LFA1 AS LF ON LF.MANDT= MM013.MANDT AND LF.LIFNR = MM013.LIFNR
+
+               LEFT OUTER JOIN SAPHEE.ZPPT005 AS PP005 ON PP005.MANDT= MM013.MANDT
+                                                          AND MM013.POSID = PP005.WOKNUM 
+														  AND MM011.MATNR = PP005.IDNRK
+               LEFT OUTER JOIN SAPHEE.ZMMT172 AS MM172 ON MM172.MANDT= MM013.MANDT
+                                                          AND MM172.POSID = MM013.POSID 
+				                						  AND MM172.MATNR = MM011.MATNR
+														  AND MM172.EBELN = MM013.EBELN
+														  AND MM172.LIFNR = MM013.LIFNR																	  			               			
+
+      WHERE MM013.MANDT = #G_MANDT# 
+        AND MM013.LIFNR = #LIFNR#
+        AND MM013.STATE = '2'
+<isEqual col="DGBN" value="2">
+	   AND MM013.UDATE BETWEEN #UDATE1# AND #UDATE2#
+</isEqual>
+<isEqual col="DGBN" value="3">
+	   AND MM013.SDATE BETWEEN #UDATE1# AND #UDATE2#
+</isEqual>
+   <isNotNull col="WERKS">
+        AND MM013.WERKS = #WERKS#
+   </isNotNull>
+    <isNotNull col="POSID1">
+        AND MM013.POSID BETWEEN  #POSID1# AND #POSID2#
+    </isNotNull>
+        AND MM013.POTYPE = ''
+        AND MM011.BLOCK_NO IN ('E280A','E280B','E280A06','E280A03','E281A','E281B','E322B05','E322B06','E322B07','E322B14','E322B12','E262A','E265A01')
+ ) AS MM13C
+  LEFT OUTER JOIN SAPHEE.ZMASTER01 AS MA01 ON MA01.MANDT= MM13C.MANDT
+	                                             AND MA01.POSID = (CASE WHEN SUBSTR(MM13C.POSID,1,2) = 'QM' THEN SUBSTR(MM13C.POSID,1,8)
+                                                                                           WHEN SUBSTR(MM13C.POSID,1,1) = 'Q' THEN SUBSTR(MM13C.POSID,1,7)
+                                                                                           ELSE SUBSTR(MM13C.POSID,1,6) END)
+  LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MA02 ON MA02.MANDT = MM13C.MANDT
+                                                           AND MA02.POSID = (CASE WHEN SUBSTR(MM13C.POSID,7,1) = 'N'  THEN MM13C.POSID 
+                                                                 ELSE SUBSTR(MM13C.POSID,1,6) END)
+                                          AND MA02.POSID_1 = (CASE WHEN SUBSTR(MM13C.POSID,7,1) = 'N' THEN MM13C.POSID
+                                                                   ELSE SUBSTR(MM13C.POSID,1,9) END)     
+WHERE 1=1
+<isEqual col="DGBN" value="1">
+	   AND MM13C.SHIPDAT BETWEEN #UDATE1# AND #UDATE2#
+</isEqual>
+<isEqual col="EGUBN" value="2">
+  AND MM13C.MENGE = (MM13C.MPASS+MM13C.MFAIL)
+</isEqual>
+<isEqual col="EGUBN" value="3">
+  AND MM13C.MENGE > (MM13C.MPASS+MM13C.MFAIL)
+</isEqual>
+ORDER BY  MM13C.UDATE,MM13C.POSID,MM13C.MATNR
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="WERKS" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID2" size="255" type="VARCHAR" description="" /> 
+		<col name="UDATE1" size="255" type="VARCHAR" description="" /> 
+		<col name="UDATE2" size="255" type="VARCHAR" description="" /> 
+		<col name="DGBN" size="255" type="VARCHAR" description="" /> 
+		<col name="EGUBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="CHECK" size="1" type="VARCHAR" description="" /> 
+		<col name="EBELN" size="30" type="VARCHAR" description="" /> 
+		<col name="EBELP" size="15" type="VARCHAR" description="" /> 
+		<col name="EINDT" size="8" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="16" type="NUMERIC" description="" /> 
+		<col name="MFAIL" size="33" type="NUMERIC" description="" /> 
+		<col name="MPASS" size="33" type="NUMERIC" description="" /> 
+		<col name="NCRED" size="33" type="NUMERIC" description="" /> 
+		<col name="NSEND" size="33" type="NUMERIC" description="" /> 
+		<col name="P_END" size="100" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POST1" size="120" type="VARCHAR" description="" /> 
+		<col name="SDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="SEND" size="33" type="NUMERIC" description="" /> 
+		<col name="SHIPDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="TXZ01" size="120" type="VARCHAR" description="" /> 
+		<col name="UDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="KNTTP" size="3" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="15" type="VARCHAR" description="" />
+		<col name="NAME1" size="20" type="VARCHAR" description="" />
+		<col name="CRDAT" size="8" type="VARCHAR" description="" />
+		<col name="IPSDT" size="8" type="VARCHAR" description="" />
+		<col name="RECDT" size="8" type="VARCHAR" description="" />
+		<col name="CAUSE" size="50" type="VARCHAR" description="" />
+	</output>
+</query>

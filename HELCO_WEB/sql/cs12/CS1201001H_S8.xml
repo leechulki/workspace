@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[중도해지 시 매출변경 기안내역 체크]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+        SELECT
+               A.CS402_GNO GNO,
+               A.CS402_HIS HIS,
+               MAX(B.CS126_USD) USD,
+               MAX(B.CS126_UMR) UMR,
+               G.DOCNO,
+               G.APSTAT
+          FROM
+               SAPHEE.ZCST402 A
+               		  LEFT OUTER JOIN SAPHEE.ZWBAP01 G
+                                   ON A.MANDT = G.MANDT
+                                  AND A.CS402_DOC = G.DOCNO,
+               SAPHEE.ZCST126 B,
+               SAPHEE.ZCST121 C,
+               SAPHEE.ZLCODE D,
+               SAPHEE.ZWBT010 E
+                      LEFT OUTER JOIN SAPHEE.ZLCODE F
+                                   ON E.MANDT = F.MANDT
+                                  AND E.VKGRP = F.CODE2
+                                  AND F.CODE1 = 'VKGRP'
+                                  AND F.LANG = #G_LANG# 
+         WHERE
+               A.MANDT = #G_MANDT#
+           AND A.MANDT = B.MANDT
+           AND A.CS402_GNO = B.CS126_GNO
+           AND A.CS402_UPN = B.CS126_UPN
+           AND A.CS402_CST = B.CS126_CST
+           AND A.CS402_PJT = B.CS126_PJT
+           AND A.CS402_HNO = B.CS126_HNO
+           AND B.MANDT = C.MANDT
+           AND B.CS126_UPN = C.CS121_UPN
+           AND B.CS126_CST = C.CS121_CST
+           AND B.MANDT = D.MANDT
+           AND B.CS126_ARA = D.CODE2
+           AND D.CODE1 = 'CS115'
+           AND D.LANG = #G_LANG#
+           AND B.MANDT = E.MANDT
+           AND B.CS126_BSU = E.LGORT
+           AND B.CS126_DDT = ''
+           AND B.CS126_PST = 'A6'
+           AND B.CS126_GND IN ('C','D')
+           AND A.CS402_USE = 'Y'
+           AND A.CS402_PST != 'A7'
+        <isNotNull col="UPN">
+           AND A.CS402_UPN = #UPN#
+        </isNotNull>
+        <isNotNull col="CST">
+           AND A.CS402_CST = #CST#
+        </isNotNull>
+        <isNotNull col="GNO">
+           AND A.CS402_GNO = #GNO#
+        </isNotNull>
+
+        <isNotNull col="UPN">
+        	<isNotNull col="CST">
+        		<isNotNull col="GNO">
+		           AND A.CS402_HIS = (
+			           SELECT 
+			           		MAX(CS402_HIS) MAX_HIS 
+			           FROM 
+			           		SAPHEE.ZCST402 CS402 
+			           WHERE 
+			           		MANDT = #G_MANDT# AND 
+			           		CS402.CS402_UPN = #UPN# AND 
+			           		CS402.CS402_CST = #CST# AND 
+			           		CS402.CS402_GNO = #GNO# 
+			           WITH UR           
+		           )
+        		</isNotNull>
+        	</isNotNull>
+        </isNotNull>        
+        
+        GROUP BY
+               A.CS402_GNO,
+               A.CS402_HIS,
+               A.CS402_MDT,
+               B.CS126_GKD,
+               G.DOCNO,
+               G.APSTAT
+WITH UR	
+</statement>
+	<input default-name="ds_halfcond">
+	</input>
+	<output default-name="ds_sales_exist">
+	</output>
+</query>

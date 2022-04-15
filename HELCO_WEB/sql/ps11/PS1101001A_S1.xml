@@ -1,0 +1,628 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[실측치현황조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT   PJT
+        ,HNO
+        ,CASE WHEN UPD > '' THEN 'R' ELSE '' END AS UPDC
+        ,(SELECT Z.ZSPEC11 
+              FROM SAPHEE.ZMASTER02 AS Z 
+            WHERE Z.MANDT = PS001.MANDT 
+                 AND Z.POSID = PS001.PJT 
+                 AND Z.POSID_1 = PS001.PJT||PS001.HNO) AS ZSPEC11
+        ,BJD
+        ,HDM
+        ,NAP
+        ,UPD
+		,PDT
+        ,REP
+		,PP
+        ,XXX
+		,Y
+        ,Z
+        ,VALUE(MM028.CTEXT2  ,'') AS REP_NAME
+        ,VALUE(MS001.ZSITE_NM,'') AS NAM
+        ,CASE WHEN TRIM(PS001.XXX) = 'JAMB' THEN 
+                    VALUE((SELECT MM013.LNAME||'^'||MM013.SDATE||'^'||MM013.UDATE||'^'||MM013.LIFNR
+                            FROM SAPHEE.ZMMT013 AS MM013
+
+                           WHERE MM013.MANDT = #G_MANDT#
+                            AND MM013.POSID = TRIM(PS001.PJT)||TRIM(PS001.HNO)||'-P'
+                            AND MM013.MATNR LIKE '361%'
+                            <isEqual col="GBN" value="Y">
+                            AND MM013.LIFNR = #G_VEND_CODE_M#
+                            </isEqual>              
+                           FETCH FIRST 1 ROWS ONLY
+                     ),'') 
+             ELSE 
+                    VALUE((SELECT MM013.LNAME||'^'||MM013.SDATE||'^'||MM013.UDATE||'^'||MM013.LIFNR
+                            FROM SAPHEE.ZMMT013 AS MM013
+
+                          WHERE MM013.MANDT = #G_MANDT#
+                            AND MM013.POSID = TRIM(PS001.PJT)||TRIM(PS001.HNO)||'-P'
+                            AND SUBSTR(MM013.TXZ01,1,LENGTH(TRIM(PS001.XXX))) = TRIM(PS001.XXX)
+                            <isEqual col="GBN" value="Y">
+                            AND MM013.LIFNR = #G_VEND_CODE_M#
+                            </isEqual>              
+                           FETCH FIRST 1 ROWS ONLY
+                     ),'') 
+           END      AS LIFNR
+			 
+        , VALUE((SELECT MM013.LNAME||'^'||MM013.SDATE||'^'||MM013.UDATE||'^'||MM013.LIFNR
+                            FROM SAPHEE.ZMMT013 AS MM013
+
+                            WHERE MM013.MANDT =  #G_MANDT#
+                            AND MM013.POSID = TRIM(PS001.PJT)||TRIM(PS001.HNO)||'-P'
+                            AND SUBSTR(MM013.TXZ01,1,LENGTH(TRIM(PS001.PP))) = TRIM(PS001.PP)
+                            <isEqual col="GBN" value="Y">
+                            AND MM013.LIFNR = #G_VEND_CODE_M#
+                            </isEqual>              
+                                           
+                           FETCH FIRST 1 ROWS ONLY
+                     ),'')     AS PPP
+					 
+			 , VALUE((SELECT MM013.LNAME||'^'||MM013.SDATE||'^'||MM013.UDATE||'^'||MM013.LIFNR
+		                     FROM SAPHEE.ZMMT013 AS MM013
+
+                         WHERE MM013.MANDT =  #G_MANDT#
+                            AND MM013.POSID = TRIM(PS001.PJT)||TRIM(PS001.HNO)||'-P'
+                            AND SUBSTR(MM013.TXZ01,1,LENGTH(TRIM(PS001.Y))) = TRIM(PS001.Y)
+                            <isEqual col="GBN" value="Y">
+                            AND MM013.LIFNR = #G_VEND_CODE_M#
+                            </isEqual>              
+                                           
+                           FETCH FIRST 1 ROWS ONLY
+                     ),'')     AS YYY
+					 			 , VALUE((SELECT MM013.LNAME||'^'||MM013.SDATE||'^'||MM013.UDATE||'^'||MM013.LIFNR
+		                     FROM SAPHEE.ZMMT013 AS MM013
+
+                         WHERE MM013.MANDT =  #G_MANDT#
+                            AND MM013.POSID = TRIM(PS001.PJT)||TRIM(PS001.HNO)||'-P'
+                            AND SUBSTR(MM013.TXZ01,1,LENGTH(TRIM(PS001.Z))) = TRIM(PS001.Z)
+                            <isEqual col="GBN" value="Y">
+                            AND MM013.LIFNR = #G_VEND_CODE_M#
+                            </isEqual>              
+                                           
+                           FETCH FIRST 1 ROWS ONLY
+                     ),'')     AS ZZZ
+        ,'' LNAME
+        ,'' SDATE
+        ,'' UDATE
+        ,'' LIFNR_O   
+        ,'' YYY_O
+         , '' PPP_O
+		 , '' ZZZ_O  
+         , '' PPP_Y
+         , '' YYY_Y
+		 , '' ZZZ_Y
+		,PDT2   
+		, BSJ
+FROM  (
+         SELECT   MANDT
+                 ,CESDBPJT AS PJT
+                 ,CESDBHNO AS HNO
+                 ,CESDBBJD AS BJD
+                 ,CESDBHDM AS HDM
+                 ,CESDBNAP AS NAP
+                 ,CESDBUPD AS UPD
+                 ,CESDBPDT AS PDT
+               ,'H'      AS REP
+			   	 , 'X' AS PP		
+				 ,'X' AS Y	
+				 ,'X' AS Z
+                ,' '      AS XXX
+				 ,''  AS PDT2
+				 ,'' AS BSJ
+         FROM  SAPHEE.ZTBESDB
+         WHERE MANDT    = #G_MANDT#
+<isNotNull col="PJT">
+		AND   CESDBPJT LIKE #PJT#||'%'
+</isNotNull>
+<isNotNull col="HNO">
+		AND   CESDBHNO = #HNO#
+</isNotNull>
+           AND CESDBBJD BETWEEN #FROMDT# AND  #TODT#
+         
+         UNION ALL 
+
+         SELECT   MANDT
+                 ,CESDDPJT AS PJT
+                 ,CESDDHNO AS HNO
+                 ,CESDDBJD AS BJD
+                 ,CESDDHDM AS HDM
+                 ,CESDDNAP AS NAP
+                 ,CESDDUPD AS UPD
+                 ,CESDDPDT AS PDT				 
+                 ,'J'      AS REP
+				 , 'X' AS PP
+				 ,'X' AS Y
+				 ,'X' AS Z
+                 ,'JAMB COVER'  AS XXX
+				 ,CESDDPDT2  AS PDT2
+				 ,CESDDBSJ AS BSJ
+         FROM  SAPHEE.ZTBESDD
+
+         WHERE MANDT    = #G_MANDT#
+<isNotNull col="PJT">
+		AND   CESDDPJT LIKE #PJT#||'%'
+</isNotNull>
+<isNotNull col="HNO">
+		AND   CESDDHNO = #HNO#
+</isNotNull>
+           AND CESDDBJD BETWEEN #FROMDT# AND  #TODT#
+         UNION ALL 
+
+         SELECT   MANDT
+                 ,CESDFPJT AS PJT
+                 ,CESDFHNO AS HNO
+                 ,CESDFBJD AS BJD
+                 ,CESDFHDM AS HDM
+                 ,CESDFNAP AS NAP
+                 ,CESDFUPD AS UPD
+				 ,CESDFPDT AS PDT
+                 ,'S'      AS REP
+				 , 'X' AS PP
+				 ,'X' AS Y
+				 ,'X' AS Z
+                 ,'JAMB '  AS XXX
+				 ,CESDFPDT2  AS PDT2
+			     ,CESDFBSJ AS BSJ
+         FROM  SAPHEE.ZTBESDF
+         WHERE MANDT    = #G_MANDT#
+<isNotNull col="PJT">
+		AND   CESDFPJT LIKE #PJT#||'%'
+</isNotNull>
+<isNotNull col="HNO">
+		AND   CESDFHNO = #HNO#
+</isNotNull>
+           AND CESDFBJD BETWEEN #FROMDT# AND  #TODT#
+         UNION ALL 
+
+         SELECT   MANDT
+                 ,CESDHPJT AS PJT
+                 ,CESDHHNO AS HNO
+                 ,CESDHBJD AS BJD
+                 ,CESDHHDM AS HDM
+                 ,CESDHNAP AS NAP
+                 ,CESDHUPD AS UPD
+				 ,CESDHPDT AS PDT
+                 ,'C'      AS REP
+				, 'X' AS PP			
+				,'X' AS Y
+				,'X' AS Z
+                 ,'SEPARATION BEAM'  AS XXX
+				 ,CESDHPDT2  AS PDT2
+				 , CESDHBSJ AS BSJ
+         FROM  SAPHEE.ZTBESDH
+         WHERE MANDT    = #G_MANDT#
+<isNotNull col="PJT">
+		AND   CESDHPJT LIKE #PJT#||'%'
+</isNotNull>
+<isNotNull col="HNO">
+		AND   CESDHHNO = #HNO#
+</isNotNull>
+           AND CESDHBJD BETWEEN #FROMDT# AND  #TODT#
+         
+         UNION ALL 
+
+         SELECT   MANDT
+                 ,CESDJPJT AS PJT
+                 ,CESDJHNO AS HNO
+                 ,CESDJBJD AS BJD
+                 ,CESDJHDM AS HDM
+                 ,CESDJNAP AS NAP
+                 ,CESDJUPD AS UPD
+				 ,CESDJPDT AS PDT
+                 ,'F'      AS REP
+				 , 'X' AS PP
+				 ,'X' AS Y
+				 ,'X' AS Z
+                 ,'FASCIA PLATE' AS XXX
+				 ,CESDJPDT2  AS PDT2
+				 , CESDJBSJ AS BSJ
+         FROM  SAPHEE.ZTBESDJ
+
+         WHERE MANDT    = #G_MANDT#
+<isNotNull col="PJT">
+		AND   CESDJPJT LIKE #PJT#||'%'
+</isNotNull>
+<isNotNull col="HNO">
+		AND   CESDJHNO = #HNO#
+</isNotNull>
+           AND CESDJBJD BETWEEN #FROMDT# AND  #TODT#
+         UNION ALL 
+
+         SELECT   MANDT
+                 ,CESDLPJT AS PJT
+                 ,CESDLHNO AS HNO
+                 ,CESDLBJD AS BJD
+                 ,CESDLHDM AS HDM
+                 ,CESDLNAP AS NAP
+                 ,CESDLUPD AS UPD
+				 ,CESDLPDT AS PDT
+                 ,'R'      AS REP
+				 , 'X' AS PP
+				 ,'X' AS Y
+				 ,'X'AS Z
+                 ,'RAIL BRAT' AS XXX
+				 ,CESDLPDT2 AS PDT2
+				 ,CESDLBSJ AS BSJ
+         FROM  SAPHEE.ZTBESDL
+
+
+         WHERE MANDT    = #G_MANDT#
+<isNotNull col="PJT">
+		AND   CESDLPJT LIKE #PJT#||'%'
+</isNotNull>
+<isNotNull col="HNO">
+		AND   CESDLHNO = #HNO#
+</isNotNull>
+           AND CESDLBJD BETWEEN #FROMDT# AND  #TODT#
+		   
+
+         UNION ALL 
+
+         SELECT   MANDT
+                 ,CESDRPJT AS PJT
+                 ,CESDRHNO AS HNO
+                 ,CESDRBJD AS BJD
+                 ,CESDRHDM AS HDM
+                 ,CESDRNAP AS NAP
+                 ,CESDRUPD AS UPD
+				 ,CESDRPDT AS PDT
+                 ,'X'      AS REP
+				 , 'X' AS PP
+				 ,'X' AS Y
+				 ,'X'AS Z
+                 ,'HANGER CASE BRKT' AS XXX
+				 ,CESDRPDT2  AS PDT2
+				 , CESDRBSJ AS BSJ
+         FROM  SAPHEE.ZTBESDR
+
+         WHERE MANDT    = #G_MANDT#
+<isNotNull col="PJT">
+		AND   CESDRPJT LIKE #PJT#||'%'
+</isNotNull>
+<isNotNull col="HNO">
+		AND   CESDRHNO = #HNO#
+</isNotNull>
+           AND CESDRBJD BETWEEN #FROMDT# AND  #TODT#
+     
+         UNION ALL 
+
+         SELECT   MANDT
+                 ,CESDTPJT AS PJT
+                 ,CESDTHNO AS HNO
+                 ,CESDTBJD AS BJD
+                 ,CESDTHDM AS HDM
+                 ,CESDTNAP AS NAP
+                 ,CESDTUPD AS UPD
+				 ,CESDTPDT AS PDT
+                 ,'Y'      AS REP
+				 , 'X' AS PP
+				 ,'X' AS Y
+				 ,'X'AS Z
+                 ,'SILL SPRT' AS XXX
+				 ,CESDTPDT2  AS PDT2
+				 ,CESDTBSJ AS BSJ
+         FROM  SAPHEE.ZTBESDT
+		
+		
+         WHERE MANDT    = #G_MANDT#
+<isNotNull col="PJT">
+		AND   CESDTPJT LIKE #PJT#||'%'
+</isNotNull>
+<isNotNull col="HNO">
+		AND   CESDTHNO = #HNO#
+</isNotNull>
+           AND CESDTBJD BETWEEN #FROMDT# AND  #TODT#		   
+
+         
+         UNION ALL 
+
+         SELECT   MANDT
+                 ,CESDNPJT AS PJT
+                 ,CESDNHNO AS HNO
+                 ,CESDNBJD AS BJD
+                 ,CESDNHDM AS HDM
+                 ,CESDNNAP AS NAP
+                 ,CESDNUPD AS UPD
+				 ,CESDNPDT AS PDT
+                 ,'N'      AS REP
+				 , 'X' AS PP
+				 ,'X' AS Y
+				 ,'X'AS Z
+                 ,'JAMB'      AS XXX
+				 ,CESDNPDT2  AS PDT2
+				 ,CESDNBSJ AS BSJ
+         FROM  SAPHEE.ZTBESDN
+         WHERE MANDT    = #G_MANDT#
+<isNotNull col="PJT">
+		AND   CESDNPJT LIKE #PJT#||'%'
+</isNotNull>
+<isNotNull col="HNO">
+		AND   CESDNHNO = #HNO#
+</isNotNull>
+           AND CESDNBJD BETWEEN #FROMDT# AND  #TODT#
+         UNION ALL 
+
+         SELECT   MANDT
+                 ,CESDPPJT AS PJT
+                 ,CESDPHNO AS HNO
+                 ,CESDPBJD AS BJD
+                 ,CESDPHDM AS HDM
+                 ,CESDPNAP AS NAP
+                 ,CESDPUPD AS UPD
+                 ,CESDPPDT AS PDT
+                 ,'D'      AS REP
+				 , 'X' AS PP
+				 ,'X' AS Y
+				 ,'X'AS Z
+                 ,'중간칸막이'      AS XXX
+				 ,CESDPPDT2  AS PDT2
+   			     , CESDPBSJ AS BSJ
+         FROM  SAPHEE.ZTBESDP
+         WHERE MANDT    = #G_MANDT#
+<isNotNull col="PJT">
+		AND   CESDPPJT LIKE #PJT#||'%'
+</isNotNull>
+<isNotNull col="HNO">
+		AND   CESDPHNO = #HNO#
+</isNotNull>
+           AND CESDPBJD BETWEEN #FROMDT# AND  #TODT#
+
+
+
+
+         UNION ALL 
+
+         SELECT   MANDT
+                 ,PJT AS PJT
+                 ,HNO AS HNO
+                 ,BJD AS BJD
+                 ,HDM AS HDM
+                 ,NAP AS NAP
+                 ,UPD AS UPD
+                 ,PDT AS PDT
+                 ,'NH'      AS REP
+				 , 'WIRE ROPE' AS PP
+				 ,'MAIN ROPE' AS Y
+				 ,'X'AS Z
+                 ,'MC BEAM'      AS XXX
+				 ,PDT2 AS PDT2
+				 ,BSJ
+         FROM  SAPHEE.ZPST11071M
+
+
+         WHERE MANDT    = #G_MANDT#
+<isNotNull col="PJT">
+		AND   PJT LIKE #PJT#||'%'
+</isNotNull>
+<isNotNull col="HNO">
+		AND   HNO = #HNO#
+</isNotNull>
+           AND BJD BETWEEN #FROMDT# AND  #TODT#
+         UNION ALL 
+
+         SELECT   MANDT
+                 ,PJT AS PJT
+                 ,HNO AS HNO
+                 ,BJD AS BJD
+                 ,HDM AS HDM
+                 ,NAP AS NAP
+                 ,UPD AS UPD
+                 ,PDT AS PDT
+                 ,'NX'      AS REP
+				 , 'HANGER CASE BRKT' AS PP
+				 ,'X' AS Y
+				 ,'X' AS Z
+                 ,'SILL SPRT'      AS XXX
+				 ,PDT2
+				 ,BSJ
+         FROM  SAPHEE.ZPST11072M
+
+         WHERE MANDT    = #G_MANDT#
+<isNotNull col="PJT">
+		AND   PJT LIKE #PJT#||'%'
+</isNotNull>
+<isNotNull col="HNO">
+		AND   HNO = #HNO#
+</isNotNull>
+           AND BJD BETWEEN #FROMDT# AND  #TODT#		
+
+
+
+         UNION ALL 
+
+         SELECT   MANDT
+                 ,PJT AS PJT
+                 ,HNO AS HNO
+                 ,BJD AS BJD
+                 ,HDM AS HDM
+                 ,NAP AS NAP
+                 ,UPD AS UPD
+                 ,PDT AS PDT
+                 ,'NC'      AS REP
+                 , 'HOISTWAY PARTITION' AS PP
+				 ,'PIT PARTITION' AS Y
+				 ,'TOE GUARD' AS Z
+				 ,'FASCIA PLATE'      AS XXX
+				 ,PDT2  AS PDT2
+				 ,BSJ
+         FROM  SAPHEE.ZPST11073M
+
+         WHERE MANDT    = #G_MANDT#
+<isNotNull col="PJT">
+		AND   PJT LIKE #PJT#||'%'
+</isNotNull>
+<isNotNull col="HNO">
+		AND   HNO = #HNO#
+</isNotNull>
+           AND BJD BETWEEN #FROMDT# AND  #TODT#	   
+
+         UNION ALL 
+
+         SELECT   MANDT
+                 ,PJT AS PJT
+                 ,HNO AS HNO
+                 ,BJD AS BJD
+                 ,HDM AS HDM
+                 ,NAP AS NAP
+                 ,UPD AS UPD
+                 ,PDT AS PDT
+                 ,'NR'      AS REP
+                 , 'RAIL BRKT' AS PP
+				 ,'X' AS Y
+				 ,'X' AS Z
+				 ,'SEPARATING BEAM'      AS XXX
+				 ,PDT2  AS PDT2
+				 ,BSJ
+         FROM  SAPHEE.ZPST11074M
+         WHERE MANDT    = #G_MANDT#
+<isNotNull col="PJT">
+		AND   PJT LIKE #PJT#||'%'
+</isNotNull>
+<isNotNull col="HNO">
+		AND   HNO = #HNO#
+</isNotNull>
+           AND BJD BETWEEN #FROMDT# AND  #TODT#	
+
+         UNION ALL 
+
+         SELECT   MANDT
+                 ,PJT AS PJT
+                 ,HNO AS HNO
+                 ,BJD AS BJD
+                 ,HDM AS HDM
+                 ,NAP AS NAP
+                 ,UPD AS UPD
+                 ,PDT AS PDT
+                 ,'NY'      AS REP
+                  , 'X' AS PP
+				  ,'X' AS Y
+				  ,'X'AS Z
+				 ,'착공전 실측(E/S)'      AS XXX
+				 ,PDT2  AS PDT2
+				 ,BSJ
+         FROM  SAPHEE.ZPST11075M
+
+         WHERE MANDT    = #G_MANDT#
+<isNotNull col="PJT">
+		AND   PJT LIKE #PJT#||'%'
+</isNotNull>
+<isNotNull col="HNO">
+		AND   HNO = #HNO#
+</isNotNull>
+           AND BJD BETWEEN #FROMDT# AND  #TODT#	
+         UNION ALL 
+
+         SELECT   MANDT
+                 ,PJT AS PJT
+                 ,HNO AS HNO
+                 ,BJD AS BJD
+                 ,HDM AS HDM
+                 ,NAP AS NAP
+                 ,UPD AS UPD
+                 ,PDT AS PDT
+                 ,'NZ'      AS REP
+				 , ' ' AS PP
+				 ,' ' AS Y
+				 ,' ' AS Z
+                 ,'착공전 실측(M/W)'      AS XXX
+				 ,PDT2  AS PDT2
+				 ,BSJ
+         FROM  SAPHEE.ZPST11076M
+
+     
+         WHERE MANDT    = #G_MANDT#
+<isNotNull col="PJT">
+		AND   PJT LIKE #PJT#||'%'
+</isNotNull>
+<isNotNull col="HNO">
+		AND   HNO = #HNO#
+</isNotNull>
+           AND BJD BETWEEN #FROMDT# AND  #TODT#	
+
+
+		 ) AS PS001
+     LEFT OUTER JOIN 
+      SAPHEE.ZLCODE AS MM028 
+      ON MM028.MANDT=PS001.MANDT 
+      AND MM028.CODE1='PS101' 
+      AND MM028.LANG = #G_LANG# 
+      AND MM028.CODE2=PS001.REP
+    ,SAPHEE.ZMASTER01 AS MS001
+
+WHERE PS001.MANDT = MS001.MANDT
+AND PS001.PJT   = MS001.POSID
+<isEqual col="TYPE" value="R">
+AND PS001.REP = 'R'
+</isEqual>
+<isEqual col="TYPE" value="C">
+AND PS001.REP = 'C'
+</isEqual>
+<isEqual col="TYPE" value="D">
+AND PS001.REP = 'D'
+</isEqual>
+<isEqual col="TYPE" value="F">
+AND PS001.REP = 'F'
+</isEqual>
+<isEqual col="TYPE" value="S">
+AND PS001.REP = 'S'
+</isEqual>
+<isEqual col="TYPE" value="N">
+AND PS001.REP = 'N'
+</isEqual>
+<isEqual col="TYPE" value="H">
+AND PS001.REP IN ('H','W')
+</isEqual>
+<isEqual col="TYPE" value="J">
+AND PS001.REP IN ('J','B','G')
+</isEqual>
+<isEqual col="TYPE" value="X">
+AND PS001.REP IN ('X')
+</isEqual>
+<isEqual col="TYPE" value="Y">
+AND PS001.REP IN ('Y')
+</isEqual>
+
+<isEqual col="TYPE" value="NH">
+AND PS001.REP IN ('NH')
+</isEqual>
+
+<isEqual col="TYPE" value="NX">
+AND PS001.REP IN ('NX')
+</isEqual>
+
+<isEqual col="TYPE" value="NC">
+AND PS001.REP IN ('NC')
+</isEqual>
+
+<isEqual col="TYPE" value="NR">
+AND PS001.REP IN ('NR')
+</isEqual>
+
+<isEqual col="TYPE" value="NY">
+AND PS001.REP IN ('NY')
+</isEqual>
+
+<isEqual col="TYPE" value="NZ">
+AND PS001.REP IN ('NZ')
+</isEqual>
+
+ORDER BY PS001.BJD,PS001.PJT
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="PJT" size="255" type="VARCHAR" description="" /> 
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="HNO" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

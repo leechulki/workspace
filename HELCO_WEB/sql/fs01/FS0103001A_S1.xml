@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[업무담당자그룹관리 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT  A.ADOC_CLAS
+       ,B.CODE_NAME AS DCLS_NAME
+       ,A.MANDT
+       ,A.ADOC_NUMB
+       ,A.ADOC_SEQN
+       ,A.DOC_NO
+       ,A.POST1
+       ,A.MNGR_GBN
+       ,E.CODE_NAME AS GBN_NAME
+       ,A.MNGR
+       ,D.USERNAME
+       ,A.WRIT_DATE
+       ,A.ADOC_STAT
+       ,F.CODE_NAME AS STAT_NAME
+FROM    (
+            SELECT  'EC' AS ADOC_CLAS
+                   ,A.MANDT
+                   ,A.ESCS_NUMB AS ADOC_NUMB 
+                   ,A.ESCS_NTIM AS ADOC_SEQN  
+                   ,A.ESCS_NUMB ||'-'|| A.ESCS_NTIM AS DOC_NO
+                   ,A.POST1 
+                   ,A.KUNNR_NAME
+                   ,C.MNGR_GBN
+                   ,C.MNGR
+                   ,A.WRIT_DATE 
+                   ,A.ESCS_STAT AS ADOC_STAT
+            FROM    SAPHEE.ZFST0200 A
+                        JOIN ( SELECT  B.MANDT
+                                      ,B.ESCS_NUMB
+                                      ,MAX( B.ESCS_NTIM ) AS ESCS_NTIM
+                               FROM    SAPHEE.ZFST0200 B
+                               WHERE   B.MANDT = #G_MANDT#
+                               GROUP   BY B.MANDT,B.ESCS_NUMB ) B
+                            ON ( A.MANDT = B.MANDT AND A.ESCS_NUMB = B.ESCS_NUMB AND A.ESCS_NTIM = B.ESCS_NTIM )
+                        LEFT JOIN SAPHEE.ZFST0104 C 
+                            ON ( C.MANDT = A.MANDT AND C.ADOC_CLAS = 'EC' AND C.ADOC_NUMB = A.ESCS_NUMB )
+            WHERE   C.MNGR IS NOT NULL 
+            AND     A.WRIT_DATE BETWEEN #PROJ_STDT# AND #PROJ_EDDT#
+            <isNotNull col="PROJ_NAME">
+            AND     A.POST1 LIKE '%'|| #PROJ_NAME# ||'%'
+            </isNotNull>
+            <isNotNull col="KUNNR_NAME">
+            AND      A.KUNNR_NAME LIKE '%'|| #KUNNR_NAME# ||'%'
+            </isNotNull>
+            /*  EC : 견적원가 영업담당자  */
+            UNION
+            SELECT  'EC' AS ADOC_CLAS
+                   ,A.MANDT
+                   ,A.ESCS_NUMB AS ADOC_NUMB 
+                   ,A.ESCS_NTIM AS ADOC_SEQN  
+                   ,A.ESCS_NUMB ||'-'|| A.ESCS_NTIM AS DOC_NO
+                   ,A.POST1 
+                   ,A.KUNNR_NAME
+                   ,'010'
+                   ,A.SALE_PRSN
+                   ,A.WRIT_DATE 
+                   ,A.ESCS_STAT AS ADOC_STAT
+            FROM    SAPHEE.ZFST0200 A
+                        JOIN ( SELECT  B.MANDT
+                                      ,B.ESCS_NUMB
+                                      ,MAX( B.ESCS_NTIM ) AS ESCS_NTIM
+                               FROM    SAPHEE.ZFST0200 B
+                               WHERE   B.MANDT = #G_MANDT#
+                               GROUP   BY B.MANDT,B.ESCS_NUMB ) B
+                            ON ( A.MANDT = B.MANDT AND A.ESCS_NUMB = B.ESCS_NUMB AND A.ESCS_NTIM = B.ESCS_NTIM )
+            WHERE   A.SALE_PRSN IS NOT NULL
+            AND     A.WRIT_DATE BETWEEN #PROJ_STDT# AND #PROJ_EDDT#
+            <isNotNull col="PROJ_NAME">
+            AND     A.POST1 LIKE '%'|| #PROJ_NAME# ||'%'
+            </isNotNull>
+            <isNotNull col="KUNNR_NAME">
+            AND     A.KUNNR_NAME LIKE '%'|| #KUNNR_NAME# ||'%'
+            </isNotNull>
+            /*  ES : 견적  */
+            UNION
+            SELECT  'ES' AS ADOC_CLAS
+                   ,A.MANDT
+                   ,A.ESMT_NUMB 
+                   ,1  
+                   ,A.ESMT_NUMB 
+                   ,A.BSNS_NAME
+                   ,A.ORCU_NAME 
+                   ,C.MNGR_GBN
+                   ,C.MNGR
+                   ,A.WRIT_DATE 
+                   ,A.ESMT_STAT
+            FROM    SAPHEE.ZFST0202 A
+                        LEFT JOIN SAPHEE.ZFST0104 C 
+                            ON ( C.MANDT = A.MANDT AND C.ADOC_CLAS = 'ES' AND C.ADOC_NUMB = A.ESMT_NUMB )
+            WHERE   A.MANDT = #G_MANDT#
+            AND     C.MNGR IS NOT NULL 
+            AND     A.WRIT_DATE BETWEEN #PROJ_STDT# AND #PROJ_EDDT#
+            <isNotNull col="PROJ_NAME">
+            AND     A.BSNS_NAME LIKE '%'|| #PROJ_NAME# ||'%'
+            </isNotNull>
+            <isNotNull col="KUNNR_NAME">
+            AND     A.ORCU_NAME LIKE '%'|| #KUNNR_NAME# ||'%'
+            </isNotNull>
+            /*   0I : 수주 */
+            UNION
+            SELECT  '0I' AS ADOC_CLAS
+                   ,A.MANDT
+                   ,A.OCNT_NUMB 
+                   ,A.RFCT_SEQN 
+                   ,A.OCNT_NUMB ||'-'|| A.RFCT_SEQN 
+                   ,A.BSTNK 
+                   ,D.NAME1
+                   ,C.MNGR_GBN
+                   ,C.MNGR
+                   ,A.WRIT_DATE 
+                   ,A.OCNT_STAT
+            FROM    SAPHEE.ZFST0305 A
+                        JOIN ( SELECT B.MANDT
+                                     ,B.OCNT_NUMB
+                                     ,MAX( B.RFCT_SEQN ) AS RFCT_SEQN
+                               FROM   SAPHEE.ZFST0305 B
+                               WHERE  B.MANDT = #G_MANDT#
+                               GROUP  BY B.MANDT, B.OCNT_NUMB 
+                         ) B
+                            ON ( B.MANDT = A.MANDT AND B.OCNT_NUMB = A.OCNT_NUMB AND B.RFCT_SEQN = A.RFCT_SEQN )
+                         LEFT JOIN SAPHEE.ZFST0104 C 
+                            ON ( C.MANDT = A.MANDT AND C.ADOC_CLAS = '0I' AND C.ADOC_NUMB = A.OCNT_NUMB )
+                         LEFT JOIN SAPHEE.KNA1 D 
+                            ON ( D.MANDT = A.MANDT AND D.KUNNR = A.KUNNR )
+            WHERE   C.MNGR IS NOT NULL
+            AND     A.WRIT_DATE BETWEEN #PROJ_STDT# AND #PROJ_EDDT#
+            <isNotNull col="PROJ_NAME">
+            AND     A.BSTNK LIKE '%'|| #PROJ_NAME# ||'%'
+            </isNotNull>
+            <isNotNull col="KUNNR_NAME">
+            AND     D.NAME1 LIKE '%'|| #KUNNR_NAME# ||'%'
+            </isNotNull>
+            /*  OB : 시행예산  */ 
+            UNION 
+            SELECT  'OB' AS ADOC_CLAS
+                   ,A.MANDT
+                   ,A.OCNT_NUMB 
+                   ,A.EBDG_MGSQ 
+                   ,A.OCNT_NUMB ||'-'|| A.EBDG_MGSQ 
+                   ,C.BSTNK
+                   ,D.NAME1
+                   ,E.MNGR_GBN
+                   ,E.MNGR
+                   ,A.WRIT_DATE 
+                   ,A.EBDG_MGST
+            FROM    SAPHEE.ZFST0301 A
+                        JOIN ( SELECT  B.MANDT
+                                      ,B.OCNT_NUMB
+                                      ,MAX( B.EBDG_MGSQ ) AS EBDG_MGSQ
+                               FROM    SAPHEE.ZFST0301 B
+                               WHERE   B.MANDT = #G_MANDT# 
+                               GROUP   BY  B.MANDT, B.OCNT_NUMB ) B 
+                            ON ( B.MANDT = A.MANDT AND B.OCNT_NUMB = A.OCNT_NUMB AND B.EBDG_MGSQ = A.EBDG_MGSQ )
+                        JOIN ( SELECT  C1.* 
+                               FROM   SAPHEE.ZFST0305 C1
+                                           JOIN ( SELECT C2.MANDT
+                                                        ,C2.OCNT_NUMB
+                                                        ,MAX( C2.RFCT_SEQN ) AS RFCT_SEQN
+                                                  FROM   SAPHEE.ZFST0305 C2
+                                                  WHERE  C2.MANDT = #G_MANDT# 
+                                                  GROUP  BY  C2.MANDT, C2.OCNT_NUMB ) C2
+                                           ON ( C2.MANDT = C1.MANDT AND C2.OCNT_NUMB = C1.OCNT_NUMB AND C2.RFCT_SEQN = C1.RFCT_SEQN ) ) C 
+                             ON ( C.MANDT = A.MANDT AND C.OCNT_NUMB = A.OCNT_NUMB )
+                         LEFT JOIN SAPHEE.KNA1 D 
+                            ON ( D.MANDT = C.MANDT AND D.KUNNR = C.KUNNR )
+                         LEFT JOIN SAPHEE.ZFST0104 E 
+                            ON ( E.MANDT = A.MANDT AND E.ADOC_CLAS = 'OB' AND E.ADOC_NUMB = C.OCNT_NUMB  )
+            WHERE   E.MNGR IS NOT NULL
+            AND     A.WRIT_DATE BETWEEN #PROJ_STDT# AND #PROJ_EDDT#
+            <isNotNull col="PROJ_NAME">
+            AND     C.BSTNK LIKE '%'|| #PROJ_NAME# ||'%'
+            </isNotNull>
+            <isNotNull col="KUNNR_NAME">
+            AND     D.NAME1 LIKE '%'|| #KUNNR_NAME# ||'%'
+            </isNotNull>
+            /*  OB : 시행예산 담당자  */
+            UNION
+            SELECT  'OB' AS ADOC_CLAS
+                   ,A.MANDT
+                   ,A.OCNT_NUMB 
+                   ,A.EBDG_MGSQ 
+                   ,A.OCNT_NUMB ||'-'|| A.EBDG_MGSQ 
+                   ,C.BSTNK
+                   ,D.NAME1
+                   ,'010'
+                   ,A.MNGR
+                   ,A.WRIT_DATE 
+                   ,A.EBDG_MGST
+            FROM    SAPHEE.ZFST0301 A
+                        JOIN (SELECT B.MANDT
+                                    ,B.OCNT_NUMB
+                                    ,MAX( B.EBDG_MGSQ ) AS EBDG_MGSQ
+                              FROM   SAPHEE.ZFST0301 B
+                              WHERE  B.MANDT = #G_MANDT# 
+                              GROUP  BY  B.MANDT, B.OCNT_NUMB ) B 
+                            ON ( B.MANDT = A.MANDT AND B.OCNT_NUMB = A.OCNT_NUMB AND B.EBDG_MGSQ = A.EBDG_MGSQ )
+                        JOIN (SELECT C1.* 
+                              FROM   SAPHEE.ZFST0305 C1
+                                        JOIN ( SELECT C2.MANDT
+                                                     ,C2.OCNT_NUMB
+                                                     ,MAX( C2.RFCT_SEQN ) AS RFCT_SEQN
+                                               FROM   SAPHEE.ZFST0305 C2
+                                               WHERE  C2.MANDT = #G_MANDT# 
+                                               GROUP  BY  C2.MANDT, C2.OCNT_NUMB ) C2
+                                        ON ( C2.MANDT = C1.MANDT AND C2.OCNT_NUMB = C1.OCNT_NUMB AND C2.RFCT_SEQN = C1.RFCT_SEQN ) ) C 
+                            ON ( C.MANDT = A.MANDT AND C.OCNT_NUMB = A.OCNT_NUMB )
+                        LEFT JOIN SAPHEE.KNA1 D 
+                            ON ( D.MANDT = C.MANDT AND D.KUNNR = C.KUNNR )
+            WHERE    A.MNGR IS NOT NULL
+            AND      A.WRIT_DATE BETWEEN #PROJ_STDT# AND #PROJ_EDDT#
+            <isNotNull col="PROJ_NAME">
+            AND      C.BSTNK LIKE '%'|| #PROJ_NAME# ||'%'
+            </isNotNull>
+            <isNotNull col="KUNNR_NAME">
+            AND      D.NAME1 LIKE '%'|| #KUNNR_NAME# ||'%'
+            </isNotNull>
+            /*  PS : 발주 */
+            UNION
+            SELECT  'PS' AS ADOC_CLAS
+                   ,A.MANDT
+                   ,A.ORDR_NUMB 
+                   ,1 
+                   ,A.ORDR_NUMB 
+                   ,A.POST1
+                   ,D.NAME1
+                   ,C.MNGR_GBN
+                   ,C.MNGR
+                   ,A.WRIT_DATE 
+                   ,A.ORDR_STAT
+            FROM    SAPHEE.ZFST0400 A
+                        LEFT JOIN SAPHEE.ZFST0104 C 
+                            ON ( C.MANDT = A.MANDT AND C.ADOC_CLAS = 'PS' AND C.ADOC_NUMB = A.ORDR_NUMB )
+                        LEFT JOIN SAPHEE.KNA1 D 
+                            ON ( D.MANDT = A.MANDT AND D.KUNNR = A.CONT_CMPY )
+            WHERE   A.MANDT = #G_MANDT# 
+            AND     A.WRIT_DATE BETWEEN #PROJ_STDT# AND #PROJ_EDDT#
+            <isNotNull col="PROJ_NAME">
+            AND     A.POST1 LIKE '%'|| #PROJ_NAME# ||'%'
+            </isNotNull>
+            <isNotNull col="KUNNR_NAME">
+            AND     D.NAME1 LIKE '%'|| #KUNNR_NAME# ||'%'
+            </isNotNull>
+            /*  PS : 발주 담당자  */
+            UNION
+            SELECT  'PS' AS ADOC_CLAS
+                   ,A.MANDT
+                   ,A.ORDR_NUMB 
+                   ,1 
+                   ,A.ORDR_NUMB 
+                   ,A.POST1
+                   ,D.NAME1
+                   ,'010'
+                   ,A.MNGR
+                   ,A.WRIT_DATE 
+                   ,A.ORDR_STAT 
+            FROM    SAPHEE.ZFST0400 A 
+                        LEFT JOIN SAPHEE.KNA1 D 
+                            ON ( D.MANDT = A.MANDT AND D.KUNNR = A.CONT_CMPY )
+            WHERE   A.MNGR IS NOT NULL
+            AND     A.WRIT_DATE BETWEEN #PROJ_STDT# AND #PROJ_EDDT#
+            <isNotNull col="PROJ_NAME">
+            AND     A.POST1 LIKE '%'|| #PROJ_NAME# ||'%'
+            </isNotNull>
+            <isNotNull col="KUNNR_NAME">
+            AND     D.NAME1 LIKE '%'|| #KUNNR_NAME# ||'%' 
+            </isNotNull>
+            /* CS : 계약   */
+            UNION
+            SELECT  'CS' AS ADOC_CLAS
+                   ,A.MANDT
+                   ,A.PROV_SEQN || ''
+                   ,1  
+                   ,A.PROV_SEQN || '' 
+                   ,A.POST1
+                   ,E.NAME1
+                   ,C.MNGR_GBN
+                   ,C.MNGR
+                   ,A.WRIT_DATE 
+                   ,A.CONT_STAT
+            FROM    SAPHEE.ZFST0403 A
+                        JOIN ( SELECT  A.MANDT
+                                      ,MAX( A.PROV_SEQN ) AS PROV_SEQN
+                               FROM    SAPHEE.ZFST0403 A
+                               WHERE   A.MANDT =  #G_MANDT# 
+                               GROUP   BY A.MANDT, A.CONT_NUMB ) B 
+                            ON ( A.MANDT = B.MANDT AND A.PROV_SEQN = B.PROV_SEQN ) 
+                        LEFT JOIN SAPHEE.ZFST0104 C 
+                            ON ( C.MANDT = A.MANDT AND C.ADOC_CLAS = 'CS' AND C.ADOC_NUMB =A.PROV_SEQN || '' )
+                        LEFT JOIN SAPHEE.ZFST0400 D 
+                            ON ( D.MANDT = A.MANDT AND D.ORDR_NUMB =A.ORDR_NUMB  )
+                        LEFT JOIN SAPHEE.KNA1 E 
+                            ON ( E.MANDT = D.MANDT AND E.KUNNR = D.CONT_CMPY )
+            WHERE   A.MANDT = #G_MANDT# 
+            AND     A.WRIT_DATE BETWEEN #PROJ_STDT# AND #PROJ_EDDT#
+            <isNotNull col="PROJ_NAME">
+            AND     A.POST1 LIKE '%'|| #PROJ_NAME# ||'%'
+            </isNotNull>
+            <isNotNull col="KUNNR_NAME">
+            AND     E.NAME1 LIKE '%'|| #KUNNR_NAME# ||'%' 
+            </isNotNull>
+        ) A    
+        LEFT JOIN SAPHEE.ZFST0100 B 
+            ON ( B.CODE_GROP = 'A05' AND B.MANDT = A.MANDT AND B.CODE = A.ADOC_CLAS )
+        LEFT JOIN SAPHEE.ZUSERF D 
+            ON ( D.MANDT = A.MANDT AND D.USERNUMB = A.MNGR )
+        LEFT JOIN SAPHEE.ZFST0100 E 
+            ON ( E.CODE_GROP = 'A06' AND E.MANDT = A.MANDT AND E.CODE = A.MNGR_GBN )
+        LEFT JOIN SAPHEE.ZFST0100 F 
+            ON ( F.CODE_GROP = 'A02' AND F.MANDT =  A.MANDT AND F.CODE = A.ADOC_STAT ) 
+<isNotNull col="USERNAME">
+WHERE   D.USERNAME LIKE #USERNAME# || '%'
+</isNotNull>
+ORDER   BY  A.ADOC_NUMB , A.ADOC_SEQN, D.USERNAME , B.CODE_SEQN
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+        <col name="MANDT" size="9" type="VARCHAR" description="클라이언트" />
+        <col name="PROJ_STDT" size="8" type="VARCHAR" description="작업시작일자" />
+        <col name="PROJ_EDDT" size="8" type="VARCHAR" description="작업종료일자" />
+        <col name="MNGR" size="36" type="VARCHAR" description="담당자" />
+        <col name="USERNAME" size="768" type="VARCHAR" description="담당자명" />
+        <col name="KUNNR" size="30" type="VARCHAR" description="고객" />
+        <col name="KUNNR_NAME" size="768" type="VARCHAR" description="고객명" />
+        <col name="PROJ_NAME" size="768" type="VARCHAR" description="고객" />
+    </input>
+    <output default-name="ds_zfst0104">
+    </output>
+</query>

@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+ 
+SELECT  A.BELNR, A.POSID, A.BUDAT, A.DMBTR  
+       ,COUNT(B.CS126_GNO) CNT_FM
+       ,VALUE(MAX(B.CS126_FMY),'') FMY
+       ,VALUE(MAX(B.CS126_FMS),'') FMS
+       ,VALUE(MAX(B.CS126_USD),'') USD
+       ,VALUE(MAX(B.CS126_UMR),'') UMR
+       ,VALUE(MAX(C.CS121_SPT),'') SPT
+       ,VALUE(MAX(E.CTEXT2),'') VKGRP_NM
+       ,VALUE(MAX(F.CTEXT2),'') GKD_NM
+       ,CASE WHEN MAX(B.CS126_KND) > '' THEN 'FM'
+             WHEN MAX(B.CS126_KND) = '' THEN 'POG'
+             WHEN MAX(B.CS126_KND) IS NULL AND SUBSTR(A.POSID,7,2) = 'NS' THEN 'NS'
+             ELSE 'EX'
+        END GUBUN      
+       ,VALUE(MAX(A.LIFNR),'') LIFNR
+       ,VALUE(MAX(A.SGTXT),'') SGTXT
+       ,VALUE(MAX(G.NAME1),'') NAME1
+       ,CASE WHEN MAX(G.NAME1) LIKE  '%기술원%' THEN '기술원'
+             WHEN MAX(G.NAME1) LIKE  '%관리원%' THEN '관리원'
+             ELSE '기타' END GUBUN2
+       ,MAX(D.ABR_NM) BSU_NM
+
+FROM (/*확정전표*/ 
+       SELECT  BSIS.BELNR
+              ,PRPS.POSID
+              ,MAX(BSIS.BUDAT) BUDAT
+              ,SUM(BSIS.DMBTR*100) DMBTR
+              ,MAX(BSIK.LIFNR) LIFNR
+              ,MAX(BSIK.SGTXT) SGTXT
+     
+         FROM SAPHEE.BSIS AS BSIS  LEFT OUTER JOIN SAPHEE.PRPS AS PRPS
+                                    ON BSIS.PROJK = PRPS.PSPNR
+                                   AND BSIS.MANDT = PRPS.MANDT
+                                   
+								  								   
+								                   LEFT OUTER JOIN SAPHEE.BSAK AS BSIK
+                                    ON BSIS.BELNR= BSIK.BELNR
+                                   AND BSIS.MANDT = BSIK.MANDT
+                                   AND BSIS.GJAHR = BSIK.GJAHR
+                                   AND BSIS.BUKRS = BSIK.BUKRS
+                                  
+        WHERE BSIS.BUKRS = '1000'
+          AND BSIS.MANDT = #G_MANDT# 
+          AND BSIS.GJAHR = SUBSTR(#DAT1#,1,4)    
+          AND BSIS.BUDAT BETWEEN #DAT1# AND #DAT2#
+          AND BSIS.BLART = 'KR'
+          AND BSIS.PROJK != '00000000'
+          AND BSIS.HKONT = '0053027050'
+        GROUP BY  BSIS.BELNR , PRPS.POSID
+        
+        UNION ALL
+      /*임시전표*/  
+       SELECT  VBSEGS.BELNR
+              ,PRPS.POSID
+              ,MAX(VBSEGK.ZFBDT) BUDAT
+              ,SUM(VBSEGS.DMBTR*100) DMBTR
+              ,MAX(VBSEGK.LIFNR) LIFNR
+              ,MAX(VBSEGS.SGTXT) SGTXT
+     
+         FROM SAPHEE.VBSEGS AS VBSEGS INNER JOIN SAPHEE.VBSEGK AS VBSEGK
+                                         ON VBSEGK.MANDT = #G_MANDT#
+                                        AND VBSEGS.AUSBK = VBSEGK.AUSBK
+                                        AND VBSEGS.BUKRS = VBSEGK.AUSBK
+                                        AND VBSEGS.GJAHR = VBSEGK.GJAHR
+                                        AND VBSEGS.BELNR = VBSEGK.BELNR
+              
+                                  LEFT OUTER JOIN SAPHEE.PRPS AS PRPS
+                                    ON VBSEGS.PS_PSP_PNR = PRPS.PSPNR
+                                   AND VBSEGS.MANDT = PRPS.MANDT                                 
+                                  
+        WHERE VBSEGS.AUSBK = '1000'
+          AND VBSEGS.BUKRS = '1000'
+          AND VBSEGS.MANDT = #G_MANDT# 
+          AND VBSEGS.GJAHR = SUBSTR(#DAT1#,1,4)    
+          AND VBSEGK.ZFBDT BETWEEN #DAT1# AND #DAT2#
+--          AND VBSEGS.BLART = 'KR'
+          AND VBSEGS.PS_PSP_PNR != '00000000'
+          AND VBSEGS.SAKNR = '0053027050'
+        GROUP BY  VBSEGS.BELNR , PRPS.POSID
+        
+        
+  ) A  
+          
+       LEFT OUTER JOIN SAPHEE.ZCST126 B
+            ON B.MANDT = #G_MANDT#
+           AND A.POSID = B.CS126_GNO
+           AND B.CS126_DDT = ''
+           AND B.CS126_PST = 'A6'
+           AND B.CS126_KND != ''
+           
+       LEFT OUTER JOIN SAPHEE.VBAK H
+           ON H.ZZPJT_ID = A.POSID
+          AND H.MANDT = B.MANDT
+       
+       LEFT OUTER JOIN SAPHEE.ZCST121 C
+           ON B.CS126_UPN = C.CS121_UPN
+          AND B.CS126_CST = C.CS121_CST
+          AND B.MANDT = C.MANDT
+       
+       LEFT OUTER JOIN SAPHEE.ZWBT010 D
+           ON B.CS126_BSU = D.LGORT
+          AND B.MANDT = D.MANDT
+       
+       LEFT OUTER JOIN SAPHEE.ZLCODE E
+           ON E.CODE2 = H.VKGRP
+          AND E.CODE1 = 'VKGRP'
+          AND E.LANG = 'ko'
+          AND B.MANDT = E.MANDT
+       
+       LEFT OUTER JOIN SAPHEE.ZLCODE F
+           ON F.CODE2 = B.CS126_GKD
+          AND F.CODE1 = 'CS130'
+          AND F.LANG = 'ko'
+          AND B.MANDT = F.MANDT
+       
+       LEFT OUTER JOIN SAPHEE.LFA1 G
+           ON G.LIFNR = A.LIFNR
+          AND G.MANDT = F.MANDT
+       
+  
+  WHERE 1=1
+ 
+<isNotNull col="TEM">
+    AND D.VKGRP = #TEM#
+</isNotNull>   
+  
+   GROUP BY  A.BELNR, A.POSID, A.BUDAT, A.DMBTR     
+   ORDER BY  A.BUDAT, A.BELNR, A.POSID, A.DMBTR     
+     WITH UR
+     
+</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

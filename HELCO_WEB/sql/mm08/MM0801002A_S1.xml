@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[업체별 견적회신 현황]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+WITH CPT AS (
+--견적 회신 완료 건수
+	 SELECT LIFNR, COUNT(MATNR) AS CNT, CAST(COUNT(MATNR) AS DECIMAL(11,2)) AS CNT2
+	    FROM SAPHEE.ZMMT133
+	  WHERE MANDT = #G_MANDT#
+	    AND REDAT &lt;&gt; '' 
+                  AND DDATE &lt; '1'
+                  AND RQDAT BETWEEN #RQDAT_FM# AND #RQDAT_TO#
+<isNotNull col="NAME1">
+                 AND NAME1 LIKE '%'||#NAME1#||'%'
+</isNotNull> 
+         GROUP BY LIFNR
+), NON AS (
+-- 미회신 건수
+	 SELECT LIFNR, COUNT(MATNR) AS CNT
+	    FROM SAPHEE.ZMMT133
+	  WHERE MANDT = #G_MANDT#
+	       AND REDAT = ''
+                     AND DDATE &lt; '1'
+                     AND RQDAT BETWEEN #RQDAT_FM# AND #RQDAT_TO#
+<isNotNull col="NAME1">
+                 AND NAME1 LIKE '%'||#NAME1#||'%'
+</isNotNull> 
+         GROUP BY LIFNR
+), TOT AS (
+     SELECT LIFNR, COUNT(MATNR) AS CNT
+	    FROM SAPHEE.ZMMT133
+	  WHERE MANDT = #G_MANDT#
+                     AND RQDAT BETWEEN #RQDAT_FM# AND #RQDAT_TO#
+	       AND DDATE &lt; '1' 
+<isNotNull col="NAME1">
+                 AND NAME1 LIKE '%'||#NAME1#||'%'
+</isNotNull> 
+         GROUP BY LIFNR
+), AVG AS (
+      SELECT LIFNR, SUM(DIVDAT) AS CNT, CAST(SUM(DIVDAT) AS DECIMAL(11,2)) AS CNT2
+         FROM
+         (
+                SELECT LIFNR, RQDAT, REDAT, SAPHEE.GET_WORKINGDAY(RQDAT,REDAT) AS DIVDAT
+                   FROM SAPHEE.ZMMT133
+                 WHERE MANDT = #G_MANDT#
+                     AND RQDAT BETWEEN #RQDAT_FM# AND #RQDAT_TO#
+                     AND DDATE &lt; '1'
+                     AND REDAT > '1'
+<isNotNull col="NAME1">
+                     AND NAME1 LIKE '%'||#NAME1#||'%'
+</isNotNull>                          
+         ) 
+         GROUP BY LIFNR
+)
+
+SELECT DISTINCT 
+                   A.NAME1 AS NAME1
+                 , VALUE(B.CNT,0) || ' 건' AS CPT_NUM 
+                 , VALUE(C.CNT,0) || ' 건' AS NON_NUM 
+                 , VALUE(D.CNT,0) || ' 건' AS TOT_NUM
+                  , CASE WHEN VALUE(B.CNT,0) = 0 THEN '회신건수 없음' ELSE CAST(E.CNT2 /B.CNT2 AS DECIMAL(11,2)) ||' 일' END AS AVG_NUM
+                 , A.SNAME AS SNAME
+    FROM SAPHEE.ZMMT133 AS A
+     LEFT OUTER JOIN CPT AS B ON A.LIFNR = B.LIFNR 
+     LEFT OUTER JOIN NON AS C ON A.LIFNR = C.LIFNR
+     LEFT OUTER JOIN TOT AS D ON A.LIFNR = D.LIFNR
+     LEFT OUTER JOIN AVG AS E ON A.LIFNR = E.LIFNR
+  WHERE A.MANDT = #G_MANDT#
+      AND DDATE &lt; '1'
+      AND RQDAT BETWEEN #RQDAT_FM# AND #RQDAT_TO#
+<isNotNull col="NAME1">
+      AND NAME1 LIKE '%'||#NAME1#||'%'
+</isNotNull>
+<isNotNull col="EKGRP">
+      AND A.SNAME = #EKGRP#
+</isNotNull>	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

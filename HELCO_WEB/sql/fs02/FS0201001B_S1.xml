@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[견적원가품목 복사 리스트 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT
+      A.MANDT -- 클라이언트
+     ,A.WRIT_DATE -- 작성일자
+     ,A.ESCS_NUMB -- 견적원가번호
+     ,A.ESCS_NTIM -- 견적원가차수
+     ,A.KUNNR -- 고객사
+     ,B.NAME1 AS KUNNR_NAME -- 고객명
+     ,A.POST1 -- 프로젝트명
+     ,A.ORDR_TYPE -- 오더유형
+     ,(SELECT CODE_NAME FROM SAPHEE.ZFST0100 WHERE MANDT = A.MANDT AND CODE_GROP = 'A03' AND CODE = A.ORDR_TYPE) AS ORDR_TYPE_NAME -- 오더유형명
+     ,A.ESMT_CNTR -- 견적국가
+     ,(SELECT LANDX FROM SAPHEE.T005T WHERE MANDT = A.MANDT AND SPRAS = '3' AND LAND1 = A.ESMT_CNTR) AS ESMT_CNTR_NAME -- 견적국가명
+     ,C.ADIT -- 심사자
+     ,C.APPR_STAT -- 승인상태
+     ,(SELECT CODE_NAME FROM  SAPHEE.ZFST0100 WHERE MANDT = A.MANDT AND CODE_GROP = 'A01' AND CODE = C.APPR_STAT) AS APPR_STAT_NAME -- 승인상태
+     ,A.ESCS_STAT -- 견적원가상태
+     ,(SELECT CODE_NAME FROM  SAPHEE.ZFST0100 WHERE MANDT = A.MANDT AND CODE_GROP = 'A02' AND CODE = A.ESCS_STAT) AS ESCS_STAT_NAME -- 견적원가상태
+     ,A.SALE_PRSN -- 영업담당자번호
+     ,(SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = A.MANDT AND USERNUMB = A.SALE_PRSN ) AS SALE_PRSN_NAME -- 영업담당자명
+     ,D.ESMT_NUMB -- 견적서번호
+FROM   SAPHEE.ZFST0200 A
+       LEFT OUTER JOIN SAPHEE.KNA1 AS B 
+       ON   A.MANDT = B.MANDT 
+       AND  A.KUNNR = B.KUNNR
+       AND  B.KTOKD IN ( 'Z001', 'Z002', 'Z004' ) 
+       LEFT OUTER JOIN SAPHEE.ZFST0103 AS C 
+       ON  A.MANDT = C.MANDT
+       AND  C.ADOC_CLAS = 'EC'
+       AND  A.ESCS_NUMB = C.ADOC_NUMB
+       AND  C.DRAF_STAT = '210'
+       LEFT OUTER JOIN SAPHEE.ZFST0202 AS D 
+       ON  A.MANDT = D.MANDT
+       AND A.ESCS_NUMB = D.ESCS_NUMB
+WHERE  A.MANDT = #G_MANDT#
+<isNotNull col="WRIT_DATE_FROM">
+   AND A.WRIT_DATE BETWEEN #WRIT_DATE_FROM# AND #WRIT_DATE_TO#
+</isNotNull>
+<isNotNull col="KUNNR">
+   AND A.KUNNR = #KUNNR#
+</isNotNull>
+<isNotNull col="SALE_PRSN">
+   AND A.SALE_PRSN = #SALE_PRSN#
+</isNotNull>
+<isNotNull col="ESCS_STAT">
+   AND A.ESCS_STAT = #ESCS_STAT#
+</isNotNull>
+<isEqual col="ESMT_TRGT" value="Y">
+   AND A.ESCS_STAT = '050'
+   AND NOT EXISTS (  SELECT  * 
+                    FROM    SAPHEE.ZFST0200 V 
+                    WHERE   V.MANDT = A.MANDT 
+                    AND     V.ESCS_NUMB = A.ESCS_NUMB
+                    AND     TRIM( V.OCNT_NUMB || '' ) != '' )   
+</isEqual>
+<isNotNull col="OCNT_PDYN">
+   AND COALESCE( NULLIF( TRIM(A.OCNT_PDYN || '') , ''), 'N' ) = #OCNT_PDYN#
+</isNotNull>
+<isNotNull col="ESCS_NUMB">
+   AND A.ESCS_NUMB LIKE '%'|| #ESCS_NUMB# || '%'
+</isNotNull>
+<isNotNull col="ESMT_NUMB">
+   AND D.ESMT_NUMB LIKE '%'|| #ESMT_NUMB# || '%'
+</isNotNull>
+<isNotNull col="POST1">
+   AND A.POST1 LIKE '%'|| #POST1# || '%'
+</isNotNull>
+<isNotNull col="ORDR_TYPE">
+   AND A.ORDR_TYPE = #ORDR_TYPE#
+</isNotNull>
+<isNotNull col="ESMT_CNTR">
+   AND A.ESMT_CNTR = #ESMT_CNTR#
+</isNotNull>
+ORDER BY A.ESCS_NUMB DESC
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+        <col name="ESCS_NUMB" size="60" type="VARCHAR" description="견적원가번호" />
+        <col name="ESCS_NTIM" size="2" type="SMALLINT" description="견적원가차수" />
+        <col name="KUNNR" size="30" type="VARCHAR" description="고객사" />
+        <col name="KUNNR_NAME" size="105" type="VARCHAR" description="고객명" />
+        <col name="POST1" size="120" type="VARCHAR" description="프로젝트명" />
+        <col name="ORDR_TYPE" size="30" type="VARCHAR" description="오더유형" />
+        <col name="ESMT_CNTR" size="9" type="VARCHAR" description="견적국가" />
+        <col name="ESCS_STAT" size="30" type="VARCHAR" description="견적원가상태" />
+        <col name="SALE_PRSN" size="60" type="VARCHAR" description="영업담당자번호" />
+        <col name="SALE_PRSN_NAME" size="105" type="VARCHAR" description="영업담당자명" />
+        <col name="ESMT_NUMB" size="60" type="VARCHAR" description="견적서번호" />
+        <col name="WRIT_DATE_FROM" size="24" type="VARCHAR" description="작성시작일자" />
+        <col name="WRIT_DATE_TO" size="24" type="VARCHAR" description="작성종료일자" />
+    </input>
+    <output default-name="ds_zfst0200_list">
+    </output>
+</query>

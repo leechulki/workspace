@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[무상청구 현황 HEAD조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT 
+	   CS126.CS126_UPN AS UPN	-- 통합프로젝트
+	 , CS126.CS126_CST AS CST   -- 거래처
+	 , CS126.CS126_USD AS USD  	-- 유상 보수 계약 시작일
+	 , CS126.CS126_UMR AS UMR	-- 유상보수 만료일
+	 , CASE WHEN CS126.CS126_SLA = 'Y' THEN '01'
+           ELSE (
+           				CASE WHEN CS126.CS126_GND = 'C' THEN '02'
+           				     ELSE (
+      				     			 CASE WHEN CS126.CS126_KND = '' AND CS126.CS126_HYN  &lt;&gt; 'Y' THEN '03'
+      				     			      WHEN CS126.CS126_KND = '' AND CS126.CS126_HYN  =  'Y' THEN '04'
+      				     			      WHEN CS126.CS126_KND > '' AND CS126.CS126_HYN  &lt;&gt; 'Y' THEN '05'
+      				     			      WHEN CS126.CS126_KND > '' AND CS126.CS126_HYN  =  'Y' THEN '06'
+      				     			      ELSE ''
+           				             END
+           				     )
+           				 END                                                   
+           )
+      END KND		/* 계약종류 */
+    , CASE WHEN CS126.CS126_SLA = 'Y' THEN '기술용역'
+           ELSE (
+           				CASE WHEN CS126.CS126_GND = 'C' THEN '유상공사'
+           				     ELSE (
+      				     			 CASE WHEN CS126.CS126_KND = '' AND CS126.CS126_HYN  &lt;&gt; 'Y' THEN 'POG'
+      				     			      WHEN CS126.CS126_KND = '' AND CS126.CS126_HYN  =  'Y' THEN 'PRTS'
+      				     			      WHEN CS126.CS126_KND > '' AND CS126.CS126_HYN  &lt;&gt; 'Y' THEN 'FM'
+      				     			      WHEN CS126.CS126_KND > '' AND CS126.CS126_HYN  =  'Y' THEN 'FRTS'
+      				     			      ELSE ''
+           				             END
+           				     )
+           				 END                                                   
+           )
+      END KND_NM	/* 계약종류 */
+	, CS121.CS121_SPT  AS SPT 	-- 현장명
+	, CS121.CS121_NAM  AS NAM 	-- 고객명
+	, SUBSTR(SAPHEE.TO_DATETIME(),1,8)   AS CUDAT -- 현재일
+    , CS126.CS126_GNO AS GNO
+    , ROUND(MONTHS_BETWEEN (to_date(CS126.CS126_UMR,'yyyy-mm-dd'), to_date(CS126.CS126_USD,'yyyy-mm-dd'))) AS YEAR	/* 계약개월수 */
+    , CAST(#REQNR# AS CHAR(15)) AS REQNR	/* 견적해더-청구번호 */
+    , CAST(#REQNO# AS CHAR(15)) AS REQNO	/* 보수자재관리 Item-청구번호 */
+    , CS126.CS126_ADT AS ADT    			/* 승인일자 */
+    , CS126.CS126_FMY AS FMY				/* FM 그룹연도 */
+    , CS126.CS126_AMT AS AMT				/* 계약단가 */
+    , MA02.ZBEPJEO AS UHJ					/* 법정(완성)검사일자 */
+    , MA02.ZBOSUIN AS ZBOSUIN				/* 보수인수일자 */
+	, VALUE(AP01.APSTAT,'0') AS APSTAT
+	, VALUE(AP01.CRDPT1,'')  AS CRDPT1
+	, VALUE(AP01.REDPT1,'')  AS REDPT1
+    , VALUE(M31.LGORT1, '')  AS LGORT1
+    , VALUE(M31.VKGRP,'')    AS VKGRP
+    , VALUE(M31.QTNUM,'')    AS QTNUM		/* 견적번호 */
+    , (SELECT COUNT(CS126_UPN)  
+         FROM SAPHEE.ZCST126 AS C 
+        WHERE C.MANDT = CS126.MANDT 
+              AND C.CS126_DDT = ''
+              AND C.CS126_PST = 'A6'
+              AND C.CS126_GNO = CS126.CS126_GNO
+              AND VALUE(C.CS126_AMT, 0) > 0 	) AS F_CNT	/* 유지관리대수 */
+    , (SELECT ROUND(SUM(CS126_AMT)/COUNT(CS126_UPN))  
+         FROM SAPHEE.ZCST126 AS C 
+        WHERE C.MANDT = CS126.MANDT 
+              AND C.CS126_DDT = ''
+              AND C.CS126_PST = 'A6'
+              AND C.CS126_GNO = CS126.CS126_GNO
+              AND VALUE(C.CS126_AMT, 0) > 0 ) AS SUM_AMT	/* 유지관리금액 */
+    , ( SELECT  VALUE(MAX(ACPT_NUM),'')
+          FROM  SAPHEE.ZMMT031 
+          WHERE     MANDT = CAST(#G_MANDT# AS CHAR(15))
+                AND REQNO = CAST(#REQNO# AS CHAR(15))
+          GROUP BY MANDT, REQNO ) AS ACPT_NUM				/* 고객센터 고장접수번호 */
+FROM SAPHEE.ZCST126 CS126
+	 LEFT OUTER JOIN SAPHEE.ZCST121 AS CS121 ON  CS126.MANDT = CS121.MANDT
+	 			 AND CS126.CS126_UPN = CS121.CS121_UPN
+	 	         AND CS126.CS126_CST = CS121.CS121_CST
+     LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MA02 ON MA02.MANDT = CS126.MANDT
+                                             AND MA02.POSID_1 = CS126.CS126_PJT || CS126.CS126_HNO
+     LEFT OUTER JOIN SAPHEE.ZWBAP01   AS AP01 ON CS126.MANDT= AP01.MANDT
+                                             AND AP01.DOCNO = CAST(#REQNO# AS CHAR(15))
+                                             AND AP01.DOCKIND = '16'	/* 무상청구 */
+     LEFT OUTER JOIN ( SELECT 
+                              M31.MANDT
+                            , MAX(M31.REQNO) AS REQNO
+                            , MAX(M31.QTNUM) AS QTNUM
+                            , SAPHEE.GET_VENDER_NAME(M31.MANDT, MAX(M31.LGORT))  AS LGORT1
+                            , MAX(CD.CTEXT2) AS VKGRP 
+                         FROM SAPHEE.ZMMT031 AS M31
+                              LEFT OUTER JOIN SAPHEE.ZCST001 AS CS1 ON M31.MANDT = CS1.MANDT
+                                          AND M31.QTNUM = CS1.QTNUM
+                              LEFT OUTER JOIN SAPHEE.ZLCODE AS CD ON CD.MANDT = M31.MANDT
+                                          AND CD.CODE1 = 'VKGRP'
+                       AND CD.CODE2 = CS1.VKGRP
+                         WHERE  M31.MANDT= CAST(#G_MANDT# AS CHAR(15))
+                                AND M31.REQNO = CAST(#REQNO# AS CHAR(15))
+                         GROUP  BY M31.MANDT, M31.REQNO ) AS M31 
+                            ON AP01.MANDT = M31.MANDT AND AP01.DOCNO = M31.REQNO
+
+WHERE     CS126.MANDT= #G_MANDT#
+	  AND CS126.CS126_PJT = #PJT#
+	  AND #CUDAT# BETWEEN CS126.CS126_USD AND CS126.CS126_UMR
+<isNotNull col="UPN">      
+	  AND CS126.CS126_CST = SUBSTR(#UPN#,7,3)      /* 동시에 거래선이 2개 인상인경우 정확한 거래선을 기준으로 조회하도록 추가 */
+</isNotNull>
+ORDER BY (CS126.MANDT||CS126.CS126_UPN||CS126.CS126_CST||CS126.CS126_GNO) DESC
+FETCH FIRST 1 ROW ONLY
+WITH UR
+</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_head">
+	</output>
+</query>

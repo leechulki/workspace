@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[거래명세서 상세 (SUM)- 명세서 번호 있는경우]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>	
+<![CDATA[
+SELECT
+    '' AS FLAG
+  , '0' AS CHECK
+  , MM013C.EXTWG AS EXTWG
+  , CASE WHEN MAX(BOX_CK) = '24' THEN (SELECT EWBEZ FROM SAPHEE.ZMMT008_1 WHERE MANDT = MM013C.MANDT AND EXTWG = MM013C.EXTWG) 
+             ELSE  (SELECT EWBEZ FROM SAPHEE.ZMMT008 WHERE MANDT = MM013C.MANDT AND EXTWG = MM013C.EXTWG) END AS EWBEZ
+  , MM013C.POSID AS POSID
+  , MAX(MM013C.POST1) AS POST1
+  , SUM(MM013C.NETPR*MM013C.MENGE) AS NETPR
+  , MAX(MM013C.WAERS) AS WAERS
+  , MAX(MM013C.WERKS) AS WERKS
+  , SAPHEE.GET_ZERODATE(MAX(MM013C.UDATE)) AS UDATE
+  , SAPHEE.GET_ZERODATE(MAX(MM013C.EDATE)) AS EDATE
+  , SAPHEE.GET_ZERODATE(MAX(MM013C.ETIME)) AS ETIME
+  , MAX(MM013C.STATE) AS STATE
+  , MIN(MM013C.PRO_F) AS PRO_F
+  , MAX(MM013C.BIGO) AS BIGO
+  , VALUE(SAPHEE.GET_PROJ_END(MM013C.MANDT,MM013C.POSID ),'') AS P_END
+  , MAX(GEOSAN) AS GEOSAN
+  , MAX(BOX_CK) AS BOX_CK
+  , CASE WHEN SUBSTR(MM013C.POSID,7,2) IN  ('NB','NS','NC') THEN 'N' ELSE 'Y' END  AS MISU_GUBN
+FROM (
+	 SELECT 
+	    MM013B.MANDT AS MANDT
+	 	, MM017A.POSID AS POSID
+	 	, MM017A.POST1 AS POST1
+	 	, MM017A.EXTWG AS EXTWG
+	 	, MM017A.MENGE AS MENGE
+	 	, SAPHEE.GET_CURRDATA(MM017A.WAERS,MM017A.NETPR) AS NETPR
+	 	, MM017A.WAERS AS WAERS
+	 	, MM017A.WERKS AS WERKS
+	 	, SAPHEE.GET_ZERODATE(MM013B.UDATE) AS UDATE
+	 	, MM013B.EDATE AS EDATE
+	 	, MM013B.ETIME AS ETIME
+		, MM013B.STATE AS STATE
+		, MM017A.PRO_F AS PRO_F
+	   , CASE WHEN SAPHEE.GET_JAJEA_BALJU(MM013B.MANDT, MM013B.POSID,MM013B.MATNR) < 0 THEN '1' ELSE '0' END  AS BIGO
+--		 ,'0' AS BIGO
+                            , CASE WHEN VALUE(M82.POSID,'') > '' THEN 'Y' ELSE '' END AS GEOSAN
+                            , MM013B.BOX_CK AS BOX_CK
+	  FROM SAPHEE.ZMMT017 AS MM017A
+  LEFT OUTER JOIN SAPHEE.ZMMT013 AS MM013B ON  MM017A.MANDT = MM013B.MANDT  AND MM017A.EBELN = MM013B.EBELN 
+                      AND MM017A.EBELP = MM013B.EBELP 
+  LEFT OUTER JOIN SAPHEE.ZMMT082 AS M82 ON M82.MANDT = MM013B.MANDT
+                      AND M82.POSID = MM013B.POSID
+
+  WHERE MM017A.MANDT = #G_MANDT#
+    AND MM017A.LIFNR = #G_VEND_CODE_M#
+    AND MM017A.INVNR = #INVNR#
+	AND MM017A.POTYPE ='X'
+    AND (MM013B.STATE = '2' OR MM017A.DDATE > '0')
+    AND MM013B.KNTTP NOT IN ('P')  -- 2012.10.11 김경수 GJ요청으로 일식외주 제외
+ ) AS MM013C
+     WHERE 1 = 1 
+
+   GROUP BY MANDT, POSID, EXTWG
+   ORDER BY EXTWG,UDATE
+  FOR FETCH ONLY
+  WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="G_VEND_CODE_M" size="255" type="VARCHAR" description="" /> 
+		<col name="INVNR" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_sum">
+		<col name="BIGO" size="1" type="VARCHAR" description="" /> 
+		<col name="CHECK" size="1" type="VARCHAR" description="" /> 
+		<col name="EDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="ETIME" size="8" type="VARCHAR" description="" /> 
+		<col name="EWBEZ" size="60" type="VARCHAR" description="" /> 
+		<col name="EXTWG" size="54" type="VARCHAR" description="" /> 
+		<col name="FLAG" size="0" type="VARCHAR" description="" /> 
+		<col name="NETPR" size="22" type="NUMERIC" description="" /> 
+		<col name="P_END" size="100" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POST1" size="120" type="VARCHAR" description="" /> 
+		<col name="PRO_F" size="3" type="VARCHAR" description="" /> 
+		<col name="STATE" size="3" type="VARCHAR" description="" /> 
+		<col name="UDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="WAERS" size="15" type="VARCHAR" description="" /> 
+	</output>
+</query>

@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[보수자재관리-견적작성-프로젝트 상세정보]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+	SELECT DISTINCT A.CS121_UPN   AS UPN ,                                          --프로젝트번호
+	       A.CS121_CST            AS CST ,                                          --거래선(''->기본, 존재->온핸드)
+	       SD500.JUDGE            AS CST_JUDGE ,                                    --거래선 등급
+	       A.CS121_SPT            AS SPT ,                                          --현장명
+	       A.KUNNR                AS KUNNR ,                                        --고객번호
+	       A.CS121_NAM            AS KUNNRNM ,                                      --고객명
+	       ''                     AS SPART,                                         --제품구분
+	       ''                     AS SPARTNM,                                       --제품구분명
+	       VALUE(E.J_1KFREPRE,'') AS PNAME ,                                        --담당자명
+	       DECODE(LENGTH(TRIM(A.CS121_P1E)), 0, VALUE(E.J_1KFREPRE,''), A.EPNAME) AS ENAME, --대표자명
+	       A.CS121_P1C || ' ' || A.CS121_P2C AS ADDR ,                              --현장주소1
+	       A.CS121_P1B || ' ' || A.CS121_P2B AS ADDRBILL ,                          --세금계산서 주소
+	       A.CS121_TEA AS TEL ,                                                     --세금계산서 전화번호
+	       CS003.NAME1 AS CSTNM,                                                    --사업자명
+	       CS121_BLD   AS BLD,                                                      --건물종류
+	       SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, 'CS123', A.CS121_BLD) AS BLDNM,    --건물명
+	       F.VKBUR AS VKBUR,  														                          --작업그룹	
+	       F.VKGRP AS VKGRP,                                                        --팀
+	       SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, 'VKGRP', F.VKGRP) AS VKGRPNM,      --팀명
+	  -------------------- 현장 기준(111) 팀, 업체명 가져오기 --------------------     
+	  --     SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, 'VKGRP', WB010.VKGRP) AS VKGRPNM,	
+	  --     SAPHEE.GET_VENDER_NAME(A.MANDT, WB010.LIFNR) AS BSUNM, 
+	  -------------------- 현장 기준(111) 팀, 업체명 가져오기 -------------------- 
+           VALUE(SAPHEE.CODE_CONV(#G_MANDT#, 'VKBUR', F.VKBUR), '') AS VKBURNM,     --작업그룹명
+	       VALUE(DECODE(VALUE(CNT126.CNT, 0), 0, CS111.ARA, CS126.ARA),F.ARA) AS ARA,            --대지역코드
+	       VALUE(DECODE(VALUE(CNT126.CNT, 0), 0, CS111.TGB, CS126.TGB),F.TGB) AS TGB,            --직영/협력사 구분
+	       VALUE(DECODE(VALUE(CNT126.CNT, 0), 0, CS111.BPM, CS126.BPM),F.BPM) AS BPM,            --보수PM
+	       SAPHEE.GET_BOSU_INWON(A.MANDT, VALUE(DECODE(VALUE(CNT126.CNT, 0), 0, CS111.BPM, CS126.BPM),F.BPM)) AS BPMNM, --보수PM명
+	       --DECODE(VALUE(CNT126.CNT, 0), 0, CS111.BSU, CS126.BSU) AS BSU,            --보수협력사
+	       --SAPHEE.GET_VENDER_NAME(A.MANDT, DECODE(VALUE(CNT126.CNT, 0), 0, CS111.BSU, CS126.BSU)) AS BSUNM, --보수협력사명
+	       F.LGORT AS BSU,
+	       SAPHEE.GET_VENDER_NAME(A.MANDT, F.LIFNR) AS BSUNM, 	       
+	       '' AS FAILYN,                     										  --실패현장여부
+	       (SELECT VALUE(MM005A.WERKS,'') AS WERKS
+	          FROM SAPHEE.ZMMT005 AS MM005A
+	         WHERE MM005A.MANDT = CAST(#G_MANDT# AS CHAR(3))
+	           AND MM005A.LGORT= F.LGORT
+	       ) AS WERKS,                                                              --플랜트
+	       'KRW' AS WAERS ,                                                         --통화코드
+	       A.ZTERM AS ZTERM ,                                                       --지급조건
+	       A.CS121_GNO AS GNO,                                                      --사업자등록번호
+	       CS600.CS600_RAT2 AS RATE,                                                --당해년도 공사임율 ( 견적 임율 )
+	       CS600.CS600_RAT AS RATE2,                                                --당해년도 공사임율(기성예상비용 계산에 필요) - 실제 공사 임율
+	       F.LGORT,                                                                 --저장위치
+	       F.LIFNR,                                                                  --공급업체번호
+	       --======================고객사 할인율 추가=========================
+	       VALUE(CS001D.DC_RATE, 0) / 100  AS DC_RATE
+	       --=============================================================
+	  FROM 
+	       (SELECT USR.MANDT     AS MANDT,
+		 		   USR.USERNUMB  AS USER_ID,
+	          	   USR.USERTEAM  AS TEM,
+	          	   USR.USERCODE  AS USERCODE,
+	          	   W010.LIFNR    AS LIFNR,
+	          	   W010.LGORT    AS LGORT,
+	          	   W010.BSU_ARA  AS ARA,
+	          	   W010.WGBN     AS WGBN,
+	          	   W010.BSU_GB   AS TGB,
+	          	   W010.BSU_PM   AS BPM,
+	          	   VALUE(USR.USERTEAM,'') AS VKGRP,
+	          	   SUBSTR(USR.USERTEAM, 1, 2) || '00' AS VKBUR
+	     	    FROM SAPHEE.ZUSERF AS USR                                             --사용자마스터
+	     	    LEFT OUTER JOIN SAPHEE.ZWBT010 AS W010                                --협력업체 참조정보
+		                     ON USR.MANDT = W010.MANDT
+	      	              AND USR.USERCODE = W010.LIFNR
+	           WHERE USR.USERNUMB = #G_USER_ID#) AS F,                                --로그인한 사용자의 VKGRP, VKBUR, LIFNR, LGORT정보
+	   	   SAPHEE.ZCST121 AS A                                                      --통합프로젝트 기본정보
+		   LEFT OUTER JOIN
+		        (SELECT MANDT,
+		              CS126_UPN AS UPN,
+		              CS126_CST AS CST,
+		              COUNT(CS126_UPN) AS CNT
+		          FROM SAPHEE.ZCST126                                               --보수호기 마스터
+                  WHERE (CS126_DDT = '' OR CS126_DDT = '00000000' )
+		         GROUP BY MANDT, CS126_UPN, CS126_CST
+		        ) AS CNT126                                                         --유상보수 계약정보가 있는지 확인
+		        ON A.MANDT = CNT126.MANDT
+		        AND A.CS121_UPN = CNT126.UPN
+		        AND A.CS121_CST = CNT126.CST
+	       LEFT OUTER JOIN
+	       	    (SELECT MANDT,
+	                 CS126_UPN AS UPN,
+	                 CS126_CST AS CST,
+	                 MAX(CS126_ARA) AS ARA,
+	                 MAX(CS126_TGB) AS TGB,
+	                 MAX(CS126_BPM) AS BPM,
+	                 MAX(CS126_BSU) AS BSU
+	             FROM SAPHEE.ZCST126
+	            WHERE CS126_UPN = #UPN# 
+	              AND CS126_CST = #CST#
+	              AND CS126_GNO = (SELECT MAX(CS126_GNO) FROM SAPHEE.ZCST126 WHERE MANDT = #G_MANDT# AND CS126_UPN = #UPN# AND CS126_CST = #CST# AND (CS126_DDT = '' OR CS126_DDT = '00000000' )) -- 최근 유상계약번호로 협력사정보 가져오도록 보완. 2019.03.21 Han J.H
+	              AND (CS126_DDT = '' OR CS126_DDT = '00000000' )
+	            GROUP BY MANDT, 
+	                     CS126_UPN, 
+	                     CS126_CST
+	            ) AS CS126                                                          --유상보수계약정보
+	            ON A.MANDT = CS126.MANDT
+	            AND A.CS121_UPN = CS126.UPN
+	            AND A.CS121_CST = CS126.CST
+		   LEFT OUTER JOIN
+		        (SELECT MANDT,
+		              DECODE(UPN, '', PJT, UPN) AS UPN,
+		              CST,
+		              MAX(ARA) AS ARA,
+		              MAX(GBU) AS TGB,
+		              MAX(BPM) AS BPM,
+		              MAX(BSU) AS BSU
+		         FROM SAPHEE.ZCST111                                                --보수호기 마스터
+					  WHERE (UPN = #UPN# AND CST = #CST#) OR PJT = #UPN#
+		        GROUP BY MANDT, UPN, PJT, CST
+		        FETCH FIRST 1 ROW ONLY
+		        ) AS CS111                                                          --보수현장
+		        ON A.MANDT = CS111.MANDT
+		        AND A.CS121_UPN = CS111.UPN
+		        
+		   LEFT OUTER JOIN SAPHEE.ZCST003 AS CS003                                  --CS-WEB 고객마스터
+		           ON A.MANDT = CS003.MANDT
+		          AND A.KUNNR = CS003.KUNNR
+		       
+		   LEFT OUTER JOIN SAPHEE.KNA1 AS E                                         --고객마스터 일반데이터
+		           ON A.MANDT = E.MANDT
+		          AND A.KUNNR = E.KUNNR
+		       
+		   LEFT OUTER JOIN SAPHEE.ZSDT0500 AS SD500                                  --부실징후 RISK 관리
+		           ON A.MANDT = SD500.MANDT
+		          AND A.KUNNR = SD500.KUNNR
+		       
+		   LEFT OUTER JOIN SAPHEE.ZCST600 AS CS600                                  --시행율관리-임율
+		           ON CS600.MANDT = A.MANDT
+		          AND CS600.CS600_YEAR = SUBSTR(HEX(CURRENT DATE),1,4)                 --당해년도 공사임율
+      
+      	   --======================고객사 할인율 추가=========================
+           LEFT OUTER JOIN SAPHEE.ZCST001D AS CS001D
+                   ON A.MANDT = CS001D.MANDT
+                  AND A.KUNNR = CS001D.KUNNR
+      	   --=============================================================
+		 WHERE A.MANDT = #G_MANDT#
+		       AND A.CS121_UPN = #UPN#
+		       AND A.CS121_CST = #CST#
+		       FOR FETCH ONLY WITH UR		
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_pjt_det">
+	</output>
+</query>

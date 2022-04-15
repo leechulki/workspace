@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+	
+-- 2019.04.11 검색키워드 없이 검색되지 않도록 프로그램 수정 
+-- 2020.09.04 다양한 조건으로 검색이 가능하여 동적 sql로 구성되어 있는데 input 값이 있는 경우에만 확인이 가능함
+SELECT
+*
+FROM (
+
+        SELECT
+                A.CS121_UPN AS UPN
+               ,A.CS121_CST AS CST
+               ,CASE WHEN VALUE(F.CS126_UPN,'') > '' THEN 'OnHand' ELSE '' END ING
+               ,A.CS121_SPT AS SPT
+               ,A.CS121_NAM AS NAM
+               ,A.KUNNR AS KUNNR
+               ,A.ZTERM AS ZTERM
+               ,A.CS121_P1C AS P1C
+               ,A.CS121_P2C AS P2C
+               ,A.CS121_P1B || ' ' || A.CS121_P2B AS P1B
+               ,A.CS121_GNO AS GNO                                                                        -- 사업자등록번호
+               ,A.CS121_BLD AS BLD                                                                      -- 사업자등록번호
+               ,A.CS121_TEB 
+               ,VALUE(L.CTEXT2,'') AS BLD_NM
+               ,(
+          
+                     SELECT
+                     COUNT(*)
+                     FROM SAPHEE.ZCST122 AS B
+                         ,SAPHEE.ZCST111 AS C
+                         ,SAPHEE.ZWBT010 AS D
+                     WHERE B.MANDT     = C.MANDT
+                       AND B.CS122_PJT = C.PJT
+                       AND B.CS122_HNO = C.HNO
+                       AND B.MANDT     = #G_MANDT#
+                       AND C.MANDT     = #G_MANDT#
+                       AND B.MANDT     = A.MANDT
+                       AND B.CS122_UPN = A.CS121_UPN
+                       AND B.CS122_CST = A.CS121_CST
+                       AND D.MANDT     = A.MANDT
+                       AND D.LGORT = C.BSU
+            <isEqual col="USER_GROUP" value="10">
+                       AND C.BSU = #G_LGORT#  
+            </isEqual>
+            <isEqual col="USER_GROUP" value="20">
+                       AND C.BPM = #G_USER_ID#  
+            </isEqual>
+            <isEqual col="USER_GROUP" value="30">
+--                       AND C.ARA = #G_AREA_CODE#  
+                       --AND D.VKGRP = #G_SAP_USER_VGCD#  
+                       AND (D.VKGRP = #G_SAP_USER_VGCD# OR D.VKGRP_CO = #G_SAP_USER_VGCD#)
+            </isEqual>        
+            
+            <isEqual col="USER_GROUP" value="40">            
+            	<isNotNull col="VKGRP">
+  						AND (D.VKGRP = #VKGRP# OR D.VKGRP_CO = #VKGRP#)
+				</isNotNull>
+            </isEqual>                    
+                ) AS CNT
+               --,VALUE(D.NAME1,'') GNAME
+               <!-- 2019.04.16 ZCST003 LEFT OUTER JOIN 시 인덱스 타도록 변경처리 시작 -->
+			   --,( CASE WHEN LENGTH(RTRIM(A.CS121_GNO))  = 13 THEN   (SELECT X.NAME1 FROM SAPHEE.ZCST003 AS X
+			   --                                                      		        WHERE X.MANDT = A.MANDT
+				--							                                        	AND X.STCD1 = A.CS121_GNO FETCH FIRST 1 ROWS ONLY )
+                 --      WHEN LENGTH(RTRIM(A.CS121_GNO))  =  10 THEN   (SELECT X.NAME1 FROM SAPHEE.ZCST003 AS X
+			      --                                                                   WHERE X.MANDT = A.MANDT
+				--							                                         	AND X.STCD2 = A.CS121_GNO FETCH FIRST 1 ROWS ONLY )	
+                 --      ELSE ''
+				 --  END 
+				-- ) AS GNAME
+               <!-- 2019.04.16 ZCST003 LEFT OUTER JOIN 시 인덱스 타도록 변경처리 종료 -->
+               ,( CASE WHEN LENGTH(RTRIM(A.CS121_GNO))  = 13 THEN   D.NAME1
+                                        WHEN LENGTH(RTRIM(A.CS121_GNO))  =  10 THEN  X.NAME1 
+                                       ELSE ''
+				              END 
+				 ) AS GNAME				
+               
+               
+               ,VALUE(E.J_1KFREPRE,'') PNAME
+               ,CASE LENGTH(TRIM(A.CS121_P1E)) WHEN 0 THEN VALUE(E.J_1KFREPRE,'') ELSE A.EPNAME END AS ENAME
+               ,CASE WHEN SD0500.CLOS_DAT > '00000000' THEN 'Y' ELSE '' END CLOSE
+               
+          FROM SAPHEE.ZCST121 AS A  LEFT OUTER JOIN SAPHEE.ZCST126 AS F 
+                                            ON A.MANDT = F.MANDT
+                                           AND A.CS121_UPN = F.CS126_UPN
+                                           AND A.CS121_CST = F.CS126_CST
+                                           AND F.CS126_DDT = ''
+                                           AND F.CS126_PST = 'A6'
+                                           AND HEX(CURRENT DATE) BETWEEN F.CS126_USD AND F.CS126_UMR
+                                    --LEFT OUTER JOIN SAPHEE.ZCST003 AS D 
+                                            --ON A.MANDT = D.MANDT
+                                           --AND A.CS121_GNO = (CASE LENGTH(RTRIM(A.CS121_GNO)) WHEN 13 THEN D.STCD1 WHEN 10 THEN D.STCD2 ELSE 'AAA' END)
+                                                                                    
+                                    LEFT OUTER JOIN SAPHEE.ZCST003 AS D 
+                                            ON A.MANDT = D.MANDT
+                                           AND A.CS121_GNO = D.STCD1
+										   AND D.STCD1 != ''
+                                                                                        
+                                    LEFT OUTER JOIN SAPHEE.ZCST003 AS X 
+                                            ON A.MANDT = X.MANDT
+                                           AND A.CS121_GNO = X.STCD2     
+										   AND X.STCD2 != ''	 
+
+								                                           
+                                    LEFT OUTER JOIN SAPHEE.KNA1 AS E 
+                                            ON A.MANDT = E.MANDT
+                                           AND A.KUNNR = E.KUNNR
+			                              LEFT OUTER JOIN SAPHEE.ZLCODE AS L 
+			                                      ON A.MANDT = L.MANDT
+				                                   AND A.CS121_BLD = L.CODE2
+												                   AND L.LANG = 'ko'
+												                   AND L.CODE1 = 'CS123'
+												                   
+                                    LEFT OUTER JOIN SAPHEE.ZSDT0500 AS SD0500 
+                                            ON A.MANDT = SD0500.MANDT
+                                           AND A.KUNNR = SD0500.KUNNR
+         WHERE A.MANDT = #G_MANDT#
+<isEqual col="SEARCH" value="1">
+           AND A.CS121_UPN LIKE #SEARCHWORD#||'%'  
+</isEqual>
+<isEqual col="SEARCH" value="2">
+           AND A.CS121_UPN LIKE '_%'
+           AND A.CS121_CST LIKE '%'
+           AND A.CS121_SPT LIKE '%'||#SEARCHWORD#||'%' 
+</isEqual>
+<isEqual col="SEARCH" value="3">
+           AND A.CS121_UPN LIKE '_%'
+           AND A.CS121_CST LIKE '%'
+           AND A.CS121_NAM LIKE '%'||#SEARCHWORD#||'%' 
+</isEqual>         
+<isEqual col="SEARCH" value="4">
+           AND A.CS121_GNO = #SEARCHWORD#  
+</isEqual>
+<isEqual col="SEARCH" value="5">
+           AND A.CS121_UPN LIKE '_%'
+           AND A.CS121_CST LIKE '%'
+           AND A.CS121_P1B LIKE '%'||#SEARCHWORD#||'%'  
+</isEqual>
+<isEqual col="SEARCH" value="6">
+           AND A.CS121_UPN LIKE '_%'
+           AND A.CS121_CST LIKE '%'
+           AND E.J_1KFREPRE LIKE '%'||#SEARCHWORD#||'%'  
+</isEqual>
+<isEqual col="SEARCH" value="7">
+           AND A.CS121_UPN LIKE '_%'
+           AND A.CS121_CST LIKE '_%'
+           AND A.CS121_CST > ''
+           AND ( D.NAME1 LIKE '%'||#SEARCHWORD#||'%' OR X.NAME1 LIKE '%'||#SEARCHWORD#||'%' )  
+</isEqual>
+<isEqual col="SEARCH" value="8">
+           AND A.CS121_UPN LIKE '_%'
+           AND A.CS121_CST LIKE '_%'
+           AND A.CS121_CST > ''
+           AND (A.CS121_P1C LIKE '%'||#SEARCHWORD#||'%'
+           OR A.CS121_P2C LIKE '%'||#SEARCHWORD#||'%')
+</isEqual>
+<isEqual col="SEARCH" value="9">
+           AND A.CS121_UPN LIKE '_%'
+           AND A.CS121_CST LIKE '_%'
+           AND A.CS121_CST > ''
+           AND A.CS121_TEB != ''
+           AND A.CS121_TEB LIKE '%'||#SEARCHWORD#||'%'
+</isEqual>
+<isEqual col="SEARCH" value="10">
+           AND A.CS121_UPN LIKE '_%'
+           AND A.CS121_CST LIKE '_%'
+           AND A.CS121_CST > ''
+           AND A.CS121_TEA != ''
+           AND A.CS121_TEA LIKE '%'||#SEARCHWORD#||'%'
+</isEqual>
+
+      ) AS A
+      
+WHERE 1=1
+<isNotNull col="CST">
+  AND CST > ''
+</isNotNull>
+<isNotEqual col="CNT" value="0">
+  AND CNT > 0
+</isNotEqual>
+
+<isEqual col="LEJCHK" value="Y">
+  AND KUNNR != '0000258910'
+</isEqual>
+
+
+
+GROUP BY UPN, CST, ING, SPT, NAM, KUNNR, P1C, P2C, P1B, GNO, CNT, GNAME, PNAME, BLD, BLD_NM, ENAME, ZTERM, CLOSE , CS121_TEB
+ORDER BY UPN, CST
+FETCH FIRST 1000 ROWS ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="G_LGORT" size="255" type="VARCHAR" description="" /> 
+		<col name="G_USER_ID" size="255" type="VARCHAR" description="" /> 
+		<col name="G_AREA_CODE" size="255" type="VARCHAR" description="" /> 
+		<col name="SEARCHWORD" size="255" type="VARCHAR" description="" /> 
+		<col name="USER_GROUP" size="255" type="VARCHAR" description="" /> 
+		<col name="SEARCH" size="255" type="VARCHAR" description="" /> 
+		<col name="CNT" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="CNT" size="11" type="NUMERIC" description="" /> 
+		<col name="CST" size="9" type="VARCHAR" description="" /> 
+		<col name="GNAME" size="105" type="VARCHAR" description="" /> 
+		<col name="GNO" size="39" type="VARCHAR" description="" /> 
+		<col name="KUNNR" size="100" type="VARCHAR" description="" /> 
+		<col name="NAM" size="150" type="VARCHAR" description="" /> 
+		<col name="P1B" size="301" type="VARCHAR" description="" /> 
+		<col name="P1C" size="150" type="VARCHAR" description="" /> 
+		<col name="P2C" size="150" type="VARCHAR" description="" /> 
+		<col name="SPT" size="150" type="VARCHAR" description="" /> 
+		<col name="UPN" size="18" type="VARCHAR" description="" /> 
+	</output>
+</query>

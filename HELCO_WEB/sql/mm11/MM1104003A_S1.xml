@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[M사발주조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+WITH MM13 AS 	
+(
+SELECT
+     MM.MANDT
+   , MM.EBELN
+   , MM.EBELP
+   , MM.EKGRP 
+   , MM.LIFNR
+   , MM.LNAME
+   , MM.MATNR
+   , MM.MEINS
+   , MM.MENGE
+   , MM.NAME1
+   , MM.POSID
+   , MM.PROJ
+   , MM.POST1
+   , MM.SDATE
+   , MM.MAKTX
+   , CASE WHEN SUBSTR(MM.POSID,1,1) = 'H' or SUBSTR(MM.POSID,1,1) = 'E' 
+     	--THEN (select max(rdate) from saphee.zmmt001 where mandt = '183' and posid like substr(MM.POSID,1,6)||'%' and matnr = MM.MATNR)
+     	THEN (select max(rdate) from saphee.zmmt001 where mandt = '183' and posid = MM.POSID and matnr = MM.MATNR)
+        ELSE MM.UDATE END  AS UDATE -- 업데이트된 납기일
+   , MM.VALUE
+   , MM.WERKS
+   , MM.CHECK
+   , MM.RV_NAME
+   , MM.EKGRP_M
+   , MM.TEX01
+   , MM017.PRO_F
+   , MM.LIFNR_M
+   , MM.LNAME_M
+   , CASE WHEN VALUE(MM017.IN_DT,'') > VALUE(MM017.CA_DT,'') THEN VALUE(MM017.IN_DT,'') ELSE '' END AS IN_DT
+
+FROM
+(
+SELECT 
+	 MM013.MANDT AS MANDT
+	, MM013.EBELN AS EBELN --현대발주번호
+	, MM013.EBELP AS EBELP -- 현대 품목번호
+	, MM013.EKGRP AS EKGRP -- 현대담당자
+	, MM013.LIFNR AS LIFNR
+	, MM013.LNAME AS LNAME
+	, MM013.MATNR AS MATNR -- 자재번호
+	, MM013.MEINS AS MEINS -- 발주단위
+	, MM013.MENGE AS MENGE -- 발주수량
+	, MM013.NAME1 AS NAME1
+	, SAPHEE.GET_CURRDATA(MM013.WAERS,MM013.NETPR) AS NETPR
+	, MM013.POSID AS POSID -- 보수wbs
+	, CASE WHEN SUBSTR(MM013.POSID,1,2) = 'QM' THEN SUBSTR(MM013.POSID,1,8)
+				WHEN SUBSTR(MM013.POSID,1,1) = 'Q' THEN SUBSTR(MM013.POSID,1,7)
+                          ELSE SUBSTR(MM013.POSID,1,6) END  AS PROJ
+	, MM013.POST1 AS POST1 -- 보수 wbs 명
+	, SAPHEE.GET_ZERODATE(MM013.SDATE) AS SDATE   -- 현대발주일
+	, MM013.SNAME AS SNAME
+	, MM013.STATE AS STATE
+	, SAPHEE.GET_ZERODATE(MM013.STIME) AS STIME
+	, (MM011.MATNR_NM ||','|| MM011.ZSIZE ||','|| MM011.SPEC) AS MAKTX --자재내역
+	, SAPHEE.GET_ZERODATE(MM013.UDATE) AS UDATE
+	, MM013.VALUE AS VALUE
+	, MM013.WAERS AS WAERS
+	, MM013.WERKS AS WERKS
+	, MM013.ZEINR AS ZEINR
+    , '0' AS CHECK
+    , SAPHEE.GET_VENDER_NAME(MM013.MANDT, MM013.LIFNR) AS RV_NAME
+ --   , (SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = '183'  AND LANG = 'ko' AND CODE1 = '10' 
+ --                       AND CODE2 = MM013.EKGRP) AS R_EKGRP 
+    , CASE WHEN (MM013.EKGRP = '106' OR MM013.EKGRP = '108' OR MM013.EKGRP = '109' OR MM013.EKGRP = '117') THEN '신동연'
+           WHEN (MM013.EKGRP = '101' OR MM013.EKGRP = '102' OR MM013.EKGRP = '103' OR MM013.EKGRP = '104' OR
+                 MM013.EKGRP = '105' OR MM013.EKGRP = '107' OR MM013.EKGRP = '114' OR MM013.EKGRP = '116' OR 
+                 MM013.EKGRP = '118' OR MM013.EKGRP = '119' OR MM013.EKGRP = '123' OR MM013.EKGRP = '124') THEN '김점곤'
+           WHEN (MM013.EKGRP = '110' OR MM013.EKGRP = '111' OR MM013.EKGRP = '113' OR MM013.EKGRP = '115') THEN '오선규' ELSE '' END AS EKGRP_M       
+               
+              ,SAPHEE.GET_REMARK(MM013.MANDT, SUBSTR(MM013.POSID,1,9),MM013.MATNR,' | ',270) AS TEX01
+    -- ,VALUE(MM017A.PRO_F,'') AS PRO_F  
+    -- ,MM013.NETPR AS NETPR_A 
+    , MM013_M.LIFNR AS LIFNR_M
+    , MM013_M.LNAME AS LNAME_M --발주협력사
+ FROM SAPHEE.ZMMT013 AS MM013
+ LEFT OUTER JOIN SAPHEE.ZMMT013_M AS MM013_M ON MM013.MANDT = MM013_M.MANDT AND MM013.EBELN = MM013_M.EBELN AND MM013.EBELP = MM013_M.EBELP AND MM013_M.STATE = '2'
+ LEFT OUTER JOIN SAPHEE.ZMMT011 AS MM011 ON MM013.MANDT = MM011.MANDT AND MM013.MATNR = MM011.MATNR 
+ WHERE  MM013.MANDT = '183'
+    AND MM013.SDATE BETWEEN #SDATE_FM# AND #SDATE_TO#
+    AND MM013.POTYPE = ''
+    AND MM013.WERKS = '2000'
+    AND MM013.LGORT = '9500'
+    AND MM013.LIFNR = '2148898192'
+    AND MM013.STATE = '2'
+<isNotNull col="MATNR">
+	    AND MM013.MATNR LIKE #MATNR# || '%'
+</isNotNull>
+<isNotNull col="EBELN">
+    AND MM013.EBELN = #EBELN#
+ </isNotNull>
+<isNotNull col="POSID">
+    AND MM013.POSID LIKE #POSID# || '%' 
+ </isNotNull>   
+<isNotNull col="LIFNR">
+    AND MM013_M.LIFNR LIKE #LIFNR# || '%'
+ </isNotNull>  
+<isNotNull col="EKGRP">   
+	  <isEqual col="EKGRP" value="1"> 
+	  	  AND (MM013.EKGRP = '106' OR MM013.EKGRP = '108' OR MM013.EKGRP = '109' OR MM013.EKGRP = '117')
+ 	  </isEqual>
+ 	  
+ 	  <isEqual col="EKGRP" value="2"> 
+ 		  AND (MM013.EKGRP = '101' OR MM013.EKGRP = '102' OR MM013.EKGRP = '103' OR MM013.EKGRP = '104' OR
+ 		       MM013.EKGRP = '105' OR MM013.EKGRP = '107' OR MM013.EKGRP = '114' OR MM013.EKGRP = '116' OR
+               MM013.EKGRP = '118' OR MM013.EKGRP = '119' OR MM013.EKGRP = '123' OR MM013.EKGRP = '124')
+      </isEqual>
+      
+      <isEqual col="EKGRP" value="3"> 
+	  	  AND (MM013.EKGRP = '110' OR MM013.EKGRP = '111' OR MM013.EKGRP = '113' OR MM013.EKGRP = '115')
+ 	  </isEqual>
+ </isNotNull>   
+) AS MM
+LEFT OUTER JOIN SAPHEE.ZMMT017 AS MM017 ON MM.MANDT = MM017.MANDT 
+                                       AND MM.EBELN = MM017.EBELN
+                                       AND MM.EBELP = MM017.EBELP 
+                                       AND MM017.PRO_F = '4'
+WHERE MM.MANDT = '183'                                       
+)
+
+SELECT 
+       MM13.*
+     , AN.ERDAT 
+     , VALUE(MM994.CH_DT_M,'') AS CH_DT_M
+	 , VALUE(MM994.CH_DT_L,'') AS CH_DT_L
+	 , VALUE(MM994.TEX_M,'') AS TEX_M
+	 , VALUE(MM994.TEX_L,'') AS TEX_L
+	-- , CASE WHEN VALUE(MT001.BUDAT,'') > '11111111' THEN 'A' 
+	--        WHEN VALUE(MT001.BUDAT,'') = '' AND VALUE(MM13.IN_DT,'') > '11111111' THEN 'B'
+	--        WHEN VALUE(MM13.IN_DT,'') = '' THEN 'C' ELSE '' END AS STATUS2
+	 , CASE WHEN VALUE(MM13.IN_DT,'') = '' THEN 'C' ELSE (CASE WHEN VALUE(MT001.BUDAT,'') > '11111111' THEN 'A' ELSE 'B' END) END AS STATUS2
+	 , CASE WHEN VALUE(MT001.BUDAT,'') > '11111111' THEN MT001.BUDAT ELSE '' END AS CH_DT
+	-- , CASE WHEN VALUE(MM994.CH_DT_M,'') > '11111111' THEN SAPHEE.GET_WORKINGDAY(MM13.SDATE,MM994.CH_DT_M) ELSE 0 END AS CH_DT_W
+	-- , CASE WHEN VALUE(MM994.CH_DT_L,'') > '11111111' THEN SAPHEE.GET_WORKINGDAY(MM13.SDATE,MM994.CH_DT_L) ELSE '' END AS CH_DT_W2
+	 
+	 
+FROM MM13 
+
+LEFT OUTER JOIN SAPHEE.EKPO AS PO ON MM13.MANDT = PO.MANDT 
+                                 AND MM13.EBELN = PO.EBELN 
+                                 AND MM13.EBELP = PO.EBELP
+LEFT OUTER JOIN SAPHEE.EBAN AS AN ON PO.MANDT = AN.MANDT 
+                                 AND PO.BANFN = AN.BANFN
+                                 AND PO.BNFPO = AN.BNFPO                                                         
+LEFT OUTER JOIN SAPHEE.ZMMT994 AS MM994 ON MM13.MANDT = MM994.MANDT AND MM13.EBELN = MM994.EBELN AND MM13.EBELP = MM994.EBELP
+LEFT OUTER JOIN SAPHEE.ZMMT001 AS MT001 ON AN.MANDT = MT001.MANDT AND AN.BANFN = MT001.BANFN AND AN.BNFPO = MT001.BNFPO
+
+  FOR FETCH ONLY
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="SDATE_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="SDATE_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="EBELN" size="255" type="VARCHAR" description="" /> 
+		<col name="AFNAM" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="NOTPO" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="STATUS" size="255" type="NUMERIC" description="" /> 
+		<col name="SDATE" size="255" type="VARCHAR" description="" /> 
+		<col name="EBELN" size="255" type="VARCHAR" description="" /> 
+		<col name="EBELP" size="255" type="VARCHAR" description="" /> 
+		<col name="EBELN_M" size="255" type="VARCHAR" description="" /> 
+		<col name="EBELP_M" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="255" type="VARCHAR" description="" /> 
+		<col name="MAKTX" size="255" type="VARCHAR" description="" /> 
+		<col name="AFNAM" size="255" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="255" type="VARCHAR" description="" /> 
+		<col name="MENGE_M" size="255" type="VARCHAR" description="" /> 
+		<col name="MEINS" size="255" type="VARCHAR" description="" /> 
+		<col name="NETPR" size="255" type="VARCHAR" description="" /> 
+		<col name="NETPR_M" size="255" type="VARCHAR" description="" /> 
+		<col name="BRTWR" size="255" type="VARCHAR" description="" /> 
+		<col name="BRTWR_M" size="255" type="VARCHAR" description="" /> 
+		<col name="WAERS" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="LNAME" size="255" type="VARCHAR" description="" /> 
+		<col name="LFDAT" size="255" type="VARCHAR" description="" /> 
+		<col name="EKNAM" size="255" type="VARCHAR" description="" /> 
+		<col name="SDATE_M" size="255" type="VARCHAR" description="" /> 
+	</output>
+</query>

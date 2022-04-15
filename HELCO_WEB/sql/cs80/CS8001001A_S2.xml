@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[보수자재관리-견적리스트-디테일정보 Retrieve]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	
+	SELECT CS002.QTNUM,                                                             --견적번호
+	       CS002.SEQ,                                                               --차수
+	       CS002.SEQNO,                                                             --순번
+	       CS001.CRDAT,
+	       CS002.MATNR,                                                             --자재코드
+	       CS002.MAKTX,                                                             --자재내역
+	       CS002.MENGE,                                                             --수량
+	       CS002.MEINS,                                                             --기본단위
+	       CASE WHEN CS002.HNA = '' THEN
+	                 CASE WHEN LENGTH(CS002.HOGI_ID) = 9 THEN SUBSTR(CS002.HOGI_ID, 7)
+	                      ELSE CS002.HOGI_ID
+	                 END
+	            ELSE CS002.HNA
+	       END AS HOGI_NM,                                                          --호기명
+	       CS002.HOGI_ID,                                                           --호기ID
+	       SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, '2', CS002.TYPE) AS MBEW_NM,       --자재평가유형
+	       CASE WHEN CS002.CGBN = '1' THEN '재청구신규' 
+	            WHEN CS002.CGBN = '2' THEN '재청구완료'
+	            ELSE '원견적자재' 
+	       END AS BOGBN,                                                            --변동구분
+	       '' AS CRT_DTE,
+<!-- 	       CASE WHEN CS001.BUSSI = '1' THEN COALESCE(PR001.PRLAB, 0)
+	            WHEN CS001.BUSSI = '2' THEN COALESCE(PR002.PRLAB, 0)
+	            ELSE 0
+	       END AS PRLAB,                                                            -보수창고재고
+	        (SELECT VALUE(SUM(MM018C.PRLAB),0) AS PRLAB 
+	         FROM SAPHEE.ZMMT018 AS MM018C 
+	        WHERE MM018C.MANDT = #G_MANDT# 
+	              AND MM018C.LGORT = SAPHEE.GET_LGORT(#G_MANDT#, CS001.LIFNR) 
+	              AND MM018C.MATNR = CS002.MATNR 
+	              AND MM018C.CHARG = CS002.TYPE
+	       ) AS PRLAB1,                                                             -청구업체재고 -->
+	       0 AS PRLAB,
+	       0 AS PRLAB1,
+	       
+	       CS002.ZGUBN AS ZGUBN,                                                    --직영구분
+	       CASE WHEN CS002.CGUBN = '2' THEN '내작자재'
+	            ELSE '보수자재'
+	       END AS CGUBNNM,	                                                        --자재구분
+         	CS002.REQKIND AS REQKIND,                                               --청구종류
+         	DECODE(CS002.REQKIND, '1', '유상청구', '6', '재고소진', '7', '수리공사', '8', '재청구', 'S', '시스템공사', 'G', '실패현장', '', SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, '3', CS001.REQKIND)) AS REQKINDNM, --청구종류명
+         	CS002.CHAR1	,
+         	(SELECT SAPHEE.GET_ZERODATE(MAX(B.BUDAT3))
+         	   FROM SAPHEE.ZMMT031 AS A LEFT OUTER JOIN SAPHEE.ZMMT001 AS B
+         	                                   ON B.MANDT = A.MANDT
+         	                                  AND B.REQNR = A.REQNR 
+         	                                  AND B.REQITEM = A.REQITEM
+         	   
+         	  WHERE A.MANDT = #G_MANDT#
+         	    AND A.QTNUM = CS001.QTNUM
+         	    AND A.SEQ = CS001.SEQ
+         	 ) AS BUDAT3       
+	    FROM SAPHEE.ZCST001G AS CS001 
+	                                    INNER JOIN  (SELECT QTNUM,
+	                                                        MAX(SEQ) AS SEQ
+	                                                   FROM SAPHEE.ZCST001G
+	                                                  WHERE MANDT = #G_MANDT#
+	                                                  GROUP BY QTNUM
+	                                                ) AS MX01
+	                                            ON MX01.QTNUM = CS001.QTNUM
+	                                           AND MX01.SEQ = CS001.SEQ
+	                                           
+	                                    INNER JOIN SAPHEE.ZCST002G AS CS002
+	                                            ON CS002.QTNUM = CS001.QTNUM
+	                                           AND CS002.SEQ = CS001.SEQ
+	                                           
+	                                    INNER JOIN SAPHEE.ZCST003G AS CS003
+	                                            ON CS003.QTNUM = CS001.QTNUM
+	                                           AND CS003.SEQ = CS001.SEQ
+	                                           
+	  		                              INNER JOIN SAPHEE.ZCSTEP01 AS EP01
+	  		                                      ON EP01.MANDT = CS001.MANDT
+	  		                                     AND EP01.LIFNR = CS001.LIFNR
+	                                                     
+	   WHERE CS001.MANDT = #G_MANDT#
+	     AND CS001.BUSSI = '1'
+			 AND CS001.REQKIND = '1'
+	     AND CS001.QTNUM != ''
+	
+      <isNotNull col="LAND1"> 	<!-- 국가키 -->
+  	   AND EP01.LAND1 = #LAND1# 
+      </isNotNull>
+      <isNotNull col="LIFNR">
+  	   AND CS001.LIFNR = #LIFNR#
+      </isNotNull>	   
+      <isNotNull col="STATUS">
+       AND CS003.STATUS = #STATUS#
+      </isNotNull>
+		   <isNotNull col="PSPID">
+		   AND CS001.MA_PSPID LIKE #PSPID#||'%'
+		   </isNotNull>	  
+		   <isEqual col="GBN" value="1">	<!-- 견적일 -->
+		   AND CS001.CRDAT BETWEEN #FROM_DT# AND #TO_DT#	
+		   </isEqual>
+		   <isNotNull col="QTNUM">
+		   AND CS001.QTNUM LIKE #QTNUM#||'%'
+		   </isNotNull>
+		   <isNotNull col="STATUS">
+		   </isNotNull>	 			       		
+
+	ORDER BY QTNUM, SEQ, SEQNO 
+	FOR FETCH ONLY
+	WITH UR	
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list_detail">
+	</output>
+</query>

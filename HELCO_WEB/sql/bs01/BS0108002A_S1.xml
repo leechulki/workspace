@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  
+        T.CHK
+       ,T.FLAG
+       ,T.BS101_RDT
+       ,T.BS101_SEQ
+       ,T.BS101_GBN
+       ,T.BS101_CID
+       ,T.BS101_AYM
+       ,T.BS101_ASQ
+       ,T.BS101_NO
+       ,T.BS101_GNM
+       ,T.BS101_SPT
+       ,T.BS101_QTY
+       ,T.BS101_PST
+       ,T.BS101_GNO
+       ,T.BS101_JRT
+       ,T.BS103_TDT
+       ,T.BS103_GDT
+       ,T.BS103_CDT
+       ,T.BS103_COMA
+       ,T.BS103_AMTA
+       ,T.BS103_AMTW
+       ,T.SI_RATE
+       ,T.BS103_AMTT
+       ,T.TU_RATE
+       ,T.BS103_RSN
+       ,T.BS103_COMB
+       ,T.BS103_AMTB
+       ,T.TU2_RATE
+       ,T.BS103_PST
+       ,T.BS103_RMK
+       ,T.BS102_TYP
+       ,T.BS101_CDT
+       ,T.PST
+FROM   (
+        SELECT  
+                '0' AS CHK
+               ,'' AS FLAG
+               ,BS101.BS101_RDT
+               ,BS101.BS101_SEQ
+               ,(SELECT M28.CTEXT2 FROM SAPHEE.ZLCODE M28 WHERE M28.MANDT = BS101.MANDT AND M28.CODE1 = 'CS131' AND M28.LANG = #G_LANG# AND M28.CODE2 = BS101.BS101_GBN) AS BS101_GBN
+               ,(SELECT UF.USERNAME FROM SAPHEE.ZUSERF UF WHERE UF.MANDT = BS101.MANDT AND UF.USERNUMB = BS101.BS101_CID) AS BS101_CID
+               ,BS101.BS101_AYM AS BS101_AYM
+               ,BS101.BS101_ASQ AS BS101_ASQ
+               ,BS101.BS101_AYM||'-'||BS101.BS101_ASQ AS BS101_NO
+               ,BS101.BS101_GNM
+               ,BS101.BS101_SPT
+               ,BS101.BS101_QTY
+               ,BS101.BS101_PST
+               ,BS101.BS101_GNO
+               ,BS101.BS101_JRT
+               ,VALUE(BS103_TDT ,'') AS BS103_TDT
+               ,VALUE(BS103_GDT ,'') AS BS103_GDT
+               ,VALUE(BS103_CDT ,'') AS BS103_CDT
+               ,VALUE(BS103_COMA,'') AS BS103_COMA
+               ,VALUE(BS103_AMTA,0) AS BS103_AMTA
+               ,VALUE(BS103_AMTW,0) AS BS103_AMTW
+               ,ROUND(CASE WHEN VALUE(BS103_AMTA,0) = 0 THEN 0 ELSE VALUE(BS103_AMTW,0)/VALUE(BS103_AMTA,0)*100 END,2) AS SI_RATE
+               ,VALUE(BS103_AMTT,0) AS BS103_AMTT
+               ,ROUND(CASE WHEN VALUE(BS103_AMTA,0) = 0 THEN 0 ELSE VALUE(BS103_AMTT,0)/VALUE(BS103_AMTA,0)*100 END,2) AS TU_RATE
+               ,VALUE(BS103_RSN ,'') AS BS103_RSN
+               ,VALUE(BS103_COMB,'') AS BS103_COMB
+               ,VALUE(BS103_AMTB,0) AS BS103_AMTB
+               ,ROUND(CASE WHEN VALUE(BS103_AMTB,0) = 0 THEN 0 ELSE VALUE(BS103_AMTW,0)/VALUE(BS103_AMTB,0)*100 END,2) AS TU2_RATE
+               ,(SELECT M.CTEXT2 FROM SAPHEE.ZLCODE M WHERE M.MANDT = BS101.MANDT AND M.CODE1 = 'BS101' AND M.LANG = #G_LANG# AND M.CODE2 = (CASE WHEN BS103_PST IS NULL THEN '10' ELSE BS103_PST END)) AS BS103_PST
+               ,VALUE(BS103_RMK ,'') AS BS103_RMK
+               ,(SELECT M028.CTEXT2 FROM SAPHEE.ZLCODE AS M028 WHERE M028.MANDT = BS101.MANDT AND M028.CODE1 = 'BS116' AND M028.LANG = #G_LANG# AND M028.CODE2 = BS102_TYP) AS BS102_TYP
+               ,BS101.BS101_CDT AS BS101_CDT
+               ,CASE WHEN BS103_PST IS NULL THEN '10' ELSE BS103_PST END AS PST
+        FROM SAPHEE.ZBST101 AS BS101
+             LEFT OUTER JOIN SAPHEE.ZBST103 AS BS103
+             ON BS101.MANDT = #G_MANDT#
+             AND BS101.MANDT = BS103.MANDT
+             AND BS101.BS101_AYM = BS103.BS103_AYM
+             AND BS101.BS101_ASQ = BS103.BS103_ASQ
+             ,SAPHEE.ZBST102 AS BS102
+        WHERE BS101.MANDT = #G_MANDT#
+        AND   BS101.MANDT = BS102.MANDT
+        AND   BS101.BS101_RDT = BS102.BS102_RDT
+        AND   BS101.BS101_SEQ = BS102.BS102_SEQ
+        AND   BS102.BS102_ISR = '001'
+        AND   BS101.BS101_PST = '30'
+        AND   BS101.BS101_JRT = '10'
+
+        <isEqual col="PST" value="15">
+        AND BS103.BS103_PST = '15'
+        </isEqual>
+        <isEqual col="GUBUN" value="A">
+        AND BS103.BS103_TDT BETWEEN #FTDT# AND #TTDT#
+        </isEqual>
+        <isEqual col="GUBUN" value="B">
+        AND (BS103.BS103_TDT BETWEEN #FTDT# AND #TTDT# OR BS101.BS101_CDT BETWEEN #FCDT# AND #TCDT#)
+        </isEqual>
+        <isEqual col="GUBUN" value="C">
+        AND BS101.BS101_CDT BETWEEN #FCDT# AND #TCDT#
+        </isEqual>
+
+        <isNotNull col="ARA">
+        AND BS101_ARA = #ARA#
+        </isNotNull>
+        <isNotNull col="GNO">
+        AND BS101_GNO = #GNO#
+        </isNotNull>
+        <isNotNull col="USER">
+        AND BS101_CID = #USER#
+        </isNotNull>
+        <isNotNull col="GBN">
+        AND BS101_GBN = #GBN#
+        </isNotNull>
+        <isNotNull col="COMA">
+        AND BS103_COMA = #COMA#
+        </isNotNull>
+
+        ORDER BY BS101.BS101_AYM||'-'||BS101.BS101_ASQ
+      ) AS T
+<isEqual col="PST" value="10">
+WHERE T.PST &lt;&gt; '15'
+</isEqual>
+
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

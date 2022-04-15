@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[FM청구 계약 년차별 원가합계, 판매가 합계 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT 
+--	  MM001.POSID
+	  MM031.POSID POSID
+	, MM001.MATNR MATNR
+	, MM001.MAKTX MAKTX
+	, MM001.BWTAR BWTAR
+--	, MM001.MENGE
+	, MM031.MENGE MENGE
+	, MM001.MEINS MEINS
+	, SAPHEE.GET_CURRDATA('KRW',MM011.SAMT1) * MM031.MENGE AS SAMT1
+--	, SAPHEE.GET_CURRDATA('KRW',MM011.SAMT2) * MM031.MENGE AS SAMT2
+  , SAPHEE.GET_CURRDATA('KRW',CASE WHEN SUBSTR(MM031.BWTAR,2) = 'A' THEN (CASE WHEN MM001.MTART = 'PALB' THEN (SELECT STPRS * MM031.MENGE
+	                                         FROM SAPHEE.MBEW
+                                          WHERE MANDT = #G_MANDT#  AND MATNR = MM001.MATNR AND BWKEY = '1000')
+                                   ELSE (SELECT CASE WHEN B.KONWA = 'KRW' THEN (B.KBETR * MM031.MENGE)          WHEN B.KONWA = 'USD' THEN (B.KBETR * MM031.MENGE * 10.7)
+                                                                   WHEN B.KONWA = 'EUR' THEN (B.KBETR * MM031.MENGE * 14.87)  WHEN B.KONWA = 'JPY' THEN (B.KBETR * MM031.MENGE * 0.1316) ELSE 0 END
+		  			                               FROM (SELECT MANDT, KNUMH, MATNR, DATAB, DATBI
+		  			                                           ,LIFNR -- 삭제표기 제외 로직 추가
+						                                       FROM SAPHEE.A017
+						                                      WHERE MANDT = #G_MANDT#
+						  	                                    AND KAPPL = 'M'
+						  	                                    AND KSCHL = 'PB00'
+						  	                                    AND EKORG = '1000'
+						  	                                    AND WERKS = '2000'
+						  	                                  ORDER BY DATBI DESC,DATAB DESC) AS A
+						  	                      INNER JOIN SAPHEE.KONP AS B ON B.MANDT = A.MANDT
+						  	                                                 AND B.KNUMH = A.KNUMH
+												  ---------------삭제표기 제외 로직 추가-----------------                           
+						  	                      INNER JOIN SAPHEE.EINA AS C  ON A.MANDT = C.MANDT
+						  	                                                  AND A.MATNR = C.MATNR
+						  	                                                  AND A.LIFNR = C.LIFNR
+						  	                                                  AND C.LOEKZ <> 'X'                           
+						  	                      --------------------------------------------------						  	                                                 
+						  	                                                 
+						  	                            WHERE A.MATNR = MM001.MATNR FETCH FIRST 1 ROWS ONLY ) END)
+                                   WHEN SUBSTR(MM031.BWTAR,2) = 'B' THEN MM004.EXBWR * MM031.MENGE / 100  END) AS SAMT2						  	                            
+              , SAPHEE.GET_CURRDATA('KRW',CASE WHEN SUBSTR(MM001.BWTAR,2) = 'A' THEN MM011.SAMT1 * MM031.MENGE
+                WHEN SUBSTR(MM001.BWTAR,2) = 'B' THEN INT(MM011.SAMT1 * 0.4 * MM031.MENGE)  END) AS NETPR
+              , SAPHEE.GET_ZERODATE(MM031.SENDAT) AS SENDAT
+            , CASE WHEN SENDAT BETWEEN #A_SDATE# AND #A_EDATE# THEN CAST(#A_CHASU# AS VARCHAR(20))ELSE (
+              CASE WHEN SENDAT BETWEEN #B_SDATE# AND #B_EDATE# THEN CAST(#B_CHASU# AS VARCHAR(20))ELSE (
+              CASE WHEN SENDAT BETWEEN #C_SDATE# AND #C_EDATE# THEN CAST(#C_CHASU# AS VARCHAR(20))ELSE (
+              CASE WHEN SENDAT BETWEEN #D_SDATE# AND #D_EDATE# THEN CAST(#D_CHASU# AS VARCHAR(20))ELSE (
+              CASE WHEN SENDAT BETWEEN #E_SDATE# AND #E_EDATE# THEN CAST(#E_CHASU# AS VARCHAR(20))ELSE ('X')END		          
+	 )END )END )END )END AS YEAR
+--                                   WHEN SUBSTR(MM031.BWTAR,2) = 'B' THEN MM011.SAMT3 * MM031.MENGE  END) AS SAMT2
+ FROM SAPHEE.ZMMT001 AS MM001
+ LEFT OUTER JOIN SAPHEE.ZMMT011 AS MM011 ON MM001.MANDT = MM011.MANDT
+           AND MM001.MATNR = MM011.MATNR
+           AND MM001.MTART = MM011.MTART
+ LEFT OUTER JOIN SAPHEE.ZMMT031 AS MM031 ON MM001.MANDT = MM031.MANDT
+           AND MM001.REQNR = MM031.REQNR
+           AND MM001.REQITEM = MM031.REQITEM
+ LEFT OUTER JOIN SAPHEE.ZMMT004 AS MM004 ON MM004.MANDT = MM001.MANDT 
+           AND MM004.MATNR = MM001.MATNR
+ WHERE MM001.MANDT = #G_MANDT#
+ 	AND MM001.REQKIND IN ('9', 'H')
+    AND MM001.POSID  IN (SELECT CS126_PJT || CS126_HNO FROM SAPHEE.ZCST126
+    				WHERE MANDT= #G_MANDT#
+    					AND CS126_KND > ''
+				              AND CS126_DDT = ''
+    					AND CS126_UPN = #UPN#
+    					AND CS126_CST = #CST#
+    					AND ((CS126_USD BETWEEN #SDATE# AND #EDATE#) OR (CS126_UHJ BETWEEN #SDATE# AND #EDATE#)))
+    AND MM001.REQDATE > #SDATE#
+    AND MM031.RECE_F IN ('0','1','2','3','4')
+  FOR FETCH ONLY
+  WITH UR	]]></statement>
+	<input default-name="ds_date_1">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="UPN" size="255" type="VARCHAR" description="" /> 
+		<col name="CST" size="255" type="SMALLINT" description="" /> 
+		<col name="CUDAT" size="255" type="VARCHAR" description="" /> 
+		<col name="USD" size="255" type="VARCHAR" description="" /> 
+		<col name="SDATE" size="255" type="VARCHAR" description="" /> 
+		<col name="A_CHASU" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list_b">
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MAKTX" size="120" type="VARCHAR" description="" /> 
+		<col name="BWTAR" size="30" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="15" type="DECIMAL" description="" /> 
+		<col name="MEINS" size="9" type="VARCHAR" description="" /> 
+		<col name="SAMT1" size="22" type="DOUBLE" description="" /> 
+		<col name="SAMT2" size="22" type="DOUBLE" description="" /> 
+	</output>
+</query>

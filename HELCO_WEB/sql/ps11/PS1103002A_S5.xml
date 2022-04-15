@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[바닥재 소요시기 입력 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT CASE WHEN length(gr.banfn) > 1 THEN 
+         (CASE WHEN length(gr.ebeln) > 1 THEN 
+          (CASE WHEN length(gr.belnr) > 1 THEN 'Y' ELSE '' END)ELSE '' END) ELSE '' END AS END ,
+           substr(gr.posid,1,9) as num , '' AS FIN, '' AS GIF, '' AS QUT , '' AS DAT, ''AS DOC , '' AS GBN , 
+            M1.ZSITE_NM AS NAM ,M1.ADDR1||M1.ADDR2 AS ADD
+	
+FROM
+(
+  --입고정보
+  SELECT po.banfn, po.bnfpo, po.pspnr, po.ebeln, po.ebelp, a.belnr, po.mandt , po.posid
+  FROM
+  (
+    -- PO 정보
+     SELECT pr.banfn, pr.bnfpo, pr.pspnr, a.ebeln, a.ebelp, pr.mandt , pr.posid
+     FROM
+     (
+        --PR정보 
+        SELECT a.menge, a.badat, a.matnr, a.banfn, a.bnfpo,c.posid, c.pspnr, a.mandt
+          FROM       saphee.eban AS a
+         INNER JOIN  saphee.ebkn AS b  ON b.banfn = a.banfn
+                                      AND b.bnfpo = a.bnfpo
+         INNER JOIN  saphee.prps AS c  ON c.pspnr = b.ps_psp_pnr
+         WHERE a.mandt = #G_MANDT#
+           AND b.mandt = #G_MANDT#
+           AND c.mandt = #G_MANDT#
+           AND a.matnr IN (SELECT substr(code2,1,9) from saphee.zlcode where mandt = #G_MANDT# and lang = 'ko' and code1 = '114')
+           AND a.loekz = ''
+          -- AND c.posid = '138418L01-P'
+		  AND c.POSID LIKE #NUM# || '%'
+ 
+      ) AS pr
+     LEFT OUTER JOIN saphee.ekpo AS a ON pr.mandt = a.mandt
+                                     AND pr.banfn = a.banfn
+                                     AND pr.bnfpo = a.bnfpo 
+     INNER JOIN saphee.ekko AS b ON b.ebeln = a.ebeln
+     INNER JOIN saphee.ekkn AS c ON c.ebeln = a.ebeln
+                                AND c.ebelp = a.ebelp
+     WHERE pr.mandt = #G_MANDT# 
+       AND a.mandt = #G_MANDT#
+       AND b.mandt = #G_MANDT#
+       AND c.mandt = #G_MANDT# 
+       AND a.loekz = ''
+   ) AS po
+  LEFT OUTER JOIN saphee.ekbe AS a ON po.mandt = a.mandt
+                                  AND po.ebeln = a.ebeln
+                                  AND po.ebelp = a.ebelp
+                                  AND a.vgabe = '1'
+) AS gr
+LEFT OUTER  JOIN SAPHEE.ZMASTER01 AS M1
+   ON M1.MANDT = GR.MANDT
+  AND M1.POSID = SUBSTR(GR.POSID,1,6)
+
+<isEqual col="COD" value="E">
+  AND M1.LIFNR = #G_VEND_CODE_E#
+</isEqual>
+
+--ORDER BY M1.POSID_1
+FOR FETCH ONLY
+WITH UR
+
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

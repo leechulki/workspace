@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.sso.dao.Sso0051ND"> 
+  
+	<resultMap id="selectListSpecResultMap" type="hdel.sd.sso.domain.Sso0051"> 
+		<result property="NAM_CHAR" column="NAM_CHAR"/>   	<!-- 특성코드   	-->
+		<result property="ATBEZ" 	column="ATBEZ"/>   	    <!-- 특성내역			-->
+		<result property="VALUE1" 	column="VALUE1"/>   	<!-- 특성값코드			-->
+		<result property="ATWTB1" 	column="ATWTB1"/>   	<!-- 특성값내역		-->
+		<result property="MATNR" 	column="MATNR"/>
+		<result property="KUNRG_NM" column="KUNRG_NM"/>
+		<result property="KUNRG_NM" column="KUNRG_NM"/>
+		<result property="DISPTP" column="DISPTP"/>  
+		<result property="MODITP" column="MODITP"/>
+		<result property="CNT" column="CNT"/>
+	</resultMap> 
+	
+	<!-- 계약변경 사양 조회   -->
+	<select id="selectListSpec" parameterType="hdel.sd.sso.domain.Sso0051ParamVO" resultMap="selectListSpecResultMap">
+	 SELECT  NAM_CHAR    -- 특성코드 
+	      , CABNT.ATBEZ       -- 내역 
+		  , CHAR_VALUE AS VALUE1  -- 특성값코드
+		  , ATWTB AS ATWTB1       -- 내역
+		  ,(select maktx from saphee.makt where mandt=z0094.mandt and matnr=z0094.matnr and spras='3'
+			union all
+			select maktx from saphee.zsdt1034 where mandt=z0094.mandt and vsmtr=z0094.matnr and spras='3') as MATNR
+		  , (SELECT NAME1 FROM SAPHEE.VBPA AS PA INNER JOIN SAPHEE.KNA1 AS A1 
+                                              ON  PA.MANDT = A1.MANDT 
+                                              AND PA.KUNNR = A1.KUNNR 
+                         WHERE PA.MANDT = '183' 
+                           AND PA.VBELN = LPAD(SUBSTR(#{HOGI},1,6), 10, '0') 
+                           AND PA.PARVW = 'RG') AS KUNRG_NM
+          , NVL((SELECT DISPTP FROM SAPHEE.ZSDT1141 WHERE MANDT = Z0091.MANDT AND BRNDSEQ = Z0091.BRNDSEQ AND ZPRDGBN = Z0091.CLASS AND BRNDCD = Z0091.BRNDCD AND PRH = Z0094.NAM_CHAR),'') AS DISPTP
+          , NVL((SELECT MODITP FROM SAPHEE.ZSDT1141 WHERE MANDT = Z0091.MANDT AND BRNDSEQ = Z0091.BRNDSEQ AND ZPRDGBN = Z0091.CLASS AND BRNDCD = Z0091.BRNDCD AND PRH = Z0094.NAM_CHAR),'') AS MODITP
+          , NVL(Z0094.CNT, 0) AS CNT
+	 FROM SAPHEE.ZSDT0094 AS Z0094
+	   INNER JOIN SAPHEE.CABN AS CABN ON Z0094.MANDT = CABN.MANDT AND Z0094.NAM_CHAR = CABN.ATNAM
+       INNER JOIN TABLE (
+                        SELECT MANDT
+                              ,PSPID
+                              ,SEQ
+                              ,HOGI
+                              ,CLASS
+                              ,CASE WHEN BRNDCD = '' THEN
+                                  'NOBRND'
+                                    WHEN BRNDCD IS NULL THEN
+                                  'NOBRND'
+                               ELSE
+                                   BRNDCD
+                               END AS BRNDCD
+                              ,BRNDSEQ
+                        FROM   SAPHEE.ZSDT0091 
+                        ) AS Z0091 ON Z0094.MANDT = Z0091.MANDT AND  Z0094.PSPID = Z0091.PSPID AND  Z0094.SEQ =   Z0091.SEQ AND  Z0094.HOGI =  Z0091.HOGI  
+	   LEFT OUTER JOIN SAPHEE.CABNT AS CABNT ON CABN.MANDT = CABNT.MANDT AND CABN.ATINN = CABNT.ATINN AND CABN.ADZHL = CABNT.ADZHL AND CABNT.SPRAS='3'
+	 WHERE Z0094.MANDT = #{MANDT}   
+	   AND Z0094.PSPID = SUBSTR(#{HOGI},1,6)
+       AND Z0094.HOGI = #{HOGI}
+       AND Z0094.SEQ  = ( select max(seq) from saphee.zsdt0090 where mandt = Z0094.mandt and pspid = Z0094.pspid)
+       ORDER BY CABNT.ATBEZ
+	 WITH UR
+	</select>
+	
+	<select id="selectsSyangPrd" parameterType="hashMap" resultType="hdel.sd.com.domain.BrndSayang">
+	<![CDATA[
+    SELECT A.BRNDCD
+         , A.PRH
+         , CASE E.ATWRT WHEN '' THEN 
+             CHAR(INTEGER(VALUE(E.ATFLV,0)))
+           ELSE 
+             E.ATWRT 
+           END AS PRD
+     FROM  SAPHEE.ZSDT1141 AS A
+           INNER JOIN SAPHEE.CABN AS B ON A.MANDT = B.MANDT AND A.PRH = B.ATNAM
+ 	       LEFT OUTER JOIN SAPHEE.ZSDT1073 AS C ON C.MANDT = A.MANDT AND C.CLASS = A.ZPRDGBN  AND C.ATNAM = A.PRH
+ 	       INNER JOIN SAPHEE.ZSDT1142  AS D ON A.MANDT = D.MANDT AND A.BRNDSEQ = D.BRNDSEQ AND A.ZPRDGBN = D.ZPRDGBN AND A.BRNDCD = D.BRNDCD AND A.PRH = D.PRH AND D.DIPSDAT > HEX(CURRENT DATE)
+ 	       LEFT OUTER JOIN	SAPHEE.CAWN AS E ON A.MANDT = E.MANDT AND B.ATINN = E.ATINN AND B.ADZHL = E.ADZHL AND D.PRD = E.ATWRT
+ 	       LEFT OUTER JOIN SAPHEE.ZSDT1072 AS F ON A.MANDT = F.MANDT AND B.ATNAM = F.ATNAM AND E.ATWRT = F.ATWRT
+     WHERE A.MANDT = #{MANDT}
+      AND  A.BRNDSEQ = #{BRNDSEQ} 
+      AND  A.ZPRDGBN = #{ZPRDGBN}
+      AND  A.BRNDCD  = #{BRNDCD}
+      AND  A.DIPSDAT > HEX(CURRENT DATE)
+      AND  C.ATNAM IS NULL
+      AND  F.ATWRT IS NULL
+     ORDER BY A.PRH, D.PRD
+     WITH UR
+    ]]>
+	</select>
+	
+</mapper>  

@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+-- 2020.11.30  VBPA, ZWBT010 테이블을  JOIN에서 제외하여 SELECT 절  VIEW로 바꿈
+SELECT 
+       A.VBELN 
+     , A.ZZPJT_ID
+     , A.AUART 
+     , A.SPART
+     , A.SPART_NM
+     , A.VKBUR 
+     , A.VKGRP
+     , A.LIFNR
+     , A.VKGRP_NM
+     --, A.ABR_NM
+     ,(SELECT X.ABR_NM  FROM SAPHEE.ZWBT010 AS X  WHERE X.MANDT = A.MANDT AND X.LIFNR = A.LIFNR) AS ABR_NM
+     , A.BSTDK 
+     , A.BSTNK 
+     , A.NETWR
+     , A.SUM_OFR
+     , A.CRDAT
+     , A.QTNUM
+     , A.DOC2 
+--     , A.FNAM
+	   , A.FNAM
+     , A.DOCNO
+     , A.CRDATE
+     , A.CRIRUM
+     , A.FSIZE  
+     , A.APIRUM 
+     , A.APIRUMS
+FROM (
+
+
+
+SELECT A.VBELN 
+     , A.ZZPJT_ID
+     , A.AUART 
+     , A.SPART
+     , A.SPART_NM
+     , A.VKBUR 
+     , A.VKGRP
+     , A.LIFNR
+     --,(SELECT X.LIFNR  FROM SAPHEE.VBPA AS X  WHERE X.MANDT =  A.MANDT  AND X.VBELN = A.VBELN AND X.PARVW = 'Z1' )  AS LIFNR
+     , A.MANDT
+     , A.VKGRP_NM
+     --, A.ABR_NM
+     , A.BSTDK 
+     , A.BSTNK 
+     , A.NETWR
+     , A.SUM_OFR
+     , A.CRDAT
+     , A.QTNUM
+     , A.DOC2 
+     
+--	 , CASE WHEN A.CS649_FNA IS NOT NULL THEN A.CS649_FNA
+--	 		ELSE A.FNAM
+--	   END AS FNAM
+     , A.FNAM	   
+	   
+     , A.DOCNO
+     , A.CRDATE
+     , A.CRIRUM
+     , A.FSIZE  
+     , A.APIRUMS  AS APIRUMS
+     , AP02R.APIRUM
+     ,CASE WHEN AP02R.MANDT IS NULL THEN '1'  ELSE  ROW_NUMBER() OVER(PARTITION BY AP02R.DOCNO  ORDER BY AP02R.APDATE DESC,AP02R.APTIM DESC  ) END AS SEQNS
+     
+ FROM (
+
+           SELECT VB.VBELN 
+                , VB.ZZPJT_ID
+                , VB.AUART 
+                , VB.SPART
+                , CASE WHEN VB.SPART = '10' THEN '승강기'  
+                       WHEN VB.SPART = '20' THEN '주차'
+                       ELSE  VB.SPART END
+                   
+                      AS SPART_NM
+                , VB.VKBUR 
+                , VB.VKGRP
+                --, VP.LIFNR
+                ,(SELECT X.LIFNR  FROM SAPHEE.VBPA AS X  WHERE X.MANDT =  VB.MANDT  AND X.VBELN = VB.VBELN AND X.PARVW = 'Z1' )  AS LIFNR -- 변경
+                , ZC01.CTEXT2 AS VKGRP_NM
+                --, W010.ABR_NM
+                ,VB.MANDT
+                , VB.BSTDK 
+                , VB.BSTNK 
+                , VB.NETWR * 100 AS NETWR
+                , CS001.SUM_OFR * 100 AS SUM_OFR
+                , CS001.CRDAT
+                , CS001.DOC2 
+                , CS001.QTNUM
+                , AP01.FNAM
+                , AP01.DOCNO
+                , AP01.CRDATE
+                , AP01.CRIRUM
+                , AP01.FSIZE
+                , AP02.APIRUM AS APIRUMS
+                , ROW_NUMBER() OVER(PARTITION BY AP02.DOCNO  ORDER BY AP02.APDATE DESC,AP02.APTIM DESC  ) AS SEQN
+           		--, CS649.CS649_FNA
+            FROM SAPHEE.VBAK AS VB LEFT OUTER JOIN SAPHEE.ZCST001 AS CS001 
+                                                ON CS001.MANDT = VB.MANDT 
+                                               AND CS001.PS_PSPID = VB.ZZPJT_ID
+              
+                                   LEFT OUTER JOIN SAPHEE.ZWBAP01 AS AP01 
+                                                ON AP01.MANDT = VB.MANDT 
+                                               AND AP01.DOCNO = CS001.DOC2
+                                               
+                                   LEFT OUTER JOIN SAPHEE.ZWBAP02 AS AP02 
+                                                ON AP02.MANDT = VB.MANDT 
+                                               AND AP02.DOCNO = CS001.DOC2
+                                               AND AP02.APPGUBN = 'S' -- 기안 부서
+                                                                      
+                                   LEFT OUTER JOIN SAPHEE.ZLCODE AS ZC01 
+                                                ON ZC01.MANDT = VB.MANDT 
+                                               AND ZC01.CODE2 = VB.VKGRP 
+                                               AND ZC01.CODE1 = 'VKGRP'
+                                   /*
+                                   LEFT OUTER JOIN SAPHEE.VBPA AS VP 
+                                                ON VP.MANDT = VB.MANDT 
+                                               AND VP.PARVW = 'Z1' 
+                                               AND VP.VBELN = VB.VBELN
+                                   
+                                   LEFT OUTER JOIN SAPHEE.ZWBT010 AS W010 
+                                                ON W010.MANDT = VB.MANDT
+                                               AND W010.LIFNR = VP.LIFNR
+                                   */
+                                            
+                                   --LEFT OUTER JOIN SAPHEE.ZCST649 AS CS649
+                                   --             ON CS001.MANDT = CS649.MANDT
+                                   --            AND CS001.QTNUM = CS649.CS649_DOC||'0'
+             
+           WHERE VB.MANDT = #G_MANDT#
+             AND VB.BSTDK BETWEEN #DAT1# AND #DAT2#
+             AND VB.AUART IN ('ZR12','ZR13')
+             --AND VB.VKBUR IN ('EA00','EB00','EC00','ED00','EE00','EF00','EI00')
+             --AND VB.VKBUR IN ('EA00','EB00','EC00','ED00','EE00','EF00','EI00','BJ00','EK00')
+             AND VB.VKBUR IN ('EA00','EB00','EC00','ED00','EE00','EF00','EI00','BJ00','EK00','BK00','BL00','BM00')
+             
+             --AND VB.NETWR > 100000      
+             --AND AP01.FNAM != ''
+         <isNotNull col="UPN">
+             AND VB.ZZPJT_ID LIKE #UPN#||'%'
+         </isNotNull>   
+         <isNotNull col="AUART">
+             AND VB.AUART = #AUART#
+         </isNotNull>    
+         <isNotNull col="SPART">
+             AND VB.SPART = #SPART#
+         </isNotNull>   
+         <!-- <isNotNull col="ARA">
+             AND W010.BSU_ARA = #ARA#
+         </isNotNull>   
+         <isNotNull col="BSU">
+             AND W010.LGORT = #BSU#
+         </isNotNull>   
+         <isNotNull col="BPM">
+             AND W010.BSU_PM = #BPM#
+         </isNotNull> -->
+         <isNotNull col="TEM">
+             AND VB.VKGRP = #TEM#
+         </isNotNull>     
+         <isNotNull col="DPT">
+             AND VB.VKBUR = #DPT#
+         </isNotNull> 
+ 
+) AS A                          
+                                   LEFT OUTER JOIN SAPHEE.ZWBAP02 AS AP02R 
+                                                ON AP02R.MANDT = #G_MANDT#
+                                               AND AP02R.DOCNO = A.DOC2
+                                               AND AP02R.APPGUBN = 'R' -- 수신 부서
+                                   LEFT OUTER JOIN SAPHEE.ZWBT010 AS W010 ---------------추가
+                                                ON W010.MANDT = A.MANDT
+                                               AND W010.LIFNR = A.LIFNR                                               
+              
+
+
+WHERE A.SEQN = '1'
+         <isNotNull col="ARA">
+             AND W010.BSU_ARA = #ARA#
+         </isNotNull>   
+         <isNotNull col="BSU">
+             AND W010.LGORT = #BSU#
+         </isNotNull>   
+         <isNotNull col="BPM">
+             AND W010.BSU_PM = #BPM#
+         </isNotNull>
+) AS A 
+WHERE A.SEQNS = '1'
+
+ORDER BY A.FNAM DESC
+
+WITH UR	
+
+  </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

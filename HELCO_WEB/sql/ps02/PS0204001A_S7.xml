@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[화면 메인 조회쿼리]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT   CHECK, ZZGUBUN, T.POSID, T.POSID_1, POSID_OLD
+	         , ZSPEC1, ZSPEC2, ZZDAT01, ZZCOMP2, ZZJUNGD, TEXT30, NAMET, TXT30 
+	   		 , LIF_NAME, NAMET2, PRO_R, VER, T.MANDT
+	   		 , (SELECT PROWRK FROM SAPHEE.ZPST0112 C WHERE C.MANDT=T.MANDT 
+	     	   		   AND C.POSID=T.POSID_1 AND C.PSPID=T.POSID AND C.PRONR = T.MPROR) PROWRK
+	         , (SELECT PRONR FROM SAPHEE.ZPST0112 D WHERE D.MANDT=T.MANDT 
+	     	   		   AND D.POSID=T.POSID_1 AND D.PSPID=T.POSID AND D.PRONR = T.MPROR) PRONR
+	         ,T.ZQEGEMSA -- QE검사일
+             ,T.ZBOSUOUT -- 보수인계일
+             , '' AS SAFE2
+                 
+             , (CASE WHEN ZZGUBUN = '10' OR ZZGUBUN = '11' OR ZZGUBUN = '12'  OR ZZGUBUN = '20' THEN VALUE(T.SAFE, '')  ELSE 'Z' END) AS SAFE
+   			 
+			 
+			 , CASE WHEN ZZGUBUN = '10' AND  ZSPEC1 = 'DW' OR ZSPEC1 = 'STVF' OR ZSPEC1 = 'LXVF' OR ZSPEC1 = 'HSVF' OR ZSPEC1 = 'SUVF' OR ZSPEC1 = 'HYD' THEN 'MR'
+	               		 WHEN ZZGUBUN = '10' AND  ZSPEC1 = 'SSVF'  AND ZSPEC1 = 'WBSS' OR ZSPEC12 &lt;&gt; 'WBSS2' THEN 'MRL'
+				   		 WHEN ZZGUBUN = '10' AND ZSPEC1 = 'WBSS' AND  ZSPEC12 = 'WBSS2' THEN 'NEW MRL'
+				   		 ELSE '' 
+				END ZSPEC                 
+             
+				
+				
+			 ,T.TYPE               ---추가  
+			 ,T.BFTYPE
+			 
+			 ,CASE WHEN T.BFTYPE = 'X' THEN '이전공정표' 
+			             ELSE ( CASE WHEN T.TYPE = '' THEN '없음'
+						                      ELSE (SELECT X.TYPENM    FROM SAPHEE.ZPST1105 AS X
+											                                            WHERE X.MANDT = T.MANDT 
+																						     AND X.GUBUN = T.ZZGUBUN       
+																							 AND X.TYPE = T.TYPE)
+									 END )      
+			   END AS TYPENM				
+				
+				
+				
+				
+				
+   
+   		     ,CASE WHEN ZZILSIC = 'X' THEN 'O' ELSE '' END ZZILSIC              
+			 ,(SELECT C.APSTAT  FROM SAPHEE.ZPST0164 AS  C WHERE C.MANDT=T.MANDT AND C.POSID = T.POSID AND C.POSID_1 = T.POSID_1)  AS APSTAT
+
+    FROM (
+				SELECT   '0' CHECK, Z.ZZGUBUN, Z.POSID, Z.POSID_1, Z.POSID_OLD, Z.MANDT
+					   	 	  , Z.ZSPEC1, Z.ZSPEC2,Z.ZSPEC12, Z.ZZDAT01, Z.ZZCOMP2, Z.ZZJUNGD, Z.TEXT30, Z.NAMET, Z.TXT30 ,Z.ZZILSIC	   
+					   		  , (SELECT MAX(B.NAME1) FROM SAPHEE.ZMMT012 B WHERE B.MANDT=Z.MANDT AND B.LIFNR=z.LIFNR) LIF_NAME
+					   		  , Z.NAMET2
+				              ,Z.ZQEGEMSA -- QE검사일
+				              ,Z.ZBOSUOUT -- 보수인계일	 
+				              , (SELECT SUM(B.PRO_R) FROM SAPHEE.ZPST0112 B WHERE B.POSID=Z.POSID_1 AND B.MANDT=Z.MANDT AND B.PSPID=Z.POSID) PRO_R	   
+					   		  , (SELECT MAX(B.PRONR) FROM SAPHEE.ZPST0112 B WHERE B.POSID=Z.POSID_1 AND B.MANDT=Z.MANDT AND B.PSPID=Z.POSID AND CRDAT!='00000000') MPROR
+					   		  , (SELECT MAX(B.VER) FROM SAPHEE.ZPST0111 B WHERE B.MANDT=Z.MANDT AND B.GUBUN=GUBUN AND B.PRONR = PRONR AND B.TYPE = Z.TYPE) VER
+				              , (SELECT   MAX(E.GUBUN)
+					                FROM SAPHEE.ZPSTW0207 AS E
+							      WHERE E.MANDT = Z.MANDT
+							           AND E.PSPID = Z.POSID
+								 	   AND E.POSID = Z.POSID_1 
+							      GROUP BY E.MANDT, E.PSPID, E.POSID)  AS SAFE 	
+							  ,Z.TYPE   ,Z.BFTYPE
+				 
+				
+					FROM SAPHEE.ZMASTER02 Z
+                      LEFT OUTER JOIN SAPHEE.ZPST0112C AS F
+                        ON Z.MANDT = F.MANDT
+	                   AND Z.POSID = F.PSPID
+	                   AND Z.POSID_1 = F.POSID
+	       WHERE  Z.MANDT = #G_MANDT#
+	              --ZZCHAKG = 'X' 
+		        AND Z.ZZGUBUN IN ('10','11','12','20')
+		        AND Z.PRART IN ('01','02','11')
+		        AND Z.TXT04 NOT IN ('C','B','R7')
+		        AND (Z.ZZCHAKG = 'X' OR F.POSID IS NOT NULL) 
+		  
+		        AND (Z.BFTYPE = 'X' OR Z.TYPE &lt;&gt; '')
+	
+				<isNotNull col="POSID">
+				   AND   Z.POSID = #POSID# 
+				</isNotNull>
+				<isNotNull col="LIFNR">
+			       AND   Z.LIFNR = #LIFNR#
+		        </isNotNull> 
+		  
+	
+		  ) T
+order by T.posid ,T.posid_1
+
+FOR FETCH ONLY	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list3">
+	</output>
+</query>

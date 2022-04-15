@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[주차 자재 교체 대상 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT 
+    MANDT
+  , '' AS CHECK
+  , ARA                  -- 대지역          
+  , ZZBSU              -- 협력사          
+  , BSU                  -- 협력사 코드
+  , ZGUBUN           -- 건물용도         
+  , NAM	              -- 고객명          
+  , POSID	              -- 원WBS         
+  , HNO                 -- 호기           
+  , HNA                  -- 호기명          
+  , ZBEPJEO           -- 완성검사일        
+  , ZBOSUIN            -- 보수인수일        
+  , ZOIPSU              --  입주일     
+  , MAT_CODE
+  , MATNR
+  , MAKTX
+  , EXDATE
+  , CHDATE
+  , POSID_1
+FROM (
+   SELECT
+         ZMA.MANDT AS MANDT
+       , Z01.CS101_ARA AS ARA                                                       -- 대지역
+       , SAPHEE.GET_VENDER_NAME(ZMA2.MANDT, ZMA2.ZZBSU) AS ZZBSU         -- 협력사
+       , ZMA2.ZZBSU AS BSU                                                          -- 협력사 코드
+       , ZMA2.ZGUBUN   AS ZGUBUN                                               -- 건물용도
+       , CASE WHEN ZMA.KUNNR_NM > '' THEN ZMA.KUNNR_NM ELSE ZMA.ZSITE_NM END  AS NAM			          -- 고객명
+       , ZMA.POSID AS POSID	                                          -- 원WBS
+       , Z01.CS101_HNO AS HNO                                       -- 호기
+       , Z01.CS101_HNA AS HNA                                        -- 호기명
+       , ZMA2.ZBEPJEO AS ZBEPJEO                                -- 완성검사일
+       , ZMA2.ZBOSUIN    AS ZBOSUIN                              -- 보수인수일
+       , ZMA2.ZOIPSU    AS ZOIPSU                                  --  입주일
+       , M95.MAT_CODE AS MAT_CODE                            -- 보수 관리 코드
+       , M95.MATNR AS MATNR                                        -- 자재번호
+       , M11.MAKTX AS MAKTX                                        --  품명
+       , SAPHEE.GET_MM_CHANGEDATE(ZMA.MANDT,VALUE(M95.CHDATE,''), M95.MAT_CODE) AS EXDATE         --  출고일
+       , M95.CHDATE AS CHDATE
+       , ZMA2.POSID_1 AS POSID_1
+    FROM SAPHEE.ZMMT095 AS M95 
+            LEFT OUTER JOIN SAPHEE.ZMASTER02 AS ZMA2 ON ZMA2.MANDT = M95.MANDT AND ZMA2.POSID_1 = M95.POSID
+	        LEFT OUTER JOIN SAPHEE.ZMASTER01 AS ZMA ON ZMA2.MANDT = ZMA.MANDT
+			                                                                          AND ZMA2.POSID = ZMA.POSID
+            LEFT OUTER JOIN SAPHEE.ZCST101 AS Z01 ON Z01.MANDT  = ZMA.MANDT	-- 보수 인수인계 정보
+               AND Z01.CS101_PJT || Z01.CS101_HNO = ZMA2.POSID_1 
+			LEFT OUTER JOIN SAPHEE.ZMMT011 M11 ON M11.MANDT = M95.MANDT
+			                                                                 AND M11.MATNR = M95.MATNR  
+
+    WHERE M95.MANDT = #G_MANDT#
+       AND ZMA.POSID > ''
+<isNotNull col="POSID">
+       AND M95.POSID LIKE #POSID# || '%'
+</isNotNull>
+<isNotNull col="MAT_CODE">
+      AND M95.MAT_CODE = #MAT_CODE#
+</isNotNull>
+<isEqual col="GBN" value="A">
+	   AND ZMA2.ZZBSU = #CB3#
+</isEqual>
+<isEqual col="GBN" value="B">
+	   AND ZMA2.ZZBPM = #CB2#
+</isEqual>
+<isEqual col="GBN" value="C">
+                 AND ZMA2.ZZBSU IN (SELECT MM005.LGORT FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT005 MM005
+		                      WHERE B010.MANDT = MM005.MANDT
+		                      AND B010.LIFNR = MM005.LIFNR
+                                                  AND B010.MANDT= #G_MANDT# 
+		                      AND B010.VKGRP LIKE #CB2# || '%')
+</isEqual>
+
+) AS A
+WHERE 1=1
+<isNotNull col="DATE_TO">
+    AND  EXDATE &lt; #DATE_TO#
+</isNotNull>
+ORDER BY ARA, BSU, ZGUBUN, POSID, HNO, MAT_CODE, MATNR
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="MAT_CODE" size="255" type="VARCHAR" description="" /> 
+		<col name="CB3" size="255" type="VARCHAR" description="" /> 
+		<col name="CB2" size="255" type="VARCHAR" description="" /> 
+		<col name="DATE_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="GBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="ARA" size="6" type="VARCHAR" description="" /> 
+		<col name="CHDATE" size="24" type="VARCHAR" description="" /> 
+		<col name="CHECK" size="0" type="VARCHAR" description="" /> 
+		<col name="EXDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="HNA" size="90" type="VARCHAR" description="" /> 
+		<col name="HNO" size="9" type="VARCHAR" description="" /> 
+		<col name="MAKTX" size="120" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="MAT_CODE" size="9" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="NAM" size="105" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POSID_1" size="72" type="VARCHAR" description="" /> 
+		<col name="ZBEPJEO" size="24" type="VARCHAR" description="" /> 
+		<col name="ZBOSUIN" size="24" type="VARCHAR" description="" /> 
+		<col name="ZGUBUN" size="6" type="VARCHAR" description="" /> 
+		<col name="ZOIPSU" size="24" type="VARCHAR" description="" /> 
+		<col name="ZZBSU" size="100" type="VARCHAR" description="" /> 
+	</output>
+</query>

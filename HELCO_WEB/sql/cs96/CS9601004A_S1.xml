@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[청구번호 팝업 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT AMOUNT, REQNO, POSID, REQDATE, REQKIND, ZSITE_NM, REQKIND_NAME, CCSB1EPN, QTGBN, CRDAT, CREID, RECE_F, QTNUM, QTDAT, NAME1, SUM(DMBTR) DMBTR
+FROM (SELECT T031.REQNO, T031.POSID, T031.REQDATE, T031.REQKIND, T031.RECE_F
+	 ,T031.CREID, T031.QTNUM, T031.DMBTR, T031.LGORT, T031.MANDT
+	 ,(SELECT ZSITE_NM FROM SAPHEE.ZMASTER01 WHERE MANDT=#G_MANDT# AND POSID=T031.POSID) ZSITE_NM
+	 ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT=#G_MANDT# AND LANG = #G_LANG# AND CODE1='3' AND CODE2=T031.REQKIND) REQKIND_NAME
+	 ,(SELECT CCSB1EPN FROM SAPHEE.ZTBCSB1 WHERE MANDT=#G_MANDT# AND CCSB1EMP=T031.CREID) CCSB1EPN
+	 ,SAPHEE.GET_VENDER_NAME (CAST(#G_MANDT# AS CHAR(3)),T031.LGORT ) AS NAME1
+	 ,(CASE WHEN T031.QTNUM!='' THEN '견적완료' ELSE '미작성' END) QTGBN
+	 ,(CASE WHEN T031.QTNUM!='' THEN (SELECT CRDAT FROM SAPHEE.ZCST001 WHERE MANDT=#G_MANDT# AND QTNUM=T031.QTNUM) ELSE '' END) CRDAT
+	 
+	 
+	 , T001.AMOUNT , T001.QTDAT
+FROM SAPHEE.ZMMT031 T031
+	 LEFT OUTER JOIN SAPHEE.ZCST001 T001 
+	 ON T001.QTNUM = T031.QTNUM
+WHERE 1=1 
+AND   REQDATE BETWEEN #FROM_DT# AND #TO_DT#
+AND   LGORT = #COMBO3#
+
+<isEqual col="REQ_GBN" value="">
+	AND T031.REQKIND IN ('1','6','7','G')  
+</isEqual>
+<isNotNull col="REQ_GBN">
+	AND T031.REQKIND = #REQ_GBN#
+</isNotNull>
+<isNotNull col="PROJNO">
+	AND T031.POSID LIKE #PROJNO#
+</isNotNull>
+<isEqual col="STATUS" value="1">
+AND   T031.QTNUM = ''
+</isEqual>
+<isEqual col="STATUS" value="2">
+AND   T031.QTNUM != ''
+</isEqual>
+
+) A  GROUP BY AMOUNT, REQNO, POSID, REQDATE, REQKIND, ZSITE_NM, REQKIND_NAME, CCSB1EPN, QTGBN, CRDAT, RECE_F, QTNUM, CREID, QTDAT, NAME1
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="FROM_DT" size="54" type="VARCHAR" description="" /> 
+		<col name="TO_DT" size="255" type="VARCHAR" description="" /> 
+		<col name="COMBO3" size="54" type="VARCHAR" description="" /> 
+		<col name="REQ_GBN" size="54" type="VARCHAR" description="" /> 
+		<col name="PROJNO" size="54" type="VARCHAR" description="" /> 
+		<col name="STATUS" size="54" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

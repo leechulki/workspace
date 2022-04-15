@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT '' CHK, '' FLAG,
+         MS002.MANDT    AS MANDT                                          -- 클라이언트번호
+        ,MS002.POSID    AS POSID                                          -- Project
+        ,MS001.ZSITE_NM AS ZSITE_NM                                       -- Project 명
+        ,MS002.POSID_1  AS POSID_1                                        -- 호기
+        ,'8970'         AS ART                                            -- 검사유형
+        ,MS002.ZSPEC1   AS ZSPEC1                                         -- 기종
+        ,MS002.ZSPEC2   AS ZSPEC2                                         -- SPEC(사양)
+        ,'01'           AS SEQ                                            -- 차수(입력시 자동 증가)
+        ,'0'            AS GUBUN                                          -- 검사신청
+        ,MS002.ZZGUBUN  AS ZZGUBUN                                        -- 구분
+        ,''             AS PARQDT                                         -- 검사요청일
+        ,CS101_IJY      AS IJY                                            -- 입주예정일
+        ,MS002.ZBOSUIN  AS ZBOSUIN                                        -- 인수일
+        ,MS002.ZZJUNGD  AS ZZJUNGD                                        -- 준공일
+        ,MS002.ZQEGEMSA AS ZQEGEMSA                                       -- QC검사일
+        ,MS002.PAPRID   AS PAPRID                                         -- QC 검사자 사번
+        ,VALUE(( SELECT
+                 TRIM(IRUM)
+                 FROM SAPHEE.ZHRT001 AS HR001
+                 WHERE HR001.MANDT=MS002.MANDT
+                   AND HR001.PSNO =MS002.PAPRID
+               ), MS002.PAPRID) AS PARTID_NM
+        ,MS002.ZBEPJEO  AS ZBEPJEO                                        -- 법정검사일자
+        ,VALUE(( SELECT DISTINCT
+                 MM028.CTEXT2
+                 FROM SAPHEE.ZPST0024 AS PS024
+                     ,SAPHEE.ZLCODE  AS MM028
+                 WHERE PS024.MANDT = MM028.MANDT
+                   AND PS024.CODE2 = MM028.CODE2
+                   AND PS024.MANDT = MS002.MANDT
+                   AND PS024.PSPID = MS002.POSID
+                   AND PS024.POSID = MS002.POSID_1
+                   AND MM028.CODE1 = 'PS004'
+                   AND MM028.LANG = #G_LANG# 
+               ), '') AS ZBEPJEO_NM
+        ,MS002.LIFNR    AS LIFNR                                          -- 설치업체
+        ,SAPHEE.GET_VENDER_NAME(MS002.MANDT,MS002.LIFNR) AS LIFNR_NM      -- 설치업체명
+        ,MS002.TEMNO2    AS TEMNO                                          -- 설치PM
+        ,MS002.NAMET    AS NAMET                                          -- 설치PM명
+        ,MS002.ZZBSU    AS ZZBSU                                          -- 보수업체
+        ,SAPHEE.GET_VENDER_NAME(MS002.MANDT,MS002.ZZBSU) AS ZZBSU_NM      -- 보수업체명
+        ,MS002.ZZBPM    AS ZZBPM                                          -- 보수PM
+        ,VALUE(( SELECT
+                 TRIM(IRUM)
+                 FROM SAPHEE.ZHRT001 AS HR001
+                 WHERE HR001.MANDT=MS002.MANDT
+                   AND HR001.PSNO ='H' || MS002.ZZBPM
+               ), MS002.PAPRID) AS ZZBPM_NM
+        ,CASE WHEN INT(MS002.ZMUSAUCNT) > 0 THEN '1'
+                  ELSE '0'
+         END AS ZMUSAUCNT                                     -- 공사용 사용 개월수
+        ,MS001.ZZACTSS  AS ZZACTSS                                        -- 설치대지역
+        ,TRIM(MS001.ADDR1) || ' ' || TRIM(MS001.ADDR2) AS ADDR            -- 현장주소
+        ,TRIM(MS001.ADDR1) AS ADDR1                                       -- 현장명
+        ,MS001.ZCITY    AS ZCITY                                          -- 설치지역
+        ,MS001.ZCITY_NM AS ZCITY_NM                                       -- 설치지역명
+        ,MS002.POSID_OLD
+FROM SAPHEE.ZMASTER02 AS MS002
+     LEFT OUTER JOIN SAPHEE.ZQMT019 AS QM019  ON QM019.MANDT = MS002.MANDT
+                                             AND QM019.WERKS = '1000'
+                                             AND QM019.HOGI  = MS002.POSID_1
+                                             AND QM019.ART   = '8970'
+                                             AND QM019.DSCODE IN ('A','B','C','D','H','E',' ','')
+    ,SAPHEE.ZMASTER01 AS MS001
+    ,SAPHEE.ZCST101   AS CS101
+WHERE MS002.MANDT = MS001.MANDT
+  AND MS002.POSID = MS001.POSID
+  AND MS002.MANDT = #G_MANDT#
+  AND MS002.MANDT = CS101.MANDT
+  AND MS002.POSID = CS101.CS101_PJT
+  AND SUBSTR(MS002.POSID_1,7) = CS101.CS101_HNO
+--  AND MS002.ZOIPSU = '00000000'                                   -- 입주일자가 없는것
+
+--  AND MS001.ZQNTY > '01'                                          -- 관리대수가 1대 이상
+  AND MS001.ZQNTY > 1                                          -- 관리대수가 1대 이상
+
+  AND QM019.MANDT IS NULL                                         -- 신청 진행중인것은 제외
+<isEqual col="GBN" value="A">
+  AND MS002.POSID LIKE #POSID#||'%'             -- 프로젝트번호
+</isEqual>  
+<isEqual col="GBN" value="B">
+  AND MS002.ZBOSUIN BETWEEN #BOSUIN_F# AND #BOSUIN_T#             -- 인수기간
+</isEqual>
+<isNotNull col="ARA">
+  AND MS001.ZZARA = #ARA#                                         -- 보수대지역
+</isNotNull>
+<isNotNull col="BPM">
+  AND MS002.ZZBPM = #BPM#                                         -- 보수PM
+</isNotNull>
+<isNotNull col="BSU">
+  AND MS002.ZZBSU = #BSU#                                         -- 보수협력사
+</isNotNull>
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="BOSUIN_F" size="255" type="VARCHAR" description="" /> 
+		<col name="BOSUIN_T" size="255" type="VARCHAR" description="" /> 
+		<col name="ARA" size="255" type="VARCHAR" description="" /> 
+		<col name="BPM" size="255" type="VARCHAR" description="" /> 
+		<col name="BSU" size="255" type="VARCHAR" description="" /> 
+		<col name="GBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="ADDR" size="211" type="VARCHAR" description="" /> 
+		<col name="ART" size="4" type="VARCHAR" description="" /> 
+		<col name="GUBUN" size="0" type="VARCHAR" description="" /> 
+		<col name="IJY" size="24" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="30" type="VARCHAR" description="" /> 
+		<col name="LIFNR_NM" size="100" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="NAMET" size="60" type="VARCHAR" description="" /> 
+		<col name="PAPRID" size="30" type="VARCHAR" description="" /> 
+		<col name="PARQDT" size="0" type="VARCHAR" description="" /> 
+		<col name="PARTID_NM" size="36" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POSID_1" size="72" type="VARCHAR" description="" /> 
+		<col name="SEQ" size="2" type="VARCHAR" description="" /> 
+		<col name="TEMNO" size="18" type="VARCHAR" description="" /> 
+		<col name="ZBEPJEO" size="24" type="VARCHAR" description="" /> 
+		<col name="ZBEPJEO_NM" size="60" type="VARCHAR" description="" /> 
+		<col name="ZBOSUIN" size="24" type="VARCHAR" description="" /> 
+		<col name="ZCITY" size="12" type="VARCHAR" description="" /> 
+		<col name="ZCITY_NM" size="90" type="VARCHAR" description="" /> 
+		<col name="ZMUSAUCNT" size="6" type="VARCHAR" description="" /> 
+		<col name="ZQEGEMSA" size="24" type="VARCHAR" description="" /> 
+		<col name="ZSITE_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="ZSPEC1" size="15" type="VARCHAR" description="" /> 
+		<col name="ZSPEC2" size="75" type="VARCHAR" description="" /> 
+		<col name="ZZACTSS" size="9" type="VARCHAR" description="" /> 
+		<col name="ZZBPM" size="30" type="VARCHAR" description="" /> 
+		<col name="ZZBPM_NM" size="36" type="VARCHAR" description="" /> 
+		<col name="ZZBSU" size="15" type="VARCHAR" description="" /> 
+		<col name="ZZBSU_NM" size="100" type="VARCHAR" description="" /> 
+		<col name="ZZJUNGD" size="24" type="VARCHAR" description="" /> 
+	</output>
+</query>

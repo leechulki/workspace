@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[BOX 거래명세서 상세 - DETAIL]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+	--20190411 제니퍼 SQL 부하로 인한 수정(UDATE 조건 제거-원복처리) LCH
+SELECT
+     *
+FROM (
+ SELECT 
+    '' AS FLAG
+    ,'0' AS CHECK
+	, MM013B.EBELN AS EBELN
+ 	, MM013B.EBELP AS EBELP
+ 	, MM013B.POSID AS POSID
+ 	, MM013B.POST1 AS POST1
+ 	, MM013B.EKGRP AS EKGRP
+ 	, MM013B.KNTTP AS KNTTP
+ 	, MM013B.PSTYP AS PSTYP
+ 	, MM013B.WERKS AS WERKS
+ 	, MM013B.LNAME AS NAME1
+ 	, MM013B.NAME1 AS WERKS_TXT
+ 	, MM013B.LGORT AS LGORT
+ 	, MM013B.LGOBE AS LGOBE
+ 	, MM013B.MATNR AS MATNR
+ 	, (MM011.MATNR_NM ||','|| MM011.ZSIZE ||','|| MM011.SPEC) AS MAKTX
+ 	, MM013B.GROES AS GROES
+ 	, MM013B.ZEINR AS ZEINR
+ 	, MM013B.EXTWG AS EXTWG
+ 	, MM013B.POTYPE AS POTYPE
+ 	, MM013B.MENGE AS MENGE
+ 	, (MM013B.MENGE - VALUE(MM017A.MENGE, 0)) AS MENGE1
+ 	, MM017A.B_MENGE AS B_MENGE
+ 	, MM013B.MEINS AS MEINS
+ 	, MM013B.EINDT AS EINDT
+ 	, SAPHEE.GET_CURRDATA(MM013B.WAERS,MM013B.NETPR) AS NETPR
+ 	, MM013B.WAERS AS WAERS
+ 	, SAPHEE.GET_ZERODATE(MM013B.UDATE) AS UDATE
+ 	, MM013B.EDATE AS EDATE
+ 	, MM013B.ETIME AS ETIME
+ 	, MM013B.VALUE AS VALUE
+ 	, CASE WHEN INTEGER(MM017A.INVNR) > 0 THEN MM017A.CHAR1 ELSE MM013B.CHAR1 END AS CHAR1
+ 	, CASE WHEN INTEGER(MM017A.INVNR) > 0 THEN SAPHEE.GET_ZERODATE(MM017A.CHDAT) 
+                         ELSE SAPHEE.GET_ZERODATE(MM013B.CHDAT) END AS CHDAT
+ 	, CASE WHEN INTEGER(MM017A.INVNR) > 0 THEN SAPHEE.GET_ZERODATE(MM017A.CHTIM) 
+                         ELSE SAPHEE.GET_ZERODATE(MM013B.CHTIM) END AS CHTIM
+ 	, MM017A.INS_Q  AS INS_Q
+ 	, SAPHEE.GET_ZERODATE(MM013B.SDATE) AS SDATE
+ 	, SAPHEE.GET_ZERODATE(MM013B.STIME) AS STIME
+ 	, SAPHEE.GET_ZERODATE(MM013B.DDATE) AS DDATE
+ 	, SAPHEE.GET_ZERODATE(MM013B.DTIME) AS DTIME
+ 	, VALUE(MM017A.PRO_F, '10') AS PRO_F
+ 	, MM013B.INFNR AS INFNR
+ 	, MM013B.LIFNR AS LIFNR
+ 	, MM013B.MANDT AS MANDT
+	, MM013B.STATE AS STATE
+ 	, '' AS RDATE_P
+ 	, MM017A.INVNR AS INVNR
+ 	, MM017A.INVITEM AS INVITEM
+ 	, SAPHEE.CHECK_BOX(MM013B.MANDT, MM013B.POSID, MM013B.EXTWG) AS BOX
+-- 	,CASE WHEN MM025.SHIPDAT1 IS NULL    THEN '00000000'
+-- 	       WHEN MM011.BLOCK_NO = ''       THEN MM025.SHIPDAT2
+--  	       WHEN MM011.BLOCK_NO LIKE 'A%'  THEN MM025.SHIPDAT1
+--  	       WHEN MM011.BLOCK_NO LIKE 'B%'  THEN MM025.SHIPDAT2 
+-- 	       WHEN MM011.BLOCK_NO LIKE 'C%'  THEN MM025.SHIPDAT3  
+-- 	       WHEN MM011.BLOCK_NO LIKE 'D%'  THEN MM025.SHIPDAT4  
+-- 	       WHEN MM011.BLOCK_NO LIKE 'E%'  THEN MM025.SHIPDAT5 ELSE '00000000' END AS SHIPDAT 
+-- 신구박스 변경으로 출하예정이 조회 변경 2012.02.10 HSS
+ 	, CASE WHEN MM013B.EXTWG = '' OR (MM013B.BOX_CK = '' AND MM013B.EXTWG='BOX33') OR (MM013B.BOX_CK = '24' AND MM013B.EXTWG='BOX24') THEN 
+		  (CASE WHEN MM025.SHIPDAT1 IS NULL    THEN '00000000'
+ 	                WHEN MM011.BLOCK_NO = ''       THEN MM025.SHIPDAT2
+  	                WHEN MM011.BLOCK_NO LIKE 'A%'  THEN MM025.SHIPDAT1
+  	                WHEN MM011.BLOCK_NO LIKE 'B%'  THEN MM025.SHIPDAT2 
+ 	                WHEN MM011.BLOCK_NO LIKE 'C%'  THEN MM025.SHIPDAT3  
+ 	                WHEN MM011.BLOCK_NO LIKE 'D%'  THEN MM025.SHIPDAT4  
+ 	                WHEN MM011.BLOCK_NO LIKE 'E%'  THEN MM025.SHIPDAT5 ELSE '00000000' END) 
+		   ELSE		   
+		   (CASE ( CASE WHEN MM013B.BOX_CK = '24' THEN  (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026_1 WHERE MANDT= MM013B.MANDT AND BOXNO = MM013B.EXTWG)
+		                           ELSE   (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026 WHERE MANDT= MM013B.MANDT AND BOXNO = MM013B.EXTWG) END )
+				    WHEN '1' THEN MM025.SHIPDAT1
+				    WHEN '2' THEN MM025.SHIPDAT2
+				    WHEN '3' THEN MM025.SHIPDAT3
+				    WHEN '4' THEN MM025.SHIPDAT4
+				    WHEN '5' THEN MM025.SHIPDAT5  ELSE '00000000' END)  END   AS SHIPDAT 
+          , CASE WHEN SAPHEE.GET_JAJEA_BALJU(MM013B.MANDT, MM013B.POSID,MM013B.MATNR) &lt; 0 THEN '1' ELSE '0' END   AS BIGO
+            --   ,'0' AS BIGO
+               , VALUE(SAPHEE.GET_PROJ_END(MM013B.MANDT,MM013B.POSID ),'') AS P_END
+ 	, MM013B.BOX_CK AS BOX_CK
+  FROM SAPHEE.ZMMT013 AS MM013B
+  LEFT OUTER JOIN ( 
+                  SELECT 
+                      MM017.MANDT
+                    , MM017.EBELN
+                    , MM017.EBELP
+                    , COALESCE(SUM(MM017.MENGE - MM017.B_MENGE),0) AS MENGE
+                    , COALESCE(SUM(MM017.B_MENGE),0) AS B_MENGE
+                    , MAX(INVNR) AS  INVNR
+                    , MAX(INVITEM) AS INVITEM
+                    , MIN(PRO_F)AS PRO_F
+                    , MAX(CHAR1) AS CHAR1
+                    , MAX(CHDAT) AS CHDAT
+                    , MAX(CHTIM) AS CHTIM
+                    , SUM(INS_Q) AS INS_Q
+                    , MAX(MBLNR) AS MBLNR
+                  FROM SAPHEE.ZMMT017 AS MM017
+                  WHERE MM017.MANDT = #G_MANDT#
+                      AND MM017.LIFNR = #LIFNR#                
+                      AND MM017.LGORT = #LGORT#
+                <isEqual col="GUBN" value="1">
+                      AND MM017.UDATE BETWEEN #UDATE_FM# AND #UDATE_TO#
+                </isEqual>
+                <isEqual col="GUBN" value="2">
+                      AND MM017.SDATE BETWEEN #UDATE_FM# AND #UDATE_TO#
+                </isEqual>
+
+                     <isNotNull col="WERKS">
+                      AND MM017.WERKS = #WERKS#
+                     </isNotNull>
+                     <isNotNull col="EKGRP">
+                      AND MM017.EKGRP = #EKGRP#
+                     </isNotNull>
+                     <isNotNull col="POSID1">
+                      AND MM017.POSID BETWEEN #POSID1# AND #POSID2#
+                     </isNotNull>
+                     <isNotNull col="INVNR">
+                      AND MM017.INVNR = #INVNR#
+                     </isNotNull>
+                     <isNotNull col="MBLNR">
+                      AND MM017.MBLNR = #MBLNR#
+                     </isNotNull>
+                      AND MM017.PRO_F &gt;= '1'  
+                      GROUP BY MM017.MANDT,MM017.EBELN,MM017.EBELP) AS MM017A
+                  ON MM013B.MANDT = MM017A.MANDT 
+                  AND MM013B.EBELN = MM017A.EBELN
+                  AND MM013B.EBELP = MM017A.EBELP
+ LEFT OUTER JOIN SAPHEE.ZMMT011 AS MM011 ON MM013B.MANDT = MM011.MANDT 
+          AND MM013B.MATNR = MM011.MATNR 
+ LEFT OUTER JOIN SAPHEE.ZMMT025 AS MM025 ON  MM013B.MANDT = MM025.MANDT
+                                         AND SUBSTR(MM013B.POSID,1,9) = MM025.POSID
+                                         AND MM025.PSTYPE = '02'
+
+	 WHERE  MM013B.MANDT = #G_MANDT# 
+	    AND MM013B.LIFNR = #LIFNR#
+	    AND MM013B.STATE = '2'
+	    AND MM013B.POTYPE = 'X'  
+                <isEqual col="GUBN" value="1">
+                   AND MM013B.UDATE BETWEEN #UDATE_FM# AND #UDATE_TO#
+                </isEqual>
+                <isEqual col="GUBN" value="2">
+                   AND MM013B.SDATE BETWEEN #UDATE_FM# AND #UDATE_TO#
+                </isEqual>
+	    AND MM013B.LGORT = #LGORT#
+	<isNotNull col="WERKS">
+	    AND MM013B.WERKS = #WERKS#
+	</isNotNull>
+	<isNotNull col="EKGRP">
+	    AND MM013B.EKGRP = #EKGRP#
+	</isNotNull>
+	 <isNotNull col="POSID1">
+	    AND MM013B.POSID BETWEEN  #POSID1# AND #POSID2#
+	 </isNotNull>
+	<isNotNull col="EXTWG">
+	    AND MM013B.EXTWG LIKE '%'||#EXTWG#||'%'
+	</isNotNull>
+               
+                   AND MM013B.KNTTP NOT IN ('P')  -- 2012.10.11 김경수 GJ요청으로 일식외주 제외
+
+	<isNotNull col="POS">
+	    #POS+#
+	</isNotNull>
+	<isNotNull col="EXT">
+	    #EXT+#
+	</isNotNull>
+ ) AS MM013C
+     WHERE 1 = 1 
+<isEqual col="INVNR" value="">
+    AND MENGE1 > 0 
+    AND PRO_F &gt;= '1'
+</isEqual>
+     AND STATE = '2'
+     AND BOX = '1'
+    ORDER BY EBELN,EBELP,POSID
+  FOR FETCH ONLY
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="LGORT" size="255" type="VARCHAR" description="" /> 
+		<col name="WERKS" size="255" type="VARCHAR" description="" /> 
+		<col name="EKGRP" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID1" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID2" size="255" type="VARCHAR" description="" /> 
+		<col name="INVNR" size="255" type="VARCHAR" description="" /> 
+		<col name="MBLNR" size="255" type="VARCHAR" description="" /> 
+		<col name="UDATE_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="UDATE_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="EXTWG" size="255" type="VARCHAR" description="" /> 
+		<col name="POS" size="255" type="VARCHAR" description="" /> 
+		<col name="EXT" size="255" type="VARCHAR" description="" /> 
+		<col name="GUBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="B_MENGE" size="33" type="NUMERIC" description="" /> 
+		<col name="BIGO" size="1" type="VARCHAR" description="" /> 
+		<col name="BOX" size="3" type="VARCHAR" description="" /> 
+		<col name="CHAR1" size="300" type="VARCHAR" description="" /> 
+		<col name="CHDAT" size="8" type="VARCHAR" description="" /> 
+		<col name="CHECK" size="1" type="VARCHAR" description="" /> 
+		<col name="CHTIM" size="8" type="VARCHAR" description="" /> 
+		<col name="DDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="DTIME" size="8" type="VARCHAR" description="" /> 
+		<col name="EBELN" size="30" type="VARCHAR" description="" /> 
+		<col name="EBELP" size="15" type="VARCHAR" description="" /> 
+		<col name="EDATE" size="24" type="VARCHAR" description="" /> 
+		<col name="EINDT" size="24" type="VARCHAR" description="" /> 
+		<col name="EKGRP" size="9" type="VARCHAR" description="" /> 
+		<col name="ETIME" size="18" type="VARCHAR" description="" /> 
+		<col name="EXTWG" size="54" type="VARCHAR" description="" /> 
+		<col name="FLAG" size="0" type="VARCHAR" description="" /> 
+		<col name="GROES" size="96" type="VARCHAR" description="" /> 
+		<col name="INFNR" size="30" type="VARCHAR" description="" /> 
+		<col name="INS_Q" size="33" type="NUMERIC" description="" /> 
+		<col name="INVITEM" size="15" type="VARCHAR" description="" /> 
+		<col name="INVNR" size="30" type="VARCHAR" description="" /> 
+		<col name="KNTTP" size="3" type="VARCHAR" description="" /> 
+		<col name="LGOBE" size="48" type="VARCHAR" description="" /> 
+		<col name="LGORT" size="12" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="30" type="VARCHAR" description="" /> 
+		<col name="MAKTX" size="482" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MEINS" size="9" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="15" type="NUMERIC" description="" /> 
+		<col name="MENGE1" size="33" type="NUMERIC" description="" /> 
+		<col name="NAME1" size="105" type="VARCHAR" description="" /> 
+		<col name="NETPR" size="22" type="NUMERIC" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POST1" size="120" type="VARCHAR" description="" /> 
+		<col name="POTYPE" size="3" type="VARCHAR" description="" /> 
+		<col name="PRO_F" size="3" type="VARCHAR" description="" /> 
+		<col name="PSTYP" size="3" type="VARCHAR" description="" /> 
+		<col name="RDATE_P" size="0" type="VARCHAR" description="" /> 
+		<col name="SDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="SHIPDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="STATE" size="3" type="VARCHAR" description="" /> 
+		<col name="STIME" size="8" type="VARCHAR" description="" /> 
+		<col name="UDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="VALUE" size="90" type="VARCHAR" description="" /> 
+		<col name="WAERS" size="15" type="VARCHAR" description="" /> 
+		<col name="WERKS" size="12" type="VARCHAR" description="" /> 
+		<col name="WERKS_TXT" size="90" type="VARCHAR" description="" /> 
+		<col name="ZEINR" size="120" type="VARCHAR" description="" /> 
+	</output>
+</query>

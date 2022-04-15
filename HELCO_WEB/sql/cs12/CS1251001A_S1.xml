@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+       '' CHK,
+       '' FLAG,
+       A.TEM || '-' || A.RDT || '-' || A.SEQ ETN,
+       A.SIR SIR,
+       MAX(A.ARA) ARA,
+       MAX(A.ARA_NM) ARA_NM,
+       MAX(A.VKGRP) TEM,
+       MAX(A.VKGRP_NM) TEM_NM,
+       MAX(A.GBU_NM) GBU_NM,
+       MAX(A.BSU) BSU,
+       MAX(A.BSU_NM) BSU_NM,
+       MAX(A.UPN) UPN,
+       MAX(A.PJT) PJT,
+       COUNT(*) CNT,
+       MAX(A.SPT) SPT,
+       MAX(A.NAM) NAM,
+       MAX(A.SPC) SPC,
+       MAX(A.ACD) ACD,
+       MAX(A.CDT) CDT,
+       MAX(A.KND) KND,
+       MAX(A.KND_NM) KND_NM,
+       MAX(A.EST) EST,
+       MAX(A.PST) PST,
+       MAX(A.PST_NM) PST_NM,
+       MAX(A.MDT) MDT,  
+       MAX(A.MID_NM) MID_NM,
+       MAX(A.DUPLIC) DUPLIC,
+       MAX(A.CON) CON
+  FROM (
+         SELECT
+                '' CHK,
+                '' FLAG,
+                A.CS306_TEM || '-' || A.CS306_RDT || '-' || A.CS306_SEQ ETN,
+                A.CS306_TEM TEM,
+                A.CS306_RDT RDT,
+                A.CS306_SEQ SEQ,
+                A.CS306_SIR SIR,
+                C.BSU_ARA ARA,
+                D.CTEXT2 ARA_NM,
+                C.VKGRP VKGRP,
+                E.CTEXT2 VKGRP_NM,
+                CASE F.GBU WHEN '1' THEN '직영' WHEN '3' THEN '협력사' ELSE '' END GBU_NM,
+                A.CS306_BSU BSU,
+                C.ABR_NM BSU_NM,
+                B.CS307_UPN UPN,
+                B.CS307_PJT PJT,
+                B.CS307_HNO HNO,
+                (
+                 SELECT 
+                        VALUE(MAX(VALUE),'') 
+                   FROM 
+                        SAPHEE.ZSDT0005
+                  WHERE 
+                        MANDT = #G_MANDT#
+                    AND HOGI = B.CS307_PJT || B.CS307_HNO
+                    AND CHARACTERISTIC = 'EL_ACD2'
+                ) ACD,
+                A.CS306_SPT SPT,
+                A.CS306_NAM NAM,
+                A.CS306_SPC SPC,
+                A.CS306_CDT CDT,
+                A.CS306_KND KND,
+                G.CTEXT2 KND_NM,
+                A.CS306_TOT EST,
+                A.CS306_PST PST,
+                CASE A.CS306_PST
+                     WHEN 'A1' THEN '작성'
+                     WHEN 'A2' THEN '반송'
+                     WHEN 'A3' THEN '전송'
+                     WHEN 'A6' THEN '승인'
+                END PST_NM,
+                A.CS306_MDT MDT,
+                (
+                 SELECT USERNAME
+                   FROM SAPHEE.ZUSERF
+                  WHERE MANDT = #G_MANDT# AND USERNUMB = A.CS306_MID
+                ) MID_NM,
+                (
+                 SELECT CASE WHEN COUNT(*) > 1 THEN 'Y' ELSE 'N' END  
+                   FROM SAPHEE.ZCST306 N, SAPHEE.ZCST307 M
+                  WHERE N.MANDT = #G_MANDT#
+                    AND N.MANDT = M.MANDT
+                    AND N.CS306_TEM = M.CS307_TEM 
+                    AND N.CS306_RDT = M.CS307_RDT 
+                    AND N.CS306_SEQ = M.CS307_SEQ
+                    AND N.CS306_SIR = M.CS307_SIR 
+                    AND N.CS306_DEL = 'N'
+                    AND M.CS307_PJT = B.CS307_PJT
+                    AND M.CS307_HNO = B.CS307_HNO
+                ) DUPLIC,
+                A.CS306_CON CON
+           FROM
+                SAPHEE.ZCST306 A,
+                SAPHEE.ZCST307 B,
+                SAPHEE.ZWBT010 C,
+                SAPHEE.ZLCODE D,
+                SAPHEE.ZLCODE E,
+                SAPHEE.ZCST111 F,
+                SAPHEE.ZLCODE G
+          WHERE
+                A.MANDT = #G_MANDT#
+            AND A.MANDT = B.MANDT
+            AND A.CS306_TEM = B.CS307_TEM
+            AND A.CS306_RDT = B.CS307_RDT
+            AND A.CS306_SEQ = B.CS307_SEQ
+            AND A.CS306_SIR = B.CS307_SIR
+            AND A.MANDT = C.MANDT
+            AND A.CS306_BSU = C.LGORT
+            AND C.MANDT = D.MANDT
+            AND C.BSU_ARA = D.CODE2
+            AND D.CODE1 = 'CS115'
+            AND D.LANG = 'ko'
+            AND A.MANDT = E.MANDT
+            AND A.CS306_TEM = E.CODE2
+            AND E.CODE1 = 'VKGRP'
+            AND E.LANG = 'ko'
+            AND B.MANDT = F.MANDT
+            AND B.CS307_PJT = F.PJT
+            AND B.CS307_HNO = F.HNO
+            AND A.MANDT = G.MANDT
+            AND A.CS306_KND = G.CODE2
+            AND G.CODE1 = 'CS187'
+            AND G.LANG = 'ko'
+            AND A.CS306_MDT BETWEEN #FDT# AND #TDT#
+         <isNotNull col="ARA">
+            AND C.BSU_ARA = #ARA#
+         </isNotNull>
+         <isNotNull col="TEM">
+            AND A.CS306_TEM = #TEM#
+         </isNotNull>
+         <isNotNull col="BSU">
+            AND A.CS306_BSU = #BSU#
+         </isNotNull>
+         <isNotNull col="BPM">
+            AND C.BSU_PM = #BPM#
+         </isNotNull>
+            AND A.CS306_DEL = 'N'
+         <isNotNull col="ETN">
+            AND A.CS306_TEM = SUBSTR(CAST(#ETN# AS VARCHAR(13)),1,3)
+            AND A.CS306_RDT = SUBSTR(CAST(#ETN# AS VARCHAR(13)),4,4)
+            AND A.CS306_SEQ = SUBSTR(CAST(#ETN# AS VARCHAR(13)),8,4)
+         </isNotNull>
+         <isNotNull col="SPT">
+            AND A.CS306_SPT LIKE '%' || #SPT# || '%'
+         </isNotNull>
+         <isNotNull col="PJT">
+            AND A.CS306_PJT = #PJT#
+         </isNotNull>
+         <isNotNull col="PST">
+            AND A.CS306_PST = #PST#
+         </isNotNull>         
+         ) A
+GROUP BY
+       A.TEM,
+       A.RDT,
+       A.SEQ,
+       A.SIR
+ORDER BY
+       A.TEM,
+       A.RDT,
+       A.SEQ,
+       A.SIR,
+       MAX(A.ARA),
+       MAX(A.BSU),
+       MAX(A.UPN),
+       MAX(A.PJT)
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

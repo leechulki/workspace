@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+        A.CON_KEY
+       ,'X' AS BANSONG
+       ,A.VKGRP
+       ,A.LIFNR
+       ,A.LNAME
+       ,A.TRANS
+       ,A.DEL
+       ,A.MDT
+       ,A.MTM
+       ,A.MID
+       ,(SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = #G_MANDT# AND USERNUMB = A.MID) AS MID_NM
+       ,A.TDT
+       ,A.TID
+       ,(SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = #G_MANDT# AND USERNUMB = A.TID) AS TID_NM
+       ,A.TTM
+       ,A.S007
+       ,A.S020
+       ,A.S023
+       ,A.S033
+       ,A.S028
+       ,A.S029
+       ,A.S030
+       ,A.S031||' '||A.S032 AS S031
+       ,B.S051
+       ,CASE WHEN SUBSTR(A.S007,3,1) = 'A' THEN '지로'
+             WHEN SUBSTR(A.S007,3,1) = 'B' THEN 'CMS'
+             WHEN SUBSTR(A.S007,3,1) = 'C' THEN '장기미수1'
+             WHEN SUBSTR(A.S007,3,1) = 'D' THEN '장기미수2'
+             WHEN SUBSTR(A.S007,3,1) = 'E' THEN '장기미수3'
+             WHEN SUBSTR(A.S007,3,1) = 'F' THEN '전환안내'
+             WHEN SUBSTR(A.S007,3,1) = 'G' THEN 'FM제안서'
+             WHEN SUBSTR(A.S007,3,1) = 'H' THEN '대금납부요청서'
+        END S007_NM
+       ,B.S077 -- 프로젝트
+       ,ZC001.CTEXT2 VKGRP_NM
+       ,ZC002.CTEXT2 S004_NM
+       ,'' CHK
+       ,CASE WHEN B.S158 = '' THEN B.S168 ELSE B.S158 END AS BSTNK
+       ,SUBSTR(B.S078,1,10) KUNNR
+       ,CS715.DATA_CD
+       ,CS715.DATA_CDATE
+       ,CASE WHEN CS715.DATA_CD = '20' THEN '제작완료' 
+             WHEN CS715.DATA_CD = '21' THEN '매수초과' 
+             WHEN CS715.DATA_CD = '22' THEN '파일오류' 
+             WHEN CS715.DATA_CD = '23' THEN '첨부파일누락' 
+             WHEN CS715.DATA_CD = '24' THEN '제작전 취소' 
+             WHEN CS715.DATA_CD = '61' THEN '수취인건수 오류' 
+             WHEN CS715.DATA_CD = '62' THEN '첨부파일 없음' 
+             WHEN CS715.DATA_CD = '' THEN CS715.DATA_CD 
+        END AS DATA_CD_NM
+      ,CASE WHEN CS716.DELIVRSLTCD = '1' THEN '배달완료'  
+            WHEN CS716.DELIVRSLTCD = '2' THEN '배달중'  
+            WHEN CS716.DELIVRSLTCD = '3' THEN '이사간곳발송'  
+            WHEN CS716.DELIVRSLTCD = '4' THEN '반송'  
+            WHEN CS716.DELIVRSLTCD = '5' THEN '반송불능'  
+            WHEN CS716.DELIVRSLTCD = '8' THEN '계약등기 주소갱신'  
+        END AS DELIVRSLTCD
+      ,CS716.DELIVYMD
+      ,CS717.CDATE
+      ,CASE WHEN CS717.RETURNCD = '1' THEN '이사감'
+            WHEN CS717.RETURNCD = '2' THEN '주소오류'
+            WHEN CS717.RETURNCD = '3' THEN '미거주'
+            WHEN CS717.RETURNCD = '4' THEN '수취거부'
+            WHEN CS717.RETURNCD = '5' THEN '반송함'
+            WHEN CS717.RETURNCD = '6' THEN '기타'    
+        END AS RETURNCD_NM
+      ,CS717.CTEXT AS  RTEXT
+       
+   FROM SAPHEE.ZCST701 A INNER JOIN SAPHEE.ZCST702 B
+                            ON A.MANDT = B.MANDT
+                           AND A.CON_KEY = B.CON_KEY
+                           AND A.VKGRP = B.VKGRP    
+                             
+                          LEFT OUTER JOIN SAPHEE.ZLCODE ZC001
+                            ON ZC001.MANDT = #G_MANDT#
+                           AND ZC001.CODE1 = 'VKGRP' 
+							             AND ZC001.CODE2 = A.VKGRP 
+							             AND ZC001.LANG = 'ko'     
+                             
+                          LEFT OUTER JOIN SAPHEE.ZLCODE ZC002
+                            ON ZC002.MANDT = #G_MANDT#
+                           AND ZC002.CODE1 = 'CSS004' 
+							             AND ZC002.CODE2 = A.S004 
+							             AND ZC002.LANG = 'ko'  
+							             
+                          LEFT OUTER JOIN SAPHEE.ZCST715 CS715
+                            ON A.MANDT = CS715.MANDT 
+                           AND A.S020= CS715.CON_KEY   
+							             
+                          LEFT OUTER JOIN SAPHEE.ZCST716 CS716
+                            ON A.MANDT = CS716.MANDT 
+                           AND A.S033= CS716.CS716_SEQ    
+							             
+                          LEFT OUTER JOIN SAPHEE.ZCST717 CS717
+                            ON A.MANDT = CS717.MANDT 
+                           AND A.S020= CS717.S020
+                           AND INT(A.S028)= INT(CS717.S028)
+							 
+  WHERE A.MANDT = #G_MANDT#
+    AND A.DEL = ''
+    AND A.CON_KEY LIKE '_%'
+    AND A.TRANS = 'Y'
+<isNotNull col="DAT1">
+    AND A.TDT BETWEEN #DAT1# AND #DAT2#
+</isNotNull>           
+<isNotNull col="PJT">
+    AND B.S077 LIKE #PJT#||'%'
+</isNotNull>             
+<isNotNull col="VKGRP">
+    AND A.VKGRP = #VKGRP#
+</isNotNull>   
+<isEqual col="GBN" value="A">
+    AND SUBSTR(A.S007,3,1) IN ('C', 'D', 'E')
+</isEqual>   
+<isEqual col="GBN" value="B">
+    AND SUBSTR(A.S007,3,1) = 'F'
+</isEqual>     
+<isEqual col="GBN" value="C">
+    AND SUBSTR(A.S007,3,1) IN ('A', 'B')
+</isEqual>    
+<isEqual col="GBN" value="D">
+    AND SUBSTR(A.S007,3,1)  = 'G'
+</isEqual>     
+<isEqual col="GBN" value="F">
+    AND SUBSTR(A.S007,3,1)  = 'H'
+</isEqual>   
+<isNotNull col="SEAL">
+    AND A.S004 = #SEAL#
+</isNotNull>         
+<isEqual col="RETURN" value="1">
+    AND CS717.S020 IS NOT NULL
+</isEqual>
+                   
+   WITH UR	
+  </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list1">
+	</output>
+</query>

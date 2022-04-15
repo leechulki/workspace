@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+ * 거래선목록 조회 (Com0040) XML
+ * @Comment 
+ *     	1. List selectListBuyr ( 거래선목록 조회 )
+ * @since 1.0 
+ * 		History
+ * 		1.0  2012.09.03  구란이  :  initial version 
+ * @version 1.0
+-->
+ 
+<mapper namespace="hdel.sd.com.dao.Com0040D"> 
+  
+	<resultMap id="selectListBuyrResultMap" type="hdel.sd.com.domain.Com0040"> 
+	    <result property="buyr_cd" 			column="BUYR_CD"/>
+	    <result property="buyr_nm" 			column="BUYR_NM"/>
+	    <result property="buyr_nm_sort" 	column="BUYR_NM_SORT"/>
+	    <result property="buyr_addr" 		column="BUYR_ADDR"/> 
+	    <result property="buyr_cd_db" 		column="BUYR_CD_DB"/>
+	    <result property="land1" 			column="LAND1"/>
+	    <result property="land1_nm" 		column="LAND1_NM"/>
+	    <result property="zarea" 			column="ZAREA"/>
+	    <result property="zarea_nm" 		column="ZAREA_NM"/>
+	    
+	</resultMap>
+	
+	<!--  거래처목록 조회   -->
+	<select id="selectListBuyr" parameterType="hdel.sd.com.domain.Com0040ParamVO" resultMap="selectListBuyrResultMap">
+	SELECT SUBSTR(A.KUNNR, 5, 6) 	AS BUYR_CD   							-- 거래선(6자리만)
+          ,A.NAME1 					AS BUYR_NM          -- 거래선명
+		  ,A.SORTL 					AS BUYR_NM_SORT  -- 거래선명 정렬기준
+		  ,A.ORT01||' '||A.STRAS 	AS BUYR_ADDR  -- 거래선정보
+		  ,A.KUNNR   				AS BUYR_CD_DB   						-- 거래선코드(10자리 모두)
+		  ,A.LAND1                	AS LAND1
+		  ,(SELECT LANDX FROM SAPHEE.T005T B WHERE B.MANDT = A.MANDT 		-- 국가명
+	  <if test="lang == null or  lang == '' "> AND B.SPRAS = '3'</if>
+	  <if test="lang != null and lang != '' "> AND B.SPRAS = #{lang}</if>
+                                               AND B.LAND1 = A.LAND1 
+            ) 												AS LAND1_NM		-- 국가명
+		  ,C.ZAREA  														-- 권역코드
+		  ,(SELECT DDTEXT FROM SAPHEE.DD07T WHERE DOMNAME = 'ZSDDZAREA'
+	 <if test="lang == null or  lang == '' "> AND DDLANGUAGE = '3' </if>
+	 <if test="lang != null and lang != '' "> AND DDLANGUAGE = #{lang} </if>
+		                                      AND DOMVALUE_L = C.ZAREA
+		   ) 												AS ZAREA_NM  	-- 권역명
+   	    ,NVL((SELECT (CASE WHEN TIMESTAMPDIFF(16, TO_DATE(HEX(CURRENT DATE), 'YYYYMMDD') - TO_DATE(D.OPENDT, 'YYYYMMDD')) > -1
+
+        	               THEN 'Y'
+	                       ELSE  'N'
+		              END)  
+		        FROM SAPHEE.ZSDT1127 D
+		       WHERE  1=1
+		         AND D.MANDT= A.MANDT
+		         AND D.KUNNR  = A.KUNNR   
+		  ),'N')  AS OPENDT 
+	  FROM SAPHEE.KNA1 A        
+		   LEFT JOIN SAPHEE.ZSDT0056 AS C ON C.MANDT = A.MANDT 				-- 국가별 권역 
+                                         AND C.LAND1 = A.LAND1 
+	 WHERE 1=1
+	   AND A.MANDT= #{mandt}
+	   AND A.KTOKD IN ( 'Z001', 'Z002', 'Z004' )
+	   <if test="buyr_cd !=null and buyr_cd !=''"> 
+	   		<!-- AND A.KUNNR = CHAR(REPEAT('0', 10 - LENGTH(RTRIM(LTRIM(#{buyr_cd}||''))) ) ||#{buyr_cd}||'') -->
+	   	<!--2020.08.18 jss 수정  -->	
+	   	AND A.KUNNR = CHAR(REPEAT('0', 10 - ( CASE WHEN LENGTH(RTRIM(LTRIM(#{buyr_cd}||''))) > 10 THEN 10 ELSE  LENGTH(RTRIM(LTRIM(#{buyr_cd}||''))) END ) ) ||#{buyr_cd}||'')
+	   </if> 
+	   <if test="buyr_nm !=null and buyr_nm !=''"> 
+	   		AND A.NAME1 LIKE '%'||#{buyr_nm}||'%'  
+	   </if> 
+	   ORDER BY A.KUNNR <!-- SORTL --> 
+	  WITH UR 
+	</select>
+	
+</mapper>  

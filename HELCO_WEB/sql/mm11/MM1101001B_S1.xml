@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[종전단가 대상 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+WITH TMP AS(
+SELECT MATNR, MATNR_NM, MANDT, ZSIZE, SPEC, DZEINR
+   FROM SAPHEE.MARA
+  WHERE MANDT = #G_MANDT#
+<isNotNull col="MATNR">
+      AND MATNR LIKE #MATNR#||'%'
+</isNotNull>
+<isNotNull col="MATNR_NM">
+      AND MATNR_NM LIKE '%'||#MATNR_NM#||'%'
+</isNotNull> 
+)
+
+SELECT DISTINCT
+             A.MATNR AS MATNR
+           , A.MATNR_NM AS MATNR_NM
+           , B.NAME1 AS NAME1
+           , (C.NETPR*100) AS NETPR
+           , A.ZSIZE AS ZSIZE
+           , A.SPEC AS SPEC
+           , A.DZEINR AS DZEINR
+           , B.LIFNR AS LIFNR
+   FROM
+      (
+         SELECT A.MATNR, A.MATNR_NM, B.INFNR, B.LIFNR, B.LOEKZ, A.MANDT, A.ZSIZE, A.SPEC, A.DZEINR
+            FROM TMP AS A
+             LEFT OUTER JOIN SAPHEE.EINA AS B ON A.MANDT = B.MANDT
+                                                                    AND A.MATNR = B.MATNR
+       ) AS A
+  INNER JOIN SAPHEE.LFA1 AS B ON A.MANDT = B.MANDT
+                                                AND A.LIFNR = B.LIFNR
+  INNER JOIN SAPHEE.EINE AS C ON A.MANDT = C.MANDT
+                                                AND A.INFNR = C.INFNR  
+  WHERE A.LOEKZ = ''
+      AND B.LOEVM = ''
+      AND B.SPERM = ''
+      AND C.LOEKZ = ''
+      AND B.LIFNR &lt;&gt; '2148898192'	
+    </statement>
+	<input default-name="ds_matnr">
+	</input>
+	<output default-name="ds_netpr">
+	</output>
+</query>

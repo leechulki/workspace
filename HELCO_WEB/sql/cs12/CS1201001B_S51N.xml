@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+ SELECT
+        VALUE( SUM(UMS),0)        AS SUM 
+      , VALUE( SUM(UMS_MINUS),0)  AS SUM_M 
+
+   FROM(       
+         /* 당해년도 개시 계약*/
+         SELECT 
+         
+         				  CS126_GNO , CS126_PJT , CS126_HNO , CS126_ADT
+         				, CS126_USD , CS126_UGS , CS126_UMS , CS126_UMR
+         				, CS126_CHA , CS126_UMRO
+         				-- 2019.04.25 유상계약견적 개월수 생성시 오류로 인한 수정 시작 
+         				, CASE
+						  	  WHEN SUBSTR(HEX(CURRENT DATE), 1, 4) > SUBSTR(CS126_UGS,1,4) THEN SAPHEE.MONTH_BETWEEN(SUBSTR(HEX(CURRENT DATE), 1, 4) || '0101',CS126_UMR,2) 
+						  	  ELSE SAPHEE.MONTH_BETWEEN(CS126_UGS,CS126_UMR,2)
+						  END AS UMS
+						-- 2019.04.25 유상계약견적 개월수 생성시 오류로 인한 수정 종료
+         				, 0                                                                                     AS UMS_MINUS
+          FROM SAPHEE.ZCST126
+         WHERE MANDT = #G_MANDT#
+         
+           AND CS126_PJT = #PJT#
+           AND CS126_HNO = #HNO#
+           AND CS126_PST = 'A6'
+           AND CS126_GND = #GND#
+           AND CS126_DDT = ''
+           AND SUBSTR(CS126_USD,1,4)= SUBSTR(#USD#,1,4)
+         
+          UNION
+         
+         /* 당해년도 만료 계약*/
+         SELECT 
+         
+         				  CS126_GNO , CS126_PJT , CS126_HNO , CS126_ADT
+         				, CS126_USD , CS126_UGS , CS126_UMS , CS126_UMR
+         				, CS126_CHA , CS126_UMRO 
+         				, 0                                                                                                                   AS UMS
+         				, CASE WHEN CS126_CHA != '' AND CS126_USD <> CS126_UMR 
+         					           THEN SAPHEE.MONTH_BETWEEN(CS126_UGS,CS126_UMR,2)- SAPHEE.MONTH_BETWEEN(CS126_UGS,CS126_UMRO,2) 
+         					    ELSE 0 END                                                                                                      AS UMS_MINUS
+          FROM SAPHEE.ZCST126
+         WHERE MANDT = #G_MANDT#
+         
+           AND CS126_PJT = #PJT#
+           AND CS126_HNO = #HNO#
+           AND CS126_PST = 'A6'
+           AND CS126_GND = #GND#
+           AND CS126_DDT = ''
+           AND SUBSTR(CS126_USD,1,4)< SUBSTR(#USD#,1,4)
+           AND SUBSTR(CS126_UMR,1,4)= SUBSTR(#USD#,1,4)
+         
+         
+         ) AS A
+ WITH UR
+]]></statement>
+	<input default-name="ds_list">
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

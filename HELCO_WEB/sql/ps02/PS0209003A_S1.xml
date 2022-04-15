@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+
+SELECT '' AS CHECK
+     , B.LIFNR
+     , T3.PSPID
+     , T3.POSID
+     , T3.INP_DT
+     , B.ZSPEC1
+     , B.ZSPEC2
+     , B.ZZSHIP1
+     , B.ZZCOMP2
+     , B.NAMET
+     , B.TYPE
+     , B.VER
+     , B.NAMET2
+     , (CASE WHEN B.POSID_DONG = 'X' OR B.POSID_DONG = 'x' THEN ''
+             ELSE B.POSID_DONG END ) AS POSID_DONG
+     , 0 PRO_R
+     -----------------------------------------------------
+     --공정율 표시 수정. 2019.03.11 강민석K
+     --, 0 TOT_PRO
+     , VALUE(T4.PRO_R, 0) AS TOT_PRO
+             ----------------------------------------------------
+     , E.NAME1
+     , VALUE(T3.S_PRO,0) AS S_PRO
+     , (VALUE(T3.S_PRO2 , 0)) AS S_PRO2
+     , '' PROWRK
+     , B.TXT30
+     , B.ZZILSIC
+     , B.TEXT30
+     , B.ZZGUBUN
+     , G.ZSITE_NM
+     , '' STEP1_DT
+     , '' STEP2_DT
+     , '' STEP3_DT
+     , VALUE(T3.SAFE, 'N') AS SAFE
+     , '' ZSPEC
+
+  FROM (
+        SELECT T.CHK, T.MANDT, T.PSPID, T.POSID, T.INP_DT,
+               -----------------------------------------------------
+               -- BY ISH 수정
+               -----------------------------------------------------
+               (SELECT VALUE(SUM(ST2.PRO_R),0)
+                  FROM SAPHEE.ZPSTW0308 AS ST2
+                WHERE ST2.MANDT = T.MANDT
+                  AND ST2.PSPID = T.PSPID
+                  AND ST2.POSID = T.POSID
+                  AND ST2.APPR_DT <![CDATA[<]]> #INP_DTF#
+                    ) AS S_PRO,
+               (SELECT VALUE(SUM(ST2.PRO_R),0)
+                 FROM SAPHEE.ZPST0112 AS ST2
+                 WHERE ST2.MANDT = T.MANDT
+                   AND ST2.PSPID = T.PSPID
+                   AND ST2.POSID = T.POSID
+                   AND ST2.CRDAT <![CDATA[<>]]> HEX(CURRENT DATE)) AS S_PRO2,
+
+               --VALUE(T2.PRO_R, 0) AS TOT_PRO,
+               (SELECT MAX(E.GUBUN)
+                  FROM SAPHEE.ZPSTW0207 AS E
+                 WHERE E.MANDT = T.MANDT
+                   AND E.PSPID = T.PSPID
+                   AND E.POSID = T.POSID
+                 GROUP BY E.MANDT, E.PSPID, E.POSID) AS SAFE
+               -----------------------------------------------------
+                        , 0 PRO_R, 0 TOT_PRO
+               -----------------------------------------------------
+          FROM (
+                SELECT 'N' AS CHK, A.MANDT, A.POSID AS PSPID, A.POSID_1 AS POSID, '00000000' AS INP_DT, SUM(G.PRO_R) AS PRO_R
+                  FROM SAPHEE.ZMASTER02 AS A
+                  LEFT OUTER JOIN SAPHEE.ZPST0116 AS G
+                    ON A.MANDT = G.MANDT
+                   AND A.POSID = G.PSPID
+                   AND A.POSID_1 = G.POSID
+                   AND G.BELNR > '0000000000'
+                  LEFT OUTER JOIN SAPHEE.ZPST0002 AS D
+                    ON A.MANDT = D.MANDT
+                   AND A.LIFNR = D.LIFNR
+                   AND A.TEMNO2 = D.TEMNO
+                  LEFT OUTER JOIN SAPHEE.ZPST0112C AS F
+                    ON A.MANDT = F.MANDT
+                   AND A.POSID = F.PSPID
+                   AND A.POSID_1 = F.POSID
+                 WHERE A.MANDT = #G_MANDT#
+                   AND A.LIFNR > '' --AND A.LIFNR IS NOT NULL
+                   AND A.TEMNO2 > '' --AND A.LIFNR IS NOT NULL
+                   -- AND D.DELEF &lt;&gt; 'X'
+                   -----------------------------------------------------
+                   -- 보수이체, 공사중단, 배치완료 제외 로직 추가
+                   -----------------------------------------------------
+                   AND A.TXT04 &lt;&gt; 'C' --공사중단 제외 조건
+                   AND A.ZZSHIP1 <![CDATA[<=]]> HEX(CURRENT DATE + 10 DAYS)
+                   --AND (A.ZBOSUOUT = '' OR A.ZBOSUOUT = '00000000') --보수이체 제외 조건 : 보수이체도 보여주도록 수정. 2019.03.11 강민석K
+                   
+                   AND NOT EXISTS (SELECT * FROM SAPHEE.ZPST0098 AS X
+                                    WHERE X.MANDT = A.MANDT
+                                      AND X.PSPID = A.POSID
+                                      AND X.POSID = A.POSID_1
+                                      AND X.APPL_DAT &lt;= '99990101') --공사중단 제외 조건
+                   --AND A.TYPE &lt;&gt; '' --배치완료  조건
+                   --AND A.VER &lt;&gt; '' --배치완료  조건
+                   -----------------------------------------------------
+<isNotNull col="ZZPMNUM">
+                   AND A.TEMNO = #ZZPMNUM#   --PM
+</isNotNull>
+<isNotNull col="ZZACTSS">
+                   AND A.ZZACTSS = #ZZACTSS# --사무소
+</isNotNull>
+<isNotNull col="ZZLIFNR">
+                   AND A.LIFNR = #ZZLIFNR#   --설치협력사
+</isNotNull>
+<isNotNull col="TMCD">
+                   AND A.TEMNO2 = #TMCD#   --설치팀장
+</isNotNull>
+
+                   AND A.ZZGUBUN BETWEEN '10' AND '14'
+                   AND A.PRART IN ('01', '02', '11')
+               --    AND (A.ZZCHAKG = 'X' OR F.POSID IS NOT NULL)
+
+                   AND NOT EXISTS (SELECT * FROM SAPHEE.ZPSTW0302 AS ST2
+                                    WHERE ST2.MANDT = A.MANDT
+                                      AND ST2.PSPID = A.POSID
+                                      AND ST2.POSID = A.POSID_1
+                                      AND ST2.INP_DT = #INP_DTF#
+                                      )
+				 GROUP BY A.MANDT, A.POSID, A.POSID_1
+				 
+                 UNION ALL
+
+                SELECT 'I' AS CHK, ST2.MANDT, ST2.PSPID, ST2.POSID, ST2.INP_DT, 0 AS PRO_R
+                  FROM SAPHEE.ZPSTW0302 AS ST2
+                 WHERE ST2.MANDT = #G_MANDT#
+                   AND ST2.INP_DT = #INP_DTF#
+                 GROUP BY ST2.MANDT, ST2.PSPID, ST2.POSID, ST2.INP_DT ) AS T
+         WHERE T.MANDT = #G_MANDT#
+<isNotNull col="PSPID">
+           AND T.PSPID = #PSPID#
+</isNotNull>
+<isNull col="PSPID">
+           AND VALUE(T.PRO_R,0) BETWEEN 0 AND 99.9
+</isNull>
+
+        ) AS T3
+   ------------------------------------------------------
+   --공정율 표시 추가. 2019.03.11 강민석K
+   LEFT OUTER JOIN (SELECT Z.MANDT, Z.PSPID, Z.POSID, MAX(Z.PRO_SUM) PRO_R
+                      FROM SAPHEE.ZPSTW0304_TOT3 AS Z
+                     WHERE Z.MANDT = #G_MANDT#
+                       AND Z.INP_DT &lt;= #INP_DTF#
+                     GROUP BY Z.MANDT, Z.PSPID, Z.POSID
+                    ) AS T4
+     ON T3.MANDT = T4.MANDT
+    AND T3.PSPID = T4.PSPID
+    AND T3.POSID = T4.POSID
+   ------------------------------------------------------
+   INNER JOIN SAPHEE.ZMASTER02 AS B
+      ON T3.MANDT = B.MANDT
+     AND T3.PSPID = B.POSID
+     AND T3.POSID = B.POSID_1
+<isNotNull col="ZZPMNUM">
+     AND B.TEMNO = #ZZPMNUM#
+</isNotNull>
+<isNotNull col="ZZACTSS">
+     AND B.ZZACTSS = #ZZACTSS#
+</isNotNull>
+<isNotNull col="ZZLIFNR">
+     AND B.LIFNR = #ZZLIFNR#
+</isNotNull>
+<isEqual col="GBN" value="2">
+	AND B.VER <![CDATA[<>]]> '000'
+</isEqual>
+<isEqual col="GBN" value="3">
+	AND B.VER = '000'
+</isEqual>
+    LEFT OUTER JOIN SAPHEE.LFA1 AS E
+      ON B.MANDT = E.MANDT
+     AND B.LIFNR = E.LIFNR
+   INNER JOIN SAPHEE.ZMASTER01 AS G
+      ON T3.MANDT = G.MANDT
+     AND T3.PSPID = G.POSID
+   -----------------------------------------------------
+   -- BY ISH 신청일, 신청율, 단계별 일자 제거
+   -----------------------------------------------------
+   --INNER JOIN SAPHEE.ZMASTER01 AS G
+   --   ON T3.MANDT = G.MANDT
+   --  AND T3.PSPID = G.POSID
+   -- LEFT OUTER JOIN SAPHEE.ZPSTW0308 AS F
+   --   ON T3.MANDT = F.MANDT
+   --  AND T3.PSPID = F.PSPID
+   --  AND T3.POSID = F.POSID
+   --  AND F.APPR_DT = '20181031'
+   -- LEFT OUTER JOIN SAPHEE.ZPSTW1502 AS H
+   --   ON T3.MANDT = H.MANDT
+   --  AND T3.PSPID = H.PSPID
+   --  AND T3.POSID = H.POSID
+  -----------------------------------------------------
+ ORDER BY T3.POSID
+FOR FETCH ONLY
+WITH UR
+
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list1">
+	</output>
+</query>

@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  '' CHK
+       ,'' FLAG
+       ,BS.BS201_DEV
+       ,BS.BS201_GNM
+       ,BS.BS201_GNO
+       ,BS.BS201_SPT
+       ,BS.BS201_QTY
+       ,BS.BS201_EAM
+       ,BS.BS201_OAM
+       ,TRIM(CHAR(INT(BS.BS201_RAT)))||'%' BS201_RAT
+       ,BS.BS201_CDT
+       ,BS.BS201_LDT
+       ,BS.BS201_AD1||' '||BS.BS201_AD2 BS201_ADR
+       ,(SELECT UF.USERNAME FROM SAPHEE.ZUSERF UF WHERE UF.MANDT = BS.MANDT AND UF.USERNUMB = RTRIM(BS.BS201_CID)) CCSBLEPN
+       ,BS.BS201_FCD
+       ,TRIM(CHAR(INT(BS.BS201_FRT)))||'%' BS201_FRT
+       ,BS.BS201_MCD
+       ,TRIM(CHAR(INT(BS.BS201_MRT)))||'%' BS201_MRT
+       ,BS.BS201_LCD
+       ,TRIM(CHAR(INT(BS.BS201_LRT)))||'%' BS201_LRT
+       ,BS.BS201_RDT
+       ,BS.BS201_SEQ
+       ,BS.BS201_SIR
+       ,(SELECT CTEXT2
+         FROM SAPHEE.ZLCODE MM
+         WHERE BS.MANDT = MM.MANDT
+         AND MM.CODE1 = 'BS101'
+         AND MM.CODE2 = BS.BS201_PST
+         AND MM.LANG = #G_LANG#
+         ) BS201_PST
+       ,CASE WHEN BS.BS201_PST = '30' THEN (SELECT CTEXT2
+    	   		 	  			  	   	 FROM SAPHEE.ZLCODE MM
+										 WHERE BS.MANDT = MM.MANDT
+										 AND MM.CODE1 = 'BS103'
+										 AND MM.CODE2 = BS.BS201_JRT
+										 AND MM.LANG = #G_LANG#
+										)
+			 ELSE ''
+		END  BS201_JRT
+       ,CASE WHEN BS.BS201_NCD > '' AND BS.BS201_PST = '30'
+             THEN (SELECT CTEXT2
+                   FROM SAPHEE.ZLCODE MM
+       			   WHERE BS.MANDT = MM.MANDT
+       			   AND MM.CODE1 = 'BS112'
+       			   AND MM.CODE2 = BS.BS201_NCD
+       			   AND MM.LANG = #G_LANG#)
+             ELSE ''
+       END BS201_NCD
+       ,CASE WHEN BS.BS201_PST = '30' THEN BS.BS201_AYM||'-'||BS.BS201_ASQ
+             ELSE ''
+        END BS201_NO
+       ,(SELECT M28.CTEXT2 FROM SAPHEE.ZLCODE M28 WHERE M28.MANDT = BS.MANDT AND M28.CODE1 = 'CS131' AND M28.CODE2 = BS.BS201_GBN AND M28.LANG = #G_LANG#) AS BS201_GBN
+FROM SAPHEE.ZBST201 BS,
+     (
+      SELECT
+             C.BS201_RDT,
+             C.BS201_SEQ,
+             C.BS201_SIR
+        FROM
+             (
+              SELECT
+                     B.BS201_RDT,
+                     B.BS201_SEQ,
+                     B.BS201_SIR,
+                     ROWNUMBER() OVER(PARTITION BY B.BS201_RDT, B.BS201_SEQ ORDER BY B.BS201_RDT, B.BS201_SEQ, B.BS201_SIR DESC) RNO
+                FROM
+                     SAPHEE.ZBST201 B
+               WHERE
+                     B.MANDT = #G_MANDT#
+             ) C
+       WHERE 
+             C.RNO = 1
+     ) X
+WHERE BS.MANDT = #G_MANDT#
+AND BS.BS201_RDT = X.BS201_RDT
+AND BS.BS201_SEQ = X.BS201_SEQ
+AND BS.BS201_SIR = X.BS201_SIR
+AND BS.BS201_GNO = #G_ORG_VEND_CODE#
+<isNotNull col="FCDT">
+AND BS.BS201_CDT BETWEEN #FCDT# AND #TCDT#
+</isNotNull>
+<isNotNull col="PST">
+AND BS.BS201_PST = #PST#
+</isNotNull>
+<isNotNull col="GBN">
+AND BS.BS201_GBN = #GBN#
+</isNotNull>
+<isEqual col="DESC" value="Y">
+AND BS.BS201_CID = #G_USER_ID#
+</isEqual>
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="G_VEND_CODE" size="255" type="VARCHAR" description="" /> 
+		<col name="FCDT" size="255" type="VARCHAR" description="" /> 
+		<col name="TCDT" size="255" type="VARCHAR" description="" /> 
+		<col name="PST" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="NAME1" size="105" type="VARCHAR" description="" /> 
+	</output>
+</query>

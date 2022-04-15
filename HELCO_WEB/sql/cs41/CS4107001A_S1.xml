@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+        A.VBELN      AS VBELN
+       ,A.ZZPJT_ID   AS ZZPJT_ID                                           
+       ,A.BSTNK      AS NAM                                             
+       ,A.BNAME      AS BNAME                                     
+       ,E.BSTKD      AS SPT   
+       ,D.NAME1      AS NAME1
+       ,CASE WHEN C2.LGORT != '' THEN 'Y' ELSE '' END AS BSU_YN
+       ,A.VKGRP      AS VKGRP
+       ,C.ABR_NM     AS BSU_NM                                   
+       ,A.VKGRP      AS TEM   
+       ,A.BSTDK      AS BSTDK
+       ,A.NETWR*100  AS SUJU  
+       ,SD0030.STOPA AS STOPA
+       ,(CASE WHEN SD0030.STOPA = 'A' THEN '지급예정' 
+              WHEN SD0030.STOPA = 'C' THEN '지급완료' 
+              WHEN SD0030.STOPA = 'D' THEN '제외' 
+              WHEN SD0030.STOPA = '' THEN '' 
+         END)        AS STOPA_NM
+       ,SD0030.SAMT2*100 AS SAMT2
+       ,SD0030.COMMI*100 AS COMMI
+       ,SD0030.NETWR AS NETWR
+       ,SD0030.BIGO  AS BIGO
+       ,DECODE(NVL(SD0030.TAMPA,0),0
+                                  ,DECODE(BIGO,'NB-100'
+                                              ,(SELECT SUM(COSP.WKG001 + COSP.WKG002 + COSP.WKG003 + COSP.WKG004 + COSP.WKG005 + COSP.WKG006 + COSP.WKG007 + COSP.WKG008 + COSP.WKG009 + COSP.WKG010 + COSP.WKG011 + COSP.WKG012 + COSP.WKG013 + COSP.WKG014 + COSP.WKG015 + COSP.WKG016 )
+                                                  FROM SAPHEE.COSP AS COSP INNER  JOIN SAPHEE.PRPS AS PRPS ON COSP.MANDT = PRPS.MANDT AND COSP.OBJNR = PRPS.OBJNR
+                                                 WHERE COSP.MANDT = '183'
+                                                   AND COSP.KSTAR = '0053033010'  -- 원가요소
+                                                   AND COSP.VERSN = '000'         -- 버젼
+                                                   AND PRPS.POSID = A.ZZPJT_ID)
+                                              , NULL
+                                         )
+                                  ,SD0030.TAMPA 
+              ) * 100 AS TAMPA
+       ,MM034.DMBTR   AS DMBTR
+       ,MM034.LIFNR   AS LIFNR
+       ,MM034.SPMON   AS SPMON
+       ,(SELECT (NVL(CS01R.HIS_LCOST,0) + NVL(CS01R.HIS_BETC,0) + NVL(CS01R.HIS_MMOD,0) + NVL(CS01R.HIS_LIFT,0)) * 100
+           FROM SAPHEE.ZCST001 CS01, SAPHEE.ZCST001R CS01R
+          WHERE CS01.MANDT = CS01R.MANDT
+            AND CS01.QTNUM = CS01R.QTNUM
+            AND CS01.SEQ   = CS01R.SEQ
+            AND CS01.MANDT = A.MANDT
+            AND CS01.VBELN = A.VBELN
+            AND CS01.PS_PSPID =A.ZZPJT_ID
+        )             AS HIS_ORE_FN_SS
+                           
+  FROM SAPHEE.VBAK A LEFT OUTER JOIN SAPHEE.VBPA B
+                             ON A.MANDT = B.MANDT
+                            AND A.VBELN = B.VBELN
+                            AND B.PARVW = 'RG'
+
+                     LEFT OUTER JOIN SAPHEE.VBPA B1
+                             ON A.MANDT = B1.MANDT
+                            AND A.VBELN = B1.VBELN
+                            AND B1.PARVW = 'Z1'
+                                                                                
+                     LEFT OUTER JOIN SAPHEE.KNA1 D
+                             ON A.MANDT = D.MANDT
+                            AND D.KUNNR = B.KUNNR                 
+                             
+                     LEFT OUTER JOIN SAPHEE.ZWBT010 C2
+                             ON A.MANDT = C2.MANDT
+                            AND D.STCD2 = C2.LIFNR
+                                         
+                     LEFT OUTER JOIN SAPHEE.VBKD E
+                             ON A.MANDT = E.MANDT
+                            AND A.VBELN = E.VBELN
+                            AND E.POSNR = '000000' 
+                                         
+                     LEFT OUTER JOIN SAPHEE.ZSDT0030 SD0030
+                             ON A.MANDT = SD0030.MANDT
+                            AND A.VBELN= SD0030.VBELN
+                             
+                     LEFT OUTER JOIN SAPHEE.ZWBT010 C
+                             ON A.MANDT = C.MANDT
+                            AND B1.LIFNR = C.LIFNR
+                                         
+                     LEFT OUTER JOIN SAPHEE.ZMMT034 MM034
+                             ON A.MANDT = MM034.MANDT
+                            AND A.ZZPJT_ID= MM034.POSID
+                            AND SD0030.LIFNR= MM034.LIFNR
+   
+ WHERE A.MANDT = #G_MANDT#
+   AND A.AUART = 'ZR12' 
+   AND A.BSTDK BETWEEN #DAT1# AND #DAT2#
+   --AND A.VKBUR BETWEEN 'E900' AND 'EF00'
+    AND (A.VKBUR BETWEEN 'E900' AND 'EF00' OR A.VKBUR = 'EI00' OR A.VKBUR = 'EK00')
+   AND A.SPART IN ( '10' ,'20' )
+   AND A.NETWR > 0
+   AND A.VBTYP != 'B'
+<isNotNull col="UPN">
+   AND SUBSTR(A.ZZPJT_ID,1,6) = #UPN#
+</isNotNull>
+<isNotNull col="ARA">
+   AND C.BSU_ARA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+   AND C.LGORT = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+   AND C.BSU_PM = #BPM#
+</isNotNull>
+<isNotNull col="TEM">
+   AND A.VKGRP = #TEM#
+</isNotNull>     
+ ORDER BY ZZPJT_ID                  
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

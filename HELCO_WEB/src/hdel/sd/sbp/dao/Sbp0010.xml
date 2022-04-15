@@ -1,0 +1,493 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 
+ * 사업계획관리(Sbp0010) XML
+ * @Comment 
+ *		- List selectOpenDtm  	( 사업계획 오픈일시(14자리) 조회 )
+ *		- List selectList 		( 사업계획 목록 조회 )
+ *		- List selectListDetail	( 사업계획번호 한 건에 등록된 사업계획 매출/청구/수금목록 조회 )  
+  
+ *     
+ * @since 1.0 
+ * 		History
+ * 		1.0  2012.09.03  구란이  :  initial version 
+ * @version 1.0
+ -->
+ 
+<mapper namespace="hdel.sd.sbp.dao.Sbp0010D">  
+
+	<!-- 사업계획 마감일시 조회 --> 
+	<resultMap id="selectOpenDtmResultMap" type="hdel.sd.sbp.domain.Sbp0010"> 
+	    <result property="OPENDTM" 			column="OPENDTM"/> 
+	</resultMap> 
+	<select id="selectOpenDtm" parameterType="hdel.sd.sbp.domain.Sbp0010ParamVO" resultMap="selectOpenDtmResultMap">
+	SELECT CDATE||CTIME AS OPENDTM
+      FROM SAPHEE.ZSDT1017 A
+     WHERE A.MANDT   		= #{MANDT}    		-- client
+	   AND A.ZPYEAR  		= #{ZPYEAR}   		-- 편성년도
+	   AND A.ZOPFLG  		= 'X'    			-- 오픈여부 (X 이면 OPEN)
+	   AND TRIM(A.DDATE)	IN ('', '00000000') -- 삭제되지 않은 건 
+	 FETCH FIRST 1 ROWS ONLY
+      WITH UR
+	</select>
+
+	<!-- 사업계획 수주예상액, 통화 조회 : 매출/청구/수금 자동산출 대상 변경조건 --> 
+	<resultMap id="selectListComputeItemResultMap" type="hdel.sd.sbp.domain.Sbp0010"> 
+		<result property="AUART" 			column="AUART"/>
+	    <result property="SPART" 			column="SPART"/>  
+	    <result property="GTYPE" 			column="GTYPE"/>
+	    <result property="MATNR" 			column="MATNR"/>
+	    <result property="ZINTER" 			column="ZINTER"/>
+	    <result property="SHANGH" 			column="SHANGH"/>        
+	    <result property="SOFOCA" 			column="SOFOCA"/>
+	    <result property="WAERK" 			column="WAERK"/>     
+	</resultMap> 
+	<select id="selectListComputeItem" parameterType="hdel.sd.sbp.domain.Sbp0010ParamVO" resultMap="selectListComputeItemResultMap">
+	SELECT   AUART		-- 오더유형(판매문서유형)	
+			,SPART		-- 제품군
+			,GTYPE		-- 기종
+			,MATNR		-- 자재번호
+			,ZINTER		-- 중계무역구분
+			,SHANGH		-- 국내/상해구분
+			,SOFOCA  	-- 수주예상액 
+	        ,WAERK		-- 통화
+      FROM SAPHEE.ZSDT1012 A
+     WHERE A.MANDT   		= #{MANDT}    		-- client 
+	   AND A.ZBPNNR  		= #{ZBPNNR}   		-- 사업계획번호
+	   AND TRIM(A.DDATE)	IN ('', '00000000') -- 삭제되지 않은 건
+	   AND TRIM(A.VBELN)    = ''   				-- 강제Inset건 제외 
+      WITH UR
+	</select> 
+
+	<!-- 사업계획목록조회 -->
+	<resultMap id="selectListResultMap" type="hdel.sd.sbp.domain.Sbp0010">
+	    <result property="SAVE_YN"      column="SAVE_YN"/>       	<!--저장여부(Y,N)   --> 
+	    <result property="CHK"        	column="CHK"/>       		<!--체크(1,0)      -->            
+		<result property="FLAG"	      	column="FLAG"/>        		<!--변경구분(I,U,D) -->           
+		<result property="NEW_YN"	    column="NEW_YN"/>        	<!--신규여부                --> 
+		<result property="MANDT"        column="MANDT"/>       		<!--클라이언트  	   -->   
+		<result property="ZBPNNR"	    column="ZBPNNR"/>        	<!--사업계획번호          -->     
+		<result property="ZPYEAR" 		column="ZPYEAR"/>        	<!--편성년도                -->   
+		<result property="ZPYM" 		column="ZPYM"/>            	<!--계획년월                -->   
+		<result property="SPART" 		column="SPART"/>           	<!--제품군                   -->  
+		<result property="AUART" 		column="AUART"/>           	<!--판매문서유형         -->      
+		<result property="MATNR" 		column="MATNR"/>           	<!--자재번호                -->   
+		<result property="VKBUR" 		column="VKBUR"/>           	<!--사업장코드             -->    
+		<result property="VKGRP" 		column="VKGRP"/>           	<!--영업그룹코드          -->     
+		<result property="ZKUNNR" 		column="ZKUNNR"/>       	<!--영업사원코드          -->     
+		<result property="ZKUNNR_NM" 	column="ZKUNNR_NM"/>     	<!--영업사원명             -->    
+		<result property="GTYPE" 		column="GTYPE"/>           	<!--기종                       -->
+		<result property="TYPE1" 		column="TYPE1"/>           	<!--TYPE1          -->            
+		<result property="TYPE2" 		column="TYPE2"/>           	<!--TYPE2          -->            
+		<result property="TYPE3" 		column="TYPE3"/>           	<!--TYPE3          -->            
+		<result property="ZNUMBER" 		column="ZNUMBER"/>       	<!--대수                       -->
+		<result property="KUNNR" 		column="KUNNR"/>           	<!--고객번호(거래선코드)  	-->     
+		<result property="KUNNR_NM" 	column="KUNNR_NM"/>      	<!--고객명(거래선명)     	-->      
+		<result property="GSNAM" 		column="GSNAM"/>           	<!--공사명                 		--> 
+		<result property="REGION" 		column="REGION"/>        	<!--설치지역코드            	--> 
+		<result property="ZDELI" 		column="ZDELI"/>           	<!--단납기구분              	--> 
+		<result property="SHANGH" 		column="SHANGH"/>        	<!--국내/상해구분          	--> 
+		<result property="ZINTER" 		column="ZINTER"/>        	<!--중계무역구분            	--> 
+		<result property="SOFOCA" 		column="SOFOCA"/>        	<!--수주예상액              	--> 
+		<result property="ZFORE" 		column="ZFORE"/>           	<!--예상시행율              	--> 
+		<result property="WAERK" 		column="WAERK"/>           	<!--통화                    	-->
+		<result property="DELDAT" 		column="DELDAT"/>        	<!--납기예정일              	--> 
+		<result property="ZRMK" 		column="ZRMK"/>            	<!--비고                    	-->
+		<result property="ZRMK1" 		column="ZRMK1"/>           	<!--비고1           	-->
+		<result property="VBELN" 		column="VBELN"/>           	<!--판매문서                	--> 
+		<result property="PSPID" 		column="PSPID"/>           	<!--프로젝트                	--> 
+		<result property="ZAGNT" 		column="ZAGNT"/>           	<!--대리점코드	    -->
+		<result property="ZAGNT_NM" 	column="ZAGNT_NM"/>         <!--대리점명 	        -->
+		<result property="LAND1" 		column="LAND1"/>        	<!--국가코드 	        -->                   
+		<result property="LAND1_NM" 	column="LAND1_NM"/>        	<!--국가명 	        -->
+		<result property="ZAREA" 		column="ZAREA"/>        	<!--권역코드 	        -->                   
+		<result property="ZAREA_NM" 	column="ZAREA_NM"/>        	<!--권역명 	        -->
+		<result property="ZCOST" 		column="ZCOST"/>        	<!--원가 	        	-->                   
+		<result property="ZPCOST" 		column="ZPCOST"/>        	<!--단가 	        	-->
+		<result property="CDATE" 		column="CDATE"/>           	<!--입력일자                	--> 
+		<result property="CTIME" 		column="CTIME"/>           	<!--입력시간                	--> 
+		<result property="CUSER" 		column="CUSER"/>           	<!--입력자ID         -->        
+		<result property="UDATE" 		column="UDATE"/>           	<!--변경일자                	--> 
+		<result property="UTIME" 		column="UTIME"/>           	<!--변경시간                	--> 
+		<result property="UUSER" 		column="UUSER"/>           	<!--변경자ID         -->        
+		<result property="DDATE" 		column="DDATE"/>           	<!--삭제일자                	--> 
+		<result property="DTIME" 		column="DTIME"/>           	<!--삭제시간               	-->   
+		<result property="DUSER" 		column="DUSER"/>           	<!--삭제자ID         -->
+	</resultMap>
+
+	<select id="selectList" parameterType="hdel.sd.sbp.domain.Sbp0010ParamVO" resultMap="selectListResultMap">
+		SELECT
+		        'N'                                   -- 저장여부(Y,N)
+		      , '0'                                	  -- 체크(1,0)
+		      , ''                                	  -- 변경구분(I,U,
+		      , 'N'                              	  -- 신규여부
+		      , A.MANDT                               -- 클라이언트
+		      , A.ZBPNNR                              -- 사업계획번호
+		      , A.ZPYEAR                              -- 편성년도
+		      , A.ZPYM                                -- 계획년월
+		      , A.SPART                               -- 제품군
+		      , A.AUART                               -- 판매문서유형
+		      , A.MATNR                               -- 자재번호
+		      , A.VKBUR                               -- 사업장코드
+		      , A.VKGRP                               -- 영업그룹코드
+		      , A.ZKUNNR             AS ZKUNNR        -- 영업사원코드
+		      , B.NAME1              AS ZKUNNR_NM     -- 영업사원명
+		      , A.GTYPE                               -- 대표 기종
+		      , A.RTYPE                               -- 실 기종
+		      , A.TYPE1                               -- TYPE1
+		      , A.TYPE2                               -- TYPE2
+		      , A.TYPE3                               -- TYPE3
+		      , A.ZNUMBER                             -- 대수
+		      , SUBSTR(A.KUNNR, 5, 6) AS KUNNR        -- 고객번호(거래선코드)
+		      , (SELECT NAME1 FROM SAPHEE.KNA1 WHERE MANDT = A.MANDT AND KTOKD IN ( 'Z001', 'Z002', 'Z004' )
+	     		AND KUNNR = CHAR(REPEAT('0', 10 - LENGTH(RTRIM(LTRIM(A.KUNNR||''))) ) ||A.KUNNR||'')) AS KUNNR_NM     -- 고객명(거래선명)
+		      , A.GSNAM                               -- 공사명
+		      , A.REGION                              -- 설치지역코드
+		      , A.ZDELI                               -- 단납기구분
+		      , A.SHANGH                              -- 국내/상해구분
+		      , A.ZINTER                              -- 중계무역구분
+		      , A.SOFOCA                              -- 수주예상액
+		      , A.ZFORE                               -- 예상시행율
+		      , A.WAERK                               -- 통화
+		      , A.DELDAT                              -- 납기예정일
+		      , A.ZRMK                                -- 비고
+		      , REPLACE(A.ZRMK,CHR(13)||CHR(10),' ') AS ZRMK1   -- 비고1
+		      , A.ZAGNT								  -- 대리점코드
+		      , VALUE(AGNT.NAME1,'')	AS 	ZAGNT_NM  -- 대리점명
+			  , C.LAND1                	AS LAND1	  -- 국가코드
+			  , (SELECT LANDX FROM SAPHEE.T005T WHERE MANDT = C.MANDT 
+			                                       AND SPRAS = '3'
+	                                               AND LAND1 = C.LAND1 
+	             ) 						AS LAND1_NM	  -- 국가명
+			  , D.ZAREA  							  -- 권역코드
+			  , (SELECT DDTEXT FROM SAPHEE.DD07T WHERE DOMNAME = 'ZSDDZAREA'
+			                                      AND DDLANGUAGE = '3' 
+			                                      AND DOMVALUE_L = D.ZAREA
+			    ) 						AS ZAREA_NM   -- 권역명 
+			  , A.ZCOST								  -- 원가
+			  , A.ZPCOST			                  -- 단가
+		      , A.CDATE                               -- 입력일자
+		      , A.CTIME                               -- 입력시간
+		      , A.CUSER                               -- 입력자ID
+		      , A.UDATE                               -- 변경일자
+		      , A.UTIME                               -- 변경시간
+		      , A.UUSER                               -- 변경자ID
+		      , A.DDATE                               -- 삭제일자
+		      , A.DTIME                               -- 삭제시간
+		      , A.DUSER                               -- 삭제자ID
+		      , A.ZBDTYP                              -- 건물용도  jss
+		      , VALUE((SELECT STEXT 
+		      			FROM SAPHEE.ZSDT1152  
+		      			WHERE ZBDTYP_L = DECODE(VALUE(A.ZDELI,'')
+										,'X'
+										, 'B5'
+										,(SELECT ZBDTYP_L
+											FROM SAPHEE.ZSDTBDTYP 
+											WHERE MANDT=A.MANDT
+											AND ZBDTYP=A.ZBDTYP
+											FETCH FIRST 1 ROW ONLY
+										 )
+										) 
+		      			FETCH FIRST 1 ROW ONLY ),'') AS ZBDTYP_LNM  --건물용도대분류 jss
+		 FROM   SAPHEE.ZSDT1012 A   -- 사업계획_수주
+		        LEFT JOIN SAPHEE.LFA1 AS AGNT  ON AGNT.MANDT = A.MANDT	-- 대리점
+                                              AND AGNT.LIFNR = A.ZAGNT
+		      , SAPHEE.KNA1     B   -- 담당자 (KTOKD IN 'Z201')
+		      , SAPHEE.KNA1     C   -- 거래선 (KTOKD IN 'Z001','Z002','Z004')
+		        LEFT JOIN SAPHEE.ZSDT0056 AS D ON D.MANDT = C.MANDT 	-- 국가별 권역 
+                                              AND D.LAND1 = C.LAND1 
+		WHERE A.MANDT   = B.MANDT
+		  AND A.ZKUNNR  = B.KUNNR 
+		  AND A.MANDT   = C.MANDT
+		  AND A.KUNNR   = C.KUNNR 
+		  AND A.MANDT   	= #{MANDT}    	-- client
+		  AND A.ZPYEAR  	= #{ZPYEAR}   	-- 편성년도
+		  AND A.ZPYM    	= #{ZPYM}     	-- 계획년월
+		  AND TRIM(A.DDATE)	IN ('', '00000000') 			--  삭제되지 않은 건
+		  AND TRIM(A.VBELN) = ''   							--  강제Inset건 제외
+		  <if test="SPART  	 !=null and SPART  	 !=''">
+		  	AND A.SPART  = #{SPART}    -- 제품군
+		  </if>
+		  <if test="VKBUR_FR !=null and VKBUR_FR !=''">
+		  	<if test="VKBUR_TO ==null or VKBUR_TO ==''">
+				AND A.VKBUR = #{VKBUR_FR} 						-- 사업장코드_FR
+			</if>
+	  		<if test="VKBUR_TO !=null and VKBUR_TO !=''">
+				AND A.VKBUR BETWEEN #{VKBUR_FR} AND #{VKBUR_TO} -- 사업장코드_FR ~ 사업장코드_TO
+			</if>
+		  </if>
+		  <if test="VKGRP_FR !=null and VKGRP_FR !=''">
+		  	<if test="VKGRP_TO ==null or VKGRP_TO ==''">
+				AND A.VKGRP = #{VKGRP_FR} 						-- 영업그룹코드_FR
+			</if>
+	  		<if test="VKBUR_TO !=null and VKBUR_TO !=''">
+				AND A.VKGRP BETWEEN #{VKGRP_FR} AND #{VKGRP_TO} -- 영업그룹코드_FR ~ 영업그룹코드_TO
+			</if>
+		  </if>
+		  <if test="ZKUNNR   !=null and ZKUNNR   !=''">
+		  	AND A.ZKUNNR = #{ZKUNNR}   -- 영업사원코드
+		  </if>
+		 ORDER BY A.CDATE  DESC, A.CTIME  DESC   -- 등록일시 내림차순
+		 WITH UR
+	</select>
+
+	<!-- 사업계획 매출/청구/수금목록 조회 --> 
+	<resultMap id="selectListDetailMap" type="hdel.sd.sbp.domain.Sbp0010">
+		<result property="MANDT" 	column="MANDT"/>
+		<result property="GBN" 		column="GBN"/>
+		<result property="GBN_NM" 	column="GBN_NM"/> 
+	    <result property="AMT00" 	column="AMT00"/>
+	    <result property="AMT01" 	column="AMT01"/> 
+	    <result property="AMT02" 	column="AMT02"/> 
+	    <result property="AMT03" 	column="AMT03"/> 
+	    <result property="AMT04" 	column="AMT04"/> 
+	    <result property="AMT05" 	column="AMT05"/> 
+	    <result property="AMT06" 	column="AMT06"/> 
+	    <result property="AMT07" 	column="AMT07"/> 
+	    <result property="AMT08" 	column="AMT08"/> 
+	    <result property="AMT09" 	column="AMT09"/>  
+	    <result property="AMT10" 	column="AMT10"/>
+	    <result property="AMT11" 	column="AMT11"/> 
+	    <result property="AMT12" 	column="AMT12"/> 
+	    <result property="AMT13" 	column="AMT13"/> 
+	    <result property="AMT14" 	column="AMT14"/> 
+	    <result property="AMT15" 	column="AMT15"/> 
+	    <result property="AMT16" 	column="AMT16"/> 
+	    <result property="AMT17" 	column="AMT17"/> 
+	    <result property="AMT18" 	column="AMT18"/> 
+	    <result property="AMT19" 	column="AMT19"/>   
+	    <result property="AMT20" 	column="AMT20"/>
+	    <result property="AMT21" 	column="AMT21"/> 
+	    <result property="AMT22" 	column="AMT22"/> 
+	    <result property="AMT23" 	column="AMT23"/> 
+	    <result property="AMT24" 	column="AMT24"/> 
+	    <result property="AMT25" 	column="AMT25"/> 
+	    <result property="AMT26" 	column="AMT26"/> 
+	    <result property="AMT27" 	column="AMT27"/> 
+	    <result property="AMT28" 	column="AMT28"/> 
+	    <result property="AMT29" 	column="AMT29"/>   
+	</resultMap> 
+	<select id="selectListDetail" parameterType="hdel.sd.sbp.domain.Sbp0010ParamVO" resultMap="selectListDetailMap">
+	SELECT    X.MANDT      AS MANDT
+		    , X.GBN		   AS GBN
+        	, X.GBN_NM     AS GBN_NM
+			, SUM(X.AMT00) AS AMT00
+			, SUM(X.AMT01) AS AMT01
+			, SUM(X.AMT02) AS AMT02
+			, SUM(X.AMT03) AS AMT03
+			, SUM(X.AMT04) AS AMT04
+			, SUM(X.AMT05) AS AMT05
+			, SUM(X.AMT06) AS AMT06
+			, SUM(X.AMT07) AS AMT07
+			, SUM(X.AMT08) AS AMT08
+			, SUM(X.AMT09) AS AMT09
+			, SUM(X.AMT10) AS AMT10
+			, SUM(X.AMT11) AS AMT11
+			, SUM(X.AMT12) AS AMT12
+			, SUM(X.AMT13) AS AMT13
+			, SUM(X.AMT14) AS AMT14
+			, SUM(X.AMT15) AS AMT15
+			, SUM(X.AMT16) AS AMT16
+			, SUM(X.AMT17) AS AMT17
+			, SUM(X.AMT18) AS AMT18
+			, SUM(X.AMT19) AS AMT19
+			, SUM(X.AMT20) AS AMT20
+			, SUM(X.AMT21) AS AMT21
+			, SUM(X.AMT22) AS AMT22
+			, SUM(X.AMT23) AS AMT23
+			, SUM(X.AMT24) AS AMT24
+			, SUM(X.AMT25) AS AMT25
+			, SUM(X.AMT26) AS AMT26
+			, SUM(X.AMT27) AS AMT27
+			, SUM(X.AMT28) AS AMT28
+			, SUM(X.AMT29) AS AMT29
+		FROM (
+				SELECT
+				      Z.MANDT   AS MANDT
+				    , Z.GBN		AS GBN
+		        	, Z.GBN_NM	AS GBN_NM
+				    , CASE Z.MM WHEN #{M00} THEN Z.AMT END AS AMT00
+				    , CASE Z.MM WHEN #{M01} THEN Z.AMT END AS AMT01
+				    , CASE Z.MM WHEN #{M02} THEN Z.AMT END AS AMT02
+				    , CASE Z.MM WHEN #{M03} THEN Z.AMT END AS AMT03
+				    , CASE Z.MM WHEN #{M04} THEN Z.AMT END AS AMT04
+				    , CASE Z.MM WHEN #{M05} THEN Z.AMT END AS AMT05
+				    , CASE Z.MM WHEN #{M06} THEN Z.AMT END AS AMT06
+				    , CASE Z.MM WHEN #{M07} THEN Z.AMT END AS AMT07
+				    , CASE Z.MM WHEN #{M08} THEN Z.AMT END AS AMT08
+				    , CASE Z.MM WHEN #{M09} THEN Z.AMT END AS AMT09
+				    , CASE Z.MM WHEN #{M10} THEN Z.AMT END AS AMT10
+				    , CASE Z.MM WHEN #{M11} THEN Z.AMT END AS AMT11
+				    , CASE Z.MM WHEN #{M12} THEN Z.AMT END AS AMT12
+				    , CASE Z.MM WHEN #{M13} THEN Z.AMT END AS AMT13
+				    , CASE Z.MM WHEN #{M14} THEN Z.AMT END AS AMT14
+				    , CASE Z.MM WHEN #{M15} THEN Z.AMT END AS AMT15
+				    , CASE Z.MM WHEN #{M16} THEN Z.AMT END AS AMT16
+				    , CASE Z.MM WHEN #{M17} THEN Z.AMT END AS AMT17
+				    , CASE Z.MM WHEN #{M18} THEN Z.AMT END AS AMT18
+				    , CASE Z.MM WHEN #{M19} THEN Z.AMT END AS AMT19
+				    , CASE Z.MM WHEN #{M20} THEN Z.AMT END AS AMT20
+				    , CASE Z.MM WHEN #{M21} THEN Z.AMT END AS AMT21
+				    , CASE Z.MM WHEN #{M22} THEN Z.AMT END AS AMT22
+				    , CASE Z.MM WHEN #{M23} THEN Z.AMT END AS AMT23
+				    , CASE Z.MM WHEN #{M24} THEN Z.AMT END AS AMT24
+				    , CASE Z.MM WHEN #{M25} THEN Z.AMT END AS AMT25
+				    , CASE Z.MM WHEN #{M26} THEN Z.AMT END AS AMT26
+				    , CASE Z.MM WHEN #{M27} THEN Z.AMT END AS AMT27
+				    , CASE Z.MM WHEN #{M28} THEN Z.AMT END AS AMT28
+				    , CASE Z.MM WHEN #{M29} THEN Z.AMT END AS AMT29
+		      FROM  (
+				      SELECT  MANDT     	AS MANDT
+				            , '1' 			AS GBN
+				          	, '매출' 		AS GBN_NM
+						    , ZSAYM     	AS MM
+						    , NETWR_SA  	AS AMT
+				        FROM SAPHEE.ZSDT1013   		--  사업계획-매출 T/B
+				       WHERE MANDT 	= #{MANDT}
+				         AND ZBPNNR = #{ZBPNNR}		--  사업계획번호
+				       UNION ALL
+				       SELECT #{MANDT}||''  AS MANDT
+				            , '1' 			AS GBN
+				          	, '매출' 		AS GBN_NM
+						    , ''        	AS MM
+						    , 0         	AS AMT
+				        FROM SYSIBM.SYSDUMMY1		-- 매출자료 미존재시 화면에 빈 행을 보여주기 위해 추가함
+				       UNION ALL
+				      SELECT  MANDT     	AS MANDT
+				            , '2' 			AS GBN
+				          	, '청구' 		AS GBN_NM
+						    , ZRQYM     	AS MM
+						    , NETWR_RQ  	AS AMT
+				        FROM SAPHEE.ZSDT1014   		--  사업계획-청구 T/B
+				       WHERE MANDT 	= #{MANDT}
+				         AND ZBPNNR = #{ZBPNNR}		--  사업계획번호
+				       UNION ALL
+				       SELECT #{MANDT}||''  AS MANDT
+				            , '2' 			AS GBN
+				          	, '청구' 		AS GBN_NM
+						    , ''        	AS MM
+						    , 0         	AS AMT
+				        FROM SYSIBM.SYSDUMMY1		-- 청구자료 미존재시 화면에 빈 행을 보여주기 위해 추가함
+				       UNION ALL
+				      SELECT  MANDT     	AS MANDT
+				            , '3' 			AS GBN
+				          	, '수금' 		AS GBN_NM
+						    , BYSYM     	AS MM
+						    , COLBI     	AS AMT
+				        FROM SAPHEE.ZSDT1015   		--  사업계획-수금 T/B
+				       WHERE MANDT 	= #{MANDT}
+				         AND ZBPNNR = #{ZBPNNR}		--  사업계획번호
+				       UNION ALL
+				       SELECT #{MANDT}||''  AS MANDT
+				            , '3' 			AS GBN
+				          	, '수금' 		AS GBN_NM
+						    , ''        	AS MM
+						    , 0         	AS AMT
+				        FROM SYSIBM.SYSDUMMY1		-- 수금자료 미존재시 화면에 빈 행을 보여주기 위해 추가함
+				      ) Z
+			) X
+	 GROUP BY X.MANDT, X.GBN, X.GBN_NM
+     ORDER BY X.GBN
+      WITH UR
+	</select>
+
+	<!-- 사업계획저장상태 변경  --> 
+	<update id="updateCostZSDT1012" parameterType="hdel.sd.sbp.domain.Sbp0010">
+	UPDATE SAPHEE.ZSDT1012		--  사업계획_수주 T/B
+	   SET
+	   		 ZCOST      = #{ZCOST}		-- 원가
+			,UDATE    = HEX(CURRENT DATE) 														--  변경일자
+			,UTIME    = HEX(CURRENT TIME) 														--  변경시간
+			<if test="UUSER != null">,UUSER    = LTRIM(''||RTRIM(#{UUSER}||''))   	</if>	--  변경자ID
+			<if test="UUSER == null">,UUSER    = ''    									</if>	--  변경자ID 
+	 WHERE MANDT  		= #{MANDT}         							-- 클라이언트
+	   AND ZBPNNR  		= #{ZBPNNR}        							-- 사업계획번호
+	   AND TRIM(DDATE) IN ('', '00000000') 							-- 삭제되지 않은 건
+	   AND TRIM(VBELN) 	= ''   										-- 강제Inset건 제외 
+	  WITH UR
+	</update>
+
+	<!--  대리점명 조회   --> 
+	<resultMap id="selectCodeListResultMap" type="hdel.sd.sbp.domain.Sbp0010"> 
+	    <result property="ZAGNT" column="ZAGNT"/>
+	    <result property="ZAGNT_NM" column="ZAGNT_NM"/> 
+	</resultMap> 
+	<select id="selectListZagnt" parameterType="hdel.sd.sbp.domain.Sbp0010" resultMap="selectCodeListResultMap">
+	SELECT   LIFNR AS ZAGNT     -- 대리점코드
+	       , NAME1 AS ZAGNT_NM	-- 대리점명 
+	  FROM SAPHEE.LFA1
+	 WHERE MANDT = #{MANDT} 
+	   AND LIFNR = #{ZAGNT}
+	  WITH UR
+	</select>  
+	
+
+	<resultMap id="ComboResultMap" type="hdel.sd.sbp.domain.Sbp0010"> 
+	    <result property="CODE" column="CODE"/>
+	    <result property="CODENAME" column="CODENAME"/> 
+	    <result property="SPART" column="SPART"/> 
+	    <result property="AUART" column="AUART"/> 
+	    <result property="MATNR" column="MATNR"/> 
+	</resultMap> 	
+	<select id="selectListRGtype" parameterType="hdel.sd.sbp.domain.Sbp0010" resultMap="ComboResultMap">
+		-- 부서로만 지정
+		SELECT	RTYPE	AS CODE
+			 ,	RTYPE	AS CODENAME
+			 ,  SPART
+             ,  AUART
+             ,  MATNR
+		  FROM	SAPHEE.ZSDTRTYPE
+		 WHERE	MANDT	= #{MANDT}
+	<if test="VKBUR != null and VKBUR !=''">  AND	VKBUR LIKE '%' || #{VKBUR} || '%' </if>
+		   AND	VKGRP	= ''
+		   AND	VKGRP2	= ''
+		UNION
+		-- 특정팀만 지정
+		SELECT	RTYPE	AS CODE
+			 ,	RTYPE	AS CODENAME
+			 ,  SPART
+             ,  AUART
+             ,  MATNR			 
+		  FROM	SAPHEE.ZSDTRTYPE
+		 WHERE	MANDT	= #{MANDT}
+	<if test="VKGRP != null and VKGRP !=''">  AND	VKGRP LIKE '%' || #{VKGRP} || '%' </if>
+		UNION
+		-- 부서(특정팀만 제외)
+		SELECT	RTYPE	AS CODE
+			 ,	RTYPE	AS CODENAME
+			 ,  SPART
+             ,  AUART
+             ,  MATNR			 
+		  FROM	SAPHEE.ZSDTRTYPE
+		 WHERE	MANDT	= #{MANDT}
+	<if test="VKBUR != null and VKBUR !=''"> AND	VKBUR	LIKE '%' || #{VKBUR} || '%' </if>
+		   AND	VKGRP	= ''
+	<if test="VKGRP != null and VKGRP !=''"> AND	VKGRP2	NOT LIKE '%' || #{VKGRP} || '%' </if>
+		UNION
+		-- 부서(특정팀만 지정 and 특정팀만 제외)
+		SELECT	RTYPE	AS CODE
+			 ,	RTYPE	AS CODENAME
+			 ,  SPART
+             ,  AUART
+             ,  MATNR			 
+		  FROM	SAPHEE.ZSDTRTYPE
+		 WHERE	MANDT	= #{MANDT}
+		<if test="VKBUR != null and VKBUR !=''"> AND VKBUR	LIKE '%' || #{VKBUR} || '%' </if>
+		<if test="VKGRP != null and VKGRP !=''"> AND VKGRP	LIKE '%' || #{VKGRP} || '%' </if>
+		<if test="VKGRP != null and VKGRP !=''"> AND VKGRP2	NOT LIKE '%' || #{VKGRP} || '%' </if>
+		UNION
+		-- 부서(특정인만 지정)
+		SELECT	RTYPE	AS CODE
+			 ,	RTYPE	AS CODENAME
+			 ,  SPART
+             ,  AUART
+             ,  MATNR			 
+		  FROM	SAPHEE.ZSDTRTYPE
+		 WHERE	MANDT	= #{MANDT}
+		 <if test="ZKUNNR != null and ZKUNNR !=''"> AND ZKUNNR LIKE '%' || #{ZKUNNR} || '%' </if>
+		WITH UR
+	</select>	
+
+</mapper>

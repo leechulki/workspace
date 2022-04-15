@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+	
+<mapper namespace="hdel.sd.com.dao.Com0310D">
+	<resultMap id="findMap" type="hdel.sd.com.domain.Com0310"/>
+	<select id="find" parameterType="hdel.sd.com.domain.Com0310" resultMap="findMap">
+		SELECT DISTINCT zqm7.jqprnum, zqm7.jqprno, zqm7.pspid, zqm7.hogi, zqm7.rejtxt, zqm7.occdt, zqm7.waers,
+			   SUM(NVL(CASE zqm7.impktl  WHEN SUBSTR(CAST(z1109.kostl AS CHAR(10)), 6) THEN DECIMAL(zqm7.iwbtr*(zqm7.IMPKTL_P  * 0.01),15,2)*100 END,0)+  
+			       NVL(CASE zqm7.impktl2 WHEN SUBSTR(CAST(z1109.kostl AS CHAR(10)), 6) THEN DECIMAL(zqm7.iwbtr*(zqm7.IMPKTL2_P * 0.01),15,2)*100 END,0)+ 
+			       NVL(CASE zqm7.impktl3 WHEN SUBSTR(CAST(z1109.kostl AS CHAR(10)), 6) THEN DECIMAL(zqm7.iwbtr*(zqm7.IMPKTL3_P * 0.01),15,2)*100 END,0) 
+			       )OVER(PARTITION BY zqm7.jqprnum) AS iwbtr,
+			   SUM(NVL(CASE zqm7.impktl  WHEN SUBSTR(CAST(z1109.kostl AS CHAR(10)), 6) THEN DECIMAL(zqm7.iwbtr*(zqm7.IMPKTL_P  * 0.01),15,2) END,0)+  
+			       NVL(CASE zqm7.impktl2 WHEN SUBSTR(CAST(z1109.kostl AS CHAR(10)), 6) THEN DECIMAL(zqm7.iwbtr*(zqm7.IMPKTL2_P * 0.01),15,2) END,0)+ 
+			       NVL(CASE zqm7.impktl3 WHEN SUBSTR(CAST(z1109.kostl AS CHAR(10)), 6) THEN DECIMAL(zqm7.iwbtr*(zqm7.IMPKTL3_P * 0.01),15,2) END,0) 
+			       )OVER(PARTITION BY zqm7.jqprnum) AS iwbtrorg,
+			  (SELECT MAX(A.IWBTR)*100 AS IWBTR
+			    FROM  SAPHEE.ZSDT1108  A
+			    WHERE A.MANDT = zqm7.MANDT
+			    AND A.VBELN = zqm7.pspid
+			    AND A.JQPRNUM = zqm7.jqprnum
+			    AND A.HOGI = zqm7.HOGI 
+			    AND A.SEQ = (SELECT MAX(SEQ) FROM SAPHEE.ZSDT1108 WHERE MANDT = zqm7.MANDT AND VBELN = zqm7.pspid  AND  JQPRNUM = zqm7.jqprnum AND HOGI = zqm7.HOGI  )
+			    AND A.WAERS = 'KRW'
+			  )AS IWBTRCHG,
+			zqm7.impktl, (SELECT teamname FROM saphee.zsdt1109 WHERE mandt = #{mandt} AND KOKRS = '1000' AND zqm7.impktl = SUBSTR(CAST(kostl AS CHAR(10)), 6)) AS impktlName,
+			zqm7.impktl2, (SELECT teamname FROM saphee.zsdt1109 WHERE mandt = #{mandt} AND KOKRS = '1000' AND zqm7.impktl2 = SUBSTR(CAST(kostl AS CHAR(10)), 6)) AS impktl2Name,
+			zqm7.impktl3, (SELECT teamname FROM saphee.zsdt1109 WHERE mandt = #{mandt} AND KOKRS = '1000' AND zqm7.impktl3 = SUBSTR(CAST(kostl AS CHAR(10)), 6)) AS impktl3Name,
+			zqm7.causecod, zqm7.causetxt,
+			NVL((SELECT MAX(SEQ) FROM SAPHEE.ZSDT1108 WHERE MANDT = zqm7.MANDT AND VBELN = zqm7.pspid  AND  JQPRNUM = zqm7.jqprnum AND HOGI = zqm7.HOGI),0) AS maxSeq
+		FROM saphee.zqmt007 AS zqm7
+			INNER JOIN saphee.zsdt1109 AS z1109 
+				ON zqm7.mandt = z1109.mandt 
+					AND (zqm7.impktl = SUBSTR(CAST(kostl AS CHAR(10)), 6) OR zqm7.impktl2 = SUBSTR(CAST(kostl AS CHAR(10)), 6) OR zqm7.impktl3 = SUBSTR(CAST(kostl AS CHAR(10)), 6))
+		WHERE zqm7.mandt = #{mandt}
+			AND zqm7.pspid = #{pspid}
+			AND zqm7.causecod IN ('F21', 'G15', 'G11', 'G13')
+			<![CDATA[ AND zqm7.status <> '9' ]]>
+			AND zqm7.WAERS = 'KRW'
+		ORDER BY jqprnum	
+	with ur
+	</select>
+</mapper>

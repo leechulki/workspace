@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[보수자재관리-견적리스트-마스터정보 Retrieve]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT DISTINCT
+	       CS01.QTNUM AS QTNUM ,
+	       CS01.SEQ   AS SEQ ,
+	       CS01.QTNAM AS QTNAM ,
+	       CS01.VBELN AS VBELN ,
+	       CS01.VKBUR AS VKBUR ,
+	       CS01.VKGRP AS VKGRP ,
+	       SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, 'CS001_GBN', CS01.CS001_GBN) AS CS001_GBN ,
+	       CS01.LIFNR  AS LIFNR ,
+	       EP01.ABR_NM AS ED_LIFNR ,
+	       EP01.ABR_NM AS BSUNM,
+	       CS01.MA_PSPID AS MA_PSPID ,
+	       CASE
+	           WHEN CS01.SPT > '' THEN CS01.SPT
+	           WHEN CS01.MA_PSPID > '' THEN CS121.CS121_SPT
+	           ELSE ''
+	       END AS SPT ,
+	       CS01.REQKIND AS REQKIND ,
+	       CASE WHEN CS01.REQKIND = '1' THEN '부품판매'
+	       END AS REQKINDNM,
+	       	<!-- 판가 대비 견적 -->
+	       CS01.WAERS,
+         SAPHEE.GET_CURRDATA(CS01.WAERS,  CASE WHEN CS01.SUM_STD > 0 THEN  CS01.SUM_STD 
+                                               ELSE CS01.NETWR 
+                                          END) AS BILAMT1,
+         SAPHEE.GET_CURRDATA(CS01.WAERS,  CASE WHEN CS01.SUM_OFR > 0 THEN  CS01.SUM_OFR - NETWR_SHIP
+                                               ELSE CS01.AMOUNT - NETWR_SHIP
+                                          END) AS AMOUNT,
+	       CASE WHEN CS01.NETWR_OFR = 0 OR CS01.NETWR_STD = 0 THEN
+                CASE WHEN CS01.AMOUNT > 0 AND CS01.NETWR > 0 THEN
+                   		  ROUND(( CS01.NETWR / (CS01.AMOUNT - NETWR_SHIP)) * 100 , 0)
+                     ELSE 0
+                END
+	            ELSE ROUND(( CS01.SUM_STD / (CS01.SUM_OFR - NETWR_SHIP)) * 100 , 0)
+	       END AS SORATE,
+	       SAPHEE.GET_CURRDATA(CS01.WAERS, CS01.NETWR_SHIP) AS NETWR_SHIP ,
+         SAPHEE.GET_CURRDATA(CS01.WAERS, CASE WHEN CS01.SUM_OFR > 0 THEN CS01.SUM_OFR 
+                                              ELSE CS01.AMOUNT 
+                                         END) AS AMOUNT_TOTAL,
+	       
+	       	<!-- 판가 대비 견적 -->
+	       CS01.CRDAT AS CRDAT ,
+	       CS01.SHDAT AS SHDAT ,
+	       --CS01.SODAT AS SODAT ,
+	       CS01.APDAT AS APDAT ,
+	       CS01.QSTAT AS QSTAT,
+	       CS01.ADJCOST  AS ADJCOST,
+	       '청구 ' || SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, '7', CS01.QSTAT) AS QSTATNM,
+	       CS01.PS_PSPID,
+	       CS01.DOC1,
+	       CS01.DOC2,
+	       CS01.DOC3,
+	       CS01.DOC4,
+	       CS01.DOC5,
+	      
+	       (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = CS01.MANDT AND USERNUMB = CS01.CRNAM) AS CRNAME,
+	       CS01.CRNAM AS CRNAME_ID,
+	       CS01.LAND1,
+	       CS01.ENDYN,
+	       CS01.ENDDAT,
+	       CS01.ENDID,
+	       CS01.ENDRSN
+	       ,CS03.STATUS
+	       ,CS03.STATUS_SUGM
+	       ,CS03.PACKDATE
+	       ,CS03.SHIPDATE
+	       ,EP01.INCGBN_TX
+	       
+	       ,CS01.EMYN AS EMYN -- 긴급여부
+	       ,CS01.QTRCDAT AS QTRCDAT -- 견적접수일 2020.02.03 이지원 요청으로 컬럼생성. Han J.H
+	       ,CASE WHEN CS01.QTRCDAT != '' THEN DAYS(DATE(INSERT(INSERT(COALESCE(CS01.CRDAT, ''),5,0,'-'),8,0,'-'))) - DAYS(DATE(INSERT(INSERT(COALESCE(CS01.QTRCDAT, ''),5,0,'-'),8,0,'-'))) 
+		  	   	 ELSE '0'
+	        END AS LT1 -- 견적작성일 - 견적접수일
+	       ,CASE WHEN CS01.APDAT != '' THEN DAYS(DATE(INSERT(INSERT(COALESCE(CS01.APDAT, ''),5,0,'-'),8,0,'-'))) - DAYS(DATE(INSERT(INSERT(COALESCE(CS01.CRDAT, ''),5,0,'-'),8,0,'-'))) 
+		  	   	 ELSE '0'
+	        END AS LT2 -- 수주일자 - 견적작성일			     
+	  FROM (SELECT   QTNUM,
+                   MAX(SEQ) AS SEQ
+	  		    FROM SAPHEE.ZCST001G
+	  		   WHERE MANDT = #G_MANDT#
+	  		   GROUP BY QTNUM) AS MX01    INNER JOIN SAPHEE.ZCST001G AS CS01
+	  		                                      ON CS01.MANDT = #G_MANDT#
+	  		                                     AND CS01.QTNUM = MX01.QTNUM 
+	  		                                     AND CS01.SEQ = MX01.SEQ   
+	  		                                     
+	  		                              INNER JOIN SAPHEE.ZCST003G AS CS03
+	  		                                      ON CS03.MANDT = #G_MANDT#
+	  		                                     AND CS03.QTNUM = CS01.QTNUM
+	  		                                     AND CS03.SEQ = CS01.SEQ
+	  		                              
+	  		                              <!-- 고객이자 협력사인 해외법인 대리점이므로 KNA1 Inner Join으로 변경. 2019.06.05 Han J.H -->       
+	  		                              <!-- INNER JOIN SAPHEE.ZWBT010 AS WB010
+	  		                                      ON WB010.MANDT = CS01.MANDT
+	  		                                     AND WB010.LIFNR = CS01.LIFNR  -->
+	  		                                     
+	  		                              INNER JOIN SAPHEE.KNA1 AS KNA1
+	  		                                      ON KNA1.MANDT = CS01.MANDT
+	  		                                     AND KNA1.KUNNR = CS01.LIFNR	  		                                     
+	  		                                     
+	  		                              INNER JOIN SAPHEE.ZCSTEP01 AS EP01
+	  		                                      ON EP01.MANDT = CS01.MANDT
+	  		                                     AND EP01.LIFNR = CS01.LIFNR
+	   
+	   	                                LEFT OUTER JOIN SAPHEE.ZCST121G AS CS121
+	                                            ON CS121.MANDT     = CS01.MANDT
+	                                   	       AND CS121.CS121_UPN = SUBSTR(CS01.MA_PSPID,1,6)
+	                                           AND CS121.CS121_CST = SUBSTR(CS01.MA_PSPID,7,3)
+	                                   
+	      	    
+	 WHERE 1=1
+     AND CS01.QTNUM != ''
+ <isNotNull col="LAND1"> 	<!-- 국가키 -->
+ 	   AND EP01.LAND1 = #LAND1# 
+ </isNotNull>
+ <isNotNull col="LIFNR">
+ 	   AND CS01.LIFNR = #LIFNR#
+ </isNotNull>	   
+	   AND REQKIND = '1'	 
+	   AND CS01.BUSSI = '1'
+
+ <isNotNull col="PSPID">
+     AND CS01.MA_PSPID LIKE #PSPID#||'%'
+ </isNotNull>
+ <isNotNull col="STATUS">
+     AND CS03.STATUS = #STATUS#
+ </isNotNull>
+ <isEqual col="GBN" value="1">	<!-- 견적일 -->
+     AND CS01.CRDAT BETWEEN #FROM_DT# AND #TO_DT#
+ </isEqual>
+ <isNotNull col="QTNUM">
+     AND CS01.QTNUM LIKE #QTNUM#||'%'
+ </isNotNull>
+
+
+	ORDER BY QTNUM DESC
+	FOR FETCH ONLY
+	WITH UR
+	
+	
+		</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list_master">
+	</output>
+</query>

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  DISTINCT
+        T.MANDT
+       ,T.POSID
+       ,T.ZSITE_NM
+       ,T.VDATU
+       ,T.CONTR_DA
+       ,T.ZQNTY
+       ,T.KUNNR_NM
+
+       --,T.ADDR
+  
+       ,CASE WHEN SUBSTR(T.POSID,1,1) = 'E' OR SUBSTR(T.POSID,1,1) = 'T' OR SUBSTR(T.POSID,1,1) = 'C' 
+	             THEN (SELECT (SELECT Y.LANDX 
+                                                       FROM SAPHEE.T005T AS Y 
+			           WHERE Y.MANDT = Z.MANDT AND Y.SPRAS = '3' AND Y.LAND1 = Z.LAND1) 
+                                         FROM SAPHEE.VBPA AS Z
+		           WHERE Z.MANDT = T.MANDT
+			 AND Z.VBELN = T.POSID
+			 AND Z.PARVW = 'WE' )
+	    ELSE T.ADDR   
+         END AS ADDR
+  
+
+       ,T.TEXT30
+       ,T.VALUE
+       ,T.ZSITE_TEL
+       ,T.ZTEL
+       ,T.ZMAN
+       ,T.ZMAN_NM
+       ,T.CDATE
+	     ,CASE WHEN T.LIFNRCHK = '1' THEN '직발주' WHEN T.LIFNRCHK ='2' THEN '공동수급' ELSE '' END AS LIFNRCHK
+	     ,CASE T.LIFNRCHK WHEN '1' THEN CASE GUBUN WHEN '0' THEN '미입력' WHEN '1' THEN '완료' WHEN '2' THEN '미완료' WHEN '3' THEN '거부' ELSE '' END
+	                      WHEN '2' THEN CASE GUBUN WHEN '0' THEN '미입력' WHEN '1' THEN '동일업체투입' WHEN '2' THEN '미완료'  WHEN '3' THEN '승인불가'  WHEN '4' THEN '추가약정완료'  WHEN '5' THEN '변경합의서승인' ELSE '' END
+						            ELSE '' END AS GUBUN
+      ,VALUE(T1.NAME1,'') AS NAME1
+      ,VALUE(T1.STRAS,'') AS STRAS
+      ,VALUE(T1.STRAS2,'') AS STRAS2
+      ,CASE WHEN T1.TURNKEY = '1' THEN '일반공사' WHEN T1.TURNKEY = '2' THEN '주공, SH, 관납공사' ELSE '' END AS TURNKEY
+      ,(SELECT ENFOR FROM SAPHEE.VBAK WHERE MANDT=T.MANDT AND ZZPJT_ID = T.POSID) AS ENFOR
+      ,(SELECT S.STEXT FROM SAPHEE.VBAK V, SAPHEE.ZV_SDT0008 S WHERE V.MANDT=T.MANDT AND V.ZZPJT_ID = T.POSID AND V.MANDT = S.MANDT AND V.WWBLD = S.WWBLD) AS STEXT
+      ,(SELECT C.LIFNR FROM SAPHEE.VBAK AS A INNER JOIN SAPHEE.VBPA AS C ON A.MANDT = C.MANDT AND A.VBELN = C.VBELN AND C.PARVW = 'Z1' WHERE A.MANDT = T.MANDT AND A.ZZPJT_ID = T.POSID) AS ZLIFNR
+       ,T.P_END      -- 마감현장 조회  
+FROM (
+        SELECT  DISTINCT
+                MASTER01A.MANDT
+               ,MASTER01A.POSID
+               ,MASTER01A.ZSITE_NM
+               ,MASTER01A.VDATU
+               ,MASTER01A.CONTR_DA
+               ,MASTER01A.ZQNTY
+               ,MASTER01A.KUNNR_NM
+
+               ,MASTER01A.ADDR1 || ' ' || MASTER01A.ADDR2 AS ADDR          
+               ,MASTER01A.TEXT30
+               ,MASTER02B.VALUE
+               ,MASTER01A.ZSITE_TEL
+               ,MASTER01A.ZTEL
+               ,MASTER01A.ZMAN
+               ,MASTER01A.ZMAN_NM
+               ,MASTER01A.CDATE
+        	     ,(SELECT LIFNRCHK FROM SAPHEE.VBAK AS A WHERE A.MANDT = MASTER01A.MANDT AND ZZPJT_ID = MASTER01A.POSID) AS LIFNRCHK
+        	     ,CASE (SELECT LIFNRCHK FROM SAPHEE.VBAK AS A WHERE A.MANDT = MASTER01A.MANDT AND ZZPJT_ID = MASTER01A.POSID)
+        	        WHEN '1' THEN VALUE((SELECT GUBUN1 FROM SAPHEE.ZPST0033 AS A WHERE A.MANDT  = MASTER01A.MANDT AND A.PSPID = MASTER01A.POSID),'')
+        		      WHEN '2' THEN VALUE((SELECT GUBUN1 FROM SAPHEE.ZPST0030 AS A WHERE A.MANDT  = MASTER01A.MANDT AND A.PSPID = MASTER01A.POSID),'')
+                  ELSE '' END AS GUBUN
+               , (CASE  WHEN MASTER02C.TXT04 > '' AND SUBSTR(MASTER02C.TXT04,1,1) &lt;&gt; 'I' AND RTRIM(MASTER02C.TXT04) NOT IN ('P','R4','R5','R6') 
+                              THEN 'CODE : '||MASTER02C.TXT04 ||'  사유: ' || MASTER02C.TXT30 ELSE '' END) AS P_END  -- 마감현장 조회
+        FROM  SAPHEE.ZMASTER01 AS MASTER01A
+        	  LEFT OUTER JOIN
+        	  ( SELECT  SD.MANDT
+        	           ,SD.POSID
+        	           ,SUM(SD.VALUE) AS VALUE
+                FROM  (
+                       SELECT  MASTER02A.MANDT
+            	                ,MASTER02A.POSID
+            	   		          ,ROWNUMBER() OVER(PARTITION BY SD0005.HOGI  ORDER BY SD0005.HOGI , SD0005.SEQ DESC ) AS RN
+                              ,(CASE WHEN VALUE(SD0005.VALUE,'0') = '' THEN 0 ELSE  INT(VALUE(SD0005.VALUE,'0')) END) AS VALUE
+                       FROM  SAPHEE.ZSDT0005 AS SD0005
+            	   	          ,SAPHEE.ZMASTER02 MASTER02A
+                       WHERE SD0005.MANDT = MASTER02A.MANDT
+        		           AND MASTER02A.MANDT = #G_MANDT#
+        		           AND MASTER02A.POSID = #PSPID#
+                       AND MASTER02A.ZZGUBUN IN ('10','13')        -- 제품구분(10:EL,13:EL선박)
+                       AND MASTER02A.PRART IN ('01','11')          -- 프로젝트유형(01:승강기(국내),11:교체공사)
+                       AND SD0005.HOGI = MASTER02A.POSID_1
+                       AND SD0005.CHARACTERISTIC = 'EL_ASTQ'    -- 정지층수
+                      ) AS SD
+                WHERE SD.RN = 1
+                GROUP BY SD.MANDT,SD.POSID
+             ) AS MASTER02B
+        	 ON MASTER01A.MANDT = MASTER02B.MANDT
+             AND MASTER01A.POSID = MASTER02B.POSID
+        	 ,SAPHEE.ZMASTER02 AS MASTER02C
+        WHERE MASTER01A.MANDT = #G_MANDT#
+        AND MASTER01A.POSID = #PSPID#
+        	 AND MASTER01A.MANDT = MASTER02C.MANDT
+             AND MASTER01A.POSID = MASTER02C.POSID
+    ) AS T
+      LEFT OUTER JOIN	( SELECT A.MANDT,A.POSID,D.NAME1, D.STRAS,D.NAME1||'('|| D.STRAS||')' AS STRAS2, B.TURNKEY
+      FROM   SAPHEE.ZMASTER01 AS A
+      INNER JOIN SAPHEE.VBAK AS B ON A.MANDT = B.MANDT AND A.POSID = B.ZZPJT_ID
+      INNER JOIN SAPHEE.VBPA AS C ON B.MANDT = C.MANDT AND B.VBELN = C.VBELN AND C.PARVW = 'Z3'
+      INNER JOIN SAPHEE.KNA1 AS D ON C.MANDT= D.MANDT AND C.KUNNR = D.KUNNR
+      WHERE A.MANDT = #G_MANDT#
+      AND   A.POSID = #PSPID#
+	  FETCH FIRST 1 ROWS ONLY
+	) AS T1 ON T.MANDT = T1.MANDT AND T.POSID = T1.POSID
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_head">
+	</output>
+</query>

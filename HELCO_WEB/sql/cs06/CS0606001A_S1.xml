@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT '' CHK
+       ,CS101.CS101_RCD
+       ,CS101.CS101_WDT
+       ,CS101.CS101_IGD
+       ,CS101.CS101_FDT
+       ,CS101.CS101_PJT
+	     ,(SELECT MA01.KUNNR_NM FROM SAPHEE.ZMASTER01 MA01 WHERE MA01.MANDT = CS101.MANDT AND MA01.POSID = CS101.CS101_PJT) KUNNR_NM
+	     ,(SELECT MA01.ZSITE_NM FROM SAPHEE.ZMASTER01 MA01 WHERE MA01.MANDT = CS101.MANDT AND MA01.POSID = CS101.CS101_PJT) ZSITE_NM	   
+       ,CS101.CS101_HNO
+       ,CS101.CS101_HNA
+       ,CS101.CS101_VSD
+	     ,(SELECT CTEXT2 
+	         FROM SAPHEE.ZLCODE AA
+	        WHERE AA.MANDT = CS101.MANDT
+	          AND AA.CODE1 = 'CS183'
+	          AND AA.CODE2 = CS107.CS107_PST
+		        AND AA.LANG = #G_LANG#
+	     ) CTEXT2
+       ,VALUE(A.PAPRIDTX,'') PAPRIDTX
+       ,(SELECT CELLP
+	         FROM SAPHEE.ZQMT031 QM031
+	        WHERE QM031.MANDT = CS101.MANDT
+	          AND QM031.PARTEM = 'E'
+	          AND QM031.PARTID = 'H' || A.PAPRID
+       ) CELLP
+       ,(SELECT D.NAMET
+           FROM  SAPHEE.ZPST0011 AS D  
+	        WHERE D.MANDT = #G_MANDT#
+            AND D.TEMNO = M02.TEMNO 
+       ) AS PS_NAMET -- 설치 PM
+       
+       ,(SELECT A.USERMBPN
+	         FROM SAPHEE.ZUSERF A
+	        WHERE A.MANDT = #G_MANDT#
+	          AND A.USERNUMB = CS101.CS101_BPM
+       ) CELLP2 -- 보수PM
+       ,INT(M02.ZSPEC9) AS PLAT
+	     ,(SELECT M012.NAME1
+	         FROM  SAPHEE.ZMMT012 M012
+		      WHERE M012.MANDT = #G_MANDT#
+            AND M012.LIFNR = WB010.LIFNR
+	     ) BSU
+	     , CASE WHEN CS111.GBU = '1' THEN '직영' 
+	            WHEN CS111.GBU = '3' THEN '협력사'
+	            ELSE ''
+	       END BSU_GB
+	     ,(SELECT CCSB1EPN
+           FROM SAPHEE.ZTBCSB1 C
+          WHERE C.MANDT = CS101.MANDT
+--          AND C.CCSB1DIV = '37004'
+            AND C.CCSB1EMP = CS101.CS101_BPM
+		   ) BPM
+          ,M02.NAMET2
+	      ,(SELECT CTEXT2
+           FROM SAPHEE.ZLCODE AA
+           WHERE AA.MANDT = CS101.MANDT
+           AND AA.CODE1 = 'CS115'
+           AND AA.CODE2 = CS101.CS101_ARA
+		       AND AA.LANG = #G_LANG#
+		   ) ARA 
+	      ,CS108.CS108_SCT	
+	      ,(SELECT M28.CTEXT2 FROM SAPHEE.ZLCODE M28 WHERE M28.MANDT = CS101.MANDT AND M28.CODE1 = 'PS003' AND M28.CODE2 = M02.ZZACTSS AND M28.LANG = #G_LANG#) AS ZZACTSS
+	      ,(SELECT M12.NAME1 FROM SAPHEE.ZMMT012 M12 WHERE M12.MANDT = CS101.MANDT AND M12.LIFNR = M02.LIFNR) AS LIFNR	   
+	      ,CASE WHEN CS107.CS107_CON_QC > '' THEN '조치' ELSE '' END CS108_JYD
+	      ,CS107.CS107_NTC_QC
+	      ,CASE WHEN CS107.CS107_JSD IS NULL OR CS107.CS107_JSD = '' THEN '' 
+	            ELSE CS107.CS107_JSD 
+	       END CS107_JSD
+	      ,CASE WHEN CS107.CS107_QJD IS NULL OR CS107.CS107_QJD = '' THEN '' 
+	            ELSE CS107.CS107_QJD 
+	       END CS107_QJD
+	      ,CASE WHEN CS107.CS107_JSD_QC IS NULL OR CS107.CS107_JSD_QC = '' THEN '' 
+	            ELSE CS107.CS107_JSD_QC 
+	       END CS107_JSD_QC
+	      ,CASE WHEN CS107.CS107_JSD_PS IS NULL OR CS107.CS107_JSD_PS = '' THEN '' 
+	            ELSE CS107.CS107_JSD_PS 
+	       END CS107_JSD_PS
+	      ,CS107.CS107_CON_QC
+--	      ,CS108.CS108_QII
+	      ,CS106.CS106_QMR
+	      ,CS106.CS106_MIR
+	      ,(SELECT CS108_QII 
+	          FROM SAPHEE.ZCST108 
+	         WHERE MANDT = #G_MANDT# 
+	           AND CS108_PJT = CS108.CS108_PJT 
+	           AND CS108_HNO = CS108.CS108_HNO
+	           --AND CS108_QIC = CS108.CS108_QIC)                     AS CS108_QII
+	           AND CS108_QIC = CS108.CS108_QIC_M)                     AS CS108_QII -- 문제점. 2019-09-05 설치품질검사 정의성 요청으로 인한 수정
+	      ,CS107_CYN                                                AS CYN
+	      ,CASE WHEN CS107_CYN = '1' THEN '처리완료' 
+	            WHEN CS107_CYN = '2' THEN '처리미완료' 
+	            ELSE ''
+	       END                                                      AS CS107_CYN_NM
+	      ,CS108.CS108_JYD	                                        AS CS108_JYD2		-- QC조치예정일
+	      ,CS108.CS108_TXT_QC                                       AS CS108_TXT_QC	-- QC조치계획
+	      --,CS108.CS108_NTC_QC                                       AS CS108_NTC_QC	-- QC조치부서
+	      ,(
+	      	SELECT
+	      		CS108_NTC_QC
+	      	FROM
+	      		SAPHEE.ZCST108 AS X
+	      	WHERE
+	      		X.MANDT = CS108.MANDT AND
+	      		X.CS108_PJT = CS108.CS108_PJT AND
+	      		X.CS108_HNO = CS108.CS108_HNO AND
+	      		X.CS108_QIC = CS108.CS108_QIC_M
+	      ) AS CS108_NTC_QC	-- QC조치부서. 2019-09-05 설치품질검사 정의성 요청으로 인한 수정
+	      ,CS108.CS108_JCD                                          AS CS108_JCD
+	      ,CS108.CS108_JCR                                          AS CS108_JCR
+	      ,CS108.CS108_RSN_QC                                       AS CS108_RSN_QC -- 발생사유
+	      ,''                                                       AS CS108_RSN_NM -- 발생사유
+	      ,CS107.CS107_RSN_QC                                       AS CS107_RSN_QC
+	      ,ZC01.CTEXT2                                              AS CS107_RSN_NM
+  FROM SAPHEE.ZCST101 CS101 LEFT OUTER JOIN SAPHEE.ZCST111 CS111
+                                      	   ON CS101.MANDT = CS111.MANDT
+                                      	  AND CS101.CS101_PJT = CS111.PJT
+                                      	  AND CS101.CS101_HNO = CS111.HNO	  
+                            
+                            <isEqual col="CHK_HNO" value="0">    
+                            LEFT OUTER JOIN (SELECT  MANDT,CS108_PJT,CS108_HNO
+                                             		     ,CASE WHEN MAX(CS108_SCT) = 'Y' THEN 'Y' ELSE '' END CS108_SCT	
+                                                     ,MIN(CASE WHEN CS108_JYD IS NULL THEN '' ELSE CS108_JYD END)	 AS CS108_JYD
+                                                     ,MAX(CS108_QIC) AS CS108_QIC
+                                                     ,MIN(CS108_QIC) AS CS108_QIC_M -- 검사개소. 2019-09-05 설치품질검사 정의성 요청으로 인한 수정
+                                                     --,MAX(CS108_QII) AS CS108_QII
+                                                     ,MIN(CS108_QII) AS CS108_QII -- 2019-09-05 설치품질검사 정의성 요청으로 인한 수정
+                                                     ,MAX(CS108_TXT_QC) AS CS108_TXT_QC
+                                                     --,MAX(CS108_NTC_QC) AS CS108_NTC_QC
+                                                     ,'' AS CS108_NTC_QC
+                                                     ,MAX(CS108_JCD) AS CS108_JCD
+                                                     ,MAX(CS108_JCR) AS CS108_JCR
+                                                     ,MAX(CS108_RSN_QC) AS CS108_RSN_QC
+	                                              FROM SAPHEE.ZCST108
+	                                             WHERE MANDT = #G_MANDT#
+	                                             GROUP BY MANDT,CS108_PJT,CS108_HNO	
+	                                            ) CS108
+                                      	   ON CS101.MANDT = CS108.MANDT
+                                      	  AND CS101.CS101_PJT = CS108.CS108_PJT
+                                      	  AND CS101.CS101_HNO = CS108.CS108_HNO            	  
+                            </isEqual>         	 
+                           <isEqual col="CHK_HNO" value="1">           	  
+                            LEFT OUTER JOIN (SELECT  MANDT,CS108_PJT,CS108_HNO
+                                             		     ,CASE WHEN CS108_SCT = 'Y' THEN 'Y' ELSE '' END CS108_SCT	
+                                                     ,CASE WHEN CS108_JYD IS NULL THEN '' ELSE CS108_JYD END	 AS CS108_JYD
+                                                     ,CS108_QIC AS CS108_QIC
+                                                     ,CS108_QIC AS CS108_QIC_M -- 2019-09-05 설치품질검사 정의성 요청으로 인한 수정
+                                                     ,CS108_QII AS CS108_QII
+                                                     ,CS108_TXT_QC AS CS108_TXT_QC
+                                                     ,CS108_NTC_QC AS CS108_NTC_QC
+                                                     ,CS108_JCD
+                                                     ,CS108_JCR
+                                                     ,CS108_RSN_QC AS CS108_RSN_QC
+	                                              FROM SAPHEE.ZCST108
+	                                             WHERE MANDT = #G_MANDT#
+	                                            ) CS108
+                                      	   ON CS101.MANDT = CS108.MANDT
+                                      	  AND CS101.CS101_PJT = CS108.CS108_PJT
+                                      	  AND CS101.CS101_HNO = CS108.CS108_HNO	            	  
+                            </isEqual>         	  
+                            LEFT OUTER JOIN (
+                                             SELECT
+                                                    A.PSPID,
+                                                    A.HOGI,
+                                                    A.PAPRID,
+                                                    A.PAPRIDTX,
+                                                    A.SEQ
+                                               FROM
+                                                    (
+                                                     SELECT
+                                                            PSPID,
+                                                            HOGI,
+                                                            SUBSTR(PAPRID,2) PAPRID,
+                                                            PAPRIDTX,
+                                                            SEQ,
+                                                            ROW_NUMBER() OVER(PARTITION BY PSPID, HOGI ORDER BY PSPID, HOGI, SEQ DESC) RNO
+                                                       FROM 
+                                                            SAPHEE.ZQMT019
+                                                      WHERE 
+                                                            MANDT = #G_MANDT#
+                                                        AND WERKS = '1000'
+                                                        AND ART = '8960'
+                                                        AND PAPRID > ''
+                                                        AND SEQ = '01'
+                                    <isNotNull col="POSID">
+                                                        AND PSPID = #POSID#
+                                    </isNotNull>
+                                                    ) A
+                                              WHERE
+                                                    A.RNO = 1
+                                            ) A ON A.PSPID = CS101.CS101_PJT
+                                               AND A.HOGI = CS101.CS101_PJT || CS101.CS101_HNO
+                                               
+																	LEFT OUTER JOIN SAPHEE.ZCST107 CS107 
+																	        ON CS107.MANDT = CS101.MANDT
+																	       AND CS107.CS107_PJT = CS101.CS101_PJT
+																	       AND CS107.CS107_HNO = CS101.CS101_HNO
+																	
+																	LEFT OUTER JOIN SAPHEE.ZMASTER02 M02
+																	        ON M02.MANDT = CS101.MANDT 
+																	       AND M02.POSID = CS101.CS101_PJT 
+																	       AND M02.POSID_1 = CS101.CS101_PJT||CS101.CS101_HNO					       
+																	
+																	LEFT OUTER JOIN SAPHEE.ZWBT010 WB010
+																	        ON WB010.MANDT = CS101.MANDT 
+																	       AND WB010.LGORT = CS101.CS101_BSU
+																	
+																	LEFT OUTER JOIN SAPHEE.ZLCODE AS ZC01
+																	        ON ZC01.MANDT = CS101.MANDT
+																	       AND ZC01.CODE1 = 'CS204'
+																	       AND ZC01.CODE2 = CS107.CS107_RSN_QC
+																	       AND ZC01.LANG = #G_LANG#
+
+																	LEFT OUTER JOIN SAPHEE.ZCST106 CS106 
+																	        ON CS106.MANDT = CS101.MANDT
+																	       --AND CS106.CS106_QMC = CS108.CS108_QIC
+																	       AND CS106.CS106_QMC = CS108.CS108_QIC_M -- 2019-09-05 설치품질검사 정의성 요청으로 인한 수정
+					
+		
+ WHERE CS101.MANDT = #G_MANDT#
+ 	 AND CS101.CS101_PJT NOT LIKE 'M%' -- M프로젝트 제외
+   AND CS101.CS101_PST = 'A6'
+<isNotNull col="POSID">
+   AND CS101.CS101_PJT = #POSID#
+</isNotNull>
+
+<isEqual col="PST_A5" value="0">
+	<isEqual col="POSID" value="">
+	 AND CS101.CS101_FDT BETWEEN #CS101_FDT_F# AND #CS101_FDT_T#
+	</isEqual>
+</isEqual>
+<isEqual col="PST_A5" value="1">
+   AND CS107.CS107_QJD BETWEEN #CS101_FDT_F# AND #CS101_FDT_T#
+   AND ( CS107.CS107_PST > 'A2' OR CS107.CS107_PST = 'A0' )
+</isEqual>	   
+
+<isEqual col="PROBLEM" value="0">    
+   AND CS108.CS108_QIC NOT IN ('0000', '0001')
+</isEqual>
+<isEqual col="PROBLEM" value="1">    
+   AND CS108.CS108_QIC IN ('0000')
+</isEqual>
+<isEqual col="GBN2" value="A"> 
+   AND CS107.CS107_PST BETWEEN 'A0' AND 'C5' -- 보수
+</isEqual>
+<isEqual col="GBN2" value="B"> 
+   AND CS107.CS107_PST BETWEEN 'A0' AND 'C5' -- QC
+</isEqual>
+<isEqual col="GBN2" value="C"> 
+   AND CS107.CS107_PST BETWEEN 'C0' AND 'C5' -- 설치
+</isEqual>
+<isEqual col="CYN" value="1"> 
+   AND CS107.CS107_CYN = #CYN# -- 보수담당자 확인
+</isEqual>
+<isEqual col="CYN" value="2"> 
+   AND CS107.CS107_CYN = #CYN# -- 보수담당자 확인
+</isEqual>
+
+<isNotNull col="CS101_PST">
+   AND CS107.CS107_PST = #CS101_PST#
+</isNotNull>
+<isNotNull col="BSU">
+   AND CS101.CS101_BSU = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+   AND CS101.CS101_BPM = #BPM#
+</isNotNull>
+<isNotNull col="ARA">
+   AND CS101.CS101_ARA = #ARA#
+</isNotNull>
+<isNotNull col="TEM">
+   AND WB010.VKGRP = #TEM#
+</isNotNull>
+
+<isNotNull col="DPT">
+  AND SUBSTR(WB010.VKGRP,1,2) = #DPT#
+</isNotNull>
+
+
+
+<isNotNull col="ZZACTSS">
+   AND M02.ZZACTSS = #ZZACTSS#
+</isNotNull>
+<isNotNull col="ZZLIFNR">
+   AND M02.LIFNR = #ZZLIFNR#
+</isNotNull>
+<isNotNull col="PARTID">
+   AND VALUE(A.PAPRID,'') = #PARTID#
+</isNotNull>
+
+<isNotNull col="RSN">
+   AND CS107.CS107_RSN_QC = #RSN#
+</isNotNull>
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="CS101_PST" size="255" type="VARCHAR" description="" /> 
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="CS101_FDT_F" size="255" type="VARCHAR" description="" /> 
+		<col name="CS101_FDT_T" size="255" type="VARCHAR" description="" /> 
+		<col name="BSU" size="255" type="VARCHAR" description="" /> 
+		<col name="BPM" size="255" type="VARCHAR" description="" /> 
+		<col name="ARA" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="CS101_FDT" size="24" type="VARCHAR" description="" /> 
+		<col name="CS101_HNA" size="90" type="VARCHAR" description="" /> 
+		<col name="CS101_HNO" size="9" type="VARCHAR" description="" /> 
+		<col name="CS101_PJT" size="18" type="VARCHAR" description="" /> 
+		<col name="CS101_VSD" size="24" type="VARCHAR" description="" /> 
+		<col name="CTEXT2" size="60" type="VARCHAR" description="" /> 
+		<col name="KUNNR_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="ZSITE_NM" size="105" type="VARCHAR" description="" /> 
+	</output>
+</query>

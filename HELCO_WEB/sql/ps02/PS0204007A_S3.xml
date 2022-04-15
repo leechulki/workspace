@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[준공 on-hand]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT  A.POSID
+             ,B.ZSITE_NM
+             ,A.ZBOSUOUT
+             ,A.POSID_1
+             ,A.ZSPEC12
+             ,A.ZSPEC2
+             ,T.ZZSHIP1 AS ZZCHAKD
+             ,T.ZZCOMP2
+             ,B.VDATU
+             ,B.KUNNR_NM
+             ,B.ZSITE_TEL
+             ,T.NAMEP
+             ,T.ZZLIFNR
+             ,M12.NAME1
+         -- ,T.NAMET
+             ,A.NAMET2 AS NAMET
+             ,(SELECT SUM(PRO_R) PRO_R
+                  FROM SAPHEE.ZPST0112 B
+                WHERE B.MANDT = A.MANDT
+                    AND   B.PSPID = A.POSID
+                    AND   B.POSID = A.POSID_1
+                GROUP BY B.MANDT,B.PSPID,B.POSID   )  PRO_R
+             ,T.ZZDAT01
+             ,T.ZZJUNGD
+             ,A.ZBEPJEO
+             ,A.ZQEGEMSA
+             ,B.ZMAN_NM
+             ,ZTEL
+             ,B.ADDR1 || ' ' || B.ADDR2 AS TEXT30
+             ,A.TXT30
+             ,A.TXT04
+             ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE M28 
+                WHERE M28.MANDT = A.MANDT AND M28.CODE1 = 'PS003' 
+                    AND M28.LANG = #G_LANG# AND M28.CODE2 = A.ZZACTSS) ZZACTSS
+       
+             ,VALUE((SELECT X.EXPLO  FROM SAPHEE.ZPST0019 AS X  
+                            WHERE X.MANDT = #G_MANDT#
+	                  AND X.PSPID = A.POSID
+	  	    AND X.SEQNO = '001' ), ''  ) AS O_TH
+             ,VALUE((SELECT X.EXPLO  FROM SAPHEE.ZPST0019 AS X 
+                            WHERE X.MANDT = #G_MANDT#
+		    AND X.PSPID = A.POSID
+		    AND X.SEQNO = '002' ), ''  ) AS T_TH					  
+             ,(CASE WHEN 2 &lt;= (SELECT COUNT(*)  FROM SAPHEE.ZPST0019 AS X 
+                                             WHERE X.MANDT = #G_MANDT#
+			       AND X.PSPID = A.POSID) 
+	           THEN (SELECT X.EXPLO  FROM SAPHEE.ZPST0019 AS X  
+                                     WHERE X.MANDT = #G_MANDT#
+		             AND X.PSPID = A.POSID
+		         ORDER BY X.SEQNO DESC
+		         fetch first 1 rows only ) 
+                          ELSE ''  END) AS E_TH
+
+             ,CASE WHEN X.LIFNRCHK = '1' THEN '직발주'
+                        ELSE '' END AS LIFNRCHK_NM
+		   
+             ,CASE  WHEN VALUE(Y.GUBUN1,'') = '' AND X.LIFNRCHK = '1' THEN '미입력'
+	          WHEN VALUE(Y.GUBUN1,'') = '0' THEN '미입력'
+	          WHEN VALUE(Y.GUBUN1,'') = '1' THEN '완료'
+	          WHEN VALUE(Y.GUBUN1,'') = '2' THEN '미완료'
+	          WHEN VALUE(Y.GUBUN1,'') = '3' THEN '거부'
+	           ELSE ''  END AS GBN_0033
+         --,A.ZTEAM
+
+FROM SAPHEE.ZMASTER01 B INNER JOIN SAPHEE.ZMASTER02 A ON B.MANDT = A.MANDT AND B.POSID = A.POSID
+      INNER JOIN (
+      
+                     SELECT BB.MANDT, BB.POSID AS PSPID, AA.POSID_1 AS POSID, AA.ZZSHIP1, AA.ZZCHAKD, 
+                            AA.ZZCOMP2, AA.TEMNO AS ZZPMNUM 
+ 		                   ,VALUE(CC.NAMET,'') NAMEP  ,AA.TEMNO2 AS ZZTEMNO
+		                   ,AA.ZZDAT01, AA.ZZJUNGD, AA.ZZACTSS, AA.LIFNR AS ZZLIFNR
+              
+                      FROM SAPHEE.ZMASTER02 AS AA 
+	        		       INNER JOIN SAPHEE.ZMASTER01 AS BB 
+			                 ON AA.MANDT = BB.MANDT
+			       	        AND AA.POSID = BB.POSID
+                         
+                           LEFT JOIN SAPHEE.ZPST0011 CC 
+			                 ON CC.MANDT = AA.MANDT
+				            AND CC.TEMNO = AA.TEMNO
+                          
+                           LEFT OUTER JOIN SAPHEE.ZPST0002 DD 
+				             ON DD.MANDT = AA.MANDT AND DD.TEMNO = AA.TEMNO
+                          WHERE AA.MANDT = #G_MANDT#
+                            AND BB.POSID LIKE #PSPID#||'%'
+		    --============================================
+	                       <isEqual col="GBN2" value="N">
+		         AND AA.ZZGUBUN IN ('10', '11', '12', '13', '14', '20')		
+		         </isEqual>
+		         <isEqual col="GBN2" value="Y">
+		         AND AA.ZZGUBUN IN ('10', '11', '12', '13', '14', '20','91','92')		
+		         </isEqual>			  
+		  --============================================				  
+		      --AND A.ZZGUBUN IN ('10', '11', '12', '13', '14', '20')
+		         <isNotNull col="ZZACTSS">
+		         <isEqual col="G_AREA_CODE_E" value="02">
+		         AND (AA.ZZACTSS = #ZZACTSS# OR AA.ZZACTSS = '14')
+		         </isEqual>
+		         <isEqual col="G_AREA_CODE_E" value="21">
+		         AND (AA.ZZACTSS = #ZZACTSS# OR AA.ZZACTSS = '14')
+		         </isEqual>
+		         <isNotEqual col="G_AREA_CODE_E" value="02">
+		          AND AA.ZZACTSS = #ZZACTSS#
+		         </isNotEqual>
+		         </isNotNull>
+                  
+                                     <isNotNull col="ZZPMNUM">
+		         AND AA.TEMNO = #ZZPMNUM#
+		         </isNotNull>
+		         <isNotNull col="ZZLIFNR">
+		         AND AA.LIFNR = #ZZLIFNR#
+		         </isNotNull>
+		         <isNotNull col="DATEF">
+		         AND AA.ZZCOMP2 BETWEEN  #DATEF# AND #DATET#
+		         </isNotNull>
+		
+                  		  
+		         <isEqual col="GBN" value="Y">
+		         AND AA.ZZJUNGO = 'X'
+		         </isEqual>
+		
+                 <isEqual col="GBN" value="N">
+	              AND AA.ZZJUNGO &lt;&gt; 'X'
+	             </isEqual>
+
+    		     AND AA.ZZACTSS BETWEEN '01' AND '21'
+    		         
+				  
+                ) AS T ON A.MANDT = T.MANDT AND A.POSID = T.PSPID AND A.POSID_1 = T.POSID
+      LEFT OUTER JOIN SAPHEE.ZMMT012 AS M12 ON T.MANDT = M12.MANDT AND T.ZZLIFNR = M12.LIFNR
+      
+      LEFT OUTER JOIN SAPHEE.VBAK AS X   ON B.MANDT = X.MANDT
+	                                                  AND B.POSID = X.ZZPJT_ID
+																  
+      LEFT OUTER JOIN SAPHEE.ZPST0033 AS Y   ON B.MANDT = Y.MANDT
+                                                                      AND B.POSID = Y.PSPID
+
+WHERE A.MANDT = #G_MANDT#
+   AND A.POSID LIKE #PSPID#||'%'
+
+--AND A.TXT04 &lt;&gt; 'C'
+ORDER BY A.TXT30,POSID_1
+
+FOR FETCH ONLY WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+         T.MANDT
+        ,T.POSID
+        ,T.ZSITE_NM
+        ,T.ZSPEC1
+        ,T.VDATU
+        ,T.ZZSHIP3
+        ,T.KEUM_A
+        ,T.KEUM_B
+        ,T.KEUM_C
+        ,T.KEUM_A+T.KEUM_B+T.KEUM_C AS KEUM_SUM
+        ,T.SUKEUM
+        ,T.DATE2
+        ,T.ZZACTSS
+        ,T.APPLD
+        ,T.STATE
+        ,T.STATE_
+        ,T.APPLS
+        ,T.REASN
+        ,T.KUNNR_NM
+        ,T.HOGI
+        ,T.AUART
+        ,T.VKBUR
+        ,T.VKGRP
+        ,T.MATNR
+        ,T.ABGRU
+        ,T.WAERK
+        ,T.RECAD_DA
+        ,T.BSTDK
+        ,T.LIFNR
+        ,T.LIFNR_NM
+        ,T.KUNNR
+        ,T.ZSPEC2
+        ,T.BIZ_ARA
+        ,T.OPEYNA
+        ,T.OPEYN
+        ,T.OPELS
+        ,T.NAME1
+        ,T.BUDAT
+FROM  (        
+        SELECT
+                 AK.MANDT
+                ,AK.ZZPJT_ID AS POSID
+                ,(SELECT M.ZSITE_NM FROM SAPHEE.ZMASTER01 AS M WHERE M.MANDT = AK.MANDT AND M.POSID = AK.ZZPJT_ID) AS ZSITE_NM
+                ,M2.ZSPEC1
+                ,M2.VDATU
+                ,M2.ZZSHIP3
+                ,VALUE((
+                        SELECT  SUM(CASE SUBSTR(B.ZTERM,1,1) WHEN 'A' THEN FAKWR * 100 ELSE 0 END)
+                        FROM SAPHEE.VBKD AS A
+                             INNER JOIN SAPHEE.FPLT AS B ON  A.MANDT = B.MANDT
+                                                         AND A.FPLNR = B.FPLNR
+                             INNER JOIN SAPHEE.VBAP AS C ON  A.MANDT = C.MANDT
+                                                         AND A.VBELN = C.VBELN
+                                                         AND A.POSNR = C.POSNR
+                        WHERE A.MANDT = AP.MANDT
+                        AND   C.HOGI  = AP.HOGI
+                 ),0) AS KEUM_A
+                ,VALUE((
+                        SELECT  SUM(CASE SUBSTR(B.ZTERM,1,1) WHEN 'B' THEN FAKWR * 100 ELSE 0 END)
+                        FROM SAPHEE.VBKD AS A
+                             INNER JOIN SAPHEE.FPLT AS B ON  A.MANDT = B.MANDT
+                                                         AND A.FPLNR = B.FPLNR
+                             INNER JOIN SAPHEE.VBAP AS C ON  A.MANDT = C.MANDT
+                                                         AND A.VBELN = C.VBELN
+                                                         AND A.POSNR = C.POSNR
+        
+                        WHERE A.MANDT = AP.MANDT
+                        AND   C.HOGI  = AP.HOGI
+                 ),0) AS KEUM_B
+                ,VALUE((
+                        SELECT  SUM(CASE SUBSTR(B.ZTERM,1,1) WHEN 'C' THEN FAKWR * 100 ELSE 0 END)
+                        FROM SAPHEE.VBKD AS A
+                             INNER JOIN SAPHEE.FPLT AS B ON  A.MANDT = B.MANDT
+                                                         AND A.FPLNR = B.FPLNR
+                             INNER JOIN SAPHEE.VBAP AS C ON  A.MANDT = C.MANDT
+                                                         AND A.VBELN = C.VBELN
+                                                         AND A.POSNR = C.POSNR
+                        WHERE A.MANDT = AP.MANDT
+                        AND   C.HOGI  = AP.HOGI
+                 ),0) AS KEUM_C
+                ,SAPHEE.GET_CURRENCY2(AK.WAERK,SAPHEE.GET_HOGI_SUKEUM(AK.MANDT,AK.ZZPJT_ID,AP.HOGI)) AS SUKEUM
+                ,PS2.SCH_DATE AS DATE2
+                ,(SELECT M.CTEXT2 FROM SAPHEE.ZLCODE AS M WHERE M.MANDT = AK.MANDT AND M.CODE1 = 'PS003' AND M.LANG = #G_LANG# AND  M2.ZZACTSS = M.CODE2) AS ZZACTSS
+                ,VALUE(PS.APPLD,'00000000') AS APPLD
+                ,CASE PS.STATE WHEN '3' THEN '승인'
+                               ELSE '미승인'
+                 END AS STATE
+                ,CASE WHEN PS.STATE = '3' THEN '3' ELSE '1' END AS STATE_
+                ,CASE WHEN STATE &lt;&gt; '3' THEN '' ELSE VALUE(PS.APPLS,'00000000') END AS APPLS
+                ,CASE WHEN PS.STATE='3' THEN ''
+                      WHEN PS.REASN='1' THEN '미수금'
+                      WHEN PS.REASN='2' THEN '계약취소'
+                      WHEN PS.REASN='3' THEN '공시중단'
+                      WHEN PS.REASN='4' THEN '기타'
+                      ELSE ''
+                 END AS REASN
+                ,VALUE((SELECT A1.NAME1 FROM SAPHEE.KNA1 AS A1 WHERE A1.MANDT=Z1.MANDT AND A1.KUNNR=Z2.KUNNR),'') AS KUNNR_NM
+        
+                ,AP.HOGI
+                ,AK.AUART
+                ,AK.VKBUR
+                ,AK.VKGRP
+                ,AP.MATNR
+                ,AP.ABGRU
+                ,AK.WAERK
+                ,AK.RECAD_DA
+                ,AK.BSTDK
+                ,Z1.LIFNR
+                ,VALUE((SELECT A1.NAME1 FROM SAPHEE.LFA1 AS A1 WHERE A1.MANDT=Z1.MANDT AND A1.LIFNR=Z1.LIFNR),'') AS LIFNR_NM
+                ,Z2.KUNNR
+                ,M2.ZSPEC2
+                ,VALUE((SELECT CTEXT2 FROM SAPHEE.ZLCODE AS M WHERE M.MANDT = Z1.MANDT AND M.CODE1 = 'BS104' AND M.LANG = #G_LANG# AND M.CODE2 = WB.BIZ_ARA),'') AS BIZ_ARA
+                ,PS.OPEYNA
+                ,PS.OPEYN
+                ,PS.OPELS
+                ,(SELECT BUDAT FROM SAPHEE.ZSDT0029 AS SD29 WHERE SD29.MANDT = AK.MANDT AND SD29.KIDNO = AK.ZZPJT_ID ORDER BY BUDAT DESC FETCH FIRST 1 ROWS ONLY) AS BUDAT
+                ,(SELECT M12.NAME1 FROM SAPHEE.ZMMT012 AS M12 WHERE M12.MANDT = M2.MANDT AND M12.LIFNR = M2.LIFNR) NAME1
+        FROM SAPHEE.VBAK AS AK
+             INNER JOIN SAPHEE.VBAP AS AP ON  AK.MANDT=AP.MANDT AND AK.VBELN=AP.VBELN 
+             LEFT OUTER JOIN SAPHEE.VBPA AS Z1 ON  Z1.MANDT =AK.MANDT AND Z1.VBELN =AK.VBELN AND Z1.PARVW='Z1'
+             INNER JOIN SAPHEE.VBPA AS Z2 ON  Z2.MANDT=AK.MANDT AND Z2.VBELN=AK.VBELN AND Z2.PARVW='Z2'
+             INNER JOIN SAPHEE.ZMASTER02 AS M2 ON  M2.MANDT=AK.MANDT AND M2.POSID=AK.ZZPJT_ID AND M2.POSID_1=AP.HOGI
+             INNER JOIN SAPHEE.ZPST0023 AS PS ON  PS.MANDT=M2.MANDT AND PS.PSPID=M2.POSID AND PS.POSID=M2.POSID_1 AND PS.ZTYPE='2'
+             INNER JOIN SAPHEE.ZPST0201 AS PS2 
+                     ON  PS2.MANDT=M2.MANDT 
+                    AND PS2.PSPID=M2.POSID 
+                    AND PS2.POSID=M2.POSID_1
+                    AND PS2.CHK_KIND='A'
+                    AND PS2.CHASU='001'
+             LEFT OUTER JOIN SAPHEE.ZWBT010 AS WB ON  WB.MANDT=Z1.MANDT AND WB.LIFNR=Z1.LIFNR AND WB.BIZ_ARA &gt; ''
+        WHERE AK.MANDT    = #G_MANDT#
+          AND AK.MANDT = AP.MANDT
+          AND AP.HOGI     LIKE '_%'
+          AND AP.ABGRU    &lt;&gt;'00'
+        <isNotNull col="PSPID">
+          AND AK.ZZPJT_ID LIKE #PSPID#||'%'  --프로젝트
+        </isNotNull>
+-- 영업지역
+        <isNotNull col="ARA">
+          AND WB.BIZ_ARA = #ARA#
+          AND Z1.PARVW IS NOT NULL
+        </isNotNull>
+        <isNotNull col="GNO">
+          AND Z1.LIFNR = #GNO#
+          AND Z1.PARVW IS NOT NULL
+        </isNotNull>
+        <isNotNull col="USER">
+          AND Z2.KUNNR = 'A'||#USER#
+          AND Z1.PARVW IS NOT NULL
+        </isNotNull>
+-- 설치지역
+        <isNotNull col="ZZACTSS">
+          AND M2.ZZACTSS = #ZZACTSS#
+        </isNotNull>
+        <isNotNull col="ZZPMNUM">
+          AND M2.TEMNO = #ZZPMNUM#
+        </isNotNull>
+        <isNotNull col="ZZLIFNR">
+          AND M2.LIFNR = #ZZLIFNR#
+        </isNotNull>
+        
+        <isNull col="GBN">
+          AND AK.AUART IN ('ZS01','ZJ01','ZS02','ZJ02')  -- 제품구분(ZS02 : 승강기, ZJ02 : 주차)
+        </isNull>
+        <isEqual col="GBN" value="A">
+          AND AK.AUART in ('ZS01', 'ZS02')
+        </isEqual>
+        <isEqual col="GBN" value="B">
+          AND AK.AUART in ('ZJ01', 'ZJ02')
+        </isEqual>
+               
+		#+SQLSTR+#
+
+        <isEqual col="STATE" value="2">
+          AND PS.STATE = '3'
+        </isEqual>
+        <isEqual col="STATE" value="3">
+          AND PS.STATE &lt;&gt; '3'
+        </isEqual>
+        <isNotNull col="OPEYNA">
+          AND PS.OPEYNA = #OPEYNA#
+        </isNotNull>
+        <isNotNull col="OPEYN">
+          AND PS.OPEYN = #OPEYN#
+        </isNotNull>
+      ) AS T
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="255" type="VARCHAR" description="" /> 
+		<col name="ARA" size="255" type="VARCHAR" description="" /> 
+		<col name="GNO" size="255" type="VARCHAR" description="" /> 
+		<col name="USER" size="255" type="VARCHAR" description="" /> 
+		<col name="FDT" size="255" type="VARCHAR" description="" /> 
+		<col name="TDT" size="255" type="VARCHAR" description="" /> 
+		<col name="STATE" size="255" type="VARCHAR" description="" />
+		<col name="SQLSTR" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

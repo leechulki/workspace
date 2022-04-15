@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[PS1505001P_S11]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--시방조회 포맷3 : 크레인, PIT 3단 발판, MR 최상층 발판, 인터폰, CCTV내부배선, 블랙박스 CCTV, CRT 감시반, 간이 감시반, 보양, 리모델링 철거
+SELECT M02.ZSPEC1--기종
+     , M02.ZSPEC2--사양
+     , VALUE(SD05.VALUE, '') AS EL_FDCE_VAL--특성값
+     , CASE WHEN SUBSTR(SD05.HOGI, 7, 1) = 'L'
+            THEN CASE WHEN CABN.ATBEZ IS NULL
+                      THEN SAPHEE.SUBSTR(CA.ATWTB, 6)
+                      ELSE SAPHEE.SUBSTR(CABN.ATBEZ, 6)
+                 END
+            ELSE CASE WHEN CABN.ATBEZ IS NULL
+                      THEN CA.ATWTB
+                      ELSE CABN.ATBEZ
+                 END
+       END AS EL_FDCE_DESC--특성값 내역
+  FROM SAPHEE.ZMASTER02 M02
+  LEFT OUTER JOIN (SELECT DT05.MANDT
+                        , DT05.HOGI
+                        , DT05.VALUE
+                        , DT05.CHARACTERISTIC
+                        , MAX(DT05.SEQ) AS MAX_SEQ
+                     FROM SAPHEE.ZSDT0005 AS DT05
+                    WHERE DT05.MANDT = #G_MANDT#
+                      AND DT05.HOGI = #POSID#
+<isEqual col="JOB_CODE" value="J">
+                      AND DT05.CHARACTERISTIC = 'EL_FDCE'--크레인
+</isEqual>
+<isEqual col="JOB_CODE" value="K">
+                      AND DT05.CHARACTERISTIC = 'EL_EHP'--PIT 3단 발판
+</isEqual>
+<isEqual col="JOB_CODE" value="L">
+                      AND DT05.CHARACTERISTIC = 'EL_EHO'--MR 최상층 발판
+</isEqual>
+<isEqual col="JOB_CODE" value="C">
+                      AND DT05.CHARACTERISTIC = 'EL_ATYP'--디지털인터폰
+</isEqual>
+<isEqual col="JOB_CODE" value="D">
+                      AND DT05.CHARACTERISTIC = 'EL_DCCTV'--CCTV내부 배선
+</isEqual>
+<isEqual col="JOB_CODE" value="E">
+                      AND DT05.CHARACTERISTIC = 'EL_DCCTV'--블랙박스 CCTV
+</isEqual>
+<isEqual col="JOB_CODE" value="F">
+                      AND DT05.CHARACTERISTIC IN ('EL_DSV1', 'EL_DSV2')--CRT 설치
+</isEqual>
+<isEqual col="JOB_CODE" value="Q">
+                      AND DT05.CHARACTERISTIC IN ('EL_DSV1', 'EL_DSV2')--간이 감시반 설치
+</isEqual>
+<isEqual col="JOB_CODE" value="S">
+                      AND DT05.CHARACTERISTIC IN ('EL_FDBCGA','EL_FDBCGW','EL_FDBCGC','EL_FDBCGF','EL_FDBCGW','EL_FDBCGA','EL_FDBHD','EL_FDBJB3','EL_FDBJB3Q','EL_FDBJB2','EL_FDBJB2Q','EL_FDBJB','EL_FDBJBQ','EL_FDBBT','EL_FDBC','EL_FDBC')--보양
+</isEqual>
+<isEqual col="JOB_CODE" value="G">
+                      AND DT05.CHARACTERISTIC = 'EL_DKEY'--리모델링철거
+</isEqual>
+                    GROUP BY DT05.MANDT
+                        , DT05.HOGI
+                        , DT05.VALUE
+                        , DT05.CHARACTERISTIC
+                   ) AS SD05
+    ON M02.MANDT = SD05.MANDT
+   AND M02.POSID_1 = SD05.HOGI
+  LEFT OUTER JOIN SAPHEE.ZSDV_CABN AS CABN
+    ON CABN.MANDT = SD05.MANDT
+   AND CABN.ATNAM = SD05.CHARACTERISTIC
+   AND CABN.SPRAS = '3'
+  LEFT OUTER JOIN (SELECT B.ATWTB
+                        , A.ATWRT
+                     FROM SAPHEE.CAWN AS A
+                    INNER JOIN SAPHEE.CAWNT AS B
+                       ON A.MANDT = B.MANDT
+                      AND A.ATINN = B.ATINN
+                      AND A.ATZHL = B.ATZHL
+                   ) CA
+    ON CA.ATWRT = SD05.CHARACTERISTIC
+ WHERE M02.MANDT = #G_MANDT#
+   AND M02.POSID = #PSPID#
+   AND M02.POSID_1 = #POSID#
+FOR FETCH ONLY WITH UR
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

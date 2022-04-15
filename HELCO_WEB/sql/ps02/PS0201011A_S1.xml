@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+	
+	 SELECT A.POSID, A.ZSITE_NM, A.CDATE, C.TEXT30, A.ZZACTSS,
+	        MAX( B.NAMET ) AS NAMET,
+	        MAX( B.ZZPMJID ) AS ZZPMJID,
+	        --(CASE  WHEN VALUE(A.CDATE,'') = '' OR A.CDATE = '00000000'
+	        --       THEN 0
+	        --      ELSE TIMESTAMPDIFF( '16', CHAR(TIMESTAMP(SAPHEE.TO_DATETIME()) - TIMESTAMP(VALUE((A.CDATE),'00000000')||'000000'))) 
+		    --       END) AS TERM,
+		    
+		    SAPHEE.GET_WORKINGDAY(A.CDATE,HEX(CURRENT DATE)) - 1 AS TERM,
+		    (
+		    	SELECT X.ZZSHIP1
+		    	  FROM SAPHEE.ZMASTER02 AS X
+		    	 WHERE X.MANDT = A.MANDT
+		    	   AND X.POSID = A.POSID
+		    	   AND X.POSID_1 = A.POSID||'L01'
+		    	 FETCH FIRST 1 ROWS ONLY WITH UR
+		    ) AS ZZSHIP1
+		    , D.SOPDT
+		      
+	   FROM SAPHEE.ZMASTER01 AS A
+	   INNER JOIN SAPHEE.ZMASTER02 AS B
+	                ON A.POSID = B.POSID
+	                AND A.MANDT = B.MANDT
+	   LEFT OUTER JOIN SAPHEE.J_1AACTT AS C
+	                ON C.J_1AACT = A.ZZACTSS
+	                AND C.MANDT = A.MANDT
+	               AND C.SPRAS = '3'
+	   INNER JOIN SAPHEE.VBAK AS D
+	                ON D.ZZPJT_ID = A.POSID
+	                AND D.MANDT = A.MANDT
+	  WHERE A.MANDT = #G_MANDT#
+	  	<isNotNull col="POSID">
+	    AND A.POSID  = #POSID#
+	    </isNotNull>
+	    AND A.CDATE <![CDATA[<=]]> #STND_DATE#
+	    <isNotNull col="ZZACTSS">
+	    AND A.ZZACTSS = #ZZACTSS#
+	    </isNotNull>
+	    <isNotNull col="ZZPMNUM">
+	    AND B.TEMNO = #ZZPMNUM#
+	    </isNotNull>
+	    AND D.SOPTP = 'X'
+	    AND B.ZZACTSS <![CDATA[<>]]> ''
+	    AND B.ZZGUBUN IN ('10', '13')
+	    AND B.TXT04 <![CDATA[<>]]> 'C'
+	    AND ( B.ZBOSUOUT = '' OR B.ZBOSUOUT = '00000000' )
+	    AND (
+				SELECT COUNT(1) CNT
+				  FROM SAPHEE.ZPPT027G X
+				 WHERE X.MANDT = A.MANDT
+				   AND X.PSPID = A.POSID
+				   AND X.ACTIV = 'G10'
+				   AND X.BLOCK = 'A'
+	    							   
+	    	) = 0
+	    AND A.POSID NOT IN (
+	    						SELECT X.PSPID
+	    						  FROM SAPHEE.ZPST0019 X
+	    						 WHERE X.MANDT = A.MANDT
+	    						   AND X.PSPID = A.POSID
+	    					)
+	    
+	 GROUP BY A.MANDT, A.POSID, A.ZSITE_NM, A.CDATE, C.TEXT30, A.ZZACTSS, D.SOPDT
+	 ORDER BY TERM DESC, A.POSID
+	WITH UR
+	
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

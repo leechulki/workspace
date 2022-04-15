@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[안전교육 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+	WITH RECV_TBL(PSNO, BUMO, DEPT, LEVEL) AS
+	(
+	  SELECT T2.PSNO
+	       , T1.BUMO
+	       , T2.DEPT
+	       , 1 AS LEVEL
+	    FROM SAPHEE.ZHRT011 T1
+	       , SAPHEE.ZHRT001 T2
+	   WHERE T1.MANDT = #G_MANDT#
+	     AND T1.MANDT = T2.MANDT
+	     AND T1.DEPT  = T2.DEPT
+	   UNION ALL
+	  SELECT T1.PSNO
+	       , T2.BUMO AS BUMO
+	       , T1.DEPT
+	       , LEVEL+1 AS LEVEL
+	    FROM RECV_TBL AS T1
+	       , SAPHEE.ZHRT011 T2
+	   WHERE T2.MANDT = #G_MANDT#
+	     AND T1.BUMO = T2.DEPT
+	)
+	
+	        SELECT T1.LEVEL
+	             , T1.BUMO
+	             , SUBSTR(T1.PSNO,2,8) AS PSNO
+	             , T2.DPT1_N, T2.DEPT_N
+	          FROM RECV_TBL T1
+	         INNER JOIN SAPHEE.ZHRT001 T2
+	            ON T1.PSNO = T2.PSNO
+	           AND T2.MANDT = #G_MANDT#
+	         INNER JOIN SAPHEE.ZUSERF T3
+	            ON SUBSTR(T1.PSNO, 2, 8) = T3.USERNUMB
+	           AND T3.MANDT = #G_MANDT#
+	         WHERE (
+	                (T1.BUMO != '00000000' AND T1.BUMO != '0000000000'
+	                 AND T1.BUMO IN ('A0000048'))
+	               )
+	           AND T2.LEAV = '00000000'
+	           AND T3.USERNUMB = #G_USER_ID#
+	
+	
+	
+	FOR FETCH ONLY WITH UR
+
+	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_auth">
+	</output>
+</query>

@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[부서 수신함 -head]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT 
+	  AP1.MANDT AS MANDT
+	, AP1.DOCNO AS DOCNO
+	, AP1.DOCKIND AS DOCKIND
+	, LC.DTEXT2 AS TARGET
+	, AP1.APSTAT AS APSTAT
+	, AP1.CRDPT1 AS CRDPT1
+	, USERF.USERTEAM AS USERTEAM      -- 2018.11.12 지사별 검색조건 추가. 전현정 DL 요청
+	, (SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = #G_MANDT# AND LANG = 'ko' AND CODE1 = 'VKGRP' AND CODE2 = USERF.USERTEAM) AS USERTEAM_NM -- 2018.12.28 기안지사명 추가. 이준석 DL 요청	
+	, AP2.APNUM AS C_APNUM            -- 2018.11.12 지사별 검색조건 추가. 전현정 DL 요청
+	, AP1.CRDPT1_N AS CRDPT1_N
+	, AP1.CRIRUM AS CRIRUM
+	, AP1.CRDATE AS CRDATE
+	, AP1.CRTIM AS CRTIM
+	,COALESCE(CS01.QTNUM, '') QTNUM	--보수자재 견적/수주/청구 이종석
+	,COALESCE(CS01.SEQ, '') SEQ		--보수자재 견적/수주/청구 이종석
+	,COALESCE(CS01.UPN, '') UPN		--보수자재 견적/수주/청구 이종석
+	,COALESCE(CS01.CST, '') CST		--보수자재 견적/수주/청구 이종석	
+	, AP1.REDPT1 AS REDPT1
+	, AP1.REDPT1_N AS REDPT1_N
+	, AP1.REDATE AS REDATE
+	, AP1.RETIM AS RETIM
+              , AP1.FNAM AS FNAM
+              , '' AS L_FNAM
+              , AP1.FSIZE AS FSIZE
+	, CASE WHEN AP1.APSTAT &lt; '4' THEN 'S' ELSE 'R' END AS APPGUBN
+    , AP1.POSID AS POSID
+    , AP1.SPT AS SPT
+	, VALUE((SELECT 
+	        VALUE(MAX(REQNR),'') AS REQNR 
+	    FROM SAPHEE.ZMMT031 
+	    WHERE MANDT= AP1.MANDT
+		     AND REQNO = AP1.DOCNO
+	     GROUP BY REQNO
+	     ), '') AS REQNR                                                                                   -- FM  조회용
+	 , VALUE (( SELECT CASE WHEN MAX(CS1.PS_PSPID) IS NULL OR MAX(CS1.PS_PSPID) = '' THEN 
+                           (CASE WHEN MAX(M31.REQKIND) IN ('2','3','4') THEN SUBSTR(MAX(M31.POSID2),1,6) 
+                                      ELSE  SUBSTR(MAX(M31.POSID),1,6) END)
+                ELSE MAX(CS1.PS_PSPID)  END 
+		 FROM SAPHEE.ZMMT031 AS M31 
+		 LEFT OUTER JOIN SAPHEE.ZCST001 AS CS1 ON CS1.MANDT= M31.MANDT
+		                                                               AND CS1.QTNUM = M31.QTNUM
+		WHERE M31.MANDT= AP1.MANDT
+		     AND M31.REQNO = AP1.DOCNO
+		GROUP BY M31.MANDT, M31.REQNO),'') AS PS_PSPID		-- FM 조회용
+                 ,VALUE (( SELECT MAX(CASE WHEN LENGTH(M31.UPN) > 5 THEN M31.UPN ELSE CS1.MA_PSPID END) AS UPN	  		--FM 조회용 
+		 FROM SAPHEE.ZMMT031 AS M31 
+		 LEFT OUTER JOIN SAPHEE.ZCST001 AS CS1 ON CS1.MANDT= M31.MANDT
+		                                                               AND CS1.QTNUM = M31.QTNUM
+																	   AND CS1.SEQ = M31.SEQ
+		WHERE M31.MANDT= AP1.MANDT
+		     AND M31.REQNO = AP1.DOCNO
+		GROUP BY M31.MANDT, M31.REQNO),'') AS UPN2
+--	,VALUE (( SELECT SUBSTR(MAX(CASE WHEN LENGTH(M31.UPN) > 5 THEN M31.UPN ELSE CS1.MA_PSPID END),7,3) --AS CST         --FM 조회용 
+--		 FROM SAPHEE.ZMMT031 AS M31 
+--		 LEFT OUTER JOIN SAPHEE.ZCST001 AS CS1 ON CS1.MANDT= M31.MANDT
+--		                                                               AND CS1.QTNUM = M31.QTNUM
+--														--			   AND CS1.SEQ = M31.SEQ
+--		WHERE M31.MANDT= AP1.MANDT
+--		     AND M31.REQNO = AP1.DOCNO
+--		GROUP BY M31.MANDT, M31.REQNO),'') AS CST2
+
+     ,(CASE WHEN AP1.DOCKIND = '13' AND CS01.REQKIND = 'S' THEN '시*공' ELSE '' END) AS GSGB 
+
+
+  FROM SAPHEE.ZWBAP01 AS AP1
+  	 LEFT OUTER JOIN SAPHEE.ZWBAP02 AP2 ON AP2.MANDT = AP1.MANDT -- 2018.11.12 지사별 검색조건 추가. 전현정 DL 요청(기안자 정보)
+		                                                      AND AP2.DOCNO = AP1.DOCNO
+                                                    		  AND AP2.DOCKIND = AP1.DOCKIND
+			                                                  AND AP2.APPGUBN = 'S'
+			                                                  AND AP2.SEQNO = '1'   
+     LEFT OUTER JOIN SAPHEE.ZLCODE LC ON LC.MANDT= AP1.MANDT
+                                                              AND LC.CODE1 = 'WBAP_DOCKIND'
+                                                              AND LC.CODE2 = AP1.DOCKIND 
+     LEFT OUTER JOIN SAPHEE.ZCST001 CS01 ON CS01.MANDT = AP1.MANDT --보수자재 견적/수주/청구 이종석
+     --LEFT OUTER JOIN (SELECT MANDT, QTNUM, SEQ, UPN, CST, ASTAT, DOC1, DOC2, DOC3, DOC4, DOC5 FROM SAPHEE.ZCST001 WHERE ASTAT = 'Y') CS01 ON CS01.MANDT = AP1.MANDT --보수자재 견적/수주/청구 이종석
+	    AND ( CS01.DOC1 = AP1.DOCNO OR CS01.DOC2 = AP1.DOCNO OR CS01.DOC3 = AP1.DOCNO OR CS01.DOC4 = AP1.DOCNO OR CS01.DOC5 = AP1.DOCNO )
+   	 LEFT OUTER JOIN SAPHEE.ZUSERF USERF ON USERF.MANDT = AP2.MANDT -- 2018.11.12 지사별 검색조건 추가. 전현정 DL 요청(기안자 정보)
+	    AND USERF.USERNUMB = SUBSTR(AP2.APNUM,2)
+
+  WHERE AP1.MANDT= #G_MANDT#
+  
+		--AND LENGTH(VALUE(CS01.QTNUM, '')) &gt;= CASE WHEN (SUBSTR(AP1.DOCNO, 1, 3) = 'R01' OR SUBSTR(AP1.DOCNO, 1, 3) = 'R02' OR SUBSTR(AP1.DOCNO, 1, 3) = 'R03' OR SUBSTR(AP1.DOCNO, 1, 3) = 'R04' OR SUBSTR(AP1.DOCNO, 1, 3) = 'R09') THEN 1 ELSE 0 END --보수자재견적중 차수가 최종차수가 아닌것은 필터링 (이종석)  
+  
+	<isNotNull col="DOCNO">
+        AND AP1.DOCNO = #DOCNO#
+	</isNotNull>
+	<isNotNull col="DOCKIND">
+        AND AP1.DOCKIND = #DOCKIND#
+	</isNotNull>
+        AND  AP1.APSTAT = '3' 
+	<isNotNull col="CRDATE_TO">
+        AND AP1.CRDATE BETWEEN #CRDATE_FM# AND #CRDATE_TO#
+	</isNotNull>
+
+        AND AP1.REDPT1 = #DPT1#
+       
+	<isNotNull col="USERTEAM">
+	    AND USERTEAM = #USERTEAM# -- 2018.11.12 지사별 검색조건 추가. 전현정 DL 요청
+	</isNotNull>        
+     --  AND AP1.REDPT1 IN ('E3','E9','EF','EG','EK')
+
+  ORDER BY AP1.CRDATE DESC, AP1.CRTIM DESC
+  FOR FETCH ONLY
+  WITH UR
+
+
+
+--  'E5'    임원
+--  'EF'   '주차서비스팀'	 
+--  'EK'   '서비스기획부'	 
+--  'EL'   '해외서비스팀'	 
+--  'EO'   '강북서비스부'	 
+--  'EP'   '강남서비스부'	 
+--  'EQ'   '동부서비스부'	 
+--  'ER'   '서부서비스부'	 	
+--  'ES'   'Field운영부' 
+--  'EN'   'MOD사업부'
+--  'EM'   'Service Excellence팀'
+  
+  	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="DOCKIND" size="255" type="VARCHAR" description="" /> 
+		<col name="CRDATE_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="CRDATE_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="DPT1" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_head">
+		<col name="APDPT1" size="24" type="VARCHAR" description="" /> 
+		<col name="APDPT1_N" size="60" type="VARCHAR" description="" /> 
+		<col name="APIRUM" size="60" type="VARCHAR" description="" /> 
+		<col name="APNUM" size="24" type="VARCHAR" description="" /> 
+		<col name="APPGUBN" size="1" type="VARCHAR" description="" /> 
+		<col name="APRNK" size="60" type="VARCHAR" description="" /> 
+		<col name="APSTAT" size="3" type="VARCHAR" description="" /> 
+		<col name="CRDATE" size="24" type="VARCHAR" description="" /> 
+		<col name="CRDPT1" size="24" type="VARCHAR" description="" /> 
+		<col name="CRDPT1_N" size="60" type="VARCHAR" description="" /> 
+		<col name="CRIRUM" size="60" type="VARCHAR" description="" /> 
+		<col name="CRTIM" size="18" type="VARCHAR" description="" /> 
+		<col name="DOCKIND" size="3" type="VARCHAR" description="" /> 
+		<col name="DOCNO" size="30" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="REDATE" size="24" type="VARCHAR" description="" /> 
+		<col name="REDPT1" size="24" type="VARCHAR" description="" /> 
+		<col name="REDPT1_N" size="60" type="VARCHAR" description="" /> 
+		<col name="RETIM" size="18" type="VARCHAR" description="" /> 
+		<col name="SEQNO" size="6" type="NUMERIC" description="" /> 
+		<col name="SEQSTAT" size="3" type="VARCHAR" description="" /> 
+		<col name="TARGET" size="765" type="VARCHAR" description="" /> 
+	</output>
+</query>

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>insert</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+ MERGE INTO SAPHEE.ZPSTW0304_TOT3 AS TGT
+      USING (
+            SELECT T.MANDT, T.PSPID, T.POSID, 
+                   'YYYYMMDD' AS INP_DT,  -- BY ISH 트랜잭션 키 (일자)
+                   SUM(T.PRO_R) AS PRO_R
+              FROM (
+                   SELECT Z.MANDT, Z.PSPID, Z.POSID, Z.PRONR, P.PRO_R
+                     FROM SAPHEE.ZPSTW0304 AS Z
+                          LEFT OUTER JOIN SAPHEE.ZMASTER02 AS A
+                                  ON A.MANDT   = Z.MANDT
+                                 AND A.POSID   = Z.PSPID
+                                 AND A.POSID_1 = Z.POSID
+                                 AND Z.INP_DT  < #INP_DT#
+                          LEFT OUTER JOIN SAPHEE.ZPST0111 AS P
+                                  ON A.MANDT   = P.MANDT
+                                 AND A.TYPE    = P.TYPE
+                                 AND A.VER     = P.VER
+                                 AND A.ZZGUBUN = P.GUBUN
+                                 AND P.PRONR   = Z.PRONR                
+                    WHERE Z.MANDT   = #G_MANDT#
+                      AND Z.PSPID   = #PSPID#    -- BY ISH 트랜잭션 키
+                      AND Z.POSID   = #POSID# -- BY ISH 트랜잭션 키
+                      AND A.LIFNR   = #LIFNR#-- BY ISH 트랜잭션 키
+                      AND A.TEMNO2  = #TEMNO2#-- BY ISH 트랜잭션 키
+                      AND A.ZZGUBUN BETWEEN '10' AND '14' 
+                      AND A.PRART   IN ('01', '02', '11') 
+                      AND A.ZZCHAKG = 'X'
+                      AND A.TXT04   <> 'C'   
+                    GROUP BY Z.MANDT, Z.PSPID, Z.POSID, Z.PRONR, P.PRO_R ) T
+             WHERE T.MANDT =  #G_MANDT#
+             GROUP BY T.MANDT, T.PSPID, T.POSID 
+            ) AS SRC
+        ON TGT.MANDT  = SRC.MANDT
+       AND TGT.PSPID  = SRC.PSPID
+       AND TGT.POSID  = SRC.POSID
+       AND TGT.INP_DT = SRC.INP_DT
+ WHEN NOT MATCHED THEN
+      INSERT (MANDT, PSPID, POSID, INP_DT, PRO_SUM)
+      VALUES (SRC.MANDT, SRC.PSPID, SRC.POSID, 'YYYYMMDD', SRC.PRO_R)  -- BY ISH 트랜잭션 키 (일자)
+ WHEN MATCHED THEN
+      UPDATE SET TGT.PRO_SUM = SRC.PRO_R
+
+	]]></statement>
+	<input default-name="ds_list3_tmp">
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

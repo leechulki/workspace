@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[화면 하단 쿼리]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+
+	<statement><![CDATA[
+		SELECT A.MANDT
+		      ,B.SUVSN   -- 실측고유번호
+		      ,A.SUVPRH  -- 실측사양
+		      ,A.PRH     -- 영업사양
+		      ,(SELECT SUVPRDNAME FROM SAPHEE.ZPST1132 WHERE  MANDT = A.MANDT AND SUVPRH = 'DATA_ITEM' AND SUVPRD = SUBSTR(A.ITEMDIV,1,2)) AS ITEMDIVNM
+		      ,C.ATKLA   -- 그룹
+		      ,CASE WHEN C.PRHNAME IS NULL THEN   
+		           A.SUVPRHNAME
+		       ELSE
+		           C.PRHNAME
+		       END AS PRHNAME     -- 사양명
+		      ,A.SUVPRHNAME       -- 실측사양명
+		      ,B.SUVPRD           -- 실측사양값
+		      ,C.PRD              -- 영업사양값
+		      ,C.PRD AS CHGPRD    -- 보정값 적용된 영업사양
+		      ,C.PRD AS VIEWPRD   -- 화면 영업사양
+		      ,B.CALPRD           -- 연산사양값
+              ,B.MODYPRD          -- 보정사양값
+		      ,A.MODYYSNO         -- 보정입력여부
+		      ,A.INTYPE           -- 입력타입
+		      ,A.PRHYSNO          -- 영업사양적용여부
+		      ,CAST(#PRINT_HOGI# AS VARCHAR(20)) AS HOGI
+		      , A.DATADIV
+		      , A.ITEMDIV
+		      , B.SUVTYPE		      
+		FROM   SAPHEE.ZPST1131 AS A
+		       LEFT OUTER JOIN SAPHEE.ZPST1136 AS B ON A.MANDT = B.MANDT AND B.SUVSN = CAST(#SUVSN# AS VARCHAR(30)) AND A.SUVPRH = B.SUVPRH
+		       LEFT OUTER JOIN TABLE (
+                           SELECT  X.MANDT
+                                  ,X.PRH
+                                  ,X.PRHNAME
+                                  ,X.ATKLA
+                                  ,Y.CHAR_VALUE AS PRD
+                           FROM  (
+                           	    SELECT A.MANDT
+                                         ,C.PSPID
+                                         ,C.POSNR
+                                         ,C.MATNR
+                                         ,C.HOGI
+                           	          ,A.PRH
+                           	          ,(SELECT ATBEZ FROM SAPHEE.CABNT WHERE MANDT = B.MANDT AND ATINN = B.ATINN AND SPRAS = '3') AS PRHNAME
+                                         ,B.ATINN
+                           	          ,B.ATKLA
+                           	          ,B.ATFOR
+                           	          ,A.BRNDSEQ
+                           	          ,A.ZPRDGBN
+                           	          ,A.BRNDCD
+                           	          ,A.DISPTP
+                           	          ,A.MODITP
+                           	     FROM  SAPHEE.ZSDT1141 AS A
+                           	           INNER JOIN SAPHEE.CABN AS B ON A.MANDT = B.MANDT AND A.PRH = B.ATNAM
+                           	           INNER JOIN TABLE (
+                                                         SELECT X.MANDT
+                                                               ,X.PSPID
+                                                               ,X.POSNR
+                                                               ,X.MATNR
+                                                               ,X.HOGI
+                                                               ,X.BRNDSEQ
+                                                               ,X.ZPRDGBN
+                                                               ,X.BRNDCD
+                                                               ,X.MAX_QTNUM
+                                                         FROM  (
+                                                               SELECT A.MANDT
+                                                                     ,A.PSPID
+                                                                     ,A.POSNR
+                                                                     ,A.MATNR
+                                                                     ,A.CLASS AS ZPRDGBN
+                                                                     ,A.HOGI
+                                                                     ,MAX(B.QTNUM) OVER(PARTITION BY A.MANDT, A.PSPID) AS MAX_QTNUM
+                                                                     ,NVL(B.QTNUM, '') AS QTNUM
+                                                                     ,B.QTSER
+                                                                     ,B.QTSEQ
+                                                                     ,CASE WHEN A.BRNDCD IS NULL THEN
+                                                                              'NOBRND'
+                                                                           WHEN TRIM(A.BRNDCD) = '' THEN
+                                                                              'NOBRND'
+                                                                      ELSE
+                                                                          A.BRNDCD
+                                                                      END AS BRNDCD
+                                                                     ,A.BRNDSEQ AS BRNDSEQ
+                                                               FROM   SAPHEE.ZSDT0091 A
+                                                                      LEFT OUTER JOIN SAPHEE.VBAP AS B ON A.MANDT = B.MANDT AND A.VBELN = B.VBELN AND A.POSNR = B.POSNR
+				                                                WHERE  A.MANDT = #G_MANDT#
+				                                                  AND  A.PSPID = #VBELN#
+				                                                  AND  A.HOGI  = #HOGI#
+				                                                  AND  A.SEQ   = #SAPSEQ#
+                                                         		  ) AS X 
+                           		        ) AS C ON A.MANDT = C.MANDT AND A.BRNDSEQ = C.BRNDSEQ AND A.ZPRDGBN = C.ZPRDGBN AND A.BRNDCD = C.BRNDCD
+                           		        LEFT OUTER JOIN SAPHEE.ZSDT1073 AS D ON D.MANDT = A.MANDT AND D.CLASS = A.ZPRDGBN  AND D.ATNAM = A.PRH
+                           		 WHERE A.DIPSDAT > HEX(CURRENT DATE)
+                           		   AND  D.ATNAM IS NULL
+                                )  AS X
+                                LEFT OUTER JOIN (
+                                                SELECT MANDT
+                                                      ,PSPID
+                                                      ,SEQ
+                                                      ,POSNR
+                                                      ,HOGI
+                                                      ,MATNR
+                                                      ,CHAR_VALUE
+                                                      ,CHAR_VALUEMD
+                                                      ,ATWTB
+                                                      ,NAM_CHAR
+                                                      ,SUBSTR(ERDAT,1,4)||'-'||SUBSTR(ERDAT,5,2)||'-'||SUBSTR(ERDAT,7,2) AS ERDAT
+                                                      ,ERNAM
+                                                FROM   SAPHEE.ZSDT0094 Z4
+                                                WHERE  Z4.MANDT = #G_MANDT#
+                                                  AND  Z4.PSPID = #VBELN#
+                                                  AND  Z4.HOGI  = #HOGI#
+                                                  AND  Z4.SEQ   = #SAPSEQ#
+                                ) AS Y ON X.MANDT = X.MANDT AND X.PSPID = Y.PSPID AND X.POSNR = Y.POSNR AND X.HOGI = Y.HOGI AND X.MATNR = Y.MATNR AND X.PRH = Y.NAM_CHAR
+									) AS C ON A.MANDT = A.MANDT AND A.PRH = C.PRH
+		WHERE  A.MANDT = #G_MANDT#
+  		  AND  A.SUVPRH !='ELR_B_ECWTP'
+  		  AND  A.SUVPRH !='ELR_B_CBRK'			
+	      AND  A.DATADIV IN ( 'ELC', 'ELR')
+		ORDER BY VIEWORDER
+		WITH UR
+
+ ]]>
+
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_rad_prh">
+	</output>
+</query>

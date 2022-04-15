@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT  SUBSTR(HEX(CURRENT DATE), 1, 6) AS MAKE_MM,    A.KSTAR,
+              A.KTEXT , 'F' AS CHANGE,
+              CAST(#GUBUN#  AS VARCHAR(6)) AS GUBUN,          
+              CAST(#PSPID#  AS VARCHAR(72)) AS  PSPID,    
+              0 AS DMR_NETWR,     'KRW' AS WAERK,	 0.0 AS RETREN_RATE,
+	0 AS RETREN_AMT,    '' AS WD_END,		 
+              --'' AS SAYU,
+              CAST('' AS VARCHAR(300) ) as SAYU,
+	--'' AS HOGI,
+              CAST('' AS VARCHAR(30) ) as  HOGI,
+
+           CASE WHEN T.KSTAR = '0053037010'
+                THEN VALUE((
+                		SELECT SUM(VALUE(X.EQML05,0) + VALUE(X.EQML01, 0) + VALUE(X.EQML02, 0) + VALUE(X.EQML03, 0) + VALUE(X.EQMO02, 0) + VALUE(X.EQMO03, 0) + VALUE(X.EQMO04, 0) + VALUE(X.EQMO06, 0))*100
+                		  FROM SAPHEE.ZCOBT300 AS X
+                		 WHERE X.MANDT = T.MANDT
+                		   AND X.PSPID = #PSPID#
+                		   AND X.DIV = '5'
+                     ),0)
+                ELSE VALUE(T.NETWR,0)
+                END AS NETWR,
+
+
+	  
+           VALUE((SELECT SUM(T3.WKG001 + T3.WKG002 + T3.WKG003 + T3.WKG004 + T3.WKG005 + T3.WKG006  +
+	                      T3.WKG007 + T3.WKG008 + T3.WKG009 + T3.WKG010 + T3.WKG011 + T3.WKG012  +
+	                      T3.WKG013 + T3.WKG014 + T3.WKG015 + T3.WKG016) * 100
+
+	           FROM SAPHEE.PRPS AS T1
+                        INNER JOIN  (
+	   	                SELECT X1.MANDT, X1.POSID AS PSPID, X1.POSID_1 || '-E' AS POSID
+		                   FROM SAPHEE.ZMASTER02 AS X1
+		                 WHERE X1.MANDT = #G_MANDT#    AND   X1.POSID = #PSPID#
+		                     AND X1.ZZGUBUN IN ('10', '13', '20', '91','92')
+						                
+                                              UNION ALL
+										
+	                              SELECT X1.MANDT, X1.POSID AS PSPID, X1.POSID_1 || '-R' AS POSID
+	                                 FROM SAPHEE.ZMASTER02 AS X1
+	                               WHERE X1.MANDT = #G_MANDT#    AND   X1.POSID = #PSPID#
+	                                   AND X1.ZZGUBUN IN ('10', '13', '20', '91','92')
+		               ) AS T2
+	               ON T1.MANDT = T2.MANDT
+	             AND T1.POSID = T2.POSID
+                        INNER JOIN SAPHEE.COSP AS T3
+	               ON T3.MANDT = T1.MANDT
+	             AND T3.OBJNR = T1.OBJNR
+                       WHERE T3.MANDT =  #G_MANDT#
+	             AND T3.WRTTP = '04'   AND  T3.VERSN = '000' 
+	             AND T3.KSTAR = A.KSTAR
+          ) , 0) AS WAVWR ,				 
+
+
+         (CASE WHEN (SELECT COUNT(*) FROM SAPHEE.ZPSTW0402 AS X
+                                WHERE X.MANDT = A.MANDT
+                                    AND X.GUBUN = #GUBUN#
+                                    AND X.PSPID  = #PSPID#
+                                    --AND X.MAKE_MM <> SUBSTR(HEX(CURRENT DATE), 1, 6)
+                                    AND X.KSTAR = A.KSTAR
+                                    AND X.DMR_NETWR > 0 )  > 0                            THEN 'F'
+                    ELSE 'I'
+           END ) AS FINISH
+
+
+   FROM SAPHEE.CSKU AS A  
+    LEFT OUTER JOIN (
+   SELECT  A.MANDT , c.kstar , VALUE(SUM(c.WKG001 + c.WKG002 + c.WKG003 + c.WKG004 + c.WKG005 + c.WKG006 +
+             c.WKG007 + c.WKG008 + c.WKG009 + c.WKG010 + c.WKG011 + c.WKG012) *100  ,0) AS NETWR
+
+
+    FROM ( saphee.PRPS AS A INNER JOIN saphee.PROJ AS B
+      ON A.MANDT = B.MANDT
+     AND A.PSPHI = B.PSPNR ) INNER JOIN saphee.COSP AS C
+      ON A.MANDT = C.MANDT
+     AND A.OBJNR = C.OBJNR
+   WHERE B.PSPID  =  #PSPID#
+ --     AND C.GJAHR = SUBSTR(HEX(CURRENT DATE),1,4)
+     AND C.OBJNR LIKE 'PR%'
+
+     AND C.KSTAR IN ('0053025040', '0053027010', '0053037040', '0053037010')
+     AND C.WRTTP IN ('01')
+     AND C.VERSN = '000'
+
+group by  A.MANDT, c.kstar 
+
+   ) AS T 
+   ON T.MANDT = A.MANDT
+   AND T.KSTAR = A.KSTAR 
+ WHERE A.MANDT = #G_MANDT#
+      AND A.SPRAS ='3'
+      AND A.KSTAR IN ('0053025040', '0053027010', '0053037040', '0053037010')
+	  
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_detail">
+	</output>
+</query>

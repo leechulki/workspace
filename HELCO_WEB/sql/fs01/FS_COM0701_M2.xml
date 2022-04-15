@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+    <type>update</type>
+    <description><![CDATA[결재상태관리 저장/수정 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement><![CDATA[
+MERGE INTO SAPHEE.ZFST0103 AS A
+USING   (   VALUES ( 
+                CAST(#G_MANDT# AS VARCHAR(9) )
+               ,CAST(#ADOC_CLAS# AS VARCHAR(30))
+               ,CAST(#ADOC_NUMB# AS VARCHAR(60))
+               ,CAST(COALESCE( NULLIF(TRIM(#ADOC_NTIM#||''), ''), '1') AS INTEGER )
+            ) ) AS B( MANDT, ADOC_CLAS, ADOC_NUMB, ADOC_NTIM )
+ON      A.MANDT = A.MANDT -- 클라이언트
+AND     A.ADOC_CLAS = B.ADOC_CLAS -- 결재문서구분
+AND     A.ADOC_NUMB = B.ADOC_NUMB -- 결재문서번호
+AND     A.ADOC_NTIM = B.ADOC_NTIM -- 결재문서차수
+WHEN MATCHED THEN
+       UPDATE
+          SET
+              A.RSON_RJCT = CASE WHEN TRIM( #APPR_STAT#||'' ) = '040' 
+                                      AND ( (A.ADIT = #G_USER_ID# AND A.ADIT_STAT != TRIM( #APPR_STAT#||'' )) OR
+                                            (A.APPR = #G_USER_ID# AND A.APPR_STAT != TRIM( #APPR_STAT#||'' )) ) THEN #RSON_RJCT#
+                                 ELSE A.RSON_RJCT END  -- 반려사유
+             ,A.DRAF_DATE = CASE WHEN A.DRAF = #G_USER_ID# THEN
+                                      CASE WHEN TRIM( #APPR_STAT#||'' ) NOT IN ('', A.DRAF_STAT ) AND #APPR_STAT# IN ('150','190','510') THEN HEX(CURRENT_DATE)
+                                      ELSE A.DRAF_DATE END
+                                 ELSE A.DRAF_DATE END  -- 기안일자
+             ,A.DRAT_TIME = CASE WHEN A.DRAF = #G_USER_ID# THEN
+                                      CASE WHEN TRIM( #APPR_STAT#||'' ) NOT IN ('', A.DRAF_STAT ) AND #APPR_STAT# IN ('150','190','510') THEN HEX(CURRENT_TIME)
+                                      ELSE A.DRAT_TIME END
+                                 ELSE A.DRAT_TIME END  -- 기안시간
+             ,A.DRAF_STAT = CASE WHEN A.DRAF = #G_USER_ID# THEN
+                                      CASE WHEN TRIM( #APPR_STAT#||'' ) NOT IN ('', A.DRAF_STAT ) AND #APPR_STAT# IN ('150','190','510') THEN #APPR_STAT#
+                                      ELSE A.DRAF_STAT END
+                                 ELSE A.DRAF_STAT END -- 기안상태
+             ,A.ADIT_DATE = CASE WHEN A.ADIT = #G_USER_ID# THEN
+                                      CASE WHEN TRIM( #APPR_STAT#||'' ) NOT IN ('', A.ADIT_STAT ) AND #APPR_STAT# IN ('040','250','290') THEN HEX(CURRENT_DATE)
+                                      ELSE A.ADIT_DATE END
+                                 ELSE A.ADIT_DATE END  -- 심사일자
+             ,A.ADIT_TIME = CASE WHEN A.ADIT = #G_USER_ID# THEN
+                                      CASE WHEN TRIM( #APPR_STAT#||'' ) NOT IN ('', A.ADIT_STAT ) AND #APPR_STAT# IN ('040','250','290') THEN HEX(CURRENT_TIME)
+                                      ELSE A.ADIT_TIME END
+                                 ELSE A.ADIT_TIME END -- 심사시간
+             ,A.ADIT_STAT = CASE WHEN A.DRAF = #G_USER_ID# THEN
+                                      CASE WHEN TRIM( #APPR_STAT#||'' ) NOT IN ('', A.ADIT_STAT ) AND #APPR_STAT# = '190' THEN '210'
+                                      ELSE A.ADIT_STAT END
+                                 WHEN A.ADIT = #G_USER_ID# THEN
+                                      CASE WHEN TRIM( #APPR_STAT#||'' ) NOT IN ('', A.ADIT_STAT ) AND #APPR_STAT# IN ('040','250','290') THEN #APPR_STAT#
+                                      ELSE A.ADIT_STAT END
+                                 ELSE A.ADIT_STAT END -- 심사상태
+             ,A.APPR_DATE = CASE WHEN A.APPR = #G_USER_ID# THEN
+                                      CASE WHEN TRIM( #APPR_STAT#||'' ) NOT IN ('', A.APPR_STAT ) AND #APPR_STAT# IN ('040','390') THEN HEX(CURRENT_DATE)
+                                      ELSE A.APPR_DATE END
+                                 ELSE A.APPR_DATE END -- 승인일자
+             ,A.APPR_TIME = CASE WHEN A.APPR = #G_USER_ID# THEN
+                                      CASE WHEN TRIM( #APPR_STAT#||'' ) NOT IN ('', A.APPR_STAT ) AND #APPR_STAT# IN ('040','390') THEN HEX(CURRENT_TIME)
+                                      ELSE A.APPR_TIME END
+                                 ELSE A.APPR_TIME END -- 승인시간 
+             ,A.APPR_STAT = CASE WHEN A.DRAF = #G_USER_ID# AND TRIM( A.ADIT || '' ) = '' THEN
+                                      CASE WHEN TRIM( #APPR_STAT#||'' ) NOT IN ('', A.APPR_STAT ) AND #APPR_STAT# = '190' THEN '310' 
+                                      ELSE A.APPR_STAT END
+                                 WHEN A.ADIT = #G_USER_ID# THEN
+                                      CASE WHEN TRIM( #APPR_STAT#||'' ) NOT IN ('', A.APPR_STAT ) AND #APPR_STAT# = '290' THEN '310' 
+                                      ELSE A.APPR_STAT END
+                                 WHEN A.APPR = #G_USER_ID# THEN
+                                      CASE WHEN TRIM( #APPR_STAT#||'' ) NOT IN ('', A.APPR_STAT ) AND #APPR_STAT# IN ('040', '390') THEN #APPR_STAT#
+                                      ELSE A.APPR_STAT END
+                                 ELSE A.APPR_STAT END -- 승인상태
+    ]]></statement>
+    <input default-name="ds_doc_appr">
+        <col name="MANDT" size="9" type="VARCHAR" description="클라이언트" />
+        <col name="ADOC_CLAS" size="30" type="VARCHAR" description="결재문서구분" />
+        <col name="ADOC_NUMB" size="60" type="VARCHAR" description="결재문서번호" />
+        <col name="ADOC_NTIM" size="2" type="SMALLINT" description="결재문서차수" />
+        <col name="RSON_RJCT" size="600" type="VARCHAR" description="반려사유" />
+        <col name="APPR_STAT" size="30" type="VARCHAR" description="결재상태" />
+    </input>
+    <output default-name="_none">
+    </output>
+</query>

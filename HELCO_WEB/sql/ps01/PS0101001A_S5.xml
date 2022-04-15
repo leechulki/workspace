@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT  SD05.HOGI
+       ,VALUE(CASE WHEN SUBSTR(SD05.HOGI,7,1) = 'L' THEN SAPHEE.SUBSTR(CABN.ATBEZ,6) ELSE CABN.ATBEZ END,'-') AS TEXT1
+       ,VALUE(SD05.VALUE,'-') AS TEXT2
+FROM (
+       SELECT  MANDT
+              ,HOGI
+              ,CHARACTERISTIC
+              ,ROW_NUMBER() OVER(PARTITION BY MANDT,HOGI,CHARACTERISTIC ORDER BY MANDT,HOGI,CHARACTERISTIC,SEQ DESC) AS ROWN
+              ,VALUE
+              ,CR_DATE
+              ,CR_TIME
+              ,TP_DATE
+              ,TP_TIME
+       FROM SAPHEE.ZSDT0005
+      WHERE MANDT= #G_MANDT#
+        AND HOGI LIKE  #POSID#||'%'
+        AND CHARACTERISTIC NOT IN ('MATNR')
+     ) AS SD05
+      LEFT OUTER JOIN SAPHEE.ZSDV_CABN AS CABN ON CABN.MANDT=SD05.MANDT 
+                                              AND CABN.ATNAM=SD05.CHARACTERISTIC 
+                                              AND CABN.SPRAS='3'
+      LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MS02 ON MS02.MANDT=SD05.MANDT 
+                                              AND MS02.POSID=SUBSTR(SD05.HOGI,1,6) 
+                                              AND MS02.POSID_1=SD05.HOGI
+WHERE ROWN=1
+  AND CABN.ATBEZ IS NOT NULL
+  AND (SD05.CHARACTERISTIC LIKE 'EL_CJM%' OR SD05.CHARACTERISTIC LIKE 'EL_CHD%' OR SD05.CHARACTERISTIC LIKE 'EL_EH%' OR SD05.CHARACTERISTIC IN ('EL_ECJJ','EL_DSV1','EL_DEPH','EL_DPL'))
+ORDER BY SD05.HOGI, CASE WHEN SUBSTR(SD05.CHARACTERISTIC,1,4) = 'EL_E' THEN '1' WHEN SUBSTR(SD05.CHARACTERISTIC,1,4) = 'EL_C' THEN '2' WHEN SUBSTR(SD05.CHARACTERISTIC,1,4) = 'EL_D' THEN '3' END,CABN.ATBEZ
+
+FOR FETCH ONLY WITH UR		]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list5">
+	</output>
+</query>

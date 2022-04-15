@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.ses.dao.Ses0550D">
+
+	<resultMap id="TemplateMap" type="hdel.sd.ses.domain.Ses0550">
+	    <result property="mandt" 	column="MANDT"/>
+	    <result property="atkla" 	column="ATKLA"/>
+	    <result property="prh" 		column="PRH"/>
+		<result property="prhname"  column="PRHNAME"  />
+		<result property="matnr" 	column="MATNR"/>
+		<result property="agent" 	column="AGENT"/>
+		<result property="classcd" 	column="CLASSCD"/>
+		<result property="atwrt" 	column="ATWRT"/>
+		<result property="atwtb" 	column="ATWTB"/>
+		<result property="atflv" 	column="ATFLV"/>
+		<result property="atzhl" 	column="ATZHL"/>
+	</resultMap>
+
+	<select id="selectTemplate" parameterType="hdel.sd.ses.domain.Ses0550ParamVO" resultMap="TemplateMap">
+	with A as (
+  	select inob.mandt, inob.objek, cabn.atinn, klah.class, cabn.atkla, cabn.atnam, cabnt.atbez
+  	from saphee.inob as inob
+ 		inner join saphee.kssk as kssk on inob.mandt=kssk.mandt and inob.cuobj=kssk.objek
+  		inner join saphee.klah as klah on kssk.mandt=klah.mandt and kssk.clint=klah.clint
+  		inner join saphee.ksml as ksml on kssk.mandt=ksml.mandt and kssk.clint=ksml.clint
+  		inner join saphee.cabn as cabn on ksml.mandt=cabn.mandt and ksml.imerk=cabn.atinn and ksml.adzhl=cabn.adzhl
+  		inner join saphee.cabnt as cabnt on cabn.mandt=cabnt.mandt and cabn.atinn=cabnt.atinn and cabnt.spras='3'
+  	where inob.mandt=#{mandt}
+  		and inob.objek=#{matnr}
+ 		and not exists ( select mandt from saphee.zsdt1073 where mandt=klah.mandt and class=klah.class and atnam=cabn.atnam )
+	)
+
+	,B as (
+	select A.atnam, cawn.atwrt, cawn.atflv, cawnt.atwtb, cawn.atzhl
+	from A
+	  	left join saphee.cawn as cawn on A.mandt=cawn.mandt and A.atinn=cawn.atinn
+	  	left join saphee.cawnt as cawnt on cawn.mandt=cawnt.mandt and cawn.atinn=cawnt.atinn and cawn.atzhl=cawnt.atzhl and cawn.adzhl=cawnt.adzhl and cawnt.spras='3'
+	  where A.mandt=#{mandt}
+	  	and A.objek=#{matnr}
+	 	and not exists ( select mandt from saphee.zsdt1073 where mandt=A.mandt and class=A.class and atnam=A.atnam )
+	 	and not exists ( select mandt from saphee.zsdt1072 where mandt=cawn.mandt and atnam=A.atnam and atwrt=cawn.atwrt )
+	)
+	select A.objek as matnr, A.class as classcd, A.atkla, A.atnam as prh, A.atbez as prhname, B.atwrt, B.atflv, B.atwtb, B.atzhl
+	from A
+	left join B on A.atnam = B.atnam	
+	</select>
+	
+	
+	<insert id="insertZSDT1073" parameterType="hdel.sd.ses.domain.Ses0550">
+	insert into saphee.zsdt1073(
+		mandt,
+		class,
+		atnam
+	)
+	values(
+		#{mandt},
+		#{classcd},
+		#{prh}
+	)
+	</insert>
+	
+	<insert id="insertZSDT1072" parameterType="hdel.sd.ses.domain.Ses0550">
+	insert into saphee.zsdt1072(
+		mandt,
+		atnam,
+		atwrt,
+		zgubun
+	)
+	values(
+		#{mandt},
+		#{prh},
+		#{atwrt},
+		#{exatwrt}
+	)
+	</insert>
+	
+</mapper>  

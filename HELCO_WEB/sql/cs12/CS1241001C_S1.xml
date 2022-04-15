@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+       A.CS301_TEM TEM,
+       A.CS301_RDT RDT,
+       A.CS301_SEQ SEQ,
+       A.CS301_TEM || '-' || CS301_RDT || '-' || CS301_SEQ ETN,
+       A.CS301_SIR SIR,
+       MAX(A.CS301_PST) PST,
+       CASE MAX(A.CS301_PST)
+            WHEN 'A1' THEN '작성'
+            WHEN 'A2' THEN '반송'
+            WHEN 'A3' THEN '전송'
+            WHEN 'A6' THEN '승인'
+       END PST_NM,
+       MAX(A.CS301_MDT) MDT,
+       MAX(A.CS301_MID) MID,
+       (
+        SELECT USERNAME
+          FROM SAPHEE.ZUSERF
+         WHERE MANDT = #G_MANDT# AND USERNUMB = MAX(A.CS301_MID)
+       ) MID_NM,
+       MAX(A.CS301_CDT) CDT,
+       MAX(A.CS301_NAM) NAM,
+       MAX(A.CS301_SPT) SPT,
+       MAX(A.CS301_PJT) PJT,
+       MAX(A.CS301_BSU) BSU,
+       MAX(A.CS301_ADR) ADR,
+       MAX(A.CS301_SPC) SPC,
+       MAX(C.ZSPEC2) ZSPEC2,
+       COUNT(*) CNT,
+       SAPHEE.CODE_CONV('183','CS123',MAX(E.BLD)) BLD_NM,
+       MAX(C.ZBEPJEO) ZBEPJEO,
+       MAX(D.CS101_ISD) ISD,
+       (
+        SELECT CS116_BMT
+          FROM SAPHEE.ZCST116
+         WHERE MANDT = #G_MANDT#
+           AND CS116_PST = 'A6'
+           AND CS116_GND = 'B'
+           AND CS116_PJT = MAX(B.CS302_PJT)
+           AND CS116_HNO = MAX(B.CS302_HNO)
+         ORDER BY CS116_BGT DESC
+         FETCH FIRST 1 ROW ONLY
+       ) BMT,
+       VALUE(MAX(F.CS303_SNO),'') SNO,
+       VALUE(MAX(F.CS303_MBP),'') HP,
+       VALUE(MAX(F.CS303_TEL),'') TEL,
+       VALUE(MAX(F.CS303_RMK),'') RMK
+       
+  FROM
+       SAPHEE.ZCST301 A INNER JOIN SAPHEE.ZCST302 B
+                                ON A.MANDT = B.MANDT
+                               AND A.CS301_TEM = B.CS302_TEM
+                               AND A.CS301_RDT = B.CS302_RDT
+                               AND A.CS301_SEQ = B.CS302_SEQ
+                               AND A.CS301_SIR = B.CS302_SIR
+                        
+                        LEFT OUTER JOIN SAPHEE.ZMASTER02 C
+                                ON B.MANDT = C.MANDT
+                               AND B.CS302_PJT||B.CS302_HNO = C.POSID_1
+                        
+                        LEFT OUTER JOIN SAPHEE.ZCST101 D
+                                ON B.MANDT = D.MANDT
+                               AND B.CS302_PJT = D.CS101_PJT
+                               AND B.CS302_HNO = D.CS101_HNO
+                        
+                        LEFT OUTER JOIN SAPHEE.ZCST111 E
+                                ON B.MANDT = E.MANDT
+                               AND B.CS302_PJT = E.PJT
+                               AND B.CS302_HNO = E.HNO
+                        
+                        LEFT OUTER JOIN SAPHEE.ZCST303 F
+                                ON A.MANDT = F.MANDT
+                               AND A.CS301_TEM = F.CS303_TEM
+                               AND A.CS301_RDT = F.CS303_RDT
+                               AND A.CS301_SEQ = F.CS303_SEQ
+                         --      AND A.CS301_SIR = F.CS303_SIR
+       
+ WHERE
+       A.MANDT = #G_MANDT#
+   AND A.CS301_TEM = #TEM#
+   AND A.CS301_RDT = #RDT#
+   AND A.CS301_SEQ = #SEQ#
+   AND A.CS301_SIR = #SIR#
+   AND A.CS301_DEL = 'N'
+   
+ GROUP BY A.CS301_TEM, CS301_RDT, CS301_SEQ, A.CS301_SIR
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_head">
+	</output>
+</query>

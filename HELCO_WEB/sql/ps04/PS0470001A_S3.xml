@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  DISTINCT
+        T.MANDT
+       ,T.POSID AS PSPID
+       ,T.ZSITE_NM
+       ,T.ZQNTY
+       ,T.KUNNR_NM
+
+       ,CASE WHEN SUBSTR(T.POSID,1,1) = 'E' OR SUBSTR(T.POSID,1,1) = 'T' OR SUBSTR(T.POSID,1,1) = 'C' 
+	             THEN (SELECT (SELECT Y.LANDX 
+                                                       FROM SAPHEE.T005T AS Y 
+			           WHERE Y.MANDT = Z.MANDT AND Y.SPRAS = '3' AND Y.LAND1 = Z.LAND1) 
+                                         FROM SAPHEE.VBPA AS Z
+		           WHERE Z.MANDT = T.MANDT
+			 AND Z.VBELN = T.POSID
+                                           AND Z.POSNR = '000000'
+			 AND Z.PARVW = 'WE' )
+	    ELSE T.ADDR   
+         END AS ADDR
+
+       ,T.VALUE
+       ,T.RATE
+	   ,B.ZZCHAKD
+	   ,B.ZZCOMP2
+	   ,T.NAMET 
+,B.MAKE_MM || '01' AS MAKE_MM
+--,HEX(CURRENT DATE) AS MAKE_MM
+, SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST(B.CON_AMOUNT  AS DECIMAL(13, 2) ) ) AS CON_AMOUNT
+, SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST(B.SF_AMOUNT  AS DECIMAL(13, 2) ) ) AS SF_AMOUNT
+, SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST(B.SF_AMOUNT2  AS DECIMAL(13, 2) ) ) AS SF_AMOUNT2
+, SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST(B.AMOUNT_A  AS DECIMAL(13, 2) ) ) AS AMOUNT_A
+, SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST(B.AMOUNT_B  AS DECIMAL(13, 2) ) ) AS AMOUNT_B
+, SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST(B.AMOUNT_C  AS DECIMAL(13, 2) ) ) AS AMOUNT_C
+, SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST(B.AMOUNT_D  AS DECIMAL(13, 2) ) ) AS AMOUNT_D
+, SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST(B.AMOUNT_E  AS DECIMAL(13, 2) ) ) AS AMOUNT_E
+, SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST(B.AMOUNT_F AS DECIMAL(13, 2) ) ) AS AMOUNT_F
+, SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST(B.AMOUNT_G  AS DECIMAL(13, 2) ) ) AS AMOUNT_G
+, SAPHEE.GET_CURRENCY2(CAST(B.WAERK AS VARCHAR(15) ), CAST(B.AMOUNT_H  AS DECIMAL(13, 2) ) ) AS AMOUNT_H
+
+,C.WAERK
+FROM (
+        SELECT  DISTINCT
+                MASTER01A.MANDT
+               ,MASTER01A.POSID
+               ,MASTER01A.ZSITE_NM
+               ,MASTER01A.ZQNTY
+               ,MASTER01A.KUNNR_NM
+			   ,(SELECT SUM(PRO_R)FROM  SAPHEE.ZPST0112 WHERE MANDT =  #G_MANDT# AND PSPID =  #POSID#     GROUP BY PSPID) / INT(MASTER01A.ZQNTY)  AS RATE
+
+               ,MASTER01A.ADDR1 || ' ' || MASTER01A.ADDR2 AS ADDR          
+               ,MASTER02B.VALUE
+   		       ,MASTER02B.NAMET 
+
+        FROM  SAPHEE.ZMASTER01 AS MASTER01A
+        	  LEFT OUTER JOIN
+        	  ( SELECT  SD.MANDT
+        	           ,SD.POSID
+        	           ,SUM(SD.VALUE) AS VALUE
+				       ,SD.NAMET
+                FROM  (
+                       SELECT  MASTER02A.MANDT
+            	                ,MASTER02A.POSID
+            	   		          ,ROWNUMBER() OVER(PARTITION BY SD0005.HOGI  ORDER BY SD0005.HOGI , SD0005.SEQ DESC ) AS RN
+                              ,(CASE WHEN VALUE(SD0005.VALUE,'0') = '' THEN 0 ELSE  INT(VALUE(SD0005.VALUE,'0')) END) AS VALUE
+							  ,MASTER02A.NAMET
+                       FROM  SAPHEE.ZSDT0005 AS SD0005
+            	   	          ,SAPHEE.ZMASTER02 MASTER02A
+                       WHERE SD0005.MANDT = MASTER02A.MANDT
+        		           AND MASTER02A.MANDT = #G_MANDT#
+        		           AND MASTER02A.POSID = #POSID#
+                       AND MASTER02A.ZZGUBUN IN ('10','13')        -- 제품구분(10:EL,13:EL선박)
+                       AND MASTER02A.PRART IN ('01','11')          -- 프로젝트유형(01:승강기(국내),11:교체공사)
+                       AND SD0005.HOGI = MASTER02A.POSID_1
+                       AND SD0005.CHARACTERISTIC = 'EL_ASTQ'    -- 정지층수
+                      ) AS SD
+                WHERE SD.RN = 1
+                GROUP BY SD.MANDT,SD.POSID,SD.NAMET
+             ) AS MASTER02B
+        	 ON MASTER01A.MANDT = MASTER02B.MANDT
+             AND MASTER01A.POSID = MASTER02B.POSID
+        	 ,SAPHEE.ZMASTER02 AS MASTER02C
+        WHERE MASTER01A.MANDT = #G_MANDT#
+        AND MASTER01A.POSID = #POSID#
+       AND MASTER01A.MANDT = MASTER02C.MANDT
+        AND MASTER01A.POSID = MASTER02C.POSID
+    ) AS T
+     LEFT OUTER JOIN SAPHEE.ZPSTW0501 AS B
+	              ON T.MANDT = B.MANDT
+               AND T.POSID =B.PSPID
+            --  AND B.MAKE_MM = #YYYYMMF#
+	AND B.MAKE_MM = SUBSTR(#MAKE_MM#,1,6)		  
+  	     INNER JOIN  SAPHEE.VBAK AS C
+		         ON C.MANDT = T.MANDT
+              AND C.ZZPJT_ID = T.POSID
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_head">
+	</output>
+</query>

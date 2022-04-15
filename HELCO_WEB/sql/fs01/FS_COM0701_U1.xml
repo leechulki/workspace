@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>update</type>
+    <description><![CDATA[결재상태관리 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+MERGE INTO SAPHEE.ZFST0200 AS A
+USING   (   
+            SELECT  1 AS ORDR, MANDT, ADOC_NUMB, ADOC_NTIM, DRAF_STAT, ADIT_STAT, APPR_STAT
+            FROM    SAPHEE.ZFST0103 
+            WHERE   MANDT = #G_MANDT#
+            AND     ADOC_CLAS = CAST(#ADOC_CLAS# AS VARCHAR(60))
+            AND     ADOC_NUMB = CAST(#ADOC_NUMB# AS VARCHAR(60))
+            AND     ADOC_NTIM = CAST(COALESCE( NULLIF(TRIM(#ADOC_NTIM#||''), ''), '-1') AS INTEGER )
+            UNION  
+            SELECT  2, #G_MANDT# , CAST(#ADOC_NUMB# AS VARCHAR(60)), CAST(COALESCE( NULLIF(TRIM(#ADOC_NTIM#||''), ''), '1') AS INTEGER ), '110', '', ''
+            FROM    SYSIBM.SYSDUMMY1
+            ORDER   BY 1
+            FETCH   FIRST 1 ROW ONLY
+            WITH    UR
+        ) AS B 
+ON      A.MANDT = A.MANDT -- 클라이언트
+AND     A.ESCS_NUMB = B.ADOC_NUMB -- 결재문서번호
+AND     A.ESCS_NTIM = B.ADOC_NTIM -- 결재문서차수
+WHEN MATCHED THEN
+       UPDATE
+          SET
+        ESCS_STAT = CASE 
+                    /* 견적원가수주완료 */
+                    WHEN TRIM( A.OCNT_NUMB || '' ) != '' 
+                        THEN '060' 
+                                
+                    /* 견적원가폐기 */
+                    WHEN A.ESCS_STAT NOT IN ( '010', '060' ) AND B.DRAF_STAT = '510' 
+                        THEN '010'
+                    
+                    /* 견적원가반려 */
+                    WHEN A.ESCS_STAT NOT IN ( '020', '050', '060' ) AND ( B.ADIT_STAT = '040' OR B.APPR_STAT = '040' ) 
+                        THEN '020'
+                    
+                    /* 견적원가승인 */
+                    WHEN A.ESCS_STAT NOT IN ( '010', '050', '060' ) AND ( B.DRAF_STAT = '150' OR B.ADIT_STAT = '250' OR B.APPR_STAT = '390') 
+                        THEN '050' 
+                    
+                    /* 견적원가결재중 */
+                    WHEN A.ESCS_STAT NOT IN ( '050', '060' ) AND B.DRAF_STAT = '190' AND B.ADIT_STAT NOT IN ( '040', '250' ) AND B.APPR_STAT NOT IN ( '040', '390' ) 
+                        THEN '040' 
+                    
+                    /* 견적원가작성중 */
+                    WHEN A.ESCS_STAT NOT IN ( '050', '060' ) AND B.DRAF_STAT NOT IN ( '150', '190' ) AND B.ADIT_STAT != '250' AND B.APPR_STAT != '390' 
+                        THEN '030' 
+                    
+                    /* 기타 원본 유지 */
+                    ELSE A.ESCS_STAT END 
+                    
+       ,ESCS_APDT = CASE
+                    /* 견적원가수주완료 */
+                    WHEN TRIM( A.OCNT_NUMB || '' ) != '' 
+                        THEN A.ESCS_APDT  
+                    
+                    /* 견적원가폐기 */
+                    WHEN A.ESCS_STAT NOT IN ('010', '060' ) AND B.DRAF_STAT = '510' 
+                        THEN HEX(CURRENT_DATE) 
+                    
+                    /* 견적원가반려 */
+                    WHEN A.ESCS_STAT NOT IN ('020', '050', '060' ) AND ( B.ADIT_STAT = '040' OR B.APPR_STAT = '040' ) 
+                        THEN '00000000' 
+                    
+                    /* 견적원가승인 */
+                    WHEN A.ESCS_STAT NOT IN ( '050', '060' ) AND ( B.DRAF_STAT = '150' OR B.ADIT_STAT = '250' OR B.APPR_STAT = '390') 
+                        THEN HEX(CURRENT_DATE) 
+                    
+                    /* 견적원가작성중 , 견적원가결재중, 기타 */
+                    ELSE A.ESCS_APDT END 
+    </statement>
+    <input default-name="ds_doc_stat">
+        <col name="MANDT" size="9" type="VARCHAR" description="클라이언트" />
+        <col name="ADOC_CLAS" size="30" type="VARCHAR" description="결재문서구분" />
+        <col name="ADOC_NUMB" size="60" type="VARCHAR" description="결재문서번호" />
+        <col name="ADOC_NTIM" size="2" type="SMALLINT" description="결재문서차수" />
+    </input>
+    <output default-name="_none">
+    </output>
+</query>

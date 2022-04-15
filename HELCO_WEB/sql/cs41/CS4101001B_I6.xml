@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>insert</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+INSERT INTO SAPHEE.ZMMT034
+(MANDT,LIFNR,SPMON,POSID,NAME1,DMBTR,WAERS,MWSKZ,ZTERM,BELNR,PTDAT,PTTIM,BUDAT,CRDAT,CRTIM,CRNAM,WGND,VBTYP,GUBUN) -- BS ETL 연계를 위한 식별컬럼 추가. 2021.01.19 Han J.H
+        SELECT
+         CS136.MANDT
+        ,MM005.LIFNR
+        ,CS136_GYM
+        ,CS136_GNO
+        ,MM012.NAME1
+        ,AMT
+        ,'KRW'
+        ,'42'
+        ,'T003'
+        ,''
+        ,HEX(CURRENT DATE)
+        ,HEX(CURRENT TIME)
+        ,'00000000'
+        ,HEX(CURRENT DATE)
+        ,HEX(CURRENT TIME)-
+        ,CAST((#G_USER_ID#) AS VARCHAR(8))
+        ,CS136_GND
+        ,CASE CS136_GND WHEN 'A' THEN 'MG' WHEN 'B' THEN 'MI' WHEN 'C' THEN 'UG' WHEN 'D' THEN 'UI'  WHEN 'E' THEN 'UI' ELSE '' END
+        ,'2'
+        FROM (
+
+                SELECT
+                       MAX(X.MANDT) MANDT,
+                       X.CS136_BSU,
+                       X.CS136_GYM,
+                       X.CS136_GNO,
+                       SUM(X.AMT) AMT,
+                       MIN(X.CS136_GND) CS136_GND
+                  FROM
+                       (
+                        SELECT
+                         CS136A.MANDT
+                         -- 대구/부산 좋은엘리베이터
+                        -- 서울/광주 대명엘리베이터
+                        ,CASE CS136A.CS136_BSU WHEN '9240' THEN '9224' 
+                                               WHEN '9242' THEN '9121' ELSE CS136A.CS136_BSU END CS136_BSU
+                        ,CS136A.CS136_GYM
+                        ,CS136A.CS136_GNO
+                        ,SUM(CS136A.CS136_BAM+CS136A.CS136_IY1+CS136A.CS136_IY2+CS136A.CS136_IY3+CS136A.CS136_IY4+CS136A.CS136_RET) AS AMT
+                        ,MIN(CS136A.CS136_GND) AS CS136_GND
+                        FROM SAPHEE.ZCST136 CS136A
+                                    LEFT OUTER JOIN SAPHEE.ZCST131 CS131A ON CS131A.MANDT = CS136A.MANDT
+                                                                        AND CS131A.CS131_UPN = CS136A.CS136_UPN
+                                                                        AND CS131A.CS131_CST = CS136A.CS136_CST
+                                                                        AND CS131A.CS131_PJT = CS136A.CS136_PJT
+                                                                        AND CS131A.CS131_HNO = CS136A.CS136_HNO
+                                                                        AND CS131A.CS131_SEQ = CS136A.CS136_SEQ
+                                                                        AND CS131A.CS131_GND = CS136A.CS136_GND
+                                                                        AND CS131A.CS131_MYM = CS136A.CS136_JYM
+                                                                        AND CS131A.CS131_ISR = CS136A.CS136_ISR
+                        WHERE CS136A.MANDT     = #G_MANDT#
+                          AND CS136A.CS136_GYM = #GYM#
+                          AND CS136A.CS136_GBU = '3'
+                          AND CS136A.CS136_BDGBN = ''   -- 분담이행방식 아닌 것만
+                          AND CS136A.CS136_PST = 'A6'
+                          AND CS136A.CS136_MGB = ''
+                          AND CS136A.CS136_GNO > ''
+                          AND SUBSTR(CS136A.CS136_HNO,1,1) IN ('G','J')
+                          AND (CS131A.VBELN IS NULL OR CS131A.VBELN > '')
+                          AND VALUE(CS131A.CS131_MYB,'') = ''
+                        GROUP BY CS136A.MANDT,CASE CS136A.CS136_BSU WHEN '9240' THEN '9224' WHEN '9242' THEN '9121'  ELSE CS136A.CS136_BSU END,CS136A.CS136_GYM,CS136A.CS136_GNO
+
+                        UNION ALL
+
+                        SELECT
+                         CS136A.MANDT
+                        ,CASE CS136A.CS136_BSU WHEN '9240' THEN '9224' 
+                                               WHEN '9242' THEN '9121' ELSE CS136A.CS136_BSU END CS136_BSU
+                        ,CS136A.CS136_GYM
+                        ,CS136A.CS136_GNO
+                        ,SUM(CS136A.CS136_BAM+CS136A.CS136_IY1+CS136A.CS136_IY2+CS136A.CS136_IY3+CS136A.CS136_IY4+CS136A.CS136_RET) AS AMT
+                        ,MIN(CS136A.CS136_GND) AS CS136_GND
+                        FROM SAPHEE.ZCST136 CS136A
+                                    LEFT OUTER JOIN SAPHEE.ZCST131 CS131A ON CS131A.MANDT = CS136A.MANDT
+                                                                        AND CS131A.CS131_UPN = CS136A.CS136_UPN
+                                                                        AND CS131A.CS131_CST = CS136A.CS136_CST
+                                                                        AND CS131A.CS131_PJT = CS136A.CS136_PJT
+                                                                        AND CS131A.CS131_HNO = CS136A.CS136_HNO
+                                                                        AND CS131A.CS131_SEQ = CS136A.CS136_SEQ
+                                                                        AND CS131A.CS131_GND = CS136A.CS136_GND
+                                                                        AND CS131A.CS131_MYM = CS136A.CS136_JYM
+                                                                        AND CS131A.CS131_ISR = CS136A.CS136_ISR,
+                              SAPHEE.VBAK VB
+                        WHERE CS136A.MANDT     = #G_MANDT#
+                          AND CS136A.CS136_GYM = #GYM#
+                          AND CS136A.CS136_GBU = '3'
+                          AND CS136A.CS136_BDGBN = ''   -- 분담이행방식 아닌 것만
+                          AND CS136A.CS136_PST = 'A6'
+                          AND CS136A.CS136_MGB = ''
+                          AND CS136A.CS136_GNO > ''
+                          AND CS136A.CS136_GND = 'E'
+                          AND SUBSTR(CS136A.CS136_HNO,1,1) = 'Z'
+                          AND (CS131A.VBELN IS NULL OR CS131A.VBELN > '')
+                          AND VALUE(CS131A.CS131_MYB,'') = ''
+                          AND VALUE(CS131A.MANDT,'') = VB.MANDT
+                          AND '00' || VALUE(CS131A.VBELN,'') = VB.VBELN
+                          AND VB.SPART IN ('20','40')
+                        GROUP BY CS136A.MANDT,CASE CS136A.CS136_BSU WHEN '9240' THEN '9224' WHEN '9242' THEN '9121'  ELSE CS136A.CS136_BSU END,CS136A.CS136_GYM,CS136A.CS136_GNO
+                       ) X
+                GROUP BY
+                       X.CS136_BSU,
+                       X.CS136_GYM,
+                       X.CS136_GNO
+
+          ) AS CS136
+            ,SAPHEE.ZMMT005 AS MM005
+             LEFT OUTER JOIN SAPHEE.ZMMT012 AS MM012 ON MM005.MANDT=MM012.MANDT
+                                                    AND MM005.LIFNR=MM012.LIFNR 
+        WHERE CS136.MANDT     = MM005.MANDT
+          AND CS136.CS136_BSU = MM005.LGORT	]]></statement>
+	<input default-name="ds_list">
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

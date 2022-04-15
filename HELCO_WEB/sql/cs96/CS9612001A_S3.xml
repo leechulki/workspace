@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+       '' AS CHK
+       ,A.LIFNR
+       ,C.ABR_NM       LIFNR2
+       ,A.CS406_EDT    EDT
+       ,A.CS406_CPT    CPT
+       ,A.CS406_FCD    FCD
+       ,A.CS406_LC1    LC1
+       ,A.CS406_LC2    LC2
+       ,A.CS406_LC3    LC3
+       ,A.CS406_LC4    LC4
+       ,A.CS406_LCR    LCR
+       ,A.CS406_TP1    TP1
+       ,A.CS406_TP2    TP2
+       ,A.CS406_TP3    TP3
+       ,A.CS406_TP4    TP4
+       ,A.CS406_RGD    RGD
+       ,A.CS406_RGN    RGN
+       ,A.CS406_SCP    SCP
+       ,A.CS406_IS1    IS1
+       ,A.CS406_IS2    IS2
+       ,A.CS406_IS3    IS3
+       ,A.CS406_IS4    IS4
+       ,A.CS406_IS5    IS5
+       ,A.CS406_ISR    ISR
+       ,A.CS406_RNAME  RNAME
+       ,A.CS406_EMAIL  EMAIL
+       ,A.CS406_HP     HP
+       ,A.CS406_TEL    TEL
+       ,A.CS406_FAX    FAX
+       ,B.NAME1        BSU_NM
+       ,B.J_1KFREPRE 
+       ,B.TELF1      
+       ,B.PSTLZ        ZIPCODE
+       ,B.STRAS        ADDR 
+       ,C.LGORT        BSU
+       ,D.MIQ             CNT_M
+       ,D.TCQ             CNT_U
+       ,D.MIQ + D.TCQ     CNT_ALL
+       ,(D.TCQ-D.TCQ_FM)  CNT_U_FM
+       ,D.TCQ_FM          CNT_U_POG
+       ,D.TCQ_HRTS        CNT_U_HRTS
+       ,SAPHEE.CODE_CONV(A.MANDT,'CS115',C.BSU_ARA) ARA_NM
+       ,SAPHEE.CODE_CONV(A.MANDT,'VKGRP',C.VKGRP)   TEM_NM
+       ,'' FLAG
+       ,C.SAFECODE
+       ,A.CS406_WEL	  AS WELYN
+       ,CASE WHEN A.CS406_TEMP = 'Y' THEN '1' ELSE '0' END AS TEMPLIFNR
+       ,'http://srm.hdel.co.kr/upload/CS/'||A.PHOTO AS LIFPHOTO
+       ,RM.REMARK01
+       ,RM.REMARK02
+       ,RM.REMARK03
+       ,RM.REMARK04    
+       ,EV.ZGUBUN01  
+       ,EV.ZGUBUN02  
+       ,EV.ZGUBUN03  
+       ,EV.ZGUBUN04 
+       ,EV.E_TOTAL01 
+       ,EV.E_TOTAL02 
+       ,EV.E_TOTAL03 
+       ,EV.E_TOTAL04 
+       ,EV.E_MOD01  
+       ,EV.E_MOD02  
+       ,EV.E_MOD03   
+       ,EV.E_MOD04   
+       ,EV.E_NSNB01  
+       ,EV.E_NSNB02  
+       ,EV.E_NSNB03  
+       ,EV.E_NSNB04  
+       ,EV.E_1TO101   
+       ,EV.E_1TO102   
+       ,EV.E_1TO103    
+       ,EV.E_1TO104  
+       ,PS.TO_PS 
+       ,PS.TO_JUJ
+       ,PS.TO_ADM
+       ,PS.Y5    
+       ,PS.Y10   
+       ,PS.Y11   
+              
+  FROM SAPHEE.ZCST406 A LEFT OUTER JOIN SAPHEE.ZMMT012 B
+                                ON A.MANDT = B.MANDT
+                               AND A.LIFNR = B.LIFNR 
+                        
+                        LEFT OUTER JOIN SAPHEE.ZWBT010 C
+                                ON A.MANDT = C.MANDT
+                               AND A.LIFNR = C.LIFNR
+                        
+                        LEFT OUTER JOIN (SELECT YYYYMM, BSU,
+                                                MIQ, TCQ, MANDT, TCQ_FM, TCQ_HRTS,
+                                                ROW_NUMBER() OVER(PARTITION BY BSU ORDER BY YYYYMM DESC) AS ROWN 
+                                           FROM SAPHEE.ZCST186N
+                                          WHERE MANDT =  #G_MANDT#
+                                        ) D
+
+                                ON A.MANDT = D.MANDT
+                               AND C.LGORT = D.BSU
+                               AND D.ROWN = 1
+                               
+                        LEFT OUTER JOIN (
+                                            SELECT 
+                                                   A.LIFNR,
+                                                   MAX(CASE WHEN SEQNEW = '1' THEN A.REMARK ELSE '' END) REMARK01, 
+                                                   MAX(CASE WHEN SEQNEW = '2' THEN A.REMARK ELSE '' END) REMARK02, 
+                                                   MAX(CASE WHEN SEQNEW = '3' THEN A.REMARK ELSE '' END) REMARK03, 
+                                                   MAX(CASE WHEN SEQNEW = '4' THEN A.REMARK ELSE '' END) REMARK04
+                                            
+                                             FROM (
+                                                    SELECT
+                                                           A.MANDT,
+                                                           A.LIFNR,
+                                                           A.REMARK,
+                                                           A.SEQ,
+                                                           ROW_NUMBER() OVER(PARTITION BY A.LIFNR ORDER BY A.SEQ DESC) AS SEQNEW
+                                                      FROM
+                                                           SAPHEE.ZCST406T A
+                                                     WHERE
+                                                           A.MANDT = #G_MANDT#
+                                                       AND A.LIFNR IN ( #LIFNR+# )
+                                             	     
+                                                  ) AS A
+                                            GROUP BY A.LIFNR
+                                        ) RM
+
+                                ON RM.LIFNR = A.LIFNR
+                               
+                        LEFT OUTER JOIN (
+                                            SELECT 
+                                                   A.LIFNR,
+                                                   MAX(CASE WHEN SEQNEW = '1' THEN A.E_TOTAL ELSE '' END) AS E_TOTAL01, 
+                                                   MAX(CASE WHEN SEQNEW = '2' THEN A.E_TOTAL ELSE '' END) AS E_TOTAL02, 
+                                                   MAX(CASE WHEN SEQNEW = '3' THEN A.E_TOTAL ELSE '' END) AS E_TOTAL03, 
+                                                   MAX(CASE WHEN SEQNEW = '4' THEN A.E_TOTAL ELSE '' END) AS E_TOTAL04,
+                                                   MAX(CASE WHEN SEQNEW = '1' THEN A.E_MOD ELSE   '' END) AS E_MOD01, 
+                                                   MAX(CASE WHEN SEQNEW = '2' THEN A.E_MOD ELSE   '' END) AS E_MOD02, 
+                                                   MAX(CASE WHEN SEQNEW = '3' THEN A.E_MOD ELSE   '' END) AS E_MOD03, 
+                                                   MAX(CASE WHEN SEQNEW = '4' THEN A.E_MOD ELSE   '' END) AS E_MOD04,
+                                                   MAX(CASE WHEN SEQNEW = '1' THEN A.E_NSNB ELSE  '' END) AS E_NSNB01, 
+                                                   MAX(CASE WHEN SEQNEW = '2' THEN A.E_NSNB ELSE  '' END) AS E_NSNB02, 
+                                                   MAX(CASE WHEN SEQNEW = '3' THEN A.E_NSNB ELSE  '' END) AS E_NSNB03, 
+                                                   MAX(CASE WHEN SEQNEW = '4' THEN A.E_NSNB ELSE  '' END) AS E_NSNB04,
+                                                   MAX(CASE WHEN SEQNEW = '1' THEN A.E_1TO1 ELSE  '' END) AS E_1TO101, 
+                                                   MAX(CASE WHEN SEQNEW = '2' THEN A.E_1TO1 ELSE  '' END) AS E_1TO102, 
+                                                   MAX(CASE WHEN SEQNEW = '3' THEN A.E_1TO1 ELSE  '' END) AS E_1TO103, 
+                                                   MAX(CASE WHEN SEQNEW = '4' THEN A.E_1TO1 ELSE  '' END) AS E_1TO104,
+                                                   MAX(CASE WHEN SEQNEW = '1' THEN A.ZGUBUN ELSE  '' END) AS ZGUBUN01, 
+                                                   MAX(CASE WHEN SEQNEW = '2' THEN A.ZGUBUN ELSE  '' END) AS ZGUBUN02, 
+                                                   MAX(CASE WHEN SEQNEW = '3' THEN A.ZGUBUN ELSE  '' END) AS ZGUBUN03, 
+                                                   MAX(CASE WHEN SEQNEW = '4' THEN A.ZGUBUN ELSE  '' END) AS ZGUBUN04
+                                            
+                                             FROM (SELECT
+                                                           A.MANDT,
+                                                           A.LIFNR,
+                                                           A.ZYEAR||A.ZHALF ZGUBUN,
+                                                           A.E_TOTAL, A.E_MOD,
+                                                           A.E_NSNB,
+                                                           A.E_1TO1,
+                                                           ROW_NUMBER() OVER(PARTITION BY A.LIFNR ORDER BY A.ZYEAR||A.ZHALF DESC  ) AS SEQNEW
+                                                      FROM
+                                                           SAPHEE.ZCST406E A
+                                                     WHERE
+                                                           A.MANDT = #G_MANDT# 
+                                                       AND A.LIFNR IN ( #LIFNR+# )
+                                             	     
+                                                  ) AS A
+                                            GROUP BY A.LIFNR
+                                        ) EV
+
+                                ON EV.LIFNR = A.LIFNR
+                                
+                                
+                        LEFT OUTER JOIN (SELECT
+                                                 LIFNR
+                                           	    ,COUNT(*)                                        AS TO_PS
+                                                ,SUM(CASE WHEN A.JOB = '4'    THEN 1 ELSE 0 END) AS TO_JUJ
+                                                ,SUM(CASE WHEN A.JOB != '4'   THEN 1 ELSE 0 END) AS TO_ADM
+                                          	    <![CDATA[
+                                          	    ,SUM(CASE WHEN A.WMONTH <= 60 THEN 1 ELSE 0 END) AS Y5                                     	    
+                                           	    
+                                           	    ,SUM(CASE WHEN A.WMONTH > 60 AND A.WMONTH <= 120  
+                                          
+                                           	    	                            THEN 1 ELSE 0 END) AS Y10
+                                           	    ]]>      	                            
+                                           	    ,SUM(CASE WHEN A.WMONTH > 120 THEN 1 ELSE 0 END) AS Y11
+                                             FROM
+                                                  (
+                                                   SELECT
+                                                           A.MANDT
+                                                          ,A.CS100_LIF AS LIFNR
+                                                          ,A.CS100_JOB AS JOB
+                                                          ,SAPHEE.MONTH_BETWEEN(A.CS100_IDT,HEX(CURRENT DATE),2) AS WMONTH
+                                           			   
+                                                     FROM
+                                                          SAPHEE.ZCST100 A
+                                                    WHERE
+                                                          A.MANDT = #G_MANDT# 
+                                                      AND A.CS100_LIF IN ( #LIFNR+# )
+                                                      AND A.CS100_IDT > ''
+                                                      AND A.CS100_ODT = ''
+                                                  
+                                                   ) A 
+                                           GROUP BY
+                                                  A.LIFNR
+                                        ) PS
+
+                                ON PS.LIFNR = A.LIFNR
+  
+ WHERE A.MANDT = #G_MANDT# 
+   AND C.BSU_ARA > ''
+   AND C.BSU_GB = '3'
+   AND C.LGORT != ''
+  AND A.LIFNR IN ( #LIFNR+# )
+
+WITH UR
+
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_profile">
+	</output>
+</query>

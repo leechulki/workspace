@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[문제자재 입력 및 수정 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT 
+         '' AS FLAG
+        ,PP34.PSPID    AS PSPID     --공사번호
+        ,PP56.POSID    AS POSID     --WBS호기
+        ,PP56.POST1    AS POST1     --프로젝트명
+        ,PP56.CHASU    AS CHASU     --차수
+        ,PP56.ITEM_NO  AS ITEM_NO   --품번코드
+        ,PP56.MATNR    AS MATNR     --자재번호
+        ,PP56.ITEM_NAM AS ITEM_NAM  --품번명
+        ,PP56.MAT_NAM  AS MAT_NAM   --자재명
+        ,PP34.MENGE1   AS MENGE1    --수량
+        ,PP34.MEINS    AS MEINS     -- 단위
+        ,(SELECT MAX( CRDAT )  FROM SAPHEE.ZPPT004 PP04  WHERE PP04.MANDT = PP34.MANDT 
+             AND WOKNUM = PP34.POSID  AND  MATNR = PP34.MATNR)    AS DGDAT     -- 설계완료일
+        ,SAPHEE.GET_ZERODATE(PP56.IGDATE)   AS IGDATE    -- 입고요구일
+        ,SAPHEE.GET_ZERODATE(PP56.IBGO_1)    AS IBGO_1    -- 1차예정일
+        ,SAPHEE.GET_ZERODATE(PP56.IBGO_2)    AS IBGO_2    -- 2차예정일
+        ,(SELECT SAPHEE.GET_ZERODATE(INPDAT4)  FROM SAPHEE.ZPPT010 AS P10  WHERE P10.MANDT = PP34.MANDT
+             AND  P10.HOGI  = PP34.POSID AND   P10.MATNR = PP34.MATNR) AS INPDAT4   -- 입고 완료일
+        ,SAPHEE.GET_ZERODATE(PP34.SSCDAT)   AS SSCDAT    --출하예정일
+        ,PP56.CRCOD    AS CRCOD     --데이타생성자사번(생산부)
+        ,PP56.CRNAM    AS CRNAM     --데이타생성자(생산부)
+        ,SAPHEE.GET_ZERODATE(PP56.CRDAT)    AS CRDAT     --입력일(생산부)
+        ,CASE WHEN PP34.STATUS IN ('p','t','e') THEN '완료' ELSE '미완료' END AS STATUS             --상태
+      FROM SAPHEE.ZPPT034 PP34
+
+      LEFT OUTER JOIN SAPHEE.ZPPT056 PP56 ON PP34.MANDT = PP56.MANDT
+        AND PP34.PSPID = PP56.PSPID
+        AND PP34.POSID = PP56.POSID
+        AND PP34.ITEMNO = PP56.ITEM_NO
+        AND PP34.MATNR = PP56.MATNR
+
+  WHERE PP34.MANDT= #G_MANDT#
+<isNotNull col="PSPID">
+     AND PP34.PSPID LIKE #PSPID# || '%'
+</isNotNull>
+
+<isNotNull col="POSID">
+     AND PP34.POSID LIKE #POSID# || '%'
+</isNotNull>
+
+     AND PP34.WERKS = '1000'
+
+<isEqual col="TYPE" value="1">
+     AND PP34.TYPE IN ('10','13')
+</isEqual>
+<isEqual col="TYPE" value="2">
+     AND PP34.TYPE IN ('11','14')
+</isEqual>
+<isEqual col="TYPE" value="3">
+     AND PP34.TYPE IN ('20')
+</isEqual>
+<isEqual col="TYPE" value="4">
+     AND PP34.TYPE IN ('40','41')
+</isEqual>
+
+<isEqual col="GUBN" value="1">
+     AND PP56.IGDATE BETWEEN #DATE_FM# AND #DATE_TO#
+</isEqual>
+<isEqual col="GUBN" value="2">
+     AND PP34.PPLDAT BETWEEN #DATE_FM# AND #DATE_TO#
+</isEqual>
+<isEqual col="GUBN" value="3">
+     AND PP34.SSCDAT BETWEEN #DATE_FM# AND #DATE_TO#
+</isEqual>
+
+<isNotNull col="ITEMNO">
+     AND PP34.ITEMNO LIKE #ITEMNO# || '%'
+</isNotNull>
+
+<isEqual col="STATUS" value="F">
+     AND PP34.STATUS IN ('p','t','e')
+</isEqual>
+<isEqual col="STATUS" value="N">
+     AND PP34.STATUS IN ('','o')
+</isEqual>
+
+
+     AND PP34.PRCTYP &lt;&gt; 'D'
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="DATE_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="DATE_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="ITEMNO" size="255" type="VARCHAR" description="" /> 
+		<col name="TYPE" size="255" type="VARCHAR" description="" /> 
+		<col name="GUBN" size="255" type="VARCHAR" description="" /> 
+		<col name="STATUS" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="CHASU" size="6" type="VARCHAR" description="" /> 
+		<col name="CRCOD" size="30" type="VARCHAR" description="" /> 
+		<col name="CRDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="CRNAM" size="105" type="VARCHAR" description="" /> 
+		<col name="DGDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="IGDATE" size="24" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAM" size="90" type="VARCHAR" description="" /> 
+		<col name="ITEM_NO" size="27" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="MAT_NAM" size="120" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MEINS" size="9" type="VARCHAR" description="" /> 
+		<col name="MENGE1" size="15" type="NUMERIC" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="POST1" size="120" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="72" type="VARCHAR" description="" /> 
+		<col name="SSCDAT" size="24" type="VARCHAR" description="" /> 
+	</output>
+</query>

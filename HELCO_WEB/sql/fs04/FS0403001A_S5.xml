@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[발주계약 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+SELECT
+      CAST(#G_MANDT# AS VARCHAR(9)) AS MANDT -- 클라이언트
+     ,CAST(0 AS INTEGER) AS PROV_SEQN -- 발주공급자번호
+     ,CAST('' AS VARCHAR(60)) AS CONT_NUMB -- 계약번호
+     ,CAST(0 AS SMALLINT) AS CONT_NTIM -- 계약차수
+     ,CAST('' AS VARCHAR(30)) AS CONT_TYPE -- 계약방법구분
+     ,CAST('' AS VARCHAR(60)) AS BCNT_NUMB -- 변경전계약번호
+     ,CAST(0 AS SMALLINT) AS BCNT_NTIM -- 변경전계약차수
+     ,CAST('' AS VARCHAR(120)) AS POST1 -- 프로젝트명
+     ,CAST('' AS VARCHAR(300)) AS CSRS_ADDR -- 현장주소
+     ,CAST('' AS VARCHAR(400)) AS CNTS -- 내용
+     ,CAST('' AS VARCHAR(300)) AS PART_NAME -- 부품명
+     ,CAST('KRW' AS VARCHAR(15)) AS WAERK -- 통화 키
+     ,CAST( FLOOR( B.CONT_PRIC / 10 / 1.1 ) * 10 AS DECIMAL(17, 2)) AS SUPY_PRIC -- 공급가액
+     ,CAST( B.CONT_PRIC - FLOOR( B.CONT_PRIC / 10 / 1.1 ) * 10 AS DECIMAL(17, 2)) AS SUTX -- 부가세
+     ,CAST(0 AS DECIMAL(17, 2)) AS CONT_MAMT -- 월계약금액
+     ,CAST(0 AS DECIMAL(8, 3)) AS PMTH_CASH -- 지급방법현금비율
+     ,CAST(0 AS DECIMAL(8, 3)) AS PMTH_BILL -- 지급방법어음비율
+     ,CAST(0 AS DECIMAL(8, 3)) AS PMTH_OTHR -- 지급방법기타비율
+     ,CAST('' AS VARCHAR(500)) AS INSP_METH -- 검사방법
+     ,CAST('' AS VARCHAR(24)) AS CONT_STDT -- 계약시작일
+     ,CAST('' AS VARCHAR(24)) AS CONT_EDDT -- 계약종료일
+     ,CAST('' AS VARCHAR(24)) AS CONT_DATE -- 계약일
+     ,CAST('' AS VARCHAR(24)) AS CNST_CHDT -- 계약상태변경일
+     ,CAST('530' AS VARCHAR(30)) AS CONT_STAT -- 계약상태
+     ,CAST('' AS VARCHAR(24)) AS TRNS_DATE -- 전송일자
+     ,C.CODE AS TRNS_STAT -- 전송상태
+     ,C.CODE_NAME AS TRNS_STAT_NAME -- 전송상태명
+     ,B.ORDR_NUMB AS ORDR_NUMB -- 발주번호
+     ,E.PSPID AS PSPID -- SAP프로젝트번호
+     ,'' AS POSID -- WBS번호
+     ,CAST('' AS VARCHAR(24)) AS WRIT_DATE -- 작성일자
+     ,CAST('' AS VARCHAR(18)) AS WRIT_TIME -- 작성시간
+     ,CAST(#G_USER_ID# AS VARCHAR(36)) AS WRIT_USER -- 작성자
+     ,B.OCNT_NUMB -- 수주번호
+     ,B.EBDG_MGSQ -- 시행예산관리순번
+     ,B.EBDG_ITSQ -- 시행예산품목순번
+     ,B.CONT_PRIC -- 계약가격
+     ,D.BDGT_ITEM -- 예산항목
+     ,D.EBDG_NAME -- 시행예산명
+     ,D.EBDG_AMT -- 시행예산금액
+     ,D.SPEN_AMT -- 시행예산지출금액
+     ,D.EBDG_AMT - D.SPEN_AMT AS REMN_AMT -- 시행예산 
+     ,E.BSTNK -- 현장명
+FROM  SAPHEE.ZFST0400 B 
+      LEFT JOIN SAPHEE.ZFST0100 C 
+            ON ( B.MANDT = C.MANDT AND C.CODE_GROP='A17' AND C.CODE = '020' )
+      LEFT JOIN (SELECT D1.*
+                 FROM   SAPHEE.ZFST0302 D1
+                 WHERE  (D1.MANDT , D1.OCNT_NUMB , D1.EBDG_MGSQ , D1.EBDG_ITSQ ) IN 
+                        (SELECT D2.MANDT , D2.OCNT_NUMB , MAX( D2.EBDG_MGSQ ) , D2.EBDG_ITSQ
+                         FROM   SAPHEE.ZFST0302 D2
+                                    JOIN SAPHEE.ZFST0400 D3 ON ( D2.MANDT = D3.MANDT AND D2.OCNT_NUMB = D3.OCNT_NUMB AND D2.EBDG_ITSQ = D3.EBDG_ITSQ )
+                                    JOIN SAPHEE.ZFST0301 D4 ON ( D2.MANDT = D4.MANDT AND D2.OCNT_NUMB = D4.OCNT_NUMB AND D2.EBDG_MGSQ = D4.EBDG_MGSQ )
+                         WHERE  D3.MANDT = #G_MANDT#
+                         AND    D3.ORDR_NUMB = #ORDR_NUMB#
+                         AND    D4.EBDG_MGST IN ( '350', '360')
+                         GROUP  BY D2.MANDT , D2.OCNT_NUMB , D2.EBDG_ITSQ
+                        )
+                ) D
+            ON ( B.MANDT = D.MANDT AND B.OCNT_NUMB = D.OCNT_NUMB AND B.EBDG_MGSQ = D.EBDG_MGSQ AND B.EBDG_ITSQ = D.EBDG_ITSQ )
+    LEFT JOIN SAPHEE.ZFST0304 E ON ( B.MANDT = E.MANDT AND B.OCNT_NUMB = E.OCNT_NUMB )
+WHERE B.MANDT = #G_MANDT#
+AND   B.ORDR_NUMB = #ORDR_NUMB#
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond"> 
+    </input>
+    <output default-name="ds_zfst0403"> 
+    </output>
+</query>

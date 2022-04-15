@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[견적원가 항목 복사 조회- HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+WITH TREE_DATA( GROUP_NUM, MANDT, POST1, ESCS_NUMB, ESCS_NTIM, ESCS_ITSQ, ITEM_DIYN, ESCS_GROP, ESCS_UPGR, ESCS_ITEM, EXTN_ESCS, ESIT_SEQN, ESCE_NAME, MTRL_DIVS, MTRL_NUMB, PART_NAME, STAD, UNIT, QNTY, COST, WAERK, UKURS, ICDT_EPNS, IDRT_COST, SALE_COST, MRGN_RATE, ESMT_COST, NGTT_ESCS, PRES_COST, ESMT_EGRT, CRES_COST, NOTE, ESMT_CMPY, WORD_REFR, OCNT_NUMB, EBDG_MGSQ, EBDG_ITSQ ) AS (
+    SELECT ROW_NUMBER() OVER( PARTITION BY A.ESCS_NUMB, A.ESCS_NTIM ) AS GROUP_NUM
+          ,A.MANDT, A.POST1, A.ESCS_NUMB, A.ESCS_NTIM, A.ESCS_ITSQ, A.ITEM_DIYN, A.ESCS_GROP, A.ESCS_UPGR, A.ESCS_ITEM, A.EXTN_ESCS, A.ESIT_SEQN, A.ESCE_NAME, A.MTRL_DIVS, A.MTRL_NUMB, A.PART_NAME, A.STAD, A.UNIT, A.QNTY, A.COST, A.WAERK, A.UKURS, A.ICDT_EPNS, A.IDRT_COST, A.SALE_COST, A.MRGN_RATE, A.ESMT_COST, A.NGTT_ESCS, A.PRES_COST, A.ESMT_EGRT, A.CRES_COST, A.NOTE, A.ESMT_CMPY, A.WORD_REFR, A.OCNT_NUMB, A.EBDG_MGSQ, A.EBDG_ITSQ
+    FROM   TABLE (
+                 SELECT A.POST1, C.*
+                 FROM   SAPHEE.ZFST0200 A
+                        INNER JOIN TABLE (
+                                         SELECT MANDT, ESCS_ITEM
+                                         FROM   SAPHEE.ZFST0201
+                                         WHERE  MANDT = #G_MANDT#
+                                           AND  ITEM_DIYN = 'M'
+                                           AND  ESCS_NUMB = #ESCS_NUMB#
+                                           AND  ESCS_NTIM = #ESCS_NTIM#
+                                         GROUP BY MANDT, ESCS_ITEM  
+                                         ) AS B
+                        ON  A.MANDT = B.MANDT
+                        INNER JOIN SAPHEE.ZFST0201 AS C 
+                        ON  A.MANDT = C.MANDT
+                        AND A.ESCS_NUMB = C.ESCS_NUMB
+                        AND A.ESCS_NTIM = C.ESCS_NTIM
+                        AND B.ESCS_ITEM = C.ESCS_ITEM
+                WHERE  A.MANDT = #G_MANDT#
+<isNotNull col="WRIT_YEFR">
+                  AND  A.WRIT_DATE BETWEEN #WRIT_YEFR#||'0101' AND #WRIT_YETO#||'1231'
+</isNotNull>
+                  AND  A.KUNNR = #KUNNR#
+<isNotNull col="CESCS_NUMB">
+                  AND  C.ESCS_NUMB LIKE '%'||#CESCS_NUMB#||'%'
+</isNotNull>
+<isNotNull col="CESCS_NTIM">
+                  AND  C.ESCS_NTIM = #CESCS_NTIM#
+</isNotNull>
+<isNotNull col="ORDR_TYPE">
+                  AND  A.ORDR_TYPE = #ORDR_TYPE#
+</isNotNull>
+<isNotNull col="POST1">
+                  AND  A.POST1 LIKE '%'|| #POST1# || '%'
+</isNotNull>
+<isNotNull col="ESCS_ITEM">
+                  AND  C.ESCS_ITEM LIKE #ESCS_ITEM#||'%'
+</isNotNull>
+<isNotNull col="WORD_REFR">
+                    AND  C.ESCS_ITEM IN (
+										SELECT ESCS_ITEM
+										FROM   SAPHEE.ZFST0200 AS X
+										        INNER JOIN SAPHEE.ZFST0201 AS Y ON X.MANDT = Y.MANDT AND X.ESCS_NUMB = Y.ESCS_NUMB AND X.ESCS_NTIM = Y.ESCS_NTIM
+										WHERE  X.MANDT = #G_MANDT#
+										  AND  X.WRIT_DATE BETWEEN #WRIT_YEFR#||'0101' AND #WRIT_YETO#||'1231'
+										  AND  X.KUNNR = #KUNNR#
+										  AND  Y.ESCS_NUMB||TRIM(CAST(Y.ESCS_NTIM AS VARCHAR(3))) &lt;&gt; #ESCS_NUMB#||TRIM(CAST(#ESCS_NTIM# AS VARCHAR(3)))
+										  AND  Y.ESMT_COST > 0
+										  AND  Y.WORD_REFR LIKE '%'||#WORD_REFR#||'%'
+										GROUP BY ESCS_ITEM  
+                                        )
+</isNotNull>
+                  AND  C.ESCS_NUMB||TRIM(CAST(C.ESCS_NTIM AS VARCHAR(3))) &lt;&gt; #ESCS_NUMB#||TRIM(CAST(#ESCS_NTIM# AS VARCHAR(3)))
+                  AND  C.ESMT_COST > 0
+                ORDER BY C.ESCS_NUMB DESC, C.ESCS_NTIM DESC, C.ESIT_SEQN
+            ) AS A
+    UNION ALL
+    SELECT 0
+          ,'' MANDT, '' POST1, '' ESCS_NUMB,0 ESCS_NTIM,0 ESCS_ITSQ, '' ITEM_DIYN, '' ESCS_GROP, '' ESCS_UPGR, '' ESCS_ITEM, '' EXTN_ESCS, 0 ESIT_SEQN, '' ESCE_NAME, '' MTRL_DIVS, '' MTRL_NUMB, '' PART_NAME, '' STAD, '' UNIT,0 QNTY,0 COST, '' WAERK,0 UKURS,0 ICDT_EPNS,0 IDRT_COST,0 SALE_COST,0 MRGN_RATE,0 ESMT_COST,0 NGTT_ESCS,0 PRES_COST,0 ESMT_EGRT,0 CRES_COST, '' NOTE, '' ESMT_CMPY, '' WORD_REFR, '' OCNT_NUMB,0 EBDG_MGSQ,0 EBDG_ITSQ
+    FROM   SYSIBM.SYSDUMMY1 AS A
+),
+TREE_LEVEL(LEVEL, GROUP_NUM, MANDT, POST1, ESCS_NUMB, ESCS_NTIM, ESCS_ITSQ, ITEM_DIYN, ESCS_GROP, ESCS_UPGR, ESCS_ITEM, EXTN_ESCS, ESIT_SEQN, ESCE_NAME, MTRL_DIVS, MTRL_NUMB, PART_NAME, STAD, UNIT, QNTY, COST, WAERK, UKURS, ICDT_EPNS, IDRT_COST, SALE_COST, MRGN_RATE, ESMT_COST, NGTT_ESCS, PRES_COST, ESMT_EGRT, CRES_COST, NOTE, ESMT_CMPY, WORD_REFR, OCNT_NUMB, EBDG_MGSQ, EBDG_ITSQ ) AS (
+    SELECT  1, A.*
+    FROM    TREE_DATA A
+    WHERE   A.MANDT != ''
+      AND   (A.GROUP_NUM = 1 OR ESCS_UPGR = '')
+     UNION   ALL
+    SELECT  B.LEVEL + 1 AS LEVEL
+           ,A.*
+    FROM    TREE_DATA A, TREE_LEVEL B
+    WHERE   A.MANDT = B.MANDT 
+      AND   A.ESCS_NUMB = B.ESCS_NUMB
+      AND   A.ESCS_NTIM = B.ESCS_NTIM
+      AND   A.ESCS_UPGR = B.ESCS_GROP
+      AND   A.MANDT != ''
+)
+SELECT '' AS CHK
+     ,'1' AS FLAG
+     ,A.LEVEL
+     ,A.GROUP_NUM
+     ,A.MANDT -- 클라이언트
+     ,A.ESCS_NUMB -- 견적원가번호
+     ,A.ESCS_NTIM -- 견적원가차수
+     ,A.POST1 -- 프로젝트명
+     ,A.ESCS_ITSQ -- 견적원가품목순번
+     ,A.ITEM_DIYN -- 세부품목여부
+     ,A.ESCS_GROP -- 견적원가그룹
+     ,A.ESCS_UPGR -- 상위견적원가그룹
+     ,A.ESCS_GROP||A.ESCS_NUMB||TRIM(CAST(A.ESCS_NTIM AS VARCHAR(3))) AS PESCS_GROP -- 견적원가그룹
+     ,CASE WHEN A.LEVEL = 1 AND A.ITEM_DIYN = 'M' THEN 
+         '' 
+      ELSE 
+          A.ESCS_UPGR||A.ESCS_NUMB||TRIM(CAST(A.ESCS_NTIM AS VARCHAR(3))) END  AS PESCS_UPGR -- 상위견적원가그룹
+     ,A.ESCS_ITEM -- 견적원가항목
+     ,A.EXTN_ESCS -- 견적원가항목코드
+     ,A.ESIT_SEQN -- 견적원가항목순서
+     ,A.ESCE_NAME -- 견적원가명
+     ,A.MTRL_DIVS -- 부품원천구분
+     ,A.MTRL_NUMB -- 자재번/부품번호
+     ,A.PART_NAME -- 부품명
+     ,A.STAD -- 규격
+     ,A.UNIT -- 단위
+     ,A.QNTY -- 수량
+     ,A.COST -- 원가
+     ,A.WAERK -- 통화 키
+     ,A.UKURS -- 환율
+     ,A.ICDT_EPNS -- 부대비용
+     ,A.IDRT_COST -- 간접비
+     ,A.SALE_COST -- 매출원가
+     ,A.MRGN_RATE -- 실행율
+     ,A.ESMT_COST -- 견적원가
+     ,A.NGTT_ESCS -- 네고견적원가
+     ,A.PRES_COST -- 이전견적금액
+     ,A.ESMT_EGRT -- 견적환율
+     ,A.CRES_COST -- 통화견적원가
+     ,A.NOTE -- 비고
+     ,A.ESMT_CMPY -- 견적업체명
+     ,A.WORD_REFR -- 단어참조
+     ,A.OCNT_NUMB -- 수주번호
+     ,A.EBDG_MGSQ -- 시행예산관리순번
+     ,A.EBDG_ITSQ -- 시행예산품목순번
+FROM  TREE_LEVEL A
+ORDER BY A.ESCS_NUMB DESC, A.ESCS_NTIM DESC, A.ESIT_SEQN
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_zfst0201_list">
+    </output>
+</query>

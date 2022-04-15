@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="470" Id="Com0160" Left="8" OnKeyDown="Com0160_OnKeyDown" OnLoadCompleted="fn_OnLoadCompleted" OnUnloadCompleted="fn_OnUnloadCompleted" PidAttrib="7" Title="건물용도조회" Top="8" Ver="1.0" Width="400" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_list_build">
+				<Contents>
+					<colinfo id="BUILDUSE" size="256" type="STRING"/>
+					<colinfo id="STEXT" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_cond_build">
+				<Contents>
+					<colinfo id="BUILDUSE" size="6" type="STRING"/>
+					<colinfo id="STEXT" size="120" type="STRING"/>
+					<colinfo id="WHERE" size="256" type="STRING"/>
+					<record>
+						<BUILDUSE></BUILDUSE>
+						<STEXT></STEXT>
+						<WHERE></WHERE>
+					</record>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_error_build">
+				<Contents>
+					<colinfo id="IDX" size="256" type="STRING"/>
+					<colinfo id="ERRMSG" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Div Height="36" Id="div_btn" TabOrder="1" Text="Div0" Url="WB01::CommBtnForm.xml" Width="400">
+			<Contents></Contents>
+		</Div>
+		<Shape BKColor="user0" Bottom="71" Height="33" Id="Shape1" Left="0" LineColor="user1" Right="397" TabOrder="2" Top="38" Type="Rectangle" Width="397"></Shape>
+		<Static Align="Right" Height="20" Id="st_build_use" Left="5" Style="sty_lb_search" TabOrder="3" Text="건물용도코드&#32;" Top="44" VAlign="Middle" Width="80"></Static>
+		<Edit Border="Flat" CheckLength="Byte" Height="20" Id="ed_build_use" ImeMode="none" Left="87" LeftMargin="4" MaxLength="10" OnKeyDown="ed_lifnr_OnKeyDown" RightMargin="4" Style="sty_ipt_search" TabOrder="4" Top="44" UpperOnly="TRUE" Width="76"></Edit>
+		<Edit Border="Flat" CheckLength="Byte" Height="20" Id="ed_stext" ImeMode="none" Left="246" LeftMargin="4" MaxLength="105" OnKeyDown="ed_name1_OnKeyDown" RightMargin="4" Style="sty_ipt_search" TabOrder="6" Top="44" UpperOnly="TRUE" Width="145"></Edit>
+		<Static Align="Right" Height="20" Id="st_stext" Left="165" Style="sty_lb_search" TabOrder="5" Text="건물용도명&#32;" Top="44" VAlign="Middle" Width="80"></Static>
+		<Grid AutoFitEndLine="Hide" BindDataset="ds_list_build" BkColor2="default" BoldHead="true" Border="Flat" Bottom="427" ColSizing="TRUE" Editable="TRUE" Enable="true" EndLineColor="default" HeadBorder="Flat" HeadHeight="20" Height="347" Id="grd_list" InputPanel="FALSE" Left="8" LineColor="user20" LineType="ExHORZ" OnCellDBLClick="grd_list_OnCellDblClick" OnHeadClick="grd_list_OnHeadClick" OnKeyDown="grd_list_OnKeyDown" OnRButtonDown="grd_list_OnRButtonDown" Right="386" RowHeight="20" Style="sty_grid" TabOrder="7" TabStop="true" Top="80" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="378">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col fix="left" width="45"/>
+						<col fix="left" width="90"/>
+						<col width="130"/>
+					</columns>
+					<head>
+						<cell align="center" col="0" color="user21" display="text" font="굴림,9" text="No"/>
+						<cell align="center" col="1" color="user21" display="text" font="굴림,9" text="건물용도&#32;코드"/>
+						<cell align="center" col="2" color="user21" display="text" font="굴림,9" text="건물용도&#32;명"/>
+					</head>
+					<body>
+						<cell align="center" col="0" display="text" expr="currow+1"/>
+						<cell align="center" bkcolor2="user22" col="1" colid="BUILDUSE" display="text"/>
+						<cell align="center" bkcolor2="user22" col="2" colid="STEXT" display="text"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Button Appearance="FLAT" ButtonStyle="TRUE" Color="user5" Cursor="HAND" DomainID="btn.confirm" Height="22" Id="btn_confirm" ImageID="btn_comm_confirm_k" Left="144" LeftMargin="20" OnClick="fn_OnClick_btn" TabOrder="8" Text="확인" Top="437" Width="52"></Button>
+		<Button Appearance="FLAT" ButtonStyle="TRUE" Color="user5" Cursor="HAND" DomainID="btn.cancel" Height="22" Id="btn_cancel" ImageID="btn_comm_cancel_k" Left="200" LeftMargin="20" OnClick="fn_OnClick_btn" TabOrder="9" Text="취소" Top="437" Width="52"></Button>
+	</Form>
+	<Script><![CDATA[/*
+ ******************************************************************************************
+ * 기      능   : 협력업체검색 (Com0020) 팝업
+ * 작  성  자   : 이지훈
+ * 작성  일자   : 2012.05.17
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ * COMMENT
+   1. WFC URL 				: 
+   2. WFC OPERATION NAME 	: 
+   3. WFC OBJ NAME 			: 
+   4. 개발자료 :  
+ ******************************************************************************************
+*/
+#include "LIB::commons.js";	// 공통 스크립트 
+#include "LIB::nsfRequest.js";	// 공통 스크립트  /* GNY 추가 */
+#include "LIB::common_hdel.js";	// 공통 스크립트  /* GNY 추가 */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+var F_WHERE = "";
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) {
+
+	gfn_initForm();		// Form 로드 이벤트 맨 첫줄에 기술 
+	
+	div_btn.fn_loadUseBtn("1,45", "건물용도조회", "", "");   	// 화면제목 설정 및 버튼 활성화
+	
+	trace("Coms0160.fn_OnLoadCompleted");  
+	trace("@@@ F_BUILDUSE result : "+fa_build_use);
+	trace("@@@ F_STEXT result : "+fa_stext);
+	trace("@@@ F_WHERE result : "+fa_where);
+	
+	// 폼 파라메터 체크 및 기본값 설정
+	F_BUILDUSE = fa_build_use;
+	F_STEXT = fa_stext;
+	F_WHERE = fa_where;
+	
+	ed_build_use.Text = F_BUILDUSE;  
+	ed_stext.Text = F_STEXT; 
+	
+	// 자동 조회		
+	//if (length(trim(ed_build_use.Text)) > 0 || length(trim(ed_stext.Text)) > 0 ) {
+		fn_query(); // 임시주석처리
+	//}
+}
+
+/********************************************************************************
+* 기      능   : 조회 (header 조회)
+********************************************************************************/
+function fn_query() { 
+	
+	gfn_clearMsgBar();
+	var user_grp = gfn_getUserGroup(); 
+	
+	gfn_clearGridSortMark(grd_list); 	// sort mark 삭제 
+	
+	if (fn_valid_chk("query") == false)  return; // 조회조건 항목오류검증
+	if (fn_param_set("query") == false)  return; // 조회조건 설정
+
+	ds_list_build.ClearData();  	// 그리드 데이타 초기화
+
+	// 서비스호출
+	nsfRequest("query"									// srvId
+				, "com0160/find"						// url
+				, "ds_cond_build=ds_cond_build ds_list_build=ds_list_build"		// inDsList
+				, "ds_list_build=ds_list_build ds_error_build=ds_error_build"	// outDsList
+				, ""									// strParam
+				, "fn_afterQuery"						// CallBackFunc
+				);
+ 
+}
+/********************************************************************************
+* 기      능   : 조회 Callback  
+********************************************************************************/
+function fn_afterQuery(errCode, errMsg) { 
+	
+	// 호출결과처리
+	if(ds_error_build.rowcount() > 0) {  
+		trace("fn_Query FAILED!!! "
+		       + "[idx : " 			+ ds_error_build.GetColumn(0,"IDX") + "] "
+		       + "[error message : "+ ds_error_build.GetColumn(0,"ERRMSG") + "]"
+		       );
+		gfn_showMsg("CE00001");
+		// error 정보 표시 
+		gfn_openWSErrorWin(grd_list, ds_list_build_m, ds_error_build, "FLAG");
+	} else {
+	
+		// 조회된 자료가 있을 경우 1행에 포커스 위치시킨다.
+		if (ds_list_build.RowCount() > 0) {
+			grd_list.SetFocus();
+			trace("fn_Query SUCCESS!!! [건수 : " + ds_list_build.RowCount() + "]");
+			gfn_showMsg("CE00001");
+		} else {
+			trace("fn_Query SUCCESS!!! 건수없음");
+			gfn_showMsg("CI00002", ds_list_build.RowCount() + "");
+		}
+	}
+	
+}
+
+/********************************************************************************
+* 기      능   : 공통코드가 조회된 후의 Callback 함수 
+********************************************************************************/
+function fn_completeInit(sCode, sDsObj, sCodeType) {
+}
+/********************************************************************************
+* 기      능   : form UnloadCompleted 
+********************************************************************************/
+function fn_OnUnloadCompleted(obj) {
+	return gfn_isFormUnload(obj);
+}
+//=========================================================================================
+// [ PART 3 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,form닫기)
+//=========================================================================================
+
+/********************************************************************************
+* 기      능   : 닫기  
+********************************************************************************/
+function fn_close() {
+	close();
+}
+/********************************************************************************
+* 기      능   : 그리드 헤더 클릭시 정렬 처리 
+********************************************************************************/
+function grd_list_OnHeadClick(obj,nCell,nX,nY,nPivotIndex)
+{
+	if ( nCell == 0 ) {
+		gfn_selectGridCol("grd_list"); // 현재 처리할 format 기억
+	} else {
+		gfn_sortGrid(obj,nCell);
+	}
+} 
+ 
+// 호출 파라메터 SET
+function fn_param_set(pProcGb)
+{  
+	// 검색조건 데이타 SET
+	ds_cond_build.ClearData();
+	ds_cond_build.AddRow();
+	ds_cond_build.SetColumn(ds_cond_build.row, "BUILDUSE", trim(ed_build_use.text));
+	ds_cond_build.SetColumn(ds_cond_build.row, "STEXT", trim(ed_stext.text));
+	ds_cond_build.SetColumn(ds_cond_build.row, "WHERE", F_WHERE);
+	ds_cond_build.ApplyChange();
+	
+	switch(pProcGb)
+	{
+		case "query" :  // 조회 시 
+			break;  
+		default: 
+	}   
+
+	return true;
+	
+}   
+
+// 항목 오류 검증
+// pProcGb : 처리구분 (query:조회)
+function fn_valid_chk(pProcGb)
+{ 
+			
+	switch(pProcGb)
+	{
+		case "query" :     // 조회
+			break; 
+			
+		case "excel" :   	// 엑셀
+			if (ds_list_build.RowCount() <=0)
+			{
+				alert("조회된 자료가 없습니다."); 
+			}
+			break; 	
+		
+		case "confirm" :   // 확인 
+			if (length(ds_list_build.GetColumn(ds_list_build.row, "BUYR_CD"))==0)
+			{
+				alert("선택한 자료가 없습니다."); 
+			}
+			break; 
+			
+		default: 
+			break; 
+	}   
+
+	return true;
+}
+ 
+function fn_OnClick_btn(obj)
+{
+	var fncName = "fn_" + substr(obj.id, 4); 
+	eval( fncName + "()");
+}
+
+/********************************************************************************
+* 기      능   : 액셀 (버튼 클릭 시)
+********************************************************************************/
+function fn_excel() {
+	
+	trace("fn_excel()호출 start");
+  
+	// 조회조건 항목오류검증
+	if (fn_valid_chk("excel") == false)  return; 
+	
+	// Excel Export 
+	gfn_saveToExcel(grd_list, true);
+}
+
+/********************************************************************************
+* 기      능   : 확인버튼 클릭 시
+********************************************************************************/
+function fn_confirm() {
+	
+	if (fn_valid_chk("fn_confirm") == false)  return; 	// 조회조건 항목오류검증
+	
+	// 선택된 협력업체코드, 협력업체명을 배열에 담는다.
+	var arr = [  ds_list_build.GetColumn(ds_list_build.row, "BUILDUSE") // 협력업체코드
+			  , ds_list_build.GetColumn(ds_list_build.row, "STEXT") // 협력업체명
+			  ];
+	close(arr); 	// 배열을 연동화면으로 전송하고 팝업화면을 닫는다.	
+}
+
+/********************************************************************************
+// 취소버튼 클릭 시
+********************************************************************************/
+function fn_cancel(obj)
+{  
+	fn_OnClick_btn(btn_close); 	// 팝업화면을 닫는다.
+	//close();
+} 
+
+function ed_stext_OnKeyDown(obj,nChar,bShift,bCtrl, bAlt,LLParam,HLParam)
+{
+	if (nChar == 13) { 
+		fn_OnClick_btn(btn_query);  // 조회 호출
+	} else {
+	}
+}
+
+function ed_build_use_OnKeyDown(obj,nChar,bShift,bCtrl, bAlt,LLParam,HLParam)
+{
+	if (nChar == 13) {
+		fn_OnClick_btn(btn_query);  // 조회 호출
+	} else {
+	}
+} 
+
+function grd_list_OnCellDblClick(obj,nRow,nCell,nX,nY,nPivotIndex)
+{
+	fn_OnClick_btn(btn_confirm);  // 조회 호출
+}
+
+function grd_list_OnKeyDown(obj,nChar,bShift,bCtrl,bAlt,nLLParam,nHLParam)
+{
+	if (nChar==13)
+	{
+		fn_OnClick_btn(btn_confirm);  // 확인버튼 클릭 호출
+	}
+}
+
+function Com0160_OnKeyDown(obj,objSenderObj,nChar,bShift,bControl,bAlt,nLLParam,nHLParam)
+{
+	if (nChar == 13) {
+		fn_OnClick_btn(btn_query);  // 조회 호출
+	}
+}
+]]></Script>
+</Window>

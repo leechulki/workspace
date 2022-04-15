@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>update</type>
+	<description><![CDATA[리모델링-교체]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>	
+	<![CDATA[
+	MERGE INTO  SAPHEE.ZCST950N AS A
+ 	USING (
+ 	       SELECT BSU
+ 	             ,COUNT(A.PJT) AS RNQ_R
+	       FROM (
+                SELECT
+                          A.PJT,A.HNO,A.MDT, B.CS126_GNO, B.CS126_SLA
+                         ,A.BSU ,A.ARA
+                
+                  FROM  (
+                           SELECT  A.CS172_PJO  PJT
+                                  ,A.CS172_HNO  HNO
+                                  ,MAX(A.CS172_ARA ) ARA
+                                  ,MAX(A.CS172_BSU)  BSU
+                                  ,MAX(A.CS172_MDT)  MDT
+                                  ,A.CS172_YYM  YYM
+                                  ,MAX(C.CS126_UMR) UMR
+                
+                             FROM SAPHEE.ZCST172 A INNER JOIN SAPHEE.ZCST111 B
+                                                           ON A.MANDT = B.MANDT
+                                                          AND A.CS172_PJO = B.PJT
+                                                          AND A.CS172_HNO = B.HNO
+                                                          AND B.EXC = ''
+                
+                                                   LEFT OUTER JOIN SAPHEE.ZCST126 C
+                                                           ON C.MANDT = #G_MANDT#
+                                                          AND A.CS172_PJO = C.CS126_PJT
+                                                          AND A.CS172_HNO = C.CS126_HNO
+                                                          AND C.CS126_DDT = ''
+                                                          AND C.CS126_PST = 'A6'
+                                                          AND A.CS172_MDT >= C.CS126_UMR
+                
+                            WHERE A.MANDT = #G_MANDT#
+                              AND A.CS172_MDT BETWEEN SUBSTR(#GDATE#,1,4)||'0101' AND #GDATE#
+                              AND SUBSTR(A.CS172_HNO,1,1) IN ('L','S','W','C')
+                
+                            GROUP BY  A.CS172_PJO , A.CS172_HNO, A.CS172_YYM
+                
+                          ) A
+                               LEFT OUTER JOIN SAPHEE.ZCST126 B
+                                       ON B.MANDT = #G_MANDT#
+                                      AND A.PJT = B.CS126_PJT
+                                      AND A.HNO = B.CS126_HNO
+                                      AND A.UMR = B.CS126_UMR
+                                      AND B.CS126_DDT = ''
+                                      AND B.CS126_PST = 'A6'
+                
+                 WHERE VALUE(B.CS126_SLA,'N') = 'N'
+         
+             ) AS A
+           
+         GROUP BY BSU
+         
+        ) AS B  
+           ON A.BSU = B.BSU
+          AND A.YYYYMM = #YYYYMM#
+          AND A.MANDT = #G_MANDT#
+	
+	WHEN MATCHED
+	THEN
+	
+	UPDATE 	
+     SET RNQ_R = B.RNQ_R  
+	
+]]>
+	</statement>	
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="_none">	
+	</output>
+	</query>

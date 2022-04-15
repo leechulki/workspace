@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[ORDER SHEET]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+ PP010.WOKNUM   AS HOGI
+,MS001.ZSITE_NM AS CONSNAM
+,MS002.ZSPEC1   AS ATYPE
+,MS002.ZSPEC2   AS SPEC
+,PP010.ITEM_NO  AS ITEM_NO
+,CASE WHEN MM011.MATNR_NM='' THEN MM011.MAKTX ELSE  MM011.MATNR_NM END AS ITEM_NAM
+,MM011.SPEC     AS ZSPEC
+,MM011.ZSIZE    AS ZSIZE
+,PP010.DZEINR   AS PLAN_NO
+,PP010.IDNRK    AS MATNR
+,PP010.MENGE    AS PSMNG
+,PP010.MEINS    AS AMEIN
+,''             AS PPLDAT
+,''             AS SSCDAT
+,PP010.PART     AS PART
+,''             AS AUFNR
+,PP010.CRUSER   AS CRUSER
+,HEX(CURRENT DATE) AS CURRDATE
+,CASE WHEN PP010.PART=11 THEN '기계-구조물'
+      WHEN PP010.PART=12 THEN '기계-의장'
+      WHEN PP010.PART=21 THEN '전기-CP'
+      WHEN PP010.PART=22 THEN '전기-의장'
+      WHEN PP010.PART=23 THEN '전기-CABLE'
+      WHEN PP010.PART=50 THEN '주차'
+      WHEN PP010.PART=60 THEN 'E/S,M/W'
+      WHEN PP010.PART=70 THEN '물류' ELSE '' END AS PART_NM
+,PP010.ITEM_SEQ AS ITEM_SEQ 
+,CASE PP010.PRCTYP WHEN 'C' THEN '변경' WHEN 'D' THEN '삭제' WHEN 'N' THEN '추가' ELSE '' END AS PRCTYP
+FROM (
+
+      SELECT
+       MANDT
+      ,CRDAT
+      ,SEQNO
+      ,WOKNUM
+      ,MATNR
+      ,IDNRK
+      ,ITEM_SEQ
+      ,MENGE
+      ,MEINS
+      ,MATKL AS ITEM_NO
+      ,DZEINR
+      ,PRCTYP
+      ,ZPART
+      ,CRUSER
+      ,ROW_NUMBER() OVER(PARTITION BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ ORDER BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,CRDAT DESC,SEQNO DESC) AS ROWNO
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,6)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,6) ELSE SUBSTR(WOKNUM,1,6) END AS POSID
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,9)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,9) ELSE SUBSTR(WOKNUM,1,9) END AS POSID_1
+      ,CASE WHEN ZPART='M'             THEN 11
+            WHEN ZPART='C'             THEN 12
+            WHEN ZPART='1'             THEN 21
+            WHEN ZPART='2'             THEN 22
+            WHEN ZPART='3'             THEN 23
+            WHEN SUBSTR(MATKL,2,1)='5' THEN 50
+            WHEN SUBSTR(MATKL,2,1)='6' THEN 60
+            WHEN SUBSTR(MATKL,2,1)='7' THEN 70
+            WHEN SUBSTR(MATKL,2,1)='1' THEN 11
+            WHEN SUBSTR(MATKL,2,1)='2' THEN 21
+            WHEN SUBSTR(MATKL,2,1)='3' THEN 12 ELSE 90 END AS PART
+      FROM SAPHEE.ZPPT004
+      WHERE MANDT = #G_MANDT#
+        AND WOKNUM LIKE #HOGIN# || '%' 
+        AND MATKL  LIKE #BLOCK# || '%' 
+        AND BOM_LEVEL = '01'
+        AND LENGTH(MATKL) &lt; 6
+
+    ) AS PP010
+    LEFT OUTER JOIN SAPHEE.ZMASTER01 AS MS001 ON  MS001.MANDT  = PP010.MANDT 
+                                              AND MS001.POSID  = PP010.POSID 
+    LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MS002 ON  MS002.MANDT  = PP010.MANDT 
+                                              AND MS002.POSID  = PP010.POSID 
+                                              AND MS002.POSID_1= PP010.POSID_1
+    LEFT OUTER JOIN SAPHEE.ZMMT011   AS MM011 ON  MM011.MANDT  = PP010.MANDT 
+                                              AND MM011.MATNR  = PP010.IDNRK
+WHERE ROWNO = 1
+  AND PRCTYP&lt;&gt;'D'
+<isNotNull col="PART">
+      #PART+#
+</isNotNull>
+ORDER BY PP010.WOKNUM,PP010.PART,SUBSTR(PP010.ITEM_NO,2),PP010.IDNRK,PP010.ITEM_SEQ
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="3" type="VARCHAR" description="클라이언트번호" /> 
+		<col name="HOGIN" size="9" type="VARCHAR" description="호기" /> 
+		<col name="BLOCK" size="14" type="VARCHAR" description="BLOCK" /> 
+		<col name="PART" size="50" type="VARCHAR" description="PART" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="AUFNR" size="36" type="VARCHAR" description="" /> 
+		<col name="CONSNAM" size="90" type="VARCHAR" description="" /> 
+		<col name="CRUSER" size="60" type="VARCHAR" description="작성자" /> 
+		<col name="HOGI" size="72" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAM" size="90" type="VARCHAR" description="" /> 
+		<col name="ITEM_NO" size="27" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="PLAN_NO" size="120" type="VARCHAR" description="" /> 
+		<col name="PPLDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="PSMNG" size="15" type="NUMERIC" description="" /> 
+		<col name="SPEC" size="90" type="VARCHAR" description="" /> 
+		<col name="SSCDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="ZSIZE" size="180" type="VARCHAR" description="" /> 
+		<col name="ZSPEC" size="180" type="VARCHAR" description="" /> 
+	</output>
+</query>

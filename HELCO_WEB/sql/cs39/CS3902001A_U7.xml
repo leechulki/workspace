@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>update</type>
+	<description><![CDATA[갱신]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>	
+
+	MERGE INTO  SAPHEE.ZCST950N AS A
+ 	USING (
+ 	       SELECT BSU
+ 	             ,COUNT(A.PJT) AS RNQ
+ 	             <![CDATA[
+               ,SUM(CASE WHEN A.KND <> '' AND A.KND_B = '' THEN 1 ELSE 0 END ) RNQ_PTF
+               ,SUM(CASE WHEN A.KND = '' AND A.KND_B <> '' THEN 1 ELSE 0 END ) RNQ_FTP
+               ,SUM(CASE WHEN A.KND = '' AND A.KND_B = '' THEN 1 ELSE 0 END ) RNQ_PTP
+               ,SUM(CASE WHEN A.KND <> '' AND A.KND_B <> '' THEN 1 ELSE 0 END ) RNQ_FTF
+               ,SUM(CASE WHEN A.KND = '' AND A.KND_B = '' AND A.AMT > A.AMT_B THEN 1 ELSE 0 END ) RNQ_PTPU
+               ,SUM(CASE WHEN A.KND = '' AND A.KND_B = '' AND A.AMT < A.AMT_B THEN 1 ELSE 0 END ) RNQ_PTPD
+               ,SUM(CASE WHEN A.KND = '' AND A.KND_B = '' AND A.AMT > A.AMT_B THEN (A.AMT - A.AMT_B) ELSE 0 END ) RNQ_PTPUA
+               ,SUM(CASE WHEN A.KND = '' AND A.KND_B = '' AND A.AMT < A.AMT_B THEN (A.AMT_B - A.AMT) ELSE 0 END ) RNQ_PTPDA
+               ,SUM(CASE WHEN A.KND = '' AND A.KND_B = '' THEN A.AMT ELSE 0 END ) PTPA
+               ,SUM(CASE WHEN A.KND <> '' AND A.KND_B <> '' AND A.AMT > A.AMT_B THEN 1 ELSE 0 END ) RNQ_FTFU
+               ,SUM(CASE WHEN A.KND <> '' AND A.KND_B <> '' AND A.AMT < A.AMT_B THEN 1 ELSE 0 END ) RNQ_FTFD
+               ,SUM(CASE WHEN A.KND <> '' AND A.KND_B <> '' AND A.AMT > A.AMT_B THEN (A.AMT - A.AMT_B) ELSE 0 END ) RNQ_FTFUA
+               ,SUM(CASE WHEN A.KND <> '' AND A.KND_B <> '' AND A.AMT < A.AMT_B THEN (A.AMT_B - A.AMT) ELSE 0 END ) RNQ_FTFDA
+               ,SUM(CASE WHEN A.KND <> '' AND A.KND_B <> '' THEN A.AMT ELSE 0 END ) FTFA
+               ,SUM(CASE WHEN A.HYN = 'Y' AND A.KND = '' THEN 1 ELSE 0 END ) RNQ_PRTS
+               ,SUM(CASE WHEN A.HYN = 'Y' AND A.KND <> '' THEN 1 ELSE 0 END ) RNQ_FRTS
+               ,SUM(CASE WHEN SAPHEE.MONTH_BETWEEN( A.UMR_B , A.GDATE ,'1') < 2 THEN 1 ELSE 0 END) RNQ_1
+	            ]]>
+	       FROM (
+             
+SELECT
+                                           A.PJT
+                                          ,A.HNO
+                                          ,A.GNO
+                                          ,A.GDATE
+                                          <![CDATA[
+                                          ,CASE WHEN A.GDATE <= A.IKD THEN C.CS157_CAB
+                                                WHEN A.GDATE >  A.IKD THEN C.CS157_CAA
+                                                ELSE A.ARA END ARA
+                                          ,CASE WHEN A.GDATE <= A.IKD THEN C.CS157_CHB
+                                                WHEN A.GDATE >  A.IKD THEN C.CS157_CHA
+                                                ELSE A.BSU END BSU
+                                          ]]>
+                                          ,A.KND
+                                          ,A.HYN
+                                          ,A.AMT
+                                          ,A.UMR
+                                          ,VALUE(D.CS126_KND,'') KND_B
+                                          ,VALUE(D.CS126_HYN,'') HYN_B
+                                          ,VALUE(D.CS126_AMT, 0) AMT_B
+                                          ,VALUE(D.CS126_UMR,'') UMR_B
+
+                                    FROM (
+                                            SELECT
+                                                    CS126_PJT   PJT
+                                                   ,CS126_HNO   HNO
+                                                   ,CS126_GNO   GNO
+                                                   ,MIN(CS126_USD) USD
+                                                   ,MIN(CS126_ADT) ADT
+                                                   ,MAX(CS126_UHJ) UHJ
+                                                   ,MAX(CS126_UMR) UMR
+                                                   <![CDATA[
+                                                   ,CASE WHEN MIN(CS126_ADT) > MIN(CS126_USD) THEN MIN(CS126_ADT) ELSE MIN(CS126_USD) END  GDATE
+                                                   ,MAX(CS126_KND) KND
+                                                   ,MAX(CS126_HYN) HYN
+                                                   ,MAX(CS126_AMT) AMT
+                                                   ,MIN(B.CS157_IKD) IKD
+                                                   ,MAX(A.CS126_ARA) ARA
+                                                   ,MAX(A.CS126_BSU) BSU
+                                                   ,(SELECT CS126_UMR FROM SAPHEE.ZCST126 WHERE MANDT = #G_MANDT# AND CS126_DDT = '' AND CS126_PST = 'A6' AND CS126_GND = 'D'
+                                                        AND CS126_PJT = A.CS126_PJT AND CS126_HNO = A.CS126_HNO AND CS126_UMR < MAX(A.CS126_UMR)
+                                                        ORDER BY CS126_UMR DESC
+                                                        FETCH FIRST 1 ROWS ONLY) UMR_B
+                                                   ]]>
+
+                                              FROM SAPHEE.ZCST126 A LEFT OUTER JOIN SAPHEE.ZCST157 B
+                                                                            ON A.MANDT = B.MANDT
+                                                                           AND A.CS126_PJT = B.CS157_PJT
+                                                                           AND A.CS126_HNO = B.CS157_HNO
+                                                                           AND B.CS157_IKD > A.CS126_ADT
+                                                                           AND B.CS157_GND = 'D'
+
+                                              WHERE A.MANDT = #G_MANDT#
+                                               AND A.CS126_PST = 'A6'
+                                               AND A.CS126_DDT = ''
+                                               AND A.CS126_GND = 'D'
+                                               AND A.CS126_GKD = '2'
+                                               AND A.CS126_SLA = 'N'
+                                               AND SUBSTR(A.CS126_HNO,1,1) IN ('L','S','W','C')
+                                   <isEqual col="YEARCHK" value="X">
+                                   	           AND A.CS126_USD >= '20170101'
+                                               AND CASE WHEN substr(CS126_ADT,1,6) >= substr(CS126_UGS,1,6) THEN CS126_ADT ELSE CS126_UGS END
+                                                    BETWEEN SUBSTR(#GDATE# ,1,6)||'01' AND #GDATE#
+                                   </isEqual>
+                                   <isEqual col="YEARCHK" value="">
+                                               AND CASE WHEN substr(CS126_ADT,1,6) >= substr(CS126_USD,1,6) THEN CS126_ADT ELSE CS126_USD END
+                                                    BETWEEN SUBSTR(#GDATE# ,1,6)||'01' AND #GDATE#
+                                   </isEqual>
+
+                                             GROUP BY CS126_PJT,CS126_HNO,CS126_GNO,CS126_SEQ
+
+                                           ) A     INNER JOIN SAPHEE.ZCST111 B
+                                                           ON B.MANDT = #G_MANDT#
+                                                          AND A.PJT = B.PJT
+                                                          AND A.HNO = B.HNO
+                                                          AND B.EXC = ''
+
+                                                   LEFT OUTER JOIN SAPHEE.ZCST157 C
+                                                           ON C.MANDT = #G_MANDT#
+                                                          AND A.PJT = C.CS157_PJT
+                                                          AND A.HNO = C.CS157_HNO
+                                                          AND A.IKD = C.CS157_IKD
+                                                          AND C.CS157_GND = 'D'
+
+                                                   LEFT OUTER JOIN SAPHEE.ZCST126 D
+                                                           ON D.MANDT = #G_MANDT#
+                                                          AND A.PJT = D.CS126_PJT
+                                                          AND A.HNO = D.CS126_HNO
+                                                          AND A.UMR_B = D.CS126_UMR
+                                                          AND D.CS126_DDT = ''
+                                                         AND D.CS126_PST = 'A6'
+             ) AS A
+           
+         GROUP BY BSU
+         
+        ) AS B  
+           ON A.BSU = B.BSU
+          AND A.YYYYMM = #YYYYMM#
+          AND A.MANDT = #G_MANDT#
+	
+	WHEN MATCHED
+	THEN
+	
+	UPDATE 	
+     SET 
+         RNQ        = B.RNQ        
+        ,RNQ_PTF    = B.RNQ_PTF    
+        ,RNQ_FTP    = B.RNQ_FTP    
+        ,RNQ_PTP    = B.RNQ_PTP    
+        ,RNQ_FTF    = B.RNQ_FTF    
+        ,RNQ_PTPU   = B.RNQ_PTPU   
+        ,RNQ_PTPD   = B.RNQ_PTPD   
+        ,RNQ_PTPUA  = B.RNQ_PTPUA  
+        ,RNQ_PTPDA  = B.RNQ_PTPDA  
+        ,PTPA       = B.PTPA       
+        ,RNQ_FTFU   = B.RNQ_FTFU   
+        ,RNQ_FTFD   = B.RNQ_FTFD   
+        ,RNQ_FTFUA  = B.RNQ_FTFUA  
+        ,RNQ_FTFDA  = B.RNQ_FTFDA  
+        ,FTFA       = B.FTFA       
+        ,RNQ_PRTS   = B.RNQ_PRTS   
+        ,RNQ_FRTS   = B.RNQ_FRTS   
+        ,RNQ_1      = B.RNQ_1      
+	
+
+	</statement>	
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="_none">	
+	</output>
+	</query>

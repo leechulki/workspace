@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT '' FLAG,
+       '' CH_FLG,
+       '' ORG_JUJ,
+       '' ORG_BUJ,
+       CS101A.CS101_PJT,
+	     CS101A.CS101_FDT,
+	     CS101A.CS101_HNO,
+	     CS101A.CS101_HNA,
+	     MASTER02.ZSPEC1,
+	     MASTER02.ZSPEC2,
+	     CS101A.CS101_BYD,
+	     CS101A.CS101_IJY,
+	     CS111A.SID,
+	     CS111A.JUJ,
+	     CS111A.BUJ,
+	     CS101A.CS101_VSD,
+	     CS111A.IJD,
+	     (SELECT CTEXT2 FROM SAPHEE.ZLCODE A WHERE A.MANDT = CS101A.MANDT AND A.CODE1 = 'CS116' AND A.LANG = #G_LANG# AND A.CODE2 = CS101A.CS101_AGB) AS CS101_AGB, --시내외구분
+	     (SELECT CTEXT2 FROM SAPHEE.ZLCODE A WHERE A.MANDT = CS101A.MANDT AND A.CODE1 = 'CS112' AND A.LANG = #G_LANG# AND A.CODE2 = CS101A.CS101_ABG) AS CS101_ABG, --빌딩구분
+  	   MASTER02.ZMUSAOCNT2, --무상일반
+  	   MASTER02.ZMUSAOCNT, --무상공사
+   	   INT(MASTER02.ZMUSAOCNT)+INT(MASTER02.ZMUSAOCNT2) AS ZMUSAOCNT3, --총무상지급
+	     CS101A.CS101_FYN,  -- FM대상
+	     (SELECT BB.NAMET
+                   FROM SAPHEE.ZPST0011 BB
+                   WHERE BB.MANDT = MASTER02.MANDT
+                   AND BB.TEMNO = MASTER02.TEMNO
+                   AND BB.RETIF = ''
+	     )TEMNO, --설치PM
+	     MASTER02.NAMET, --팀장이름
+       (
+         SELECT CELLP
+         FROM SAPHEE.ZPST0011 P
+         WHERE P.MANDT = MASTER02.MANDT
+         AND P.NAMET = MASTER02.NAMET
+         AND P.RETIF = ''
+         AND P.ZZACTSS = MASTER02.ZZACTSS
+         FETCH FIRST 1 ROWS ONLY
+       ) CELLPT,
+       M12.NAME1,
+       M12.LIFNR,
+	     M12.TELF1,
+	     M12.TELFX,
+	     CASE WHEN MASTER02.NAMET2 > '' THEN MASTER02.NAMET2||'   ('||MASTER02.TEMNO2||')' ELSE MASTER02.NAMET2 END NAMET2,
+       (
+         SELECT CELLP
+         FROM SAPHEE.ZPST0001 AS P
+         WHERE P.MANDT = MASTER02.MANDT
+         AND P.NAMEE = MASTER02.NAMET2
+         AND P.RETIF = ''
+         AND P.LIFNR = MASTER02.LIFNR 
+         FETCH FIRST 1 ROWS ONLY
+       ) CELLPT2,
+	     MASTER02.ZQEGEMSA, --QE검사일
+	     (SELECT QM.PAPRIDTX
+          FROM SAPHEE.ZQMT019 QM
+         WHERE QM.MANDT = MASTER02.MANDT
+          AND QM.PAPRID = MASTER02.PAPRID
+          FETCH FIRST 1 ROWS ONLY
+       ) PAPRID, --QE검사자
+       MASTER02.ZSPEC9, -- PLAT수
+	    (SELECT PS.DATE3
+	       FROM SAPHEE.ZPST0024 PS
+		    WHERE PS.MANDT = MASTER02.MANDT
+		      AND PS.PSPID = MASTER02.POSID
+		      AND PS.POSID = MASTER02.POSID_1
+	     )  DATE1, --완성검사일
+       (SELECT MM.CTEXT2
+	        FROM SAPHEE.ZPST0024 PS
+		           ,SAPHEE.ZLCODE MM
+		     WHERE PS.MANDT = MASTER02.MANDT
+		       AND PS.PSPID = MASTER02.POSID
+		       AND PS.POSID = MASTER02.POSID_1
+		       AND PS.MANDT = MM.MANDT
+		       AND MM.CODE1 = 'PS004'
+		       AND MM.CODE2 = PS.CODE2
+		       AND MM.LANG = #G_LANG#
+		    )  ORG, --완성검사기관
+		   MASTER02.POSID_OLD,
+      (SELECT CASE WHEN B.DSCODE = 'A' OR B.DSCODE = 'B' OR B.DSCODE = 'C' OR 
+                                     B.DSCODE = 'D' OR B.DSCODE = 'H' OR B.DSCODE = 'E' THEN '합격'
+	                 WHEN B.DSCODE = 'J' OR B.DSCODE = 'K' OR B.DSCODE = 'M' OR 
+                                     B.DSCODE = 'N' OR B.DSCODE = 'G'  OR B.DSCODE = 'R'  THEN '불합격'
+		          ELSE '미판정'
+	            END  AS DSCODE  
+         FROM SAPHEE.ZQMT019 AS B
+        WHERE B.MANDT = CS101A.MANDT
+	        AND B.WERKS = '1000'
+	        AND B.PSPID = CS101A.CS101_PJT
+	        AND B.ART = '8960'
+	        AND B.HOGI = CS101A.CS101_PJT || CS101A.CS101_HNO
+        ORDER BY SEQ DESC
+        fetch first 1 rows only
+       ) DSCODE,
+       CASE VALUE(MASTER01.HB_STN,'')
+            WHEN '1' THEN '완성검사시'
+            WHEN '2' THEN '입주시'
+            WHEN '3' THEN '건물준공시'
+            WHEN '4' THEN '고객인도시'
+            WHEN '5' THEN '발행대상'
+            ELSE VALUE(MASTER01.HB_STN,'')
+       END STN,
+       CASE VALUE(MASTER01.HB_STN,'')
+            WHEN '5' THEN VALUE(MASTER01.HB_FROM,'00000000')
+            ELSE VALUE(MASTER02.HB_FROM,'00000000')
+       END FDT,
+       CASE VALUE(MASTER01.HB_STN,'')
+            WHEN '5' THEN VALUE(MASTER01.HB_TO,'00000000')
+            ELSE VALUE(MASTER02.HB_TO,'00000000')
+       END TDT,
+       CASE VALUE(MASTER01.HB_PUB,'')
+            WHEN '1' THEN '서울보증보험'
+            WHEN '2' THEN '대한보증보험'
+            ELSE VALUE(MASTER01.HB_PUB,'')
+       END PUB,
+       VALUE(VB.GUAMO,'0') GAO,
+      CASE WHEN CS101A.CS101_HNA > '' THEN '' ELSE 'Y' END  CHK_HNOINFO,
+      CASE WHEN CS101A.CS101_CIN > '' THEN '' ELSE 'Y' END  CHK_CSTINFO
+ FROM  SAPHEE.ZCST101 CS101A
+              LEFT OUTER JOIN SAPHEE.ZCST111 CS111A
+	                         ON CS101A.MANDT = CS111A.MANDT
+	                      	AND CS101A.CS101_PJT = CS111A.PJT
+                          AND CS101A.CS101_HNO = CS111A.HNO
+              LEFT OUTER JOIN SAPHEE.VBAK VB
+	                         ON CS101A.MANDT = VB.MANDT
+	                      	AND CS101A.CS101_PJT = VB.ZZPJT_ID
+	     ,SAPHEE.ZMASTER02 MASTER02
+	                  LEFT OUTER JOIN SAPHEE.ZMMT012 M12 ON MASTER02.MANDT = M12.MANDT
+                                                      AND MASTER02.LIFNR = M12.LIFNR
+	     ,SAPHEE.ZMASTER01 MASTER01
+	     ,SAPHEE.ZWBT010 WB010
+WHERE  CS101A.MANDT = #G_MANDT#
+  AND  CS101A.CS101_PJT = #POSID#
+  AND  CS101A.CS101_PST = 'A6'
+  AND  VALUE(CS111A.HST,'') NOT IN ('D')
+  AND  CS101A.MANDT = MASTER02.MANDT
+  AND  CS101A.CS101_PJT = MASTER02.POSID
+  AND  CS101A.CS101_PJT||CS101A.CS101_HNO = MASTER02.POSID_1
+  AND  CS101A.MANDT = MASTER01.MANDT
+  AND  CS101A.CS101_PJT = MASTER01.POSID
+  AND CS101A.MANDT = WB010.MANDT
+  AND CS101A.CS101_BSU = WB010.LGORT  
+<isNotNull col="BSU">
+  AND  CS101A.CS101_BSU = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+   AND CS101A.CS101_BPM = #BPM#
+</isNotNull>
+<isNotNull col="ARA">
+   AND CS101A.CS101_ARA = #ARA#
+</isNotNull>
+<isNotNull col="TEM">
+  AND WB010.VKGRP = #TEM#
+</isNotNull>
+<isEqual col="PBN" value="A">
+  AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('L','S','W') 
+</isEqual>
+<isEqual col="PBN" value="B">
+  AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('J') 
+</isEqual>
+<isEqual col="PBN" value="C">
+  AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('G') 
+</isEqual>
+<isEqual col="PBN" value="D">
+  AND SUBSTR(CS101A.CS101_HNO,1,1) IN ('F') 
+</isEqual>
+
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="FLAG" size="0" type="VARCHAR" description="" /> 
+		<col name="CH_FLG" size="0" type="VARCHAR" description="" /> 
+		<col name="ORG_JUJ" size="0" type="VARCHAR" description="" /> 
+		<col name="ORG_BUJ" size="0" type="VARCHAR" description="" /> 
+		<col name="CS101_PJT" size="18" type="VARCHAR" description="" /> 
+		<col name="CS101_FDT" size="24" type="VARCHAR" description="" /> 
+		<col name="CS101_HNO" size="9" type="VARCHAR" description="" /> 
+		<col name="CS101_HNA" size="90" type="VARCHAR" description="" /> 
+		<col name="ZSPEC1" size="15" type="VARCHAR" description="" /> 
+		<col name="ZSPEC2" size="75" type="VARCHAR" description="" /> 
+		<col name="CS101_BYD" size="24" type="VARCHAR" description="" /> 
+		<col name="CS101_IJY" size="24" type="VARCHAR" description="" /> 
+		<col name="JUJ" size="30" type="VARCHAR" description="" /> 
+		<col name="BUJ" size="30" type="VARCHAR" description="" /> 
+		<col name="CS101_VSD" size="24" type="VARCHAR" description="" /> 
+		<col name="IJD" size="24" type="VARCHAR" description="" /> 
+		<col name="CS101_AGB" size="60" type="VARCHAR" description="" /> 
+		<col name="CS101_ABG" size="60" type="VARCHAR" description="" /> 
+		<col name="ZMUSAOCNT2" size="6" type="VARCHAR" description="" /> 
+		<col name="ZMUSAOCNT" size="6" type="VARCHAR" description="" /> 
+		<col name="ZMUSAOCNT3" size="11" type="INTEGER" description="" /> 
+		<col name="CS101_FYN" size="3" type="VARCHAR" description="" /> 
+		<col name="TEMNO" size="18" type="VARCHAR" description="" /> 
+		<col name="NAMET" size="60" type="VARCHAR" description="" /> 
+		<col name="ZQEGEMSA" size="24" type="VARCHAR" description="" /> 
+		<col name="PAPRID" size="30" type="VARCHAR" description="" /> 
+		<col name="ZSPEC9" size="9" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="1" type="VARCHAR" description="" /> 
+		<col name="DATE1" size="1" type="VARCHAR" description="" /> 
+		<col name="ORG" size="1" type="VARCHAR" description="" /> 
+	</output>
+</query>

@@ -1,0 +1,405 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+-- 제약조건은 추가 되어 있으나 ZEIST202(16,115,098 건) 이상 테이블과 join 되는 관계로 주 데이터가 늘어날수록 시간이 기하급수적으로 길어짐 튜닝 불가
+SELECT T2.VBELN
+      ,T2.CRIRUM  --===========추가
+      ,T2.QTNAM   --===========추가
+      ,F.NAME1 AS KUNNRT --===========추가
+      ,D.NAME1
+      ,T2.ZZPJT_ID
+      ,T2.SPART  
+      ,T2.AUART    
+      ,T2.BSTNK   
+      ,T2.BSTDK   
+      ,T2.NETWR   
+      ,T2.VKGRP 
+      ,T2.MECHUL1
+      ,T2.MECHUL2  
+      ,T2.MECHUL3
+      
+      ,(T2.NETWR - T2.MECHUL1) AS CHK1
+      ,(T2.NETWR - T2.MECHUL3) AS CHK2 
+      
+      ,T2.BOM_CU 
+      ,T2.BOM_MICU
+      ,T2.BOM_ALL
+      , CASE WHEN CAST(JAJE AS DEC(12))= 0 THEN 0
+	           ELSE ( CAST(JAJE_CU AS DEC(12)) / CAST(JAJE AS DEC(12)) ) * 100
+	            END      
+	                 AS PERCENT1
+      ,T2.PERCENT2
+      , CASE WHEN CAST(JAJE AS DEC(12)) + CAST(T2.BOM_ALL AS DEC(12)) = 0 THEN 0
+	           ELSE ( CAST(JAJE_CU AS DEC(12)) + CAST(BOM_CU AS DEC(12)) )/( CAST(JAJE AS DEC(12)) + CAST(T2.BOM_ALL AS DEC(12)) ) * 100
+	            END      
+	                 AS RAT_CHUL
+      ,T2.TMAN_AMT
+      ,T2.JI_AMT
+      ,((JAJE+BOM_ALL+(TMAN_AMT*1.04))*1.107 )/NETWR*100                AS RAT_SUJU
+      ,CASE WHEN (JAJE+BOM_ALL+TMAN_AMT) = 0 THEN 0 
+            ELSE (JAJE_CU+BOM_CU+JI_AMT)/(JAJE+BOM_ALL+TMAN_AMT)*100    
+            END                                                         AS RAT_GOJU
+      ,CASE WHEN (JAJE+BOM_ALL+TMAN_AMT) = 0 THEN 0 
+            ELSE ROUND((JAJE_CU+BOM_CU+JI_AMT)/(JAJE+BOM_ALL+TMAN_AMT)*NETWR)   
+            END                                                         AS MECHUL_PRD
+      ,T2.SUM_COST
+      ,T2.JAJE
+      ,T2.JAJE_CU
+      ,T2.JAJE_MICU
+      ,PP027.ILDAT AS ILDAT
+      ,PDM_CHK
+      ,BOM_CHK
+      ,T2.ACTUALM AS ACTUALM
+      ,T2.LAYOUTR AS LAYOUTR
+      ,T2.LAYOUTC AS LAYOUTC
+      ,T2.BOMSAVE AS BOMSAVE
+      ,T2.PDMDATF AS PDMDATF
+      ,T2.ZFPRDATE AS ZFPRDATE
+      ,T2.ZEPRDATE AS ZEPRDATE
+      ,T2.ZFPODATE AS ZFPODATE
+      ,T2.ZEPODATE AS ZEPODATE
+      ,T2.ZFGIDATE AS ZFGIDATE
+      ,T2.ZEGIDATE AS ZEGIDATE
+
+FROM (
+        SELECT T1.VBELN
+              ,T1.ZZPJT_ID
+              ,T1.SPART   
+              ,T1.AUART   
+              ,T1.BSTNK   
+              ,T1.BSTDK   
+              ,T1.NETWR   
+              ,T1.VKGRP 
+              ,T1.MECHUL1
+              ,T1.MECHUL2  
+              ,T1.MECHUL3
+              ,CAST(T1.BOM_CU   AS DEC(12))  AS  BOM_CU  
+              ,CAST(T1.BOM_MICU AS DEC(12))  AS  BOM_MICU
+              ,CAST(T1.BOM_ALL  AS DEC(12))  AS  BOM_ALL 
+              ,T1.PERCENT2
+              , CASE WHEN VALUE(SUM(JAJE),0) = 0 THEN RAT_CHUL
+                     WHEN T1.BOM_CU          = 0 THEN SUM(CASE WHEN CU_FLAG = 'CU_COST'   THEN JAJE ELSE 0 END )/ SUM(JAJE)*100 
+                     ELSE  (SUM(CASE WHEN CU_FLAG = 'CU_COST'   THEN VALUE(JAJE,0) ELSE 0 END )+T1.BOM_CU)/(T1.BOM_ALL+VALUE(SUM(JAJE),0))*100  
+                 END      AS RAT_CHUL
+              ,CAST(T1.TMAN_AMT AS DEC(12))  AS TMAN_AMT
+              ,CAST(T1.JI_AMT   AS DEC(12))  AS JI_AMT  
+              ,T1.RAT_SUJU
+              ,T1.MECHUL_PRD
+              ,( SUM(JAJE) + T1.BOM_ALL )  AS SUM_COST
+              ,CAST(SUM(JAJE) AS DEC(12))  AS JAJE
+              ,CAST(SUM(CASE WHEN CU_FLAG = 'CU_COST'   THEN JAJE ELSE 0 END ) AS DEC(12))  AS JAJE_CU
+              ,CAST(SUM(CASE WHEN CU_FLAG = 'MICU_COST' THEN JAJE ELSE 0 END ) AS DEC(12))  AS JAJE_MICU
+              ,MAX(CS802.PDM_CHK) AS PDM_CHK
+              ,MAX(CASE WHEN MM124.MANDT IS NOT NULL THEN 'Y' ELSE '' END) AS BOM_CHK
+              ,MAX(MM124.ACTUALM) AS ACTUALM
+              ,MAX(MM124.LAYOUTR) AS LAYOUTR
+              ,MAX(MM124.LAYOUTC) AS LAYOUTC
+              ,MAX(MM124.BOMSAVE) AS BOMSAVE
+              ,MAX(MM124.PDMDATF) AS PDMDATF
+              ,MAX(T1.ZFPRDATE) AS ZFPRDATE
+              ,MAX(T1.ZEPRDATE) AS ZEPRDATE
+              ,MAX(T1.ZFPODATE) AS ZFPODATE
+              ,MAX(T1.ZEPODATE) AS ZEPODATE
+              ,MAX(T1.ZFGIDATE) AS ZFGIDATE
+              ,MAX(T1.ZEGIDATE) AS ZEGIDATE
+              
+              ,VALUE(AP01.CRIRUM, '') AS CRIRUM  --===========추가
+              ,VALUE(CS001.QTNAM, '') AS QTNAM  --===========추가
+              
+          FROM (
+                
+                 SELECT T.*
+                 
+                        ,B.PS_PSP_PNR
+                        ,CASE WHEN B.PS_PSP_PNR = '' THEN 'MICU_COST' ELSE 'CU_COST' END AS CU_FLAG
+                        ,B.REQNR , B.MATNR , B.BWTAR , B.MTART, B.MENGE , B.BUDAT3
+                        ,C.UPR  -- 인상율
+                        ,C.SAMT2 -- 정품
+                        ,C.SAMT3 -- 수리품
+                        -- 인상율 반영 
+                        --,VALUE(ROUND(( CASE WHEN B.BWTAR = 'RB' THEN (SAMT3+SAMT3*UPR/100)*MENGE
+                        --       WHEN B.BWTAR = 'PB' THEN (SAMT3+SAMT3*UPR/100)*MENGE
+                        --		   ELSE (SAMT2+SAMT2*UPR/100)*MENGE 
+                        --		   
+                        --		   END
+                        --		 )*100),0) AS JAJE
+                        ,VALUE(ROUND(( CASE WHEN B.BWTAR = 'RB' THEN SAMT3*MENGE
+                               WHEN B.BWTAR = 'PB' THEN SAMT3*MENGE
+                        		   ELSE SAMT2*MENGE 
+                        		   
+                        		   END
+                        		 )*100),0) AS JAJE
+                 
+                  FROM (
+                 
+                         SELECT VBAK.VBELN   
+                               ,VBAK.ZZPJT_ID
+                               ,VBAK.SPART 
+                               ,VBAK.AUART     
+                               ,VBAK.BSTNK   
+                               ,VBAK.BSTDK   
+                               ,VBAK.NETWR   
+                               ,VBAK.VKGRP 
+                               ,VBAK.MECHUL1
+                               ,VBAK.MECHUL2  
+                               ,VBAK.MECHUL3
+                               ,VBAK.BOM_CU 
+                               ,VBAK.BOM_MICU
+                               ,VBAK.BOM_ALL
+                               ,VBAK.PERCENT2
+                               ,VBAK.RAT_CHUL
+                               ,VBAK.TMAN_AMT
+                               ,VBAK.JI_AMT
+                               ,0    AS  RAT_SUJU
+                               ,0    AS RAT_GOJU
+                               ,0    AS MECHUL_PRD
+                               ,VBAK.ZFPRDATE
+                               ,VBAK.ZEPRDATE
+                               ,VBAK.ZFPODATE
+                               ,VBAK.ZEPODATE
+                               ,VBAK.ZFGIDATE
+                               ,VBAK.ZEGIDATE
+                         
+                          FROM (
+                         
+                                  SELECT VBAK.VBELN   
+                                        ,VBAK.ZZPJT_ID
+                                        ,VBAK.SPART 
+                                        ,VBAK.AUART     
+                                        ,VBAK.BSTNK   
+                                        ,VBAK.BSTDK   
+                                        ,VBAK.NETWR   
+                                        ,VBAK.VKGRP 
+                                        ,VBAK.MECHUL1
+                                        ,VBAK.MECHUL2   
+                                        ,VBAK.MECHUL3
+                                        ,VALUE(MM153.DMBTR2*100,0) AS BOM_CU
+                                        ,VALUE(MM153.DMBTR3*100,0) AS BOM_MICU
+                                        ,VALUE((MM153.DMBTR2 + MM153.DMBTR3)*100,0) AS BOM_ALL
+                                        ,VALUE(PERCENT2,0)                          AS PERCENT2
+                                        ,VALUE(PERCENT2,0)                          AS RAT_CHUL
+                                        ,VALUE(CS005.TMAN_AMT*100,0)                AS TMAN_AMT
+                                        ,VALUE(  (SELECT SUM(TWBTR)*100
+                                            FROM SAPHEE.ZCST006
+                                           WHERE MANDT = #G_MANDT#
+                                             AND PSPID = VBAK.ZZPJT_ID
+                                             AND STATE IN ('2','3')),0)    AS JI_AMT
+                                        
+                                        ,0 RAT_SUJU
+                                        ,0 RAT_GOJU
+                                        ,0 MECHUL_PRD
+                                        ,MM153.ZFPRDATE
+                                        ,MM153.ZEPRDATE
+                                        ,MM153.ZFPODATE
+                                        ,MM153.ZEPODATE
+                                        ,MM153.ZFGIDATE
+                                        ,MM153.ZEGIDATE
+                                   FROM (
+                                  
+                                           SELECT VBAK.VBELN   
+                                                 ,VBAK.ZZPJT_ID
+                                                 ,VBAK.SPART 
+                                                 ,VBAK.AUART  
+                                                 ,VBAK.BSTNK   
+                                                 ,VBAK.BSTDK   
+                                                 ,VBAK.NETWR   
+                                                 ,VBAK.VKGRP 
+                                                 ,VALUE(SUM(VBRK.NETWR*100),0) AS MECHUL1
+                                                 ,MAX(VBAK.MECHUL2)   AS MECHUL2  
+                                                 ,MAX(VBAK.MECHUL3)   AS MECHUL3
+                                            
+                                            FROM (
+                                           
+                                                   SELECT VBAK.VBELN   
+                                                         ,VBAK.ZZPJT_ID
+                                                         ,VBAK.SPART   
+                                                         ,VBAK.AUART   
+                                                         ,VBAK.BSTNK   
+                                                         ,VBAK.BSTDK   
+                                                         ,VBAK.NETWR   
+                                                         ,VBAK.VKGRP 
+                                                         ,VALUE(SUM(EIS202.D_MECHUL*100),0) AS MECHUL2  
+                                                         ,VALUE(MAX(VBAK.MECHUL3),0)        AS MECHUL3
+                                                         
+                                                    FROM (
+                                                      
+                                                            SELECT 
+                                                                    A.VBELN
+                                                                   ,A.ZZPJT_ID
+                                                                   ,A.SPART
+                                                                   ,A.AUART
+                                                                   ,A.BSTNK
+                                                                   ,A.BSTDK
+                                                                   ,A.NETWR*100 AS NETWR
+                                                                   ,A.VKGRP
+                                                                   ,VALUE(CS014.JAMT,0) AS MECHUL3
+                                                            
+                                                            FROM SAPHEE.VBAK  AS A 
+                                                                                   LEFT OUTER JOIN SAPHEE.ZCST014 AS CS014
+                                                                                                ON CS014.MANDT = A.MANDT
+                                                                                               AND CS014.PSPID = A.ZZPJT_ID
+                                                    
+                                                            
+                                                            WHERE 
+                                                                  A.MANDT = #G_MANDT#
+                                                              AND A.AUART IN ('ZR12','ZR13')
+                                                              AND A.SPART IN ('10','20')
+                                                   <isNotNull col="TEM">
+                                                              AND A.VKGRP = #TEM#
+                                                   </isNotNull>
+                                                   <isNotNull col="AUART">
+                                                              AND A.AUART = #AUART#
+                                                   </isNotNull>
+                                                   <isNotNull col="SPART">
+                                                              AND A.SPART = #SPART#
+                                                   </isNotNull>
+                                                              --AND A.VKBUR LIKE 'E%'
+                                                              AND (A.VKBUR LIKE 'E%' or A.VKBUR = 'BJ00' or A.VKBUR = 'BK00' or A.VKBUR = 'BL00' or A.VKBUR = 'BM00') --리모델링2팀 임시 사용
+                                                              
+                                                              AND A.BSTDK BETWEEN #STADA# AND #ENDDA#
+                                                              AND A.NETWR > 0                                                                                  
+                                                   <isNotNull col="TEM">                                                 
+                                                              AND A.VKGRP = #TEM#
+                                                   </isNotNull>
+                                                   <isNotNull col="POSID">
+                                                              AND A.ZZPJT_ID LIKE #POSID#||'%'
+                                                   </isNotNull>
+                                                   
+                                                           ) AS VBAK
+                                                           
+                                                                      LEFT OUTER JOIN SAPHEE.ZEIST202 AS EIS202
+                                                                              ON EIS202.MANDT = #G_MANDT#
+                                                                             AND EIS202.PSPID = VBAK.ZZPJT_ID
+                                                                             AND EIS202.POSID = VBAK.ZZPJT_ID
+                                                                             
+                                                   GROUP BY VBAK.VBELN   
+                                                           ,VBAK.ZZPJT_ID
+                                                           ,VBAK.SPART   
+                                                           ,VBAK.AUART   
+                                                           ,VBAK.BSTNK   
+                                                           ,VBAK.BSTDK   
+                                                           ,VBAK.NETWR   
+                                                           ,VBAK.VKGRP 
+                                                  
+                                                   ) AS VBAK        
+                                                           
+                                                                 LEFT OUTER JOIN SAPHEE.VBRK AS VBRK
+                                                                         ON VBRK.MANDT = #G_MANDT#
+                                                                        AND VBRK.XBLNR = VBAK.VBELN
+                                                                        AND VBRK.VBTYP = 'M'
+                                                                        AND VBRK.FKSTO = ''      
+                                                              
+                                            
+                                                                             
+                                           GROUP BY VBAK.VBELN   
+                                                   ,VBAK.ZZPJT_ID
+                                                   ,VBAK.SPART  
+                                                   ,VBAK.AUART    
+                                                   ,VBAK.BSTNK   
+                                                   ,VBAK.BSTDK   
+                                                   ,VBAK.NETWR   
+                                                   ,VBAK.VKGRP  
+                                                                  
+                                           ) AS VBAK       
+                                                      LEFT OUTER JOIN SAPHEE.ZMMT153 AS MM153
+                                                                   ON MM153.MANDT = #G_MANDT#
+                                                                  AND MM153.POSID = VBAK.ZZPJT_ID
+                                                                  
+                                                      LEFT OUTER JOIN SAPHEE.ZCST005 AS CS005
+                                                                   ON CS005.MANDT = #G_MANDT#
+                                                                  AND CS005.PSPID = VBAK.ZZPJT_ID
+                                                                       
+                          ) AS VBAK     
+                          
+                   ) AS T            LEFT OUTER JOIN SAPHEE.ZMMT001 AS B
+                                                  ON B.MANDT = #G_MANDT#
+                 														    AND (B.POSID = T.ZZPJT_ID  OR B.POSID2 = T.ZZPJT_ID)
+                 														    AND B.RECE_F = '2'
+                                     
+                                    LEFT OUTER JOIN SAPHEE.ZMMT011 AS C 
+                                                 ON C.MANDT = #G_MANDT# 
+                                                AND C.MATNR = B.MATNR
+                  
+         
+         )AS T1   								  
+                                    LEFT OUTER JOIN SAPHEE.ZCST802 AS CS802
+                                                 ON CS802.MANDT = #G_MANDT# 
+                                                AND CS802.POSID = T1.ZZPJT_ID
+                                                AND CS802.GRP = ''
+                                                AND CS802.COD = 'VBELN'
+                                               
+                                    LEFT OUTER JOIN SAPHEE.ZCST001 AS CS001  
+                                                 ON CS001.MANDT = #G_MANDT#
+                 														    AND CS001.PS_PSPID = T1.ZZPJT_ID
+                                     
+                                    LEFT OUTER JOIN SAPHEE.ZMMT124 AS MM124
+                                                 ON MM124.MANDT = #G_MANDT# 
+                                                AND MM124.BOMNUM = CS001.QTNUM
+                                                AND MM124.GUBUN = 'A'
+                                     
+                                    LEFT OUTER JOIN SAPHEE.ZWBAP01 AS AP01
+									  ON CS001.MANDT = AP01.MANDT
+									 AND CS001.DOC2 = AP01.DOCNO 
+                                                
+         
+         GROUP BY T1.VBELN,T1.ZZPJT_ID   
+              ,AP01.CRIRUM  --===========추가
+              ,CS001.QTNAM  --===========추가
+              ,T1.SPART   
+              ,T1.AUART   
+              ,T1.BSTNK   
+              ,T1.BSTDK   
+              ,T1.NETWR   
+              ,T1.VKGRP 
+              ,T1.MECHUL1
+              ,T1.MECHUL2  
+              ,T1.MECHUL3
+              ,T1.BOM_CU 
+              ,T1.BOM_MICU
+              ,T1.BOM_ALL
+              ,T1.PERCENT2
+              ,T1.RAT_CHUL
+              ,T1.TMAN_AMT
+              ,T1.JI_AMT
+              ,T1.RAT_SUJU
+              ,T1.MECHUL_PRD
+        
+
+    )AS T2                    -- 출하예정일
+                                    LEFT OUTER JOIN SAPHEE.ZPPT027 AS PP027
+                                                 ON PP027.MANDT = #G_MANDT# 
+                                                AND PP027.POSID = T2.ZZPJT_ID 
+                                                AND PP027.ACTIV = '05'
+                                                AND PP027.GUBUN = '01'    
+                                                
+									LEFT OUTER JOIN SAPHEE.VBPA AS C
+									   ON C.MANDT = #G_MANDT# 
+									 AND T2.VBELN = C.VBELN
+									 AND C.PARVW = 'Z1'									 									
+									 
+									LEFT OUTER JOIN SAPHEE.LFA1 AS D
+									   ON C.MANDT = D.MANDT
+									  AND C.LIFNR = D.LIFNR                                                
+                                                
+                                    LEFT OUTER JOIN SAPHEE.VBPA AS E
+									  ON E.MANDT = #G_MANDT# 
+									 AND T2.VBELN = E.VBELN
+									 AND E.POSNR = '000000'
+									 AND E.PARVW = 'RG'            
+                                    
+                                    LEFT OUTER JOIN SAPHEE.KNA1 AS F
+                                      ON E.MANDT = F.MANDT
+                                     AND E.KUNNR = F.KUNNR
+                                    
+                                                  
+ WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

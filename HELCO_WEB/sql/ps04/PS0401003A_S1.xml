@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  T1.MANDT
+       ,T1.LIFNR
+       ,T1.LIFNR_NM
+       ,T1.PSPID
+       ,T1.POSID
+       ,T1.BSTKD
+       ,T1.TOT
+       ,ROUND(T1.LAB_C  *T2.PRO_R/100,0) AS LAB_C
+       ,ROUND(T1.PROFIT *T2.PRO_R/100,0) AS PROFIT
+       ,ROUND(T1.SAFE_C *T2.PRO_R/100,0) AS SAFE_C
+       ,ROUND(T1.SUP_C  *T2.PRO_R/100,0) AS SUP_C
+       ,ROUND(T1.BTRIP_C*T2.PRO_R/100,0) AS BTRIP_C
+       ,ROUND(T1.PARK_C *T2.PRO_R/100,0) AS PARK_C
+       ,ROUND(T1.HEALTH *T2.PRO_R/100,0) AS HEALTH
+       ,ROUND(T1.PENSION*T2.PRO_R/100,0) AS PENSION
+       ,ROUND(T1.ADLVR_C  *T2.PRO_R/100,0) AS ADLVR_C
+       ,ROUND(T1.NETWR  *T2.PRO_R/100,0) AS NETWR
+       ,ROUND(T2.PRO_R,2) PRO_R
+       ,T2.WRBTR
+       ,T2.CDATE
+       ,0.00 AS PRO_R2
+       ,0.00 AS WRBTR2
+       ,ROUND(T1.HEALOLD *T2.PRO_R/100,0) AS HEALOLD
+       , T1.ERDAT
+FROM   (
+        SELECT  A.MANDT
+               ,CASE WHEN B.LIFNR IS NULL THEN A.LIFNR ELSE B.LIFNR END AS LIFNR
+               ,CASE WHEN B.LIFNR IS NULL THEN (SELECT NAME1 FROM SAPHEE.ZMMT012 M WHERE M.MANDT = A.MANDT AND M.LIFNR =A.LIFNR)
+                     ELSE (SELECT NAME1 FROM SAPHEE.ZMMT012 M WHERE M.MANDT = B.MANDT AND M.LIFNR =B.LIFNR)
+                     END
+                AS LIFNR_NM
+               ,A.PSPID
+               ,A.POSID
+               ,A.CHGNO
+               ,A.BSTKD
+               ,A.TOT
+               ,A.LAB_C
+               ,A.PROFIT
+               ,A.SAFE_C
+               ,A.SUP_C
+               ,A.BTRIP_C
+               ,A.PARK_C
+               ,A.HEALTH
+               ,A.PENSION
+               ,A.ADLVR_C
+               ,A.NETWR
+               ,A.HEALOLD
+               ,C.ERDAT
+        FROM (
+                SELECT  A.MANDT
+                       ,A.LIFNR
+                       ,A.PSPID
+                       ,A.POSID
+                       ,A.CHGNO
+                       ,A.BSTKD
+                       ,A.KINDS
+                       ,A.TOT
+                       ,A.LAB_C
+                       ,A.PROFIT
+                       ,A.SAFE_C
+                       ,A.SUP_C
+                       ,A.BTRIP_C
+                       ,A.PARK_C
+                       ,A.HEALTH
+                       ,A.PENSION
+                       ,A.ADLVR_C
+                       ,(
+                         SELECT INT(COALESCE(SUM(B.NETWR),0))
+                         FROM  SAPHEE.ZPST0101 B
+                         WHERE B.MANDT = A.MANDT
+                         AND   B.PSPID = A.PSPID
+                         AND   B.POSID = A.POSID
+                         AND   B.CHGNO =A.CHGNO
+                       ) NETWR
+                       ,A.HEALOLD
+                FROM   SAPHEE.ZPST0100 A,
+                       (
+                         SELECT  PS100.MANDT
+                                ,PS100.PSPID
+                                ,PS100.POSID
+                                ,MAX(PS100.CHGNO) CHGNO
+                                ,MIN(PS100.ERDAT) ERDAT
+                         FROM  SAPHEE.ZPST0100 PS100
+                              ,SAPHEE.ZPST0113 PS113
+                         WHERE PS100.MANDT = PS113.MANDT
+                         AND   PS100.PSPID = PS113.PSPID
+                         AND   PS100.POSID = PS113.POSID
+                         AND   PS100.CHGNO = PS113.CHGNO
+                         AND   PS100.MANDT = #G_MANDT#
+                         AND   PS113.CNF_GBN = 'A'
+                         AND   PS113.GUBUN = '5'
+                         AND   PS113.STATE = 'Y'
+                         AND   PS113.PSPID = #PSPID#
+                         GROUP BY PS100.MANDT,PS100.PSPID,PS100.POSID
+                       ) B
+                WHERE A.MANDT = B.MANDT
+                AND   A.PSPID = B.PSPID
+                AND   A.POSID = B.POSID
+                AND   A.CHGNO = B.CHGNO
+              ) A
+              LEFT OUTER JOIN
+              (	
+	              	SELECT PS100.MANDT
+                         , PS100.PSPID
+                         , PS100.POSID
+                         , MIN(PS100.ERDAT) ERDAT
+                  FROM  SAPHEE.ZPST0100 PS100
+                       ,SAPHEE.ZPST0113 PS113
+                  WHERE PS100.MANDT = PS113.MANDT
+                  AND   PS100.PSPID = PS113.PSPID
+                  AND   PS100.POSID = PS113.POSID
+                  AND   PS100.CHGNO = PS113.CHGNO
+                  AND   PS100.MANDT = #G_MANDT#
+                  AND   PS113.CNF_GBN = 'A'
+                  AND   PS113.GUBUN = '3'
+                  AND   PS113.STATE = 'Y'
+                  AND   PS113.PSPID = #PSPID#
+                  GROUP BY PS100.MANDT,PS100.PSPID,PS100.POSID
+              ) AS C
+              ON A.MANDT = C.MANDT
+              AND A.PSPID = C.PSPID
+              AND A.POSID = C.POSID
+              
+              LEFT OUTER JOIN
+              (
+                SELECT
+                       PS115.MANDT,
+                       PS115.PSPID,
+                	   PS115.POSID,
+                	   PS115.LIFNR_F AS LIFNR
+                FROM   SAPHEE.ZPST0115 PS115
+                      ,SAPHEE.ZPST0115A PS115A
+                WHERE PS115.MANDT = PS115A.MANDT
+                AND   PS115.PSPID = PS115A.PSPID
+                AND   PS115.POSID = PS115A.POSID
+                AND   PS115.SEQNO = PS115A.SEQNO
+                AND   PS115.MANDT = #G_MANDT#
+                AND   PS115A.GUBUN = '5'
+                AND   PS115A.STATE = 'Y'
+                AND   PS115.PSPID = #PSPID#
+
+                UNION
+
+                SELECT
+                       PS115.MANDT,
+                       PS115.PSPID,
+                	   PS115.POSID,
+                	   PS115.LIFNR_T AS LIFNR
+                FROM   SAPHEE.ZPST0115 PS115
+                      ,SAPHEE.ZPST0115A PS115A
+                WHERE PS115.MANDT = PS115A.MANDT
+                AND   PS115.PSPID = PS115A.PSPID
+                AND   PS115.POSID = PS115A.POSID
+                AND   PS115.SEQNO = PS115A.SEQNO
+                AND   PS115.MANDT = #G_MANDT#
+                AND   PS115A.GUBUN = '5'
+                AND   PS115A.STATE = 'Y'
+                AND   PS115.PSPID = #PSPID#
+               ) B
+              ON A.MANDT = B.MANDT
+              AND A.PSPID = B.PSPID
+              AND A.POSID = B.POSID
+       ) T1,
+       (
+        SELECT  PS116.MANDT
+               ,PS116.PSPID
+               ,PS116.POSID
+               ,PS116.PRO_R
+               ,CASE WHEN PS116.WAERS = 'KRW' THEN PS116.WRBTR*100
+                     ELSE PS116.WRBTR
+                     END WRBTR
+               ,PS116.LIFNR
+               ,PS116.TAXDATE AS CDATE 
+        FROM  SAPHEE.ZPST0116 PS116
+             ,SAPHEE.ZPST0116A PS116A
+        WHERE PS116.MANDT = PS116A.MANDT
+        AND   PS116.PSPID = PS116A.PSPID
+        AND   PS116.POSID = PS116A.POSID
+        AND   PS116.SEQNO = PS116A.SEQNO
+        AND   PS116.MANDT = #G_MANDT#
+        AND   PS116A.GUBUN = '5'
+        AND   PS116A.STATE = 'Y'
+        AND   PS116.BELNR > ' '
+        AND   PS116.PSPID = #PSPID#
+) T2
+LEFT OUTER JOIN SAPHEE.ZMASTER01 AS T3
+   ON T2.MANDT =  T3.MANDT
+  AND T2.PSPID  = T3.POSID
+
+WHERE T1.MANDT = T2.MANDT
+AND   T1.PSPID = T2.PSPID
+AND   T1.POSID = T2.POSID
+AND   T1.LIFNR = T2.LIFNR
+<isNotNull col="LIFNR">
+AND   T1.LIFNR = #LIFNR#
+</isNotNull>
+
+<isNotNull col="ZZACTSS">
+AND T3.ZZACTSS = #ZZACTSS#
+</isNotNull>
+
+ORDER BY MANDT,POSID,CDATE,LIFNR
+--ORDER BY MANDT,POSID,LIFNR,CDATE
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="PSPID" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

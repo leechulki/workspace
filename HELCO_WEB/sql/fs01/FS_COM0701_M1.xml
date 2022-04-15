@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+    <type>insert</type>
+    <description><![CDATA[결재상태관리 저장/수정 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement><![CDATA[
+MERGE INTO SAPHEE.ZFST0103 AS A
+USING   (   VALUES ( 
+                CAST(#G_MANDT# AS VARCHAR(9) )
+               ,CAST(#ADOC_CLAS# AS VARCHAR(30))
+               ,CAST(#ADOC_NUMB# AS VARCHAR(60))
+               ,CAST(COALESCE( NULLIF(TRIM(#ADOC_NTIM#||''), ''), '1') AS INTEGER )
+            ) ) AS B( MANDT, ADOC_CLAS, ADOC_NUMB, ADOC_NTIM )
+ON      A.MANDT = A.MANDT -- 클라이언트
+AND     A.ADOC_CLAS = B.ADOC_CLAS -- 결재문서구분
+AND     A.ADOC_NUMB = B.ADOC_NUMB -- 결재문서번호
+AND     A.ADOC_NTIM = B.ADOC_NTIM -- 결재문서차수
+WHEN MATCHED THEN
+       UPDATE
+          SET
+              A.RSON_RJCT = CASE WHEN ( A.ADIT_STAT != TRIM( #ADIT_STAT#||'' ) AND TRIM( #ADIT_STAT#||'' ) = '040' ) 
+                                        OR ( A.APPR_STAT != TRIM( #APPR_STAT#||'' ) AND TRIM( #APPR_STAT#||'' ) = '040' ) THEN #RSON_RJCT#
+                                 ELSE A.RSON_RJCT END  -- 반려사유
+             ,A.DRAF_DATE = CASE WHEN TRIM( #DRAF_STAT#||'' ) IN ( '' , '110' ) THEN '00000000'
+                                 WHEN A.DRAF_STAT != TRIM( #DRAF_STAT#||'' ) THEN HEX(CURRENT_DATE)
+                                 ELSE A.DRAF_DATE END -- 기안일자
+             ,A.DRAT_TIME = CASE WHEN TRIM( #DRAF_STAT#||'' ) IN ( '' , '110' ) THEN '000000'
+                                 WHEN A.DRAF_STAT != TRIM( #DRAF_STAT#||'' ) THEN HEX(CURRENT_TIME)
+                                 ELSE A.DRAT_TIME END -- 기안시간
+             ,A.DRAF = #DRAF# -- 기안자
+             ,A.DRAF_STAT = #DRAF_STAT# -- 기안상태
+             ,A.ADIT_DATE = '00000000' -- 심사일자
+             ,A.ADIT_TIME = '000000' -- 심사시간
+             ,A.ADIT = #ADIT# -- 심사자
+             ,A.ADIT_STAT = ' ' -- 심사상태
+             ,A.APPR_DATE = '00000000' -- 승인일자
+             ,A.APPR_TIME = '000000' -- 승인시간
+             ,A.APPR = #APPR# -- 승인자
+             ,A.APPR_STAT = ' ' -- 승인상태
+WHEN NOT MATCHED THEN
+       INSERT (
+              A.MANDT -- 클라이언트
+             ,A.ADOC_CLAS -- 결재문서구분
+             ,A.ADOC_NUMB -- 결재문서번호
+             ,A.ADOC_NTIM -- 결재문서차수
+             ,A.RSON_RJCT -- 반려사유
+             ,A.DRAF_DATE -- 기안시간
+             ,A.DRAT_TIME -- 기안일자
+             ,A.DRAF -- 기안자
+             ,A.DRAF_STAT -- 기안상태
+             ,A.ADIT_DATE -- 심사일자
+             ,A.ADIT_TIME -- 심사시간
+             ,A.ADIT -- 심사자
+             ,A.ADIT_STAT -- 심사상태
+             ,A.APPR_DATE -- 승인일자
+             ,A.APPR_TIME -- 승인시간
+             ,A.APPR -- 승인자
+             ,A.APPR_STAT -- 승인상태
+       ) VALUES (
+              #G_MANDT# -- 클라이언트
+             ,#ADOC_CLAS# -- 결재문서구분
+             ,#ADOC_NUMB# -- 결재문서번호
+             ,CAST(COALESCE( NULLIF(TRIM(#ADOC_NTIM#||''), ''), '1') AS INTEGER ) -- 결재문서차수
+             ,' ' -- 반려사유
+             ,HEX(CURRENT_DATE) -- 기안일자
+             ,HEX(CURRENT_TIME) -- 기안시간
+             ,#DRAF# -- 기안자
+             ,#DRAF_STAT# -- 기안상태
+             ,'00000000' -- 심사일자
+             ,'000000' -- 심사시간
+             ,#ADIT# -- 심사자
+             ,' ' -- 심사상태
+             ,'00000000' -- 승인일자
+             ,'000000' -- 승인시간
+             ,#APPR# -- 승인자
+             ,' ' -- 승인상태
+       )
+    ]]></statement>
+    <input default-name="ds_zfst0103">
+        <col name="MANDT" size="9" type="VARCHAR" description="클라이언트" />
+        <col name="ADOC_CLAS" size="30" type="VARCHAR" description="결재문서구분" />
+        <col name="ADOC_NUMB" size="60" type="VARCHAR" description="결재문서번호" />
+        <col name="ADOC_NTIM" size="2" type="SMALLINT" description="결재문서차수" />
+        <col name="RSON_RJCT" size="600" type="VARCHAR" description="반려사유" />
+        <col name="DRAF_TIME" size="24" type="VARCHAR" description="기안일자" />
+        <col name="DRAF_DATE" size="18" type="VARCHAR" description="기안시간" />
+        <col name="DRAF" size="36" type="VARCHAR" description="기안자" />
+        <col name="DRAF_STAT" size="15" type="VARCHAR" description="기안상태" />
+        <col name="ADIT_DATE" size="24" type="VARCHAR" description="심사일자" />
+        <col name="ADIT_TIME" size="18" type="VARCHAR" description="심사시간" />
+        <col name="ADIT" size="36" type="VARCHAR" description="심사자" />
+        <col name="ADIT_STAT" size="15" type="VARCHAR" description="심사상태" />
+        <col name="APPR_DATE" size="24" type="VARCHAR" description="승인일자" />
+        <col name="APPR_TIME" size="18" type="VARCHAR" description="승인시간" />
+        <col name="APPR" size="36" type="VARCHAR" description="승인자" />
+        <col name="APPR_STAT" size="30" type="VARCHAR" description="승인상태" />
+    </input>
+    <output default-name="_none">
+    </output>
+</query>

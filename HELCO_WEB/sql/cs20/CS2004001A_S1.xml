@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+ SELECT GNO
+      ,USD
+      ,UGS
+      ,UMR
+      ,ADT
+      ,UMS
+      ,TMT      -- 월정보수
+      ,SUJU_J   -- 월정보수*개월수 = 총월정보수
+      ,SUJU_S   -- 상주비
+      ,SUJU_W   -- 총월정보수+상주비 = WEB 정기보수 수주액
+      ,NETWR*100 AS SUJU_B          -- SAP 정기보수 수주액
+      ,VKGRP
+ 	  ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = '183' AND CODE1 = 'VKGRP' AND CODE2 = VKGRP) AS VKGRP_NM -- 2019.02.13 지사컬럼 추가. 윤아로 요청      
+      ,BSTNK
+      ,BSTDK
+      ,VBELN
+FROM (
+       SELECT CS126_GNO                                      AS GNO
+             ,MAX(USD)                                       AS USD
+             ,MAX(UGS)                                       AS UGS
+             ,MAX(UMR)                                       AS UMR
+             ,MAX(ADT)                                       AS ADT
+             ,MAX(UMS)                                       AS UMS 
+             ,MAX(TMT)                                       AS TMT
+             ,MAX(SUJU_W)                                    AS SUJU_J
+             ,VALUE(SUM(CS127_AMT)*MAX(UMS),0)               AS SUJU_S
+             ,MAX(SUJU_W) + VALUE(SUM(CS127_AMT)*MAX(UMS),0) AS SUJU_W
+       FROM (
+             SELECT CS126_GNO
+                   ,MAX(CS126_USD) AS USD
+                   ,MAX(CS126_UGS) AS UGS
+                   ,MAX(CS126_UMR) AS UMR
+                   ,MAX(CS126_ADT) AS ADT
+                   ,MAX(CS126_UMS) AS UMS
+                   ,SUM(CS126_AMT+CS126_DMT+CS126_HMT) AS TMT
+                   ,MAX(CS126_UMS)* SUM(CS126_AMT+CS126_DMT+CS126_HMT) AS SUJU_W
+               FROM SAPHEE.ZCST126
+             
+              WHERE MANDT = #G_MANDT#
+                AND CS126_DDT = ''
+                AND CS126_PST = 'A6'
+                AND CS126_ADT BETWEEN #DAT1# AND #DAT2# 
+                AND CS126_USD &lt;= #DAT2# 
+              <isNotNull col="USERTEAM">
+				AND VKGRP = #USERTEAM# -- 튜닝 추가 
+			  </isNotNull> 
+                	
+              GROUP BY CS126_GNO
+              
+             ) A LEFT OUTER JOIN SAPHEE.ZCST127 B 
+                              ON B.MANDT = #G_MANDT# 
+                             AND B.CS127_DDT = '' 
+                             AND B.CS127_PST = 'A6' 
+                             AND B.CS127_GNO = A.CS126_GNO
+       
+       GROUP BY   CS126_GNO
+       
+       ) A  LEFT OUTER JOIN SAPHEE.VBAK C 
+                         ON C.MANDT = #G_MANDT# 
+                        AND C.ZZPJT_ID = A.GNO
+
+ WHERE
+ 	SUJU_W != NETWR*100
+<isNotNull col="USERTEAM">
+	AND VKGRP = #USERTEAM# -- 2019.02.13 지사별 검색조건 추가. 윤아로 요청
+</isNotNull> 
+  WITH UR
+  
+</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

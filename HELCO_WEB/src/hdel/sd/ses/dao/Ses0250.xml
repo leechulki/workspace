@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.ses.dao.Ses0250D"> 
+	<resultMap id="searchOrderMap" type="hdel.sd.ses.domain.Ses0250"/> 
+	<resultMap id="searchCharacteristicsMap" type="hdel.sd.ses.domain.Ses0251"/> 
+
+	<select id="searchOrder" parameterType="hdel.sd.ses.domain.Ses0250" resultMap="searchOrderMap">
+		with qo as (
+			select distinct z1046.mandt, z1046.qtnum, z1046.vbeln as zzpjt_id, z1046.gsnam
+			from saphee.zsdt1046 as z1046
+			where z1046.mandt=#{mandt}
+				and z1046.qtdat between #{frBsdat} and #{toBsdat}
+				<if test="!ordno.isInitial()">and z1046.qtnum=#{ordno}</if>
+				<if test="vkbur != null and vkbur != ''">and z1046.vkbur=#{vkbur}</if>
+				<if test="vkgrp != null and vkgrp != ''">and z1046.vkgrp=#{vkgrp}</if>
+				<if test="zkunnr != null and zkunnr != ''">and z1046.zkunnr=#{zkunnr}</if>
+
+		)
+		,so as (
+			select distinct vbak.mandt, vbap.qtnum, vbak.vbeln, vbak.bstnk as gsnam
+			from saphee.vbak as vbak
+				inner join saphee.vbap as vbap on vbak.mandt=vbap.mandt and vbak.vbeln=vbap.vbeln
+				inner join saphee.vbpa as vbpa on vbak.mandt=vbpa.mandt and vbak.vbeln=vbpa.vbeln and vbpa.posnr='000000' and vbpa.parvw='Z2'
+			where vbak.mandt=#{mandt}
+				and vbak.recad_da between #{frBsdat} and #{toBsdat}
+				<if test="!ordno.isInitial()">and vbak.vbeln=#{ordno}</if>
+				<if test="vkbur != null and vkbur != ''">and vbak.vkbur=#{vkbur}</if>
+				<if test="vkgrp != null and vkgrp != ''">and vbak.vkgrp=#{vkgrp}</if>
+				<if test="zkunnr != null and zkunnr != ''">and vbpa.kunnr=#{zkunnr}</if>
+		)
+		, ord as (
+			select distinct *
+			from (
+				select mandt, qtnum as ordno, gsnam
+				from qo
+		
+				union all
+				select qo.mandt, vbak.vbeln as ordno, vbak.bstnk
+				from qo
+					inner join saphee.vbak as vbak on qo.mandt=vbak.mandt and qo.zzpjt_id=vbak.zzpjt_id
+				where qo.zzpjt_id &lt;&gt; ''
+		
+				union all
+				select distinct so.mandt, so.qtnum as ordno, z1046.gsnam
+				from so
+					inner join saphee.zsdt1046 as z1046 on so.mandt=z1046.mandt and so.qtnum=z1046.qtnum
+		
+				union all
+				select mandt, vbeln as ordno, gsnam
+				from so
+			)
+		)
+		
+		select
+			ord.mandt,
+			ord.ordno,
+			z1047.qtser as ordseq,
+			z1047.qtseq as orditem,
+			cast(z1047.qtseq as char(24)) as orditemnm,
+			ord.gsnam,
+			z1047.matnr,
+			z1047.spec,
+			z1047.gtype as zspec1,	--기종
+			z1047.zuse as zspec4,	--용도,각도
+			z1047.type1 as zspec5,	--인승,RISE,길이
+			z1047.zopn as zspec8,	--Open Type
+			z1047.type2 as zspec3,	--속도/폭/단수
+			z1047.zacapa as zspec6	--용량,제작구분
+		from ord
+			inner join saphee.zsdt1047 as z1047 on ord.mandt=z1047.mandt and ord.ordno=z1047.qtnum
+		where ord.mandt=#{mandt}
+			<if test="ordseq != null and ordseq != 0">and z1047.qtser=#{ordseq}</if>
+			<if test="!orditem.isInitial()">and z1047.qtseq=#{orditem}</if>
+		
+		union all
+		select
+		ord.mandt,
+		ord.ordno,
+		z91.seq as ordseq,
+		z91.posnr as orditem,
+		z91.hogi as orditemnm, 
+		ord.gsnam,
+		z91.matnr,
+		z91.arktx as spec,
+		'',
+		'',
+		'',
+		'',
+		'',
+		''
+		from ord
+		inner join saphee.zsdt0091 as z91 on ord.mandt=z91.mandt and ord.ordno=z91.vbeln and z91.vbeln &lt;&gt; '' and z91.seq > 0
+		where ord.mandt=#{mandt}
+			<if test="ordseq != null and ordseq != 0">and z91.seq=#{ordseq}</if>
+			<if test="!orditem.isInitial()">and z91.posnr=#{orditem}</if>
+		with ur
+	</select>
+	<select id="searchCharacteristics" parameterType="map" resultMap="searchCharacteristicsMap">
+		with target as (
+			select
+				#{entity.mandt} as mandt, ordno, ordseq, cast(orditem as char(6)) as orditem
+			from
+			<foreach collection="lstCond" item="item" 
+				open="(values" close=")" separator=",">
+				(#{item.ordno},#{item.ordseq},#{item.orditem})
+			</foreach>
+			as (ordno, ordseq, orditem)
+		)
+		select
+			target.ordno,
+			target.ordseq,
+			target.orditem,
+			z1048.prh as atnam,
+			cabnt.atbez,
+			z1048.prd as atwrt
+		from target
+			inner join saphee.zsdt1048 as z1048 on target.mandt=z1048.mandt and target.ordno=z1048.qtnum and target.ordseq=z1048.qtser and target.orditem=z1048.qtseq
+			left join saphee.cabn as cabn on z1048.mandt=cabn.mandt and z1048.prh=cabn.atnam
+			left join saphee.cabnt as cabnt on cabn.mandt=cabnt.mandt and cabn.atinn=cabnt.atinn and cabnt.spras='3'
+	
+		union all
+		select
+			target.ordno,
+			target.ordseq,
+			target.orditem,
+			z94.nam_char as atnam,
+			cabnt.atbez,
+			z94.char_value as atwrt
+		from target
+			inner join saphee.zsdt0091 as z91 on target.mandt=z91.mandt and target.ordno=z91.vbeln and target.ordseq=z91.seq and target.orditem=z91.posnr
+			inner join saphee.zsdt0094 as z94 on z91.mandt=z94.mandt and z91.pspid=z94.pspid and z91.seq=z94.seq and z91.posnr=z94.posnr
+			left join saphee.cabn as cabn on z94.mandt=cabn.mandt and z94.nam_char=cabn.atnam
+			left join saphee.cabnt as cabnt on cabn.mandt=cabnt.mandt and cabn.atinn=cabnt.atinn and cabnt.spras='3'
+		with ur
+	</select>
+</mapper>

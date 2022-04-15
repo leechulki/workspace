@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  A.MANDT
+       ,A.CS136_GYM
+       ,'' CS136_GND
+       ,'' CS136_ARA
+       ,'' PST
+       ,A.CS136_UPN
+       ,A.CS136_CST
+       ,A.CS136_BSU
+       ,(SELECT B.NAME1
+         FROM  SAPHEE.ZMMT005 MM005A
+              ,SAPHEE.ZMMT012 B
+         WHERE MM005A.MANDT = A.MANDT
+         AND MM005A.LGORT = A.CS136_BSU
+         AND MM005A.MANDT = B.MANDT
+         AND MM005A.LIFNR = B.LIFNR
+        ) BSU_NM
+       ,A.CS136_PJT
+       ,A.CS136_PST
+       ,(
+        SELECT BC.CCSB1EPN
+        FROM SAPHEE.ZCST111 CS111,SAPHEE.ZTBCSB1 BC
+        WHERE CS111.MANDT = A.MANDT
+        AND CS111.PJT = A.CS136_PJT
+        AND CS111.MANDT = BC.MANDT
+        AND CS111.BPM =CCSB1EMP
+        ORDER BY CS111.HNO
+        FETCH FIRST 1 ROWS ONLY
+        ) BOSU_PM
+       ,SUM(VALUE(A.CS136_BAM,0)+VALUE(A.CS136_IY1,0)+VALUE(A.CS136_IY2,0)+VALUE(A.CS136_IY3,0)+VALUE(A.CS136_IY4,0)) GISUNGBI
+       ,CASE WHEN A.CS136_PST > '' OR A.CS136_PST IS NOT NULL
+             THEN (SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = A.MANDT AND LANG = #G_LANG# AND CODE1 = 'CS117' AND CODE2 = A.CS136_PST)
+             ELSE ''
+        END PST_NM
+       ,'' CS136_MBS
+       ,'' GBN    
+FROM   (
+        SELECT  CS136.MANDT
+               ,CS136.CS136_GYM
+               ,CS136.CS136_UPN
+               ,CS136.CS136_CST
+               ,CS136.CS136_BSU
+               ,CS136.CS136_PJT
+               ,CS136.CS136_PST
+               ,CS136.CS136_BAM
+               ,CS136.CS136_IY1
+               ,CS136.CS136_IY2
+               ,CS136.CS136_IY3
+               ,CS136.CS136_IY4
+        FROM  (
+              SELECT  CS131.MANDT
+                     ,CS131.CS131_UPN
+                     ,CS131.CS131_CST
+                     ,CS131.CS131_PJT
+                     ,CS131.CS131_HNO
+                     ,CS131.CS131_SEQ
+                     ,CS131.CS131_GND
+                     ,CS131.CS131_MYM
+                     ,MAX(CS131.CS131_ISR) CS131_ISR
+              FROM  SAPHEE.ZCST136 CS136
+                   ,SAPHEE.ZCST131 CS131
+              WHERE CS136.MANDT = #G_MANDT#
+              AND CS136.CS136_ARA = #AREA#
+              AND CS136.CS136_GYM = #YYYYMM#
+              AND CS136.CS136_BSU = #LIFNR#
+              AND CS136.CS136_GND = #GND#
+              AND CS136.CS136_GBU = '3'
+              AND CS136.CS136_MGB = ''
+              AND CS136.CS136_MBS = ''
+<isEqual col="GUBUN" value="A">
+                          AND CS136.CS136_PST IN ('A5','A6')
+</isEqual>        
+              AND CS131.MANDT     = CS136.MANDT
+              AND CS131.CS131_UPN = CS136.CS136_UPN
+              AND CS131.CS131_CST = CS136.CS136_CST
+              AND CS131.CS131_PJT = CS136.CS136_PJT
+              AND CS131.CS131_HNO = CS136.CS136_HNO
+              AND CS131.CS131_SEQ = CS136.CS136_SEQ
+              AND CS131.CS131_GND = CS136.CS136_GND
+              AND CS131.CS131_MYM = CS136.CS136_JYM
+              GROUP BY CS131.MANDT,CS131.CS131_UPN,CS131.CS131_CST,CS131.CS131_PJT,
+                       CS131.CS131_HNO,CS131.CS131_SEQ,CS131.CS131_GND,CS131.CS131_MYM
+             ) CS131A
+             ,SAPHEE.ZCST131 CS131B
+             ,SAPHEE.ZCST136 CS136
+        WHERE CS131A.MANDT     = CS131B.MANDT
+        AND CS131A.CS131_UPN = CS131B.CS131_UPN
+        AND CS131A.CS131_CST = CS131B.CS131_CST
+        AND CS131A.CS131_PJT = CS131B.CS131_PJT
+        AND CS131A.CS131_HNO = CS131B.CS131_HNO
+        AND CS131A.CS131_SEQ = CS131B.CS131_SEQ
+        AND CS131A.CS131_GND = CS131B.CS131_GND
+        AND CS131A.CS131_MYM = CS131B.CS131_MYM
+        AND CS131A.CS131_ISR = CS131B.CS131_ISR
+        AND CS131B.CS131_MYB = ''
+        AND CS131B.VBELN > ''
+        AND CS131B.MANDT     = CS136.MANDT
+        AND CS131B.CS131_UPN = CS136.CS136_UPN
+        AND CS131B.CS131_CST = CS136.CS136_CST
+        AND CS131B.CS131_PJT = CS136.CS136_PJT
+        AND CS131B.CS131_HNO = CS136.CS136_HNO
+        AND CS131B.CS131_SEQ = CS136.CS136_SEQ
+        AND CS131B.CS131_GND = CS136.CS136_GND
+        AND CS131B.CS131_MYM = CS136.CS136_JYM
+) A
+GROUP BY A.MANDT,A.CS136_GYM,A.CS136_UPN,A.CS136_CST,A.CS136_PJT,A.CS136_PST,A.CS136_BSU
+
+UNION
+
+SELECT  CS136.MANDT
+       ,CS136.CS136_GYM
+       ,'' CS136_GND
+       ,'' CS136_ARA
+       ,'' PST
+       ,CS136.CS136_UPN
+       ,CS136.CS136_CST
+       ,CS136.CS136_BSU
+       ,(SELECT B.NAME1
+         FROM  SAPHEE.ZMMT005 MM005A
+              ,SAPHEE.ZMMT012 B
+         WHERE MM005A.MANDT = CS136.MANDT
+         AND MM005A.LGORT = CS136.CS136_BSU
+         AND MM005A.MANDT = B.MANDT
+         AND MM005A.LIFNR = B.LIFNR
+        ) BSU_NM
+       ,CS136.CS136_PJT
+       ,CS136.CS136_PST
+       ,(
+        SELECT BC.CCSB1EPN
+        FROM SAPHEE.ZCST111 CS111,SAPHEE.ZTBCSB1 BC
+        WHERE CS111.MANDT = CS136.MANDT
+        AND CS111.PJT = CS136.CS136_PJT
+        AND CS111.MANDT = BC.MANDT
+        AND CS111.BPM =CCSB1EMP
+        FETCH FIRST 1 ROWS ONLY
+        ) BOSU_PM
+          ,SUM(VALUE(CS136.CS136_BAM,0)+VALUE(CS136.CS136_IY1,0)+VALUE(CS136.CS136_IY2,0)+VALUE(CS136.CS136_IY3,0)+VALUE(CS136.CS136_IY4,0)) GISUNGBI
+       ,CASE WHEN CS136.CS136_PST > '' OR CS136.CS136_PST IS NOT NULL
+             THEN (SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = CS136.MANDT AND LANG = #G_LANG# AND CODE1 = 'CS117' AND CODE2 = CS136.CS136_PST)
+             ELSE ''
+        END PST_NM
+       ,'매출미발생' CS136_MBS
+       ,'' GBN    
+  FROM  SAPHEE.ZCST136 CS136
+  WHERE CS136.MANDT = #G_MANDT#
+  AND CS136.CS136_ARA = #AREA#
+  AND CS136.CS136_GYM = #YYYYMM#
+  AND CS136.CS136_BSU = #LIFNR#
+  AND CS136.CS136_GND = #GND#
+<isEqual col="GUBUN" value="A">
+  AND CS136.CS136_PST IN ('A5','A6')
+</isEqual>        
+  AND CS136.CS136_GBU = '3'
+  AND CS136.CS136_MGB = ''
+  AND CS136.CS136_MBS = 'Y'
+  GROUP BY CS136.MANDT,CS136.CS136_GYM,CS136.CS136_UPN,CS136.CS136_CST,CS136.CS136_PJT,CS136.CS136_PST,CS136.CS136_BSU
+
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="AREA" size="255" type="VARCHAR" description="" /> 
+		<col name="YYYYMM" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="GND" size="255" type="VARCHAR" description="" /> 
+		<col name="GUBUN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="BOSU_PM" size="30" type="VARCHAR" description="" /> 
+		<col name="BSU_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="CS136_ARA" size="0" type="VARCHAR" description="" /> 
+		<col name="CS136_BSU" size="15" type="VARCHAR" description="" /> 
+		<col name="CS136_CST" size="9" type="VARCHAR" description="" /> 
+		<col name="CS136_GND" size="0" type="VARCHAR" description="" /> 
+		<col name="CS136_GYM" size="18" type="VARCHAR" description="" /> 
+		<col name="CS136_MBS" size="15" type="VARCHAR" description="" /> 
+		<col name="CS136_PJT" size="18" type="VARCHAR" description="" /> 
+		<col name="CS136_PST" size="6" type="VARCHAR" description="" /> 
+		<col name="CS136_UPN" size="18" type="VARCHAR" description="" /> 
+		<col name="GBN" size="0" type="VARCHAR" description="" /> 
+		<col name="GISUNGBI" size="11" type="NUMERIC" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="PST" size="0" type="VARCHAR" description="" /> 
+		<col name="PST_NM" size="60" type="VARCHAR" description="" /> 
+	</output>
+</query>

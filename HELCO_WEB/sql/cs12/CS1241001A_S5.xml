@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+       SUM(CNT2) CPNT,
+       SUM(CNT1) - SUM(CNT2) CMNT,
+       SUM(CNT1) CCNT,
+       SUM(FMT) CFMT,
+       SUM(HMT) CHMT,
+       SUM(DMT) CDMT,
+       SUM(AMT) CAMT,
+       SUM(TOT) CTOT,
+       INT(CASE WHEN MAX(CDY) = '' THEN '0' ELSE MAX(CDY) END) CCDY,
+       MAX(RMK) CRMK
+  FROM
+       (
+        SELECT
+               0 CNT1,
+               SUM(X.CNT) CNT2,
+               0 FMT,
+               0 HMT,
+               0 DMT,
+               0 AMT,
+               0 TOT,
+               '' CDY,
+               '' RMK
+          FROM
+               (
+                SELECT
+                       B.ZSPEC12 SPC,
+                       B.ZSPEC2 TYP,
+                       ROW_NUMBER() OVER() RNO,
+                       COUNT(*) CNT
+                  FROM
+                       SAPHEE.ZCST302 AS A INNER JOIN SAPHEE.ZMASTER02 AS B
+                                                   ON A.MANDT = B.MANDT
+                                                  AND A.CS302_PJT = B.POSID
+                                                  AND A.CS302_HNO = SUBSTR(B.POSID_1,7,3)
+                 WHERE
+                       A.MANDT = #G_MANDT#
+                   AND A.MANDT = B.MANDT
+                   AND A.CS302_PJT = B.POSID
+                   AND A.CS302_HNO = SUBSTR(B.POSID_1,7,3)
+                   AND A.CS302_TEM = #TEM#
+                   AND A.CS302_RDT = #RDT#
+                   AND A.CS302_SEQ = #SEQ#
+                   AND A.CS302_SIR = #SIR#
+                GROUP BY
+                       B.ZSPEC12,
+                       B.ZSPEC2
+               ) X
+         WHERE
+               X.RNO < 5
+
+        UNION ALL
+
+        SELECT
+               X.CNT CNT1,
+               0 CNT2,
+               X.FMT,
+               X.HMT,
+               X.DMT,
+               X.AMT,
+               X.TOT,
+               '' CDY,
+               '' RMK
+          FROM
+               (
+                SELECT
+                       COUNT(*) CNT,
+                       CASE WHEN MAX(B.CS301_CPD) = 'A' THEN SUM(A.CS302_FMT) ELSE SUM(A.CS302_PMT) END AS  FMT,
+                       SUM(A.CS302_HMT) HMT,
+                       SUM(A.CS302_DMT) DMT,
+                       (CASE WHEN MAX(B.CS301_CPD) = 'A' THEN SUM(A.CS302_FMT) ELSE SUM(A.CS302_PMT) END) + SUM(A.CS302_HMT) + SUM(A.CS302_DMT) AMT,
+                       (CASE WHEN MAX(B.CS301_CPD) = 'A' THEN SUM(A.CS302_FMT) ELSE SUM(A.CS302_PMT) END) + SUM(A.CS302_HMT) + SUM(A.CS302_DMT) TOT
+                  FROM
+                       SAPHEE.ZCST302 AS A INNER JOIN SAPHEE.ZCST301 AS B
+                                                   ON A.MANDT = B.MANDT
+                                                  AND A.CS302_TEM = B.CS301_TEM
+                                                  AND A.CS302_RDT = B.CS301_RDT
+                                                  AND A.CS302_SEQ = B.CS301_SEQ
+                                                  AND A.CS302_SIR = B.CS301_SIR
+                                                  
+                                           INNER JOIN SAPHEE.ZMASTER02 AS C
+                                                   ON A.MANDT = C.MANDT
+                                                  AND A.CS302_PJT = C.POSID
+                                                  AND A.CS302_HNO = SUBSTR(C.POSID_1,7,3)
+                       
+                 WHERE
+                       A.MANDT = #G_MANDT#
+                   AND A.CS302_TEM = #TEM#
+                   AND A.CS302_RDT = #RDT#
+                   AND A.CS302_SEQ = #SEQ#
+                   AND A.CS302_SIR = #SIR#
+               ) X
+
+        UNION ALL
+
+        SELECT
+               0 CNT1,
+               0 CNT2,
+               0 FMT,
+               0 HMT,
+               0 DMT,
+               0 AMT,
+               0 TOT,
+               CS301_CDY CDY,
+               CS301_RM1||CS301_RM2 RMK
+          FROM
+               SAPHEE.ZCST301
+         WHERE
+               MANDT = #G_MANDT#
+           AND CS301_TEM = #TEM#
+           AND CS301_RDT = #RDT#
+           AND CS301_SEQ = #SEQ#
+           AND CS301_SIR = #SIR#
+       ) A
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_listT">
+	</output>
+</query>

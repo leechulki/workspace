@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[청구종류별 월별증감 추이]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT YEAR, 
+       GBN, 
+       MAX
+       (
+           CASE BUDAT 
+               WHEN '01' 
+               THEN 1 
+               WHEN '02' 
+               THEN 2 
+               WHEN '03' 
+               THEN 3 
+               WHEN '04' 
+               THEN 4 
+               WHEN '05' 
+               THEN 5 
+               WHEN '06' 
+               THEN 6 
+               WHEN '07' 
+               THEN 7 
+               WHEN '08' 
+               THEN 8 
+               WHEN '09' 
+               THEN 9 
+               WHEN '10' 
+               THEN 10 
+               WHEN '11' 
+               THEN 11 
+               WHEN '12' 
+               THEN 12 
+           END 
+       )
+       AAM, 
+       SUM(DECODE(BUDAT,'01',DMBTR,0))/10 AS M01, 
+       SUM(DECODE(BUDAT,'02',DMBTR,0))/10 AS M02, 
+       SUM(DECODE(BUDAT,'03',DMBTR,0))/10 AS M03, 
+       SUM(DECODE(BUDAT,'04',DMBTR,0))/10 AS M04, 
+       SUM(DECODE(BUDAT,'05',DMBTR,0))/10 AS M05, 
+       SUM(DECODE(BUDAT,'06',DMBTR,0))/10 AS M06, 
+       SUM(DECODE(BUDAT,'07',DMBTR,0))/10 AS M07, 
+       SUM(DECODE(BUDAT,'08',DMBTR,0))/10 AS M08, 
+       SUM(DECODE(BUDAT,'09',DMBTR,0))/10 AS M09, 
+       SUM(DECODE(BUDAT,'10',DMBTR,0))/10 AS M10, 
+       SUM(DECODE(BUDAT,'11',DMBTR,0))/10 AS M11, 
+       SUM(DECODE(BUDAT,'12',DMBTR,0))/10 AS M12,
+       '' AS MAVG,
+       '' AS MAVG_R,
+       '' AS SUM,
+       '' AS SUM_R,
+       '' AS M01_R, 
+       '' AS M02_R, 
+       '' AS M03_R, 
+       '' AS M04_R, 
+       '' AS M05_R, 
+       '' AS M06_R, 
+       '' AS M07_R, 
+       '' AS M08_R, 
+       '' AS M09_R, 
+       '' AS M10_R, 
+       '' AS M11_R, 
+       '' AS M12_R 
+  FROM 
+       (SELECT MM108.MANDT, 
+              SUBSTR(MM108.BUDAT,1,4) AS YEAR, 
+              SUBSTR(MM108.BUDAT,5,2) AS BUDAT, 
+              --	   WB010.VKGRP, 
+              --       SUBSTR(SAPHEE.CODE_CONV(#G_MANDT#, 'VKGRP', WB010.VKGRP) ,1,16) AS VKGRPNM, 
+              MM108.DMBTR, 
+              --	   REQKIND_TXT, 
+              CASE 
+                  WHEN 
+                      ( 
+                          REQKIND_TXT = ('수리공사' ) 
+                          OR 
+                          ( 
+                              REQKIND_TXT IN( '업체재고소진청구', '재청구', '보수실패현장자재청구') 
+                              AND 
+                              ( 
+                                  SUBSTR(POSID,7,2) = 'NS' 
+                              ) 
+                          ) 
+                      ) 
+                  THEN 1 --수리공사 
+                  WHEN 
+                      ( 
+                          REQKIND_TXT = ('유상청구' ) 
+                          OR 
+                          ( 
+                              REQKIND_TXT IN( '업체재고소진청구', '재청구', '보수실패현장자재청구') 
+                              AND 
+                              ( 
+                                  SUBSTR(POSID,7,2) = 'NB' 
+                              ) 
+                          ) 
+                      ) 
+                  THEN 2 --유상청구 
+                  WHEN 
+                      ( 
+                          REQKIND_TXT IN ('MMPR 수리청구', 'MMPR 업체재고 소진', 'MMPR 청구') 
+                      ) 
+                  THEN 3 --MMPR 
+                  WHEN 
+                      ( 
+                          REQKIND_TXT IN ('무상청구') 
+                      ) 
+                  THEN 4 
+                  WHEN 
+                      ( 
+                          REQKIND_TXT IN ('시스템공사' ) 
+                      ) 
+                  THEN 5 
+              END AS GBN 
+         FROM SAPHEE.ZMMT108 AS MM108, 
+              SAPHEE.ZWBT010 WB010,
+              SAPHEE.ZLCODE ZC   
+        WHERE 1=1 
+              AND MM108.LGORT = WB010.LGORT 
+              AND WB010.USED = '' 
+              AND WB010.LGORT != '' 
+			  AND MM108.MANDT=#G_MANDT#
+			  AND WB010.MANDT=#G_MANDT#
+              AND MM108.BUDAT LIKE #YEAR#||'%' 
+			 AND ZC.MANDT= #G_MANDT#
+			 AND ZC.LANG= #G_LANG#
+			 AND ZC.CODE1 = 'VKGRP'
+			 AND ZC.CODE2 = WB010.VKGRP
+		<isNotNull col="ARA">
+				AND WB010.BSU_ARA = #ARA#
+		</isNotNull>
+		<isNotNull col="BSU">
+				AND WB010.LGORT = #BSU#
+		</isNotNull>
+		<isNotNull col="BPM">
+				AND WB010.BSU_PM = #BPM#
+		</isNotNull>
+		<isNotNull col="TEM">
+				AND WB010.VKGRP = #TEM#
+		</isNotNull>
+		<isNull col="TEM">
+			<isNotNull col="DPT">
+				AND ZC.DTEXT1 = #DPT#
+			</isNotNull>	
+		</isNull>
+       ) 
+ WHERE GBN IS NOT NULL 
+ GROUP BY GBN, 
+       YEAR  
+    UNION ALL   
+SELECT YEAR, 
+       GBN, 
+       MAX
+       (
+           CASE BUDAT 
+               WHEN '01' 
+               THEN 1 
+               WHEN '02' 
+               THEN 2 
+               WHEN '03' 
+               THEN 3 
+               WHEN '04' 
+               THEN 4 
+               WHEN '05' 
+               THEN 5 
+               WHEN '06' 
+               THEN 6 
+               WHEN '07' 
+               THEN 7 
+               WHEN '08' 
+               THEN 8 
+               WHEN '09' 
+               THEN 9 
+               WHEN '10' 
+               THEN 10 
+               WHEN '11' 
+               THEN 11 
+               WHEN '12' 
+               THEN 12 
+           END 
+       )
+       AAM, 
+       SUM(DECODE(BUDAT,'01',DMBTR,0))/10 AS M01, 
+       SUM(DECODE(BUDAT,'02',DMBTR,0))/10 AS M02, 
+       SUM(DECODE(BUDAT,'03',DMBTR,0))/10 AS M03, 
+       SUM(DECODE(BUDAT,'04',DMBTR,0))/10 AS M04, 
+       SUM(DECODE(BUDAT,'05',DMBTR,0))/10 AS M05, 
+       SUM(DECODE(BUDAT,'06',DMBTR,0))/10 AS M06, 
+       SUM(DECODE(BUDAT,'07',DMBTR,0))/10 AS M07, 
+       SUM(DECODE(BUDAT,'08',DMBTR,0))/10 AS M08, 
+       SUM(DECODE(BUDAT,'09',DMBTR,0))/10 AS M09, 
+       SUM(DECODE(BUDAT,'10',DMBTR,0))/10 AS M10, 
+       SUM(DECODE(BUDAT,'11',DMBTR,0))/10 AS M11, 
+       SUM(DECODE(BUDAT,'12',DMBTR,0))/10 AS M12, 
+       '' AS MAVG,
+       '' AS MAVG_R,
+       '' AS SUM,
+       '' AS SUM_R,
+       '' AS M01_R, 
+       '' AS M02_R, 
+       '' AS M03_R, 
+       '' AS M04_R, 
+       '' AS M05_R, 
+       '' AS M06_R, 
+       '' AS M07_R, 
+       '' AS M08_R, 
+       '' AS M09_R, 
+       '' AS M10_R, 
+       '' AS M11_R, 
+       '' AS M12_R
+  FROM 
+       (SELECT MM108.MANDT, 
+              SUBSTR(MM108.BUDAT,1,4) AS YEAR, 
+              SUBSTR(MM108.BUDAT,5,2) AS BUDAT, 
+              --	   WB010.VKGRP, 
+              --       SUBSTR(SAPHEE.CODE_CONV(#G_MANDT#, 'VKGRP', WB010.VKGRP) ,1,16) AS VKGRPNM, 
+              MM108.DMBTR, 
+              --	   REQKIND_TXT, 
+              CASE 
+                  WHEN 
+                      ( 
+                          REQKIND_TXT = ('수리공사' ) 
+                          OR 
+                          ( 
+                              REQKIND_TXT IN( '업체재고소진청구', '재청구', '보수실패현장자재청구') 
+                              AND 
+                              ( 
+                                  SUBSTR(POSID,7,2) = 'NS' 
+                              ) 
+                          ) 
+                      ) 
+                  THEN 1 --수리공사 
+                  WHEN 
+                      ( 
+                          REQKIND_TXT = ('유상청구' ) 
+                          OR 
+                          ( 
+                              REQKIND_TXT IN( '업체재고소진청구', '재청구', '보수실패현장자재청구') 
+                              AND 
+                              ( 
+                                  SUBSTR(POSID,7,2) = 'NB' 
+                              ) 
+                          ) 
+                      ) 
+                  THEN 2 --유상청구 
+                  WHEN 
+                      ( 
+                          REQKIND_TXT IN ('MMPR 수리청구', 'MMPR 업체재고 소진', 'MMPR 청구') 
+                      ) 
+                  THEN 3 --MMPR 
+                  WHEN 
+                      ( 
+                          REQKIND_TXT IN ('무상청구') 
+                      ) 
+                  THEN 4 
+                  WHEN 
+                      ( 
+                          REQKIND_TXT = ('시스템공사' ) 
+                          OR 
+                          ( 
+                                  SUBSTR(POSID,7,2) = 'NC' 
+                          ) 
+                      ) 
+                  THEN 5 --시스템공사 
+              END AS GBN 
+         FROM SAPHEE.ZMMT108 AS MM108, 
+              SAPHEE.ZWBT010 WB010,
+              SAPHEE.ZLCODE ZC  
+        WHERE 1=1 
+              AND MM108.LGORT = WB010.LGORT 
+              AND WB010.USED = '' 
+              AND WB010.LGORT != '' 
+			  AND MM108.MANDT=#G_MANDT#
+			  AND WB010.MANDT=#G_MANDT#
+              AND MM108.BUDAT LIKE (#YEAR#-1)||'%' 
+				 AND ZC.MANDT= #G_MANDT#
+				 AND ZC.LANG= #G_LANG#
+				 AND ZC.CODE1 = 'VKGRP'
+				 AND ZC.CODE2 = WB010.VKGRP
+		<isNotNull col="ARA">
+				AND WB010.BSU_ARA = #ARA#
+		</isNotNull>
+		<isNotNull col="BSU">
+				AND WB010.VKGRP = #BSU#
+		</isNotNull>
+		<isNotNull col="BPM">
+				AND WB010.BSU_PM = #BPM#
+		</isNotNull>
+		<isNotNull col="TEM">
+				AND WB010.VKGRP = #TEM#
+		</isNotNull>
+		<isNull col="TEM">
+			<isNotNull col="DPT">
+				AND ZC.DTEXT1 = #DPT#
+			</isNotNull>	
+		</isNull>
+       ) 
+ WHERE GBN IS NOT NULL 
+ GROUP BY GBN, 
+       YEAR
+ FOR FETCH ONLY
+  WITH UR	
+
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list_t1">
+	</output>
+</query>

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[수주번호 생성 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement><![CDATA[
+SELECT  CAST(#G_MANDT# AS VARCHAR(9)) AS MANDT
+       ,A.OCNT_NUMB
+       ,CAST(1 AS INTEGER) AS RFCT_SEQN
+       ,CAST(1 AS INTEGER) AS EBDG_MGSQ
+       ,B.NGTT_TAMT               -- 견적총금액(네고금액) 원단위 계약금액
+       ,B.ESCS_TAMT AS SALE_COST  -- 견적 매출 원가 금액(시행예산 총금액)
+       ,ROUND(CAST(B.ESCS_TAMT AS DECIMAL(17, 2))/CAST(B.NGTT_TAMT AS DECIMAL(17, 2))*100,2) AS SLCS_RATE -- 매출원가/네고금액*100 수주 시행율 계산
+       ,'KRW' AS WAERK -- 한국 통화단위 코드
+       ,CAST('330' AS VARCHAR(10)) AS EBDG_MGST -- 시행예산 상태코드
+       ,CAST(#ds_escs_numb.$PK_ESCS_NUMB# AS VARCHAR(500)) AS PK_ESCS_NUMB -- 키그룹
+       ,CAST(#ds_escs_numb.$ESCS_NUMB# AS VARCHAR(500)) AS M_ESCS_NUMB -- 키그룹
+       ,B.KUNNR
+       ,B.ORDR_TYPE
+       ,(SELECT EXTN_CODE3 FROM SAPHEE.ZFST0100 WHERE MANDT = #G_MANDT# AND CODE_GROP = 'A03' AND CODE = B.ORDR_TYPE) AS AUART 
+       ,B.POST1
+       ,C.CR_WAERK  -- 견적서 통화단위 코드
+       ,C.CRNG_TAMT -- 견적서 통화 네고금액
+       ,CAST('230' AS VARCHAR(10)) AS OCNT_STAT -- 수주상태 코드 
+       ,HEX(CURRENT DATE) AS WRIT_DATE -- 작성일자
+       ,HEX(CURRENT TIME) AS WRIT_TIME -- 작성시간
+       ,CAST(#G_USER_ID# AS VARCHAR(10)) AS WRIT_USER -- 작성자
+       ,CASE WHEN (SELECT EXTN_CODE3 FROM SAPHEE.ZFST0100 WHERE MANDT = #G_MANDT# AND CODE_GROP = 'A03' AND CODE = B.ORDR_TYPE) = 'ZR03' THEN
+                 'NS'
+             WHEN (SELECT EXTN_CODE3 FROM SAPHEE.ZFST0100 WHERE MANDT = #G_MANDT# AND CODE_GROP = 'A03' AND CODE = B.ORDR_TYPE) = 'ZR02' THEN
+                 'NB'
+             WHEN (SELECT EXTN_CODE3 FROM SAPHEE.ZFST0100 WHERE MANDT = #G_MANDT# AND CODE_GROP = 'A03' AND CODE = B.ORDR_TYPE) = 'ZR01' THEN
+                 'U'
+             ELSE
+                 'NO'
+         END AS TYPE
+FROM   TABLE (
+                SELECT
+                       'HEOI'||HEX(CURRENT DATE)||SAPHEE.FILLINZERO(INT(COALESCE(MAX(SUBSTR(A.OCNT_NUMB,13)),0)+1),3) AS OCNT_NUMB
+                FROM    SAPHEE.ZFST0301 A
+                WHERE   A.MANDT     = #G_MANDT#
+                AND     A.OCNT_NUMB LIKE 'HEOI'||HEX(CURRENT DATE)||'%'
+                ) AS A
+       ,TABLE (
+				SELECT  MAX(KUNNR) AS KUNNR
+				       ,MAX(ORDR_TYPE) AS ORDR_TYPE
+				       ,MAX(POST1) AS POST1
+				       ,SUM(NGTT_TAMT) AS NGTT_TAMT -- 견적총금액(네고금액)
+				       ,SUM(ESCS_TAMT) AS ESCS_TAMT -- 매출원가 총금액
+                FROM   SAPHEE.ZFST0200
+                WHERE  MANDT = #G_MANDT#
+                  AND  ESCS_NUMB||TRIM(CAST(ESCS_NTIM AS VARCHAR(5))) IN ( #ds_escs_numb.$PK_ESCS_NUMB# )
+               ) AS B         
+       ,TABLE (
+				SELECT  WAERK AS CR_WAERK
+				       ,SUM(ESMT_TAMT) AS ESMT_TAMT
+				       ,SUM(NGTT_TAMT) AS NGTT_TAMT
+				       ,SUM(CRES_TAMT) AS CRES_TAMT
+				       ,SUM(CRNG_TAMT) AS CRNG_TAMT
+				FROM   SAPHEE.ZFST0202
+				WHERE  MANDT = #G_MANDT#
+				  AND  ESMT_NUMB IN ( #ds_esmt_numb.$ESMT_NUMB# )
+				GROUP BY WAERK
+               ) AS C
+FOR     FETCH ONLY
+WITH    UR
+    ]]></statement>
+    <input default-name="ds_cond">
+        <col name="MANDT" size="9" type="VARCHAR" description="클라이언트" />
+    </input>
+    <output default-name="ds_zfst0301">
+    </output>
+</query>

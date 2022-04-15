@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	
+	SELECT Z.*, 
+       CASE 
+           WHEN 
+               ( 
+                   R_CHK>0 
+                   AND SUM1>0
+               ) 
+           THEN SUM1/R_CHK 
+           ELSE '0' 
+       END AS MD 
+	FROM	
+		( SELECT D.YYYYMM,
+		   		 SUBSTR(SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, 'VKGRP',D.VKGRP),1,16) AS DPT_NM,
+		      	 D.VKGRP AS TEM,
+		      	 SUBSTR(SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, 'VKGRP',D.VKGRP),18,20) AS VKGRP_NM,
+		     	 SUM(MIQ) MIQ,
+		      	 SUM(MBQ) MBQ,     
+		    	 SUM(CPQ) CPQ,
+		      	 SUM(TCQ) TCQ,
+		      	 SUM(RPQ) RPQ,     
+				 SUM(COALESCE(S.SANG,'0')) SANG,
+		      	 SUM(MIQ)+SUM(MBQ)+SUM(TCQ) - SUM(COALESCE(S.SANG,'0')) AS SUM1,  
+		      	 SUM(COALESCE(D02,'0'))+SUM(COALESCE(D01,'0'))+SUM(COALESCE(D03,'0')) AS SUM2, 
+		         SUM(COALESCE(D02,'0')) AS D02,
+		      	 SUM(COALESCE(D01,'0')) AS D01,
+		      	 SUM(COALESCE(D01,'0') + COALESCE(D03,'0')*0.5) AS R_CHK,
+		      	 SUM(COALESCE(D03,'0')) AS D03, 
+		      	 SUM(COALESCE(NO_LIC,'0')) AS NO_LIC
+		            
+			FROM SAPHEE.ZCST186N D  
+	
+		          LEFT OUTER JOIN ( SELECT CS652_YEA , 
+	                            		   CS652_MON , 
+	                            		   VKGRP , 
+	                            		   LGORT , 
+	                            		   COUNT( DECODE(CS652_GBN,'D01', 0)) D01 , 
+	                            		   COUNT( DECODE(CS652_GBN,'D02', 0)) D02 , 
+	                            		   COUNT( DECODE(CS652_GBN,'D03', 0)) D03 , 
+	                            		   COUNT(*) - COUNT( DECODE(CS652_SUR,'Y',0)) NO_LIC 
+	                              	  FROM SAPHEE.ZCST652 
+	                             	 WHERE CS652_YEA=#YEAR#
+	                            	   AND CS652_MON=#MONTH#  
+	                            	   AND VKGRP != '' 
+	                                   AND CS652_GBN !='' 
+	                            	   AND MANDT=#G_MANDT#  
+	                          	  GROUP BY CS652_YEA, 
+	                            		   CS652_MON, 
+	                            		   VKGRP, 
+	                            		   LGORT ) M 
+	                                   
+				        		       	ON D.YYYYMM = M.CS652_YEA||M.CS652_MON 
+				        		       AND D.BSU = M.LGORT 
+				        		       AND D.VKGRP = M.VKGRP
+	                   
+	                   
+		          LEFT OUTER JOIN ( SELECT CS200_YMD, LGORT, COUNT(CS200_MAN)  SANG
+		             			      FROM SAPHEE.ZCST200
+		            				 WHERE MANDT = #G_MANDT#
+		            				   AND CS200_YMD=#YEAR#||#MONTH#
+		            				   AND CS200_MAN='Y'
+		            			  GROUP BY CS200_YMD, LGORT ) S 
+		        			   
+		        			   			ON D.YYYYMM =  S.CS200_YMD
+		        			   		   AND D.BSU = S.LGORT
+                                               
+	  		  WHERE 1=1
+	       		AND D.MANDT = #G_MANDT# 
+	    	 	AND D.VKGRP != '' 
+	    	 	AND D.YYYYMM = #YEAR#||#MONTH#
+	    	 	AND D.BSU_GB = '1'  
+	               
+	       GROUP BY D.YYYYMM, D.VKGRP
+		ORDER BY DPT_NM 
+	) Z
+	
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list2">
+	</output>
+</query>

@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+WITH TEMP AS 
+(
+   SELECT   A.MANDT     ,A.POSID AS PSPID     ,A.ZSITE_NM     ,B.POSID_1 AS POSID     ,B.TXT30      
+                 ,B.ZSPEC1    ,B.ZSPEC2    
+                 ,(CASE WHEN B.ZZJUNGO = 'X' AND B.ZZCHAKG = 'X' THEN '준공'
+                            WHEN B.ZZJUNGO &lt;&gt; 'X' AND B.ZZCHAKG = 'X' THEN '진행'
+                            WHEN B.ZZJUNGO &lt;&gt; 'X' AND B.ZZCHAKG &lt;&gt; 'X' THEN '착공전'
+                            ELSE '' END ) AS STATE 
+                 ,B.ZZSHIP1   ,B.ZZCOMP2              ,A.VDATU
+                 ,B.LIFNR
+                 ,C.NAME1 AS LIFNR_NM
+                 ,B.TEMNO2 AS TMCD	  
+                 ,B.NAMET2 AS TMNM
+                 ,B.ZZACTSS AS ACTSS   
+                 ,B.TEXT30 AS ACTSSNM
+                 ,B.TEMNO AS PMCD                       
+                 ,B.NAMET AS PMNM
+                 ,VALUE(G.TOT_PRO, 0.00) AS J_PRO_R
+                 ,VALUE( (SELECT SUM(X.PRO_R) PRO_R    
+                                  FROM SAPHEE.ZPST0112 AS X
+                                WHERE X.MANDT = B.MANDT   AND   X.PSPID = B.POSID   AND   X.POSID = B.POSID_1
+                                GROUP BY X.MANDT,X.PSPID,X.POSID  ),  0.00)  AS  PRO_R
+
+                 ,B.ZBEPJEO      ,B.ZQEGEMSA
+                 ,D.ZZBEFOR
+                 ,F.NETWR  -- 수주액   
+                 ,VALUE((SELECT SUM(X.HWBAS)
+                                 FROM SAPHEE.ZSDT0029 AS X
+                               WHERE X.MANDT = F.MANDT    AND   X.KIDNO = F.ZZPJT_ID   AND  X.ZCANYM = '000000'), 0) AS HWBAS  -- 수금액  
+				
+				,VALUE((SELECT   X.EXPLO
+	                FROM SAPHEE.ZPST0019 AS X
+	              WHERE X.MANDT = A.MANDT      AND     X.PSPID = A.POSID
+                            ORDER BY  SEQNO DESC    fetch first 1 rows only  ), '00000000')  AS STON_DATE  --현장답사일
+                ,B.ZZINTER		
+   FROM SAPHEE.ZMASTER01 AS A
+   INNER JOIN SAPHEE.ZMASTER02 AS B
+        ON A.MANDT = B.MANDT	  AND    A.POSID = B.POSID
+     LEFT OUTER JOIN SAPHEE.LFA1 AS C
+        ON B.MANDT = C.MANDT     AND     B.LIFNR = C.LIFNR
+   INNER JOIN SAPHEE.PRPS AS D
+        ON A.MANDT = D.MANDT	  AND    A.POSID = D.POSID
+   INNER JOIN SAPHEE.VBAK AS F
+        ON A.MANDT = F.MANDT     AND    A.POSID = F.ZZPJT_ID		
+     LEFT OUTER JOIN SAPHEE.ZPSTSITURM03 AS G
+        ON B.MANDT = G.MANDT    AND    B.POSID = G.PSPID     AND    B.POSID_1 = G.POSID
+		
+  WHERE B.MANDT = #G_MANDT#
+      AND B.TXT04 &lt;&gt; 'C'
+
+<isNotNull col="DATEF">
+      AND B.ZZSHIP1  BETWEEN  #DATEF# AND #DATET#
+</isNotNull>
+
+<isNotNull col="ZZACTSS">
+   <isEqual col="G_AREA_CODE_E" value="02">
+      AND (B.ZZACTSS  = #ZZACTSS# OR B.ZZACTSS  = '14')
+   </isEqual>
+   <isEqual col="G_AREA_CODE_E" value="21">
+      AND (B.ZZACTSS  = #ZZACTSS# OR B.ZZACTSS  = '14')
+   </isEqual>
+   <isNotEqual col="G_AREA_CODE_E" value="02">
+      AND B.ZZACTSS  = #ZZACTSS#
+   </isNotEqual>       
+</isNotNull>
+
+      AND B.ZZACTSS BETWEEN '01' AND '21'
+
+<isNotNull col="ZZPMNUM">
+      AND B.TEMNO = #ZZPMNUM#
+</isNotNull>
+
+<isNotNull col="PSPID">
+      AND A.POSID = #PSPID#
+</isNotNull>
+
+
+<isEqual col="GBN2" value="N">
+      AND B.ZZGUBUN IN ('10', '11', '12', '13', '14', '20')		
+</isEqual>
+<isEqual col="GBN2" value="Y">
+      AND B.ZZGUBUN IN ('10', '11', '12', '13', '14', '20','91','92')		
+</isEqual>  
+
+<isNotNull col="ZZLIFNR">
+     AND B.LIFNR = #ZZLIFNR#
+</isNotNull>
+
+   --AND B.ZZCHAKG = 'X'    
+     AND (B.ZBOSUOUT = '' OR B.ZBOSUOUT = '00000000')
+     AND NOT EXISTS (SELECT *
+                                FROM SAPHEE.ZPST0098 AS X
+                               WHERE X.MANDT = B.MANDT
+                                 AND X.PSPID = B.POSID
+                                 AND X.POSID = B.POSID_1
+                                 AND X.APPL_DAT &lt;= '99990101' )
+
+WITH UR	
+)
+
+
+SELECT   T1.MANDT        ,T1.PSPID               ,T1.ZSITE_NM      ,T1.POSID           ,T1.TXT30         ,T1.ZSPEC1     
+              ,T1.ZSPEC2       ,T1.STATE              ,T1.LIFNR             ,T1.LIFNR_NM     ,T1.TMCD	    ,T1.TMNM
+	,T1.ACTSS         ,T1.ACTSSNM        ,T1.PMCD             ,T1.PMNM          ,T1.J_PRO_R     ,T1.PRO_R
+              ,T1.ZZSHIP1 AS ZZSHIP1_O       
+              ,SUBSTR(T1.ZZSHIP1, 3, 6) AS ZZSHIP1
+              ,T1.ZZCOMP2  AS ZZCOMP2_O
+              ,SUBSTR(T1.ZZCOMP2, 3, 6) AS ZZCOMP2
+              ,T1.VDATU AS  VDATU_O       
+              ,SUBSTR(T1.VDATU, 3, 6) AS VDATU			  			  			  
+              ,T1.ZBEPJEO  AS ZBEPJEO_O
+              ,SUBSTR(T1.ZBEPJEO, 3, 6) AS ZBEPJEO 			  
+              ,T1.ZQEGEMSA  AS ZQEGEMSA_O
+              ,SUBSTR(T1.ZQEGEMSA, 3, 6) AS ZQEGEMSA 	
+              ,(CASE WHEN T1.ZZBEFOR = 'X' THEN 'Y'  ELSE   (CASE WHEN T1.NETWR > 0  THEN  rtrim(CHAR(INT(ROUND(DEC(  FLOAT(T1.HWBAS)  /  FLOAT(T1.NETWR) , 10 ,3),  2) * 100))) || '%'  ELSE '' END)    END) AS COLLECT_BILL
+			  ,T1.STON_DATE AS STON_DATE_O
+              ,(CASE WHEN T1.STON_DATE = '00000000' THEN '입력'  ELSE  SUBSTR(T1.STON_DATE, 3, 6)  END) AS STON_DATE
+              ,T1.ZZINTER
+              ,'' AS GATE
+   FROM TEMP AS T1 	  
+ WHERE T1.MANDT =  #G_MANDT#
+
+order by T1.ACTSSNM, T1.PMNM, T1.POSID
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list3">
+	</output>
+</query>

@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT CS403A.* ,
+       A.CS403_DDT DUEDATE_01 ,
+       B.CS403_DDT DUEDATE_02 ,
+       C.CS403_DDT DUEDATE_03 
+ 
+  FROM 
+       (SELECT CS403.MANDT AS MANDT, 
+              CS403.CS403_GNO AS GNO, 
+              CS403.CS403_DNO AS DNO, 
+              CS403.CS403_SEQ AS SEQ, 
+              CS403.CS403_KNM AS KUNNR, 
+              --	  CS403.KUNNR AS KUNNR, 
+              CS403.CS403_TIT AS TITLE, 
+              CS403.CS403_MIG AS TITLE2, 
+              CS403.CS403_ADR AS ADDR, 
+              CS403.CS403_MIA AS MI_SU_F, 
+              CS403.CS403_EPN AS EPNAME, 
+              CS403.CS403_DDT AS DUEDATE, 
+              CS403.AUART AS AUART, 
+              DATE(SAPHEE.GET_DATE_FORMAT(CS403.CS403_DDT)) + 1 DAY DISCONTINUE, 
+              CS405_DN1 DNO_01, 
+              CS405_DN2 DNO_02, 
+              CS405_DN3 DNO_03, 
+              '' AS SGUSR,
+              ZF.BANKVN, --계좌번호 
+              W.ADDR2, 
+              W.TEL, 
+              W.FAX, 
+              W.VKGRP, 
+              W.ARA_TEXT,
+              (SELECT X.CTEXT2 FROM SAPHEE.ZLCODE AS X WHERE X.MANDT = #G_MANDT# AND X.LANG = #G_LANG# AND X.CODE1 = 'VKBUR' AND X.CODE2 = SUBSTR(W.VKGRP,1,2)||'00') AS DEPT_NO -- 2020.12.02 누락으로 인한 지사명 추가. HAN J.H  
+         FROM SAPHEE.ZCST403 CS403 
+          LEFT OUTER JOIN 
+              (SELECT DTEXT2 ADDR2 ,
+                     CASE 
+                         WHEN CODE2 < 'E55' 
+                         THEN '02-3670-0960' 
+                         ELSE DTEXT3 
+                     END TEL ,
+                     DTEXT4 FAX ,
+                     DTEXT5 SGUSR ,
+                     CODE2 VKGRP ,
+                     CASE 
+                         WHEN CODE2 < 'E55' 
+                         THEN CTEXT2||'지사' 
+                         ELSE CTEXT2 
+                     END ARA_TEXT 
+                FROM SAPHEE.ZLCODE A 
+               WHERE A.MANDT = #G_MANDT#
+                     AND A.CODE1 = 'CS181' 
+              ) W 
+              ON W.VKGRP = CS403.VKGRP ,
+              (
+				SELECT MAX(CS405_GNO) CS405_GNO ,
+		               MAX(CS405_DN1) CS405_DN1 ,
+				       MAX(CS405_DN2) CS405_DN2 ,
+				       MAX(CS405_DN3) CS405_DN3 ,
+				       MAX(MANDT) MANDT  
+				  FROM SAPHEE.ZCST405  
+		         WHERE MANDT = '183' 
+			  GROUP BY CS405_DN1 
+                     ) CS405 ,
+              SAPHEE.ZFIT1071 ZF  
+        WHERE 1=1 
+              AND CS405.MANDT = #G_MANDT# 
+              AND CS403.MANDT = #G_MANDT# 
+              AND ZF.MANDT = #G_MANDT# 
+              AND CS405.CS405_GNO = CS403.CS403_GNO 
+              AND CS403.CS403_DNO IN ( #DNOL+#  ) 
+              AND CS403.KUNNR = ZF.KUNNR 
+              AND ZF.BANKL='011' 
+              AND CS403.AUART = ZF.AUART  
+  
+              AND CS403.CS403_DNO = CS405.CS405_DN1 
+              
+              AND ZF.PSPID = SUBSTR(CS403.CS403_GNO, 1, 6) 
+       WITH UR 
+          ) 
+          CS403A 
+      INNER join SAPHEE.ZCST403 A 
+          ON A.MANDT = CS403A.MANDT 
+          AND A.CS403_GNO = CS403A.GNO 
+          AND A.CS403_DNO = CS403A.DNO_01 
+          AND A.CS403_SEQ = '01' 
+      LEFT OUTER JOIN SAPHEE.ZCST403 B 
+          ON B.MANDT = CS403A.MANDT 
+          AND B.CS403_GNO = CS403A.GNO 
+          AND B.CS403_DNO = CS403A.DNO_02 
+          AND B.CS403_SEQ = '02' 
+		  AND CS403A.DNO_01 IS NOT NULL
+		  
+      LEFT OUTER JOIN SAPHEE.ZCST403 C 
+          ON C.MANDT = CS403A.MANDT 
+          AND C.CS403_GNO = CS403A.GNO 
+          AND C.CS403_DNO = CS403A.DNO_03 
+		  AND CS403A.DNO_01 IS NOT NULL
+		  AND CS403A.DNO_02 IS NOT NULL
+          AND C.CS403_SEQ = '03'      
+      ]]>     
+   </statement>
+	<input default-name="_none"> 
+	</input>
+	<output default-name="ds_list3">
+	</output>
+</query>

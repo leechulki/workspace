@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT   '' AS CHK, B.PSPID, 
+	    --   (SELECT X.ZSITE_NM FROM SAPHEE.ZMASTER01 AS X WHERE X.MANDT = B.MANDT  AND X.POSID  = B.PSPID) AS ZSITE_NM,
+         	B.HKONT,   B.SEQNO,	B.GUBUN, 	B.BLDAT,	B.INSDT, B.BELNR, 
+         VALUE((SELECT M12.NAME1 
+           FROM SAPHEE.ZMMT012 AS M12 
+          WHERE B.MANDT = M12.MANDT AND B.WRKLFN = M12.LIFNR),'') AS LIFNR_NM,
+          B.WRKLFN , 
+           	B.W_INST,	B.STATE, B.WASTE_CK , 
+           	CASE WHEN B.WASTE_CK = '' THEN 'C' ELSE B.WASTE_CK END AS WASTE_CK2 , 
+	        C.ITEMNO,	C.ITEMCD ,	B.MWBTR  *100  AS MWBTR, B.TWBTR  *100 AS  TWBTR,  (B.MWBTR + B.TWBTR) * 100 AS NETWR ,
+          (SELECT X.NAMET FROM SAPHEE.ZMASTER02 AS X WHERE X.MANDT = B.MANDT AND X.POSID = B.PSPID ORDER BY X.POSID , X.POSID_1   FETCH FIRST 1 ROWS ONLY ) AS NAMET ,
+	         M.ZMAN_NM AS ZMAN, M.KUNNR_NM AS KUNNER , M.ZSITE_NM   , 'U' AS GBN ,C.ITEMTX , B.BIGO,
+	        VALUE((SELECT X.TAX FROM SAPHEE.ZTBEVACF1 AS X WHERE B.MANDT = X.MANDT AND B.WRKLFN = X.NUM),'X') AS TAX,
+	        VALUE(D.FNAME,'') FNAME, '' as FNAME_PATH , 
+          VALUE(D.FNAME_APP,'') FNAME_APP,
+          VALUE(D.FPATH,'') FPATH , VALUE(B.MWNCHK, '') AS MWNCHK ,  VALUE(B.FI_CHK, '')   AS FI_CHK,
+          CASE WHEN VALUE((SELECT X.ZFICONF  FROM SAPHEE.BKPF AS X WHERE B.MANDT = X.MANDT  AND X.BUKRS = '1000' AND B.BELNR  = X.BELNR   AND X.GJAHR = SUBSTR(B.BLDAT,1,4)),'')= 'X' 
+             THEN 'O' ELSE '' END  AS ZFICONF,
+         VALUE((SELECT X.USERNAME FROM SAPHEE.ZUSERF AS X WHERE B.MANDT = X.MANDT AND B.W_REQMAN = X.USERNUMB), '') AS CNAME
+
+
+			 
+       FROM SAPHEE.ZPST0117 AS B          
+        INNER JOIN  SAPHEE.ZPST0117L AS C
+           ON B.MANDT = C.MANDT 
+          AND B.PSPID = C.PSPID
+          AND B.GUBUN = C.GUBUN
+	        AND B.HKONT = C.HKONT
+   	      AND B.SEQNO = C.SEQNO
+			  
+	    LEFT OUTER JOIN SAPHEE.ZPST0117S  AS D
+          ON B.MANDT = D.MANDT 
+         AND B.PSPID = D.PSPID
+         AND B.GUBUN = D.GUBUN
+         AND B.HKONT = D.HKONT
+         AND B.SEQNO = D.SEQNO	
+			  
+      LEFT OUTER JOIN SAPHEE.ZMASTER01 AS M
+	      ON M.MANDT = B.MANDT 
+	     AND M.POSID = B.PSPID
+	       
+
+WHERE B.MANDT = #G_MANDT#
+     AND B.PSPID = #PSPID#
+     AND B.GUBUN = '1'	
+     AND B.HKONT = '0053025040'      
+     AND B.W_INST = 'X'
+
+
+ <isNotNull col="STATE">
+  AND B.STATE = #STATE# ORDER BY B.PSPID, B.SEQNO
+ </isNotNull>           
+  <isNotNull col="ZMAN">
+    AND M.ZMAN_NM  LIKE '%'||#ZMAN#||'%'
+   </isNotNull>	
+  <isNotNull col="KUNNER">
+    AND M.KUNNR_NM LIKE '%'||#KUNNER#||'%'
+   </isNotNull>	
+  FOR FETCH ONLY
+  WITH UR
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[중도해지진행현황 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT   NUM
+		,MAX(ARA		) AS ARA
+        ,MAX(ARA_NM		) AS ARA_NM
+        ,MAX(TEM		) AS TEM       
+        ,MAX(TEM_NM     ) AS TEM_NM    
+        ,MAX(BSU        ) AS BSU       
+        ,MAX(BSU_NM     ) AS BSU_NM    
+        ,MAX(PJT        ) AS PJT       
+        ,MAX(KUNNR      ) AS KUNNR     
+        ,MAX(KUNNR_NM   ) AS KUNNR_NM  
+        ,MAX(ZSITE_NM   ) AS ZSITE_NM 
+        ,COUNT(*)         AS HNO_CNT 		/* 호기대수 */
+        ,MAX(ZMUSAOCNT  ) AS ZMUSAOCNT 
+        ,MAX(ZMUSAUCNT  ) AS ZMUSAUCNT 
+        ,MAX(BGT_A      ) AS BGT_A     
+        ,MAX(BMT_A      ) AS BMT_A     
+        ,MAX(ZMUSAOCNT2 ) AS ZMUSAOCNT2
+        ,MAX(ZMUSAUCNT2 ) AS ZMUSAUCNT2
+        ,MAX(BGT_B      ) AS BGT_B     
+        ,MAX(BMT_B      ) AS BMT_B     
+        ,MAX(GBN        ) AS GBN      
+        ,MAX(JHD        ) AS JHD       
+        ,MAX(JID        ) AS JID       
+        ,MAX(REQE       ) AS REQE       
+        ,MAX(REQC       ) AS REQC       
+        ,MAX(REQ        ) AS REQ       
+        ,MAX(RPD        ) AS RPD       
+        ,MAX(APSTAT     ) AS APSTAT    
+        ,MAX(APSTATNM   ) AS APSTATNM  
+        ,MAX(GND        ) AS GND       
+        ,MAX(GND_NM     ) AS GND_NM    
+FROM (
+      SELECT  CS116.CS116_ARA                                                   AS ARA        /* 지역코드 */
+             ,VALUE(SAPHEE.CODE_CONV(CS116.MANDT,'CS115', CS116.CS116_ARA),'')  AS ARA_NM     /* 지역명 */
+             ,CS623.CS623_NUM                                                   AS NUM        /* 관리번호 */
+             ,B010.VKGRP                                                        AS TEM			  /* 팀 */
+             ,VALUE(SAPHEE.CODE_CONV(CS116.MANDT,'VKGRP',B010.VKGRP),'')        AS TEM_NM	    /* 팀명 */
+             ,CS116.CS116_BSU                                                   AS BSU        /* 부서코드 */
+             ,MM012A.NAME1                                                      AS BSU_NM     /* 협력사명 */
+             ,CS116.CS116_PJT                                                   AS PJT        /* 프로젝트 */
+             ,MASTER01A.KUNNR                                                   AS KUNNR      /* 고객코드 */
+             ,MASTER01A.KUNNR_NM                                                AS KUNNR_NM   /* 고객명 */
+             ,MASTER01A.ZSITE_NM                                                AS ZSITE_NM   /* 현장명 */
+             ,MASTER02A.ZMUSAOCNT                                               AS ZMUSAOCNT  /* 무상공사-예산개월수 */
+             ,MASTER02A.ZMUSAUCNT                                               AS ZMUSAUCNT  /* 무상공사-사용개월수 */
+             ,(SELECT MAX(CS116_BGT) 
+                 FROM SAPHEE.ZCST116 
+                WHERE     MANDT = CS116.MANDT 
+                      AND CS116_PJT = CS116.CS116_PJT
+                      AND CS116_HNO = CS116.CS116_HNO
+                      AND CS116_GND = 'A')                                      AS BGT_A      /* 무상공사-발주개시일 */
+             ,(SELECT MAX(CS116_BMT) 
+                 FROM SAPHEE.ZCST116 
+                WHERE     MANDT = CS116.MANDT 
+                      AND CS116_PJT = CS116.CS116_PJT
+                      AND CS116_HNO = CS116.CS116_HNO
+                      AND CS116_GND = 'A')                                      AS BMT_A      /* 무상공사-발주만료일 */
+             ,MASTER02A.ZMUSAOCNT2                                              AS ZMUSAOCNT2 /* 무상일반-예산개월수 */
+             ,MASTER02A.ZMUSAUCNT2                                              AS ZMUSAUCNT2 /* 무상일반-사용개월수 */
+             ,(SELECT MAX(CS116_BGT) 
+                 FROM SAPHEE.ZCST116 
+                WHERE     MANDT = CS116.MANDT 
+                      AND CS116_PJT = CS116.CS116_PJT
+                      AND CS116_HNO = CS116.CS116_HNO
+                      AND CS116_GND = 'B')                                      AS BGT_B      /* 무상일반-발주개시일 */
+             ,(SELECT MAX(CS116_BMT) 
+                 FROM SAPHEE.ZCST116 
+                WHERE     MANDT = CS116.MANDT 
+                      AND CS116_PJT = CS116.CS116_PJT
+                      AND CS116_HNO = CS116.CS116_HNO
+                      AND CS116_GND = 'B')                                      AS BMT_B      /* 무상일반-발주만료일 */
+             ,CS623.CS623_GBN                                                   AS GBN        /* 사유구분코드 */
+             ,CS623.CS623_JHD                                                   AS JHD        /* 중도해지일 */
+             ,CS623.CS623_JID                                                   AS JID        /* 작성일 */
+             ,CS623.CS623_REQE													AS REQE       /* 당사요구안 */
+             ,CS623.CS623_REQC													AS REQC		  /* 고객요구안 */
+             ,CS623.CS623_REQ													AS REQ        /* 협의결과 */
+             ,CS623.CS623_RPD													AS RPD		  /* 계약예정일 */
+             ,WBAP01.APSTAT                                                     AS APSTAT     /* 결재상태코드 */
+             ,( SELECT DTEXT1 
+                  FROM SAPHEE.ZLCODE 
+                 WHERE     MANDT = CS623.MANDT
+                       AND LANG  = #G_LANG# 
+                       AND CODE1 IN ('WBAP_STAT') 
+                       AND CODE2 &lt;&gt; 'E1' 
+                       AND CODE2 = WBAP01.APSTAT
+              )                                                                 AS APSTATNM	  /* 전자결재진행상태 */
+             ,CS116.CS116_GND                                                   AS GND        /* 발주구분코드 */  
+             ,CASE 
+                  WHEN CS116.CS116_GND = 'A' THEN '무상공사' 
+                  ELSE '무상일반' 
+              END                                                               AS GND_NM     /* 발주구분 */
+        FROM  SAPHEE.ZCST623 CS623                            					/* 무상보수발주중도해지 */
+             ,SAPHEE.ZCST116 CS116                            					/* 무상보수발주청구 */
+              LEFT OUTER JOIN SAPHEE.ZMMT005 MM005A
+                           ON CS116.MANDT     = MM005A.MANDT
+                          AND CS116.CS116_BSU = MM005A.LGORT					/* 저장위치별 협력업체 매핑 */
+              LEFT OUTER JOIN SAPHEE.ZWBT010 B010 				    			/* 협력업체 참조정보 */
+                           ON B010.MANDT = CS116.MANDT 
+                          AND B010.LGORT = CS116.CS116_BSU
+             ,SAPHEE.ZMASTER01 MASTER01A	                    				/* 마스터 프로젝트 */
+             ,SAPHEE.ZMASTER02 MASTER02A	                    				/* 마스터 호기 */
+             ,SAPHEE.ZMMT012 MM012A		                        				/* [MM]Portal 업체마스터  */
+             ,SAPHEE.ZWBAP01 WBAP01			                      				/* 전자문서 마스터 */
+             ,SAPHEE.ZLCODE  ZC
+       WHERE      CS623.MANDT = CS116.MANDT
+              AND CS623.CS623_PJT = CS116.CS116_PJT
+              AND CS623.CS623_HNO = CS116.CS116_HNO								
+              AND CS623.CS623_SEQ = CS116.CS116_SEQ
+              AND CS623.MANDT = WBAP01.MANDT
+              AND CS623.CS623_NUM = WBAP01.DOCNO
+              AND CS116.MANDT = MASTER01A.MANDT
+              AND CS116.CS116_PJT = MASTER01A.POSID
+              AND CS116.MANDT = MM012A.MANDT
+              AND MM005A.LIFNR = MM012A.LIFNR
+              AND CS623.MANDT = MASTER02A.MANDT
+              AND CS623.CS623_PJT   = MASTER02A.POSID
+              AND CS623.CS623_PJT||CS623.CS623_HNO = MASTER02A.POSID_1
+              AND CS623.CS623_DEL !='Y'
+              
+              #WQST+#	/* 부서 */
+              
+              <isNotNull col="PJT">
+			   AND CS623.CS623_PJT = #PJT#
+			  </isNotNull>
+			  <isNotNull col="BPM">
+			   AND CS116.CS116_BPM = #BPM#
+			  </isNotNull>
+			  <isNotNull col="ARA">
+			   AND CS116.CS116_ARA = #ARA#
+			  </isNotNull>
+			  <isNotNull col="BSU">
+			   AND CS116.CS116_BSU = #BSU#
+			  </isNotNull>
+			  <isNotNull col="APSTAT">
+			   AND WBAP01.APSTAT    = #APSTAT#
+			  </isNotNull>
+			  <isNotNull col="TEM">
+			   AND B010.VKGRP = #TEM#
+			  </isNotNull>
+			  <isNotNull col="GND">
+			   AND CS116.CS116_GND LIKE #GND#||'%'
+			  </isNotNull>
+			  <isNotNull col="NUM">
+			   AND CS623.CS623_NUM LIKE #NUM#||'%'
+			  </isNotNull>
+			  <isNotNull col="JID_F">
+			   AND CS623.CS623_JID BETWEEN #JID_F# AND #JID_T#
+			  </isNotNull>
+ )
+ GROUP BY NUM
+ ORDER BY NUM DESC
+FOR FETCH ONLY
+WITH UR
+</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

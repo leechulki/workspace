@@ -1,0 +1,505 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[품목표 List]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+WITH PPT4 AS (
+SELECT
+ PP004.WOKNUM AS HOGIN
+,(SELECT ZSITE_NM FROM SAPHEE.ZMASTER01 AS MS001 WHERE MS001.MANDT=PP004.MANDT AND MS001.POSID=PP004.POSID) AS SITE_NM
+,MS002.ZSPEC1 AS SPEC1
+,MS002.ZSPEC2 AS SPEC2
+,PP004.MATNR  AS MATNR
+,PP004.IDNRK  AS IDNRK
+,PP004.ITEM_SEQ AS ITEM_SEQ
+,PP004.MAKTX   AS MAKTX
+,PP004.MAKTX AS MATNR_NM --CASE WHEN MM011.MATNR_NM='' THEN MM011.MAKTX ELSE  MM011.MATNR_NM END AS MATNR_NM
+,MM011.MTART   AS MTART
+,PP004.SPEC   AS SPEC
+,PP004.ZSIZE  AS SIZE
+,MM011.EXTWG  AS EXTWG
+,MM011.EXTWG2 AS EXTWG2
+,'신박스' AS BOXCK
+-- 진행박스란에 신박스로 조회되도록 수정  2015.08.06 조영욱
+-- VALUE((SELECT CASE WHEN M085A.BOX_CK = '24' THEN '신박스' ELSE '구박스' END
+--                 FROM SAPHEE.ZMMT085 AS M085A
+--               WHERE M085A.MANDT = PP004.MANDT
+--                   AND M085A.POSID2 = PP004.WOKNUM),'구박스') AS BOXCK
+,PP004.MENGE  AS MENGE
+,PP004.MEINS  AS MEINS
+,PP004.DZEINR AS DZEINR
+,PP004.MATKL  AS MATKL
+,PP004.UPMATKL AS UPMATKL
+,PP004.VERSION AS VERSION
+,PP004.BOM_LEVEL AS BOM_LEVEL
+,PP004.CRUSER AS CRUSER
+,PP004.CRDAT AS CRDAT
+,PP004.CRTIM AS CRTIM
+,PP004.PART AS PART
+,CASE WHEN PP004.PART=11 THEN '기계-구조물'
+      WHEN PP004.PART=12 THEN '기계-의장'
+      WHEN PP004.PART=21 THEN '전기-CP'
+      WHEN PP004.PART=22 THEN '전기-의장'
+      WHEN PP004.PART=23 THEN '전기-CABLE'
+      WHEN PP004.PART=50 THEN '주차'
+      WHEN PP004.PART=60 THEN 'E/S,M/W'
+      WHEN PP004.PART=70 THEN '물류' ELSE '' END AS PART_NM
+,CASE PP004.PRCTYP WHEN 'C' THEN '변경' WHEN 'D' THEN '삭제' WHEN 'N' THEN '추가' ELSE '' END AS PRCTYP
+,PP004.PRCTYP AS PRC_ORG
+,PP004.MANDT  AS MANDT
+FROM (
+
+       SELECT
+       A.MANDT
+      ,A.CRDAT
+      ,A.SEQNO
+      ,A.WOKNUM
+      ,A.MATNR
+      ,A.IDNRK
+      ,A.ITEM_SEQ
+      ,A.MENGE
+      ,A.MEINS
+      ,A.MATKL
+      ,A.UPMATKL
+      ,B.DZEINR
+      ,A.PRCTYP
+      ,A.VERSION
+      ,A.BOM_LEVEL
+      ,A.CRUSER
+      ,A.CRTIM
+      ,ROW_NUMBER() OVER(PARTITION BY A.MANDT,A.WOKNUM,A.MATNR,A.IDNRK,A.ITEM_SEQ,A.MATKL ORDER BY A.MANDT,A.WOKNUM,A.MATNR,A.IDNRK,A.ITEM_SEQ,A.CRDAT DESC,A.SEQNO DESC) AS ROWNO
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,6)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,6) ELSE SUBSTR(WOKNUM,1,6) END AS POSID
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,9)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,9) ELSE SUBSTR(WOKNUM,1,9) END AS POSID_1
+      ,CASE WHEN ZPART='M'             THEN 11
+            WHEN ZPART='C'             THEN 12
+            WHEN ZPART='1'             THEN 21
+            WHEN ZPART='2'             THEN 22
+            WHEN ZPART='3'             THEN 23
+            WHEN SUBSTR(MATKL,2,1)='5' THEN 50
+            WHEN SUBSTR(MATKL,2,1)='6' THEN 60
+            WHEN SUBSTR(MATKL,2,1)='7' THEN 70
+            WHEN SUBSTR(MATKL,2,1)='1' THEN 11
+            WHEN SUBSTR(MATKL,2,1)='2' THEN 21
+            WHEN SUBSTR(MATKL,2,1)='3' THEN 12 ELSE 90 END AS PART
+	  ,B.MAKTX
+	  ,B.SPEC
+	  ,B.ZSIZE
+      FROM SAPHEE.ZPPT004 AS A INNER JOIN SAPHEE.ZPPT007 AS B ON A.MANDT = B.MANDT AND A.IDNRK = B.MATNR AND A.MATKL = B.ITEMNO
+      WHERE A.MANDT = #G_MANDT#
+      AND A.WOKNUM LIKE #HOGIN#||'%' 
+      AND LENGTH(CAST(#HOGIN# AS VARCHAR(15))) &gt;= 6 
+<isNotNull col="BLOCK">
+       AND MATKL LIKE #BLOCK#||'%' 
+</isNotNull>
+
+<isNotNull col="MATNR">
+       AND IDNRK LIKE #MATNR#||'%' 
+</isNotNull>
+       AND B.CRDAT = ( SELECT MAX(CRDAT) FROM SAPHEE.ZPPT007 WHERE MANDT = B.MANDT AND MATNR = B.MATNR AND ITEMNO = B.ITEMNO  )
+
+      UNION          -- 1 LEVEL 자재인 경우, 2 LEVEL 자재도 선택
+
+      SELECT
+       A.MANDT
+      ,A.CRDAT
+      ,A.SEQNO
+      ,A.WOKNUM
+      ,A.MATNR
+      ,A.IDNRK
+      ,A.ITEM_SEQ
+      ,A.MENGE
+      ,A.MEINS
+      ,A.MATKL
+      ,A.UPMATKL
+      ,B.DZEINR
+      ,A.PRCTYP
+      ,A.VERSION
+      ,A.BOM_LEVEL
+      ,A.CRUSER
+      ,A.CRTIM
+      ,ROW_NUMBER() OVER(PARTITION BY A.MANDT,A.WOKNUM,A.MATNR,A.IDNRK,A.ITEM_SEQ,A.MATKL ORDER BY A.MANDT,A.WOKNUM,A.MATNR,A.IDNRK,A.ITEM_SEQ,A.CRDAT DESC,A.SEQNO DESC) AS ROWNO
+      ,CASE WHEN SUBSTR(A.WOKNUM,1,2)='QM' THEN SUBSTR(A.WOKNUM,3,6)
+            WHEN SUBSTR(A.WOKNUM,1,1)='Q'  THEN SUBSTR(A.WOKNUM,2,6) ELSE SUBSTR(A.WOKNUM,1,6) END AS POSID
+      ,CASE WHEN SUBSTR(A.WOKNUM,1,2)='QM' THEN SUBSTR(A.WOKNUM,3,9)
+            WHEN SUBSTR(A.WOKNUM,1,1)='Q'  THEN SUBSTR(A.WOKNUM,2,9) ELSE SUBSTR(A.WOKNUM,1,9) END AS POSID_1
+      ,CASE WHEN A.ZPART='M'             THEN 11
+            WHEN A.ZPART='C'             THEN 12
+            WHEN A.ZPART='1'             THEN 21
+            WHEN A.ZPART='2'             THEN 22
+            WHEN A.ZPART='3'             THEN 23
+            WHEN SUBSTR(A.MATKL,2,1)='5' THEN 50
+            WHEN SUBSTR(A.MATKL,2,1)='6' THEN 60
+            WHEN SUBSTR(A.MATKL,2,1)='7' THEN 70
+            WHEN SUBSTR(A.MATKL,2,1)='1' THEN 11
+            WHEN SUBSTR(A.MATKL,2,1)='2' THEN 21
+            WHEN SUBSTR(A.MATKL,2,1)='3' THEN 12 ELSE 90 END AS PART
+	  ,B.MAKTX
+	  ,B.SPEC
+	  ,B.ZSIZE		
+      FROM SAPHEE.ZPPT004 AS A INNER JOIN SAPHEE.ZPPT007 AS B ON A.MANDT = B.MANDT AND A.IDNRK = B.MATNR AND A.MATKL = B.ITEMNO
+      WHERE A.MANDT = #G_MANDT#
+      AND A.WOKNUM LIKE #HOGIN#||'%' 
+      AND LENGTH(CAST(#HOGIN# AS VARCHAR(15))) &gt;= 6
+      AND A.BOM_LEVEL = '02' 
+<isNotNull col="BLOCK">
+      AND A.MATKL LIKE #BLOCK#||'%' 
+</isNotNull>
+<isNotNull col="MATNR">
+      AND A.IDNRK LIKE #MATNR#||'%' 
+</isNotNull>
+      AND B.CRDAT = ( SELECT MAX(CRDAT) FROM SAPHEE.ZPPT007 WHERE MANDT = B.MANDT AND MATNR = B.MATNR AND ITEMNO = B.ITEMNO  )
+
+      UNION          -- 2 LEVEL 자재인 경우, 1 LEVEL 자재도 선택
+
+      SELECT
+       A.MANDT
+      ,A.CRDAT
+      ,A.SEQNO
+      ,A.WOKNUM
+      ,A.MATNR
+      ,A.IDNRK
+      ,A.ITEM_SEQ
+      ,A.MENGE
+      ,A.MEINS
+      ,A.MATKL
+      ,A.UPMATKL
+      ,B.DZEINR
+      ,A.PRCTYP
+      ,A.VERSION
+      ,A.BOM_LEVEL
+      ,A.CRUSER
+      ,A.CRTIM
+      ,ROW_NUMBER() OVER(PARTITION BY A.MANDT,A.WOKNUM,A.MATNR,A.IDNRK,A.ITEM_SEQ,A.MATKL ORDER BY A.MANDT,A.WOKNUM,A.MATNR,A.IDNRK,A.ITEM_SEQ,A.CRDAT DESC,A.SEQNO DESC) AS ROWNO
+      ,CASE WHEN SUBSTR(A.WOKNUM,1,2)='QM' THEN SUBSTR(A.WOKNUM,3,6)
+            WHEN SUBSTR(A.WOKNUM,1,1)='Q'  THEN SUBSTR(A.WOKNUM,2,6) ELSE SUBSTR(A.WOKNUM,1,6) END AS POSID
+      ,CASE WHEN SUBSTR(A.WOKNUM,1,2)='QM' THEN SUBSTR(A.WOKNUM,3,9)
+            WHEN SUBSTR(A.WOKNUM,1,1)='Q'  THEN SUBSTR(A.WOKNUM,2,9) ELSE SUBSTR(A.WOKNUM,1,9) END AS POSID_1
+      ,CASE WHEN A.ZPART='M'             THEN 11
+            WHEN A.ZPART='C'             THEN 12
+            WHEN A.ZPART='1'             THEN 21
+            WHEN A.ZPART='2'             THEN 22
+            WHEN A.ZPART='3'             THEN 23
+            WHEN SUBSTR(A.MATKL,2,1)='5' THEN 50
+            WHEN SUBSTR(A.MATKL,2,1)='6' THEN 60
+            WHEN SUBSTR(A.MATKL,2,1)='7' THEN 70
+            WHEN SUBSTR(A.MATKL,2,1)='1' THEN 11
+            WHEN SUBSTR(A.MATKL,2,1)='2' THEN 21
+            WHEN SUBSTR(A.MATKL,2,1)='3' THEN 12 ELSE 90 END AS PART
+	  ,B.MAKTX
+	  ,B.SPEC
+	  ,B.ZSIZE		
+      FROM SAPHEE.ZPPT004 AS A INNER JOIN SAPHEE.ZPPT007 AS B ON A.MANDT = B.MANDT AND A.IDNRK = B.MATNR AND A.MATKL = B.ITEMNO
+      WHERE A.MANDT = #G_MANDT#
+      AND A.WOKNUM LIKE #HOGIN#||'%' 
+      AND LENGTH(CAST(#HOGIN# AS VARCHAR(15))) &gt;= 6 
+      AND A.IDNRK IN (
+
+           SELECT
+           DISTINCT MATNR
+           FROM SAPHEE.ZPPT004
+           WHERE MANDT = #G_MANDT#
+           AND WOKNUM LIKE #HOGIN#||'%' 
+           AND LENGTH(CAST(#HOGIN# AS VARCHAR(15))) &gt;= 6
+           AND BOM_LEVEL = '02' 
+<isNotNull col="BLOCK">
+           AND MATKL LIKE #BLOCK#||'%' 
+</isNotNull>
+<isNotNull col="MATNR">
+           AND IDNRK LIKE #MATNR#||'%' 
+</isNotNull>
+
+        )
+      --AND B.CRDAT = ( SELECT MAX(CRDAT) FROM SAPHEE.ZPPT007 WHERE MANDT = B.MANDT AND MATNR = B.MATNR AND ITEMNO = B.ITEMNO)
+      AND B.CRDAT = VALUE(( SELECT MAX(CRDAT) FROM SAPHEE.ZPPT007 WHERE MANDT = B.MANDT AND MATNR = B.MATNR AND ITEMNO = B.ITEMNO),'')  
+<isEqual col="JQPR" value="1">
+      UNION          -- JQPR(Q) 현장 추가 200330
+      
+       SELECT
+       A.MANDT
+      ,A.CRDAT
+      ,A.SEQNO
+      ,A.WOKNUM
+      ,A.MATNR
+      ,A.IDNRK
+      ,A.ITEM_SEQ
+      ,A.MENGE
+      ,A.MEINS
+      ,A.MATKL
+      ,A.UPMATKL
+      ,B.DZEINR
+      ,A.PRCTYP
+      ,A.VERSION
+      ,A.BOM_LEVEL
+      ,A.CRUSER
+      ,A.CRTIM
+      ,ROW_NUMBER() OVER(PARTITION BY A.MANDT,A.WOKNUM,A.MATNR,A.IDNRK,A.ITEM_SEQ,A.MATKL ORDER BY A.MANDT,A.WOKNUM,A.MATNR,A.IDNRK,A.ITEM_SEQ,A.CRDAT DESC,A.SEQNO DESC) AS ROWNO
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,6)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,6) ELSE SUBSTR(WOKNUM,1,6) END AS POSID
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,9)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,9) ELSE SUBSTR(WOKNUM,1,9) END AS POSID_1
+      ,CASE WHEN ZPART='M'             THEN 11
+            WHEN ZPART='C'             THEN 12
+            WHEN ZPART='1'             THEN 21
+            WHEN ZPART='2'             THEN 22
+            WHEN ZPART='3'             THEN 23
+            WHEN SUBSTR(MATKL,2,1)='5' THEN 50
+            WHEN SUBSTR(MATKL,2,1)='6' THEN 60
+            WHEN SUBSTR(MATKL,2,1)='7' THEN 70
+            WHEN SUBSTR(MATKL,2,1)='1' THEN 11
+            WHEN SUBSTR(MATKL,2,1)='2' THEN 21
+            WHEN SUBSTR(MATKL,2,1)='3' THEN 12 ELSE 90 END AS PART
+	  ,B.MAKTX
+	  ,B.SPEC
+	  ,B.ZSIZE
+      FROM SAPHEE.ZPPT004 AS A INNER JOIN SAPHEE.ZPPT007 AS B ON A.MANDT = B.MANDT AND A.IDNRK = B.MATNR AND A.MATKL = B.ITEMNO
+      WHERE A.MANDT = #G_MANDT#
+      AND A.WOKNUM LIKE 'Q'||#HOGIN#||'%'
+      AND A.MATNR LIKE 'Q'||#HOGIN#||'%'
+      AND A.EXE_RESULT = 'X'
+      AND LENGTH(CAST('Q'||#HOGIN# AS VARCHAR(15))) &gt;= 6 
+<isNotNull col="BLOCK">
+       AND MATKL LIKE #BLOCK#||'%' 
+</isNotNull>
+
+<isNotNull col="MATNR">
+       AND IDNRK LIKE #MATNR#||'%' 
+</isNotNull>
+       AND B.CRDAT = ( SELECT MAX(CRDAT) FROM SAPHEE.ZPPT007 WHERE MANDT = B.MANDT AND MATNR = B.MATNR AND ITEMNO = B.ITEMNO  )
+
+
+      UNION          -- JQPR(QM) 현장 추가 200330
+      
+       SELECT
+       A.MANDT
+      ,A.CRDAT
+      ,A.SEQNO
+      ,A.WOKNUM
+      ,A.MATNR
+      ,A.IDNRK
+      ,A.ITEM_SEQ
+      ,A.MENGE
+      ,A.MEINS
+      ,A.MATKL
+      ,A.UPMATKL
+      ,B.DZEINR
+      ,A.PRCTYP
+      ,A.VERSION
+      ,A.BOM_LEVEL
+      ,A.CRUSER
+      ,A.CRTIM
+      ,ROW_NUMBER() OVER(PARTITION BY A.MANDT,A.WOKNUM,A.MATNR,A.IDNRK,A.ITEM_SEQ,A.MATKL ORDER BY A.MANDT,A.WOKNUM,A.MATNR,A.IDNRK,A.ITEM_SEQ,A.CRDAT DESC,A.SEQNO DESC) AS ROWNO
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,6)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,6) ELSE SUBSTR(WOKNUM,1,6) END AS POSID
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,9)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,9) ELSE SUBSTR(WOKNUM,1,9) END AS POSID_1
+      ,CASE WHEN ZPART='M'             THEN 11
+            WHEN ZPART='C'             THEN 12
+            WHEN ZPART='1'             THEN 21
+            WHEN ZPART='2'             THEN 22
+            WHEN ZPART='3'             THEN 23
+            WHEN SUBSTR(MATKL,2,1)='5' THEN 50
+            WHEN SUBSTR(MATKL,2,1)='6' THEN 60
+            WHEN SUBSTR(MATKL,2,1)='7' THEN 70
+            WHEN SUBSTR(MATKL,2,1)='1' THEN 11
+            WHEN SUBSTR(MATKL,2,1)='2' THEN 21
+            WHEN SUBSTR(MATKL,2,1)='3' THEN 12 ELSE 90 END AS PART
+	  ,B.MAKTX
+	  ,B.SPEC
+	  ,B.ZSIZE
+      FROM SAPHEE.ZPPT004 AS A INNER JOIN SAPHEE.ZPPT007 AS B ON A.MANDT = B.MANDT AND A.IDNRK = B.MATNR AND A.MATKL = B.ITEMNO
+      WHERE A.MANDT = #G_MANDT#
+      AND A.WOKNUM LIKE 'QM'||#HOGIN#||'%' 
+      AND A.MATNR LIKE 'QM'||#HOGIN#||'%'
+      AND A.EXE_RESULT = 'X'
+      AND LENGTH(CAST('QM'||#HOGIN# AS VARCHAR(15))) &gt;= 6 
+<isNotNull col="BLOCK">
+       AND MATKL LIKE #BLOCK#||'%' 
+</isNotNull>
+
+<isNotNull col="MATNR">
+       AND IDNRK LIKE #MATNR#||'%' 
+</isNotNull>
+       AND B.CRDAT = ( SELECT MAX(CRDAT) FROM SAPHEE.ZPPT007 WHERE MANDT = B.MANDT AND MATNR = B.MATNR AND ITEMNO = B.ITEMNO  )
+</isEqual>
+
+    ) AS PP004
+    LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MS002 ON MS002.MANDT=PP004.MANDT 
+                                             AND MS002.POSID=PP004.POSID 
+                                             AND MS002.POSID_1=PP004.POSID_1
+    LEFT OUTER JOIN SAPHEE.ZMMT011   AS MM011 ON MM011.MANDT=PP004.MANDT 
+                                             AND MM011.MATNR=PP004.IDNRK
+--    LEFT OUTER JOIN SAPHEE.ZMMT013   AS MM013 ON MM013.MANDT=PP004.MANDT 
+--                                             AND MM013.POSID=PP004.WOKNUM|| '-P'
+--                                             AND MM013.MATNR=PP004.IDNRK
+WHERE ROWNO=1
+--  AND PRCTYP&lt;&gt;'D'
+
+
+/*part 구분 공통 코드 변환*/
+<isEqual col="PART" value = "00">
+       AND PART > 0     --전체
+</isEqual>  
+<isEqual col="PART" value = "01">
+       AND PART BETWEEN 11 AND 12   --기계
+</isEqual>  
+<isEqual col="PART" value = "02">
+       AND PART = 11                --기계-구조물
+</isEqual>    
+<isEqual col="PART" value = "03">
+       AND PART = 12                --기계-의장
+</isEqual>    
+<isEqual col="PART" value = "04">
+       AND PART BETWEEN 21 AND 23                --전기
+</isEqual>    
+<isEqual col="PART" value = "05">
+        AND (PART = 21 OR PP004.MATKL='A2000')                --전기-CP
+</isEqual>    
+<isEqual col="PART" value = "06">
+       AND (PART = 22 OR PP004.MATKL='A2000')                --전기-의장
+</isEqual>    
+<isEqual col="PART" value = "07">
+       AND (PART = 23 OR PP004.MATKL='A2000')                --전기-CABLE
+</isEqual>                  
+<isEqual col="PART" value = "08">
+       AND PART = 50                --주차
+</isEqual>                    
+<isEqual col="PART" value = "09">
+        AND PART = 60                --E/S,M/W
+</isEqual>                    
+<isEqual col="PART" value = "10">
+        AND PART = 70                --물류
+</isEqual>                     
+<isEqual col="PART" value = "11">
+	                --실측자재
+        AND PP004.MATKL IN ( 'B185A','B185B','C361A03','C361B03','C361C03','C361D03','C371A01','D162A05','B182F','B182E','B182E01','B182E02','B182E03','B182E04','B182E06','B182E07','B182E08','B182E09','B182E10','C371C','C371A03','C371A04' )
+</isEqual>                                     
+                    
+/*part 구분 공통 코드 변환*/   
+
+<isNotNull col="MTART">
+   AND MM011.MTART = #MTART#
+</isNotNull>
+
+ )
+		 
+ SELECT
+ A.HOGIN AS HOGIN
+,A.SITE_NM AS SITE_NM
+,A.SPEC1 AS SPEC1
+,A.SPEC2 AS SPEC2
+,A.MATNR  AS MATNR
+,A.IDNRK  AS IDNRK
+,A.ITEM_SEQ AS ITEM_SEQ
+,A.MAKTX   AS MAKTX
+,A.MATNR_NM AS MATNR_NM
+,A.MTART   AS MTART
+,A.SPEC   AS SPEC
+,A.SIZE  AS SIZE
+,A.EXTWG  AS EXTWG
+,A.EXTWG2 AS EXTWG2
+,A.BOXCK AS BOXCK
+,A.MENGE  AS MENGE
+,A.MEINS  AS MEINS
+,A.DZEINR AS DZEINR
+,A.MATKL  AS MATKL
+,A.UPMATKL AS UPMATKL
+,A.VERSION AS VERSION
+,A.BOM_LEVEL AS BOM_LEVEL
+,A.CRUSER AS CRUSER
+,A.CRDAT AS CRDAT
+,A.CRTIM AS CRTIM
+,A.PART AS PART
+,A.PART_NM AS PART_NM
+,CASE WHEN A.PRC_ORG= 'D' THEN '삭제' 
+          WHEN VALUE((SELECT DISTINCT B.PRC_ORG FROM PPT4 B WHERE B.HOGIN = A.HOGIN AND B.IDNRK = A.MATNR AND B.MATKL = A.MATKL),'') = 'D' THEN '삭제' 
+          ELSE A.PRCTYP END AS PRCTYP
+<isNotNull col="DPT">
+,VALUE((SELECT MAX(MM013.LIFNR)     
+   FROM SAPHEE.ZMMT013 AS MM013 
+  WHERE MM013.MANDT = A.MANDT AND MM013.POSID = (CASE WHEN SUBSTR(A.HOGIN,7,2) IN ('NS','NB','NC') OR SUBSTR(A.HOGIN,1,1) = 'Q' THEN A.HOGIN ELSE A.HOGIN || '-P' END) 
+             AND MM013.MATNR = A.IDNRK AND MM013.DDATE IN ('00000000','')),'') AS LIFNR
+,VALUE((SELECT MAX(MM013.LNAME)  
+   FROM SAPHEE.ZMMT013 AS MM013 
+  WHERE MM013.MANDT = A.MANDT AND MM013.POSID = (CASE WHEN SUBSTR(A.HOGIN,7,2) IN ('NS','NB','NC') OR SUBSTR(A.HOGIN,1,1) = 'Q' THEN A.HOGIN ELSE A.HOGIN || '-P' END)  
+             AND MM013.MATNR = A.IDNRK AND MM013.DDATE IN ('00000000','')),'') AS LNAME									   
+,VALUE((SELECT MAX(MM013.EKGRP)  
+   FROM SAPHEE.ZMMT013 AS MM013 
+  WHERE MM013.MANDT = A.MANDT AND MM013.POSID = (CASE WHEN SUBSTR(A.HOGIN,7,2) IN ('NS','NB','NC') OR SUBSTR(A.HOGIN,1,1) = 'Q' THEN A.HOGIN ELSE A.HOGIN || '-P' END)  
+             AND MM013.MATNR = A.IDNRK AND MM013.DDATE IN ('00000000','')),'') AS EKGRP
+,VALUE((SELECT MAX(T024.EKTEL)  
+   FROM SAPHEE.ZMMT013 as mm013 LEFT OUTER JOIN SAPHEE.T024 AS T024 ON MM013.MANDT = T024.MANDT    AND MM013.EKGRP = T024.EKGRP 						
+  WHERE MM013.MANDT = A.MANDT AND MM013.POSID = (CASE WHEN SUBSTR(A.HOGIN,7,2) IN ('NS','NB','NC') OR SUBSTR(A.HOGIN,1,1) = 'Q' THEN A.HOGIN ELSE A.HOGIN || '-P' END)  
+             AND MM013.MATNR = A.IDNRK                AND MM013.DDATE IN ('00000000','')),'') AS EKTEL
+</isNotNull>
+<isNull col="DPT">
+,'' AS LNAME
+,'' AS LIFNR
+,'' AS EKTEL
+,'' AS EKGRP
+</isNull>
+
+FROM PPT4 A
+WHERE 1=1
+
+<isEqual col="BOXCK" value="1">
+   AND EXTWG2 LIKE '%'|| #EXTWG# || '%'
+</isEqual>
+
+<isEqual col="BOXCK" value="2">
+   AND EXTWG LIKE '%'|| #EXTWG# || '%'
+</isEqual>
+
+<isNotNull col="EKGRP">
+   AND MM013.EKGRP = #EKGRP#
+</isNotNull>
+
+<isNotNull col="MATNR_NM">
+   AND MATNR_NM LIKE '%'|| #MATNR_NM# || '%'
+</isNotNull>
+ ORDER BY HOGIN,PART,MATKL,BOM_LEVEL,IDNRK,ITEM_SEQ,MATKL
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="HOGIN" size="9" type="VARCHAR" description="호기" /> 
+		<col name="BLOCK" size="14" type="VARCHAR" description="BLOCK" /> 
+		<col name="MATNR" size="38" type="VARCHAR" description="자재" /> 
+		<col name="PART" size="100" type="VARCHAR" description="PART" /> 
+		<col name="EXTWG" size="255" type="VARCHAR" description="" /> 
+		<col name="DPT" size="255" type="VARCHAR" description="" /> 
+		<col name="B_GUBUN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="BOM_LEVEL" size="6" type="VARCHAR" description="BOM_LEVEL" /> 
+		<col name="CRDAT" size="24" type="VARCHAR" description="일자" /> 
+		<col name="CRTIM" size="18" type="VARCHAR" description="시간" /> 
+		<col name="CRUSER" size="60" type="VARCHAR" description="작성자" /> 
+		<col name="DZEINR" size="120" type="VARCHAR" description="도면번호" /> 
+		<col name="EXTWG" size="54" type="VARCHAR" description="BOX" /> 
+		<col name="HOGIN" size="72" type="VARCHAR" description="호기번호" /> 
+		<col name="IDNRK" size="54" type="VARCHAR" description="자재번호" /> 
+		<col name="ITEM_SEQ" size="12" type="VARCHAR" description="" /> 
+		<col name="LNAME" size="105" type="VARCHAR" description="" /> 
+		<col name="MAKTX" size="120" type="VARCHAR" description="" /> 
+		<col name="MATKL" size="27" type="VARCHAR" description="BLOCK" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MATNR_NM" size="120" type="VARCHAR" description="자재명" /> 
+		<col name="MEINS" size="9" type="VARCHAR" description="단위" /> 
+		<col name="MENGE" size="15" type="NUMERIC" description="수량" /> 
+		<col name="MTART" size="12" type="VARCHAR" description="" /> 
+		<col name="PART" size="11" type="NUMERIC" description="PART" /> 
+		<col name="PART_NM" size="16" type="VARCHAR" description="PART 명" /> 
+		<col name="PRCTYP" size="6" type="VARCHAR" description="" /> 
+		<col name="SITE_NM" size="105" type="VARCHAR" description="현장명" /> 
+		<col name="SIZE" size="180" type="VARCHAR" description="SIZE" /> 
+		<col name="SPEC" size="180" type="VARCHAR" description="SPEC" /> 
+		<col name="SPEC1" size="15" type="VARCHAR" description="기종" /> 
+		<col name="SPEC2" size="75" type="VARCHAR" description="제품사양" /> 
+		<col name="UPMATKL" size="27" type="VARCHAR" description="" /> 
+		<col name="VERSION" size="6" type="VARCHAR" description="VERSION" /> 
+	</output>
+</query>

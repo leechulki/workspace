@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[실측치 접수 및 입고현황-jamb 제외]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+      '0' AS CHECK 
+     , '' AS FLAG
+     , MM.EBELN AS EBELN                                  -- 발주번호
+     , MM.EBELP AS EBELP                                  -- 순번
+     , MM.POSID AS POSID                                    -- wbs
+     , MM.POST1 AS POST1                                   -- 현장명
+     , MM.LIFNR AS LIFNR                                     -- 협력사코드
+     , MM.LNAME AS LNAME                                 -- 협력사명
+     , MM.TXZ01 AS TXZ01                                    -- 자재내역
+     , MM.CRDAT AS CRDAT                                 -- 청구일
+     , MM.SDATE AS SDATE                                  -- 발주일
+     , MM.MENGE AS MENGE                                 -- 발주수량
+     , VALUE(MM.CESDBBJD,'') AS CESDBBJD       -- 설치실측일
+     , VALUE(MM.CESDZJDT,'') AS CESDZJDT       -- 실측접수일
+     , VALUE(MM.BUDAT,'') AS BUDAT                   -- 입고일
+     , VALUE(MM.CESDZIDT,'') AS CESDZIDT         -- 입고예정일
+     , VALUE(MM.SHIPDAT,'') AS SHIPDAT              -- 출하일
+     , VALUE(MM.CESDZMSY,'') AS CESDZMSY     -- 미입고 사유
+     , VALUE(MM.CESDZBGO,'') AS CESDZBGO     -- 비고
+     , MM.ZSPEC12 AS ZSPEC12                            -- 기종
+     , MM.ZSPEC11 AS ZSPEC11                            -- 정지층수
+     , MM.ZQNTY AS ZQNTY                                  -- 대수
+     , MM.FLAG1                                                   -- 업데이트구분
+     , MM.JAMB_TYPE AS JAMB_TYPE                   -- JAMB TYPE
+     , MM.SPEC AS SPEC                                      -- 사양
+     , MM.NAMET AS NAMET                                -- 담당PM 
+     , SUBSTR(MM.POSID,1,6) AS PJT                    -- PJT
+     , SUBSTR(MM.POSID,7) AS HNO                     -- HNO
+     , MM.REP AS REP                                          -- 실측종류 구분 
+     , VALUE(MM028.CTEXT2  ,'') AS REP_NAME
+FROM (      
+    SELECT
+           M13.MANDT AS MANDT 
+         , M13.EBELN AS EBELN                              -- 발주번호
+         , M13.EBELP AS EBELP                              -- 순번
+         , M13.POSID AS POSID                                -- wbs
+         , M13.POST1 AS POST1                               -- 현장명
+         , M13.LIFNR AS LIFNR                                 -- 협력사코드
+         , M13.LNAME AS LNAME                             -- 협력사명
+         , M13.TXZ01 AS TXZ01                                 -- 자재내역
+         , P4.CRDAT AS CRDAT                                -- 청구일
+         , ROW_NUMBER() OVER(PARTITION BY P4.MANDT,P4.WOKNUM,P4.MATNR,P4.IDNRK,P4.ITEM_SEQ,P4.MATKL ORDER BY P4.MANDT,P4.WOKNUM,P4.MATNR,P4.IDNRK,P4.ITEM_SEQ,P4.CRDAT DESC,P4.SEQNO DESC) AS ROWNO
+         , M13.SDATE AS SDATE                               -- 발주일
+         , M13.MENGE AS MENGE                             -- 발주수량
+    <isEqual col="GUBN" value="2">
+         , CASE WHEN ZP171M.BJD IS NULL THEN SUBSTR(ZSB.CESDBUPD,1,8) ELSE ZP171M.BJD END AS CESDBBJD       -- 설치실측일
+         , 'H' AS REP
+    </isEqual>
+    <isEqual col="GUBN" value="3">
+         , CASE WHEN ZP174M.BJD IS NULL THEN ZSL.CESDLBJD ELSE ZP174M.BJD END  AS CESDBBJD       -- 설치실측일
+         , 'R' AS REP
+    </isEqual>
+    <isEqual col="GUBN" value="4">
+         , CASE WHEN ZP172M.BJD IS NULL THEN ZST.CESDTBJD ELSE ZP172M.BJD END AS CESDBBJD       -- 설치실측일
+         , 'Y' AS REP
+    </isEqual>
+    <isEqual col="GUBN" value="5">
+         , CASE WHEN ZP171M.BJD IS NULL THEN ZSB.CESDBBJD ELSE ZP171M.BJD END AS CESDBBJD       -- 설치실측일
+         , 'H' AS REP
+    </isEqual>
+    <isEqual col="GUBN" value="6">
+         , CASE WHEN ZP171M.BJD IS NULL THEN ZSB.CESDBBJD ELSE ZP171M.BJD END AS CESDBBJD       -- 설치실측일
+         , 'H' AS REP
+    </isEqual>
+--         , ZSB.CESDBBJD AS CESDBBJD       -- 설치실측일
+         , ZSDZ.CESDZJDT AS CESDZJDT       -- 실측접수일
+         , M13.BUDAT AS BUDAT                   -- 입고일
+         , ZSDZ.CESDZIDT AS CESDZIDT         -- 입고예정일
+         , M13.SHIPDAT AS SHIPDAT              -- 출하일
+         , ZSDZ.CESDZMSY AS CESDZMSY     -- 미입고 사유
+         , ZSDZ.CESDZBGO AS CESDZBGO     -- 비고
+         , ZM2.ZSPEC12 AS ZSPEC12                           -- 기종
+         , ZM2.ZSPEC11 AS ZSPEC11                           -- 정지층수
+         , ZM1.ZQNTY AS ZQNTY                                  -- 대수
+         , M13.JAMB_TYPE AS JAMB_TYPE -- JAMB TYPE
+         , M13.SPEC AS SPEC                   -- 사양
+         , CASE WHEN (ZSDZ.EBELN IS NULL AND ZSDZ.EBELP IS NULL) THEN 'I' ELSE 'U' END AS FLAG1  -- 업데이트구분
+         , ZM2.NAMET AS NAMET                           -- 담당PM
+       FROM (
+                SELECT
+                  MM013.MANDT
+                 ,SAPHEE.GET_ZERODATE(MM013.EINDT) AS EINDT
+                 ,MM013.EBELN AS EBELN
+                 ,MM013.EBELP AS EBELP
+                 ,REPLACE(MM013.POSID, '-P','') AS POSID
+                 ,MM013.POST1 AS POST1
+                 ,MM013.MATNR AS MATNR
+                 ,MM013.LIFNR AS LIFNR
+                 ,MM013.LNAME AS LNAME
+                 ,MM013.TXZ01 AS TXZ01
+                 ,MM011.SPEC AS SPEC
+                 ,COALESCE(MM013.MENGE, 0) AS MENGE
+                 ,COALESCE((MM013.MENGE - COALESCE(MM017A.MPASS, 0)), 0) AS NCRED
+                 ,SAPHEE.GET_ZERODATE(MM013.UDATE) AS UDATE
+                 ,SAPHEE.GET_ZERODATE(MM013.SDATE) AS SDATE
+                 , CASE WHEN MM013.EXTWG IS NULL OR MM013.EXTWG = '' OR (MM013.BOX_CK = '' AND MM013.EXTWG = 'BOX33') OR (MM013.BOX_CK = '24' AND MM013.EXTWG='BOX24') THEN 
+                     (CASE WHEN MM025.SHIPDAT1 IS NULL    THEN '00000000'
+                           WHEN MM011.BLOCK_NO = ''       THEN MM025.SHIPDAT2
+                           WHEN MM011.BLOCK_NO LIKE 'A%'  THEN MM025.SHIPDAT1
+                           WHEN MM011.BLOCK_NO LIKE 'B%'  THEN MM025.SHIPDAT2 
+                           WHEN MM011.BLOCK_NO LIKE 'C%'  THEN MM025.SHIPDAT3  
+                           WHEN MM011.BLOCK_NO LIKE 'D%'  THEN MM025.SHIPDAT4  
+                           WHEN MM011.BLOCK_NO LIKE 'E%'  THEN MM025.SHIPDAT5 ELSE '00000000' END) 
+                        ELSE     
+                        (CASE ( CASE WHEN MM013.BOX_CK = '24' THEN  (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026_1 WHERE MANDT= MM013.MANDT AND BOXNO = MM013.EXTWG)
+                                     ELSE  (SELECT VALUE(SUBSTR(BLOCK,1,1),'') FROM SAPHEE.ZMMT026 WHERE MANDT= MM013.MANDT AND BOXNO = MM013.EXTWG) END )
+                          WHEN '1' THEN MM025.SHIPDAT1
+                          WHEN '2' THEN MM025.SHIPDAT2
+                          WHEN '3' THEN MM025.SHIPDAT3
+                          WHEN '4' THEN MM025.SHIPDAT4
+                          WHEN '5' THEN MM025.SHIPDAT5  ELSE '00000000' END)  END   AS SHIPDAT 
+                 , MM017A.BUDAT AS BUDAT
+    			 , MM011.JAMB_TYPE AS JAMB_TYPE
+               FROM SAPHEE.ZMMT013 AS MM013
+                  LEFT OUTER JOIN ( 
+             
+                               SELECT 
+                                     MM017.MANDT AS MANDT
+                                 ,MM017.EBELN AS EBELN
+                                 ,MM017.EBELP AS EBELP
+                                 ,COALESCE(SUM(MM017.MENGE-MM017.B_MENGE),0) AS MPASS
+                     ,MAX(BUDAT) AS BUDAT
+                   FROM SAPHEE.ZMMT017 AS MM017
+                                 WHERE MM017.MANDT = '183'
+    #STGUBN1+#
+    
+    <isEqual col="DGBN" value="1">
+                                   AND MM017.UDATE BETWEEN #UDATE_FM# AND #UDATE_TO#
+    </isEqual>
+    <isEqual col="DGBN" value="2">
+		<isEqual col="GUBN" value="2">
+				AND MM017.POSID IN (SELECT TRIM(CESDBPJT)||TRIM(CESDBHNO)||'-P' FROM SAPHEE.ZTBESDB WHERE MANDT= #G_MANDT# AND CESDBBJD BETWEEN #UDATE_FM# AND #UDATE_TO#)
+		</isEqual>
+		<isEqual col="GUBN" value="3">
+				AND MM017.POSID IN (SELECT TRIM(CESDLPJT)||TRIM(CESDLHNO)||'-P' FROM SAPHEE.ZTBESDL WHERE MANDT= #G_MANDT# AND CESDLBJD BETWEEN #UDATE_FM# AND #UDATE_TO#)
+		</isEqual>
+		<isEqual col="GUBN" value="4">
+				AND MM017.POSID IN (SELECT TRIM(CESDTPJT)||TRIM(CESDTHNO)||'-P' FROM SAPHEE.ZTBESDT WHERE MANDT= #G_MANDT# AND CESDTBJD BETWEEN #UDATE_FM# AND #UDATE_TO#)
+		</isEqual>
+		<isEqual col="GUBN" value="5">
+				AND MM017.POSID IN (SELECT TRIM(CESDBPJT)||TRIM(CESDBHNO)||'-P' FROM SAPHEE.ZTBESDB WHERE MANDT= #G_MANDT# AND CESDBBJD BETWEEN #UDATE_FM# AND #UDATE_TO#)
+		</isEqual>
+		<isEqual col="GUBN" value="6">
+				AND MM017.POSID IN (SELECT TRIM(CESDBPJT)||TRIM(CESDBHNO)||'-P' FROM SAPHEE.ZTBESDB WHERE MANDT= #G_MANDT# AND CESDBBJD BETWEEN #UDATE_FM# AND #UDATE_TO#)
+		</isEqual>
+     </isEqual>    
+                                   AND MM017.PRO_F = '4'
+                    GROUP BY MM017.MANDT,MM017.EBELN,MM017.EBELP                 
+                ) AS MM017A ON  MM013.MANDT = MM017A.MANDT 
+                              AND MM013.EBELN = MM017A.EBELN
+                              AND MM013.EBELP = MM017A.EBELP
+             
+                INNER JOIN SAPHEE.ZMMT011      AS MM011 ON  MM013.MANDT = MM011.MANDT
+                                                        AND MM013.MATNR = MM011.MATNR
+                LEFT OUTER JOIN SAPHEE.ZMMT025 AS MM025 ON  MM013.MANDT = MM025.MANDT
+                                                        AND SUBSTR(MM013.POSID,1,9) = MM025.POSID
+                                                        AND MM025.PSTYPE = '02'
+               WHERE MM013.MANDT = #G_MANDT#
+                 AND MM013.STATE = '2'
+    
+    #STGUBN2+#
+    
+    <isEqual col="DGBN" value="1">
+                 AND MM013.UDATE BETWEEN #UDATE_FM# AND #UDATE_TO#
+    </isEqual>
+    <isEqual col="DGBN" value="2">
+		<isEqual col="GUBN" value="2">
+				AND MM013.POSID IN (SELECT TRIM(CESDBPJT)||TRIM(CESDBHNO)||'-P' FROM SAPHEE.ZTBESDB WHERE MANDT= #G_MANDT# AND CESDBBJD BETWEEN #UDATE_FM# AND #UDATE_TO#)
+		</isEqual>
+		<isEqual col="GUBN" value="3">
+				AND MM013.POSID IN (SELECT TRIM(CESDLPJT)||TRIM(CESDLHNO)||'-P' FROM SAPHEE.ZTBESDL WHERE MANDT= #G_MANDT# AND CESDLBJD BETWEEN #UDATE_FM# AND #UDATE_TO#)
+		</isEqual>
+		<isEqual col="GUBN" value="4">
+				AND MM013.POSID IN (SELECT TRIM(CESDTPJT)||TRIM(CESDTHNO)||'-P' FROM SAPHEE.ZTBESDT WHERE MANDT= #G_MANDT# AND CESDTBJD BETWEEN #UDATE_FM# AND #UDATE_TO#)
+		</isEqual>
+		<isEqual col="GUBN" value="5">
+				AND MM013.POSID IN (SELECT TRIM(CESDBPJT)||TRIM(CESDBHNO)||'-P' FROM SAPHEE.ZTBESDB WHERE MANDT= #G_MANDT# AND CESDBBJD BETWEEN #UDATE_FM# AND #UDATE_TO#)
+		</isEqual>
+		<isEqual col="GUBN" value="6">
+				AND MM013.POSID IN (SELECT TRIM(CESDBPJT)||TRIM(CESDBHNO)||'-P' FROM SAPHEE.ZTBESDB WHERE MANDT= #G_MANDT# AND CESDBBJD BETWEEN #UDATE_FM# AND #UDATE_TO#)
+		</isEqual>
+    </isEqual>    
+             ) AS M13
+
+-- 제조지원부 심현미 요청으로 실측마스터의 최종실측일로 변경 20121223 HSS
+    <isEqual col="GUBN" value="2">
+            LEFT OUTER JOIN SAPHEE.ZTBESDB AS ZSB ON M13.MANDT = ZSB.MANDT
+                AND ZSB.CESDBPJT = SUBSTR(M13.POSID,1,6)
+                AND ZSB.CESDBHNO = SUBSTR(M13.POSID,7)
+
+            LEFT OUTER JOIN SAPHEE.ZPST11071M AS ZP171M ON M13.MANDT = ZP171M.MANDT
+                AND ZP171M.PJT = SUBSTR(M13.POSID,1,6)
+                AND ZP171M.HNO = SUBSTR(M13.POSID,7)
+
+    </isEqual>
+    <isEqual col="GUBN" value="3">
+
+            LEFT OUTER JOIN SAPHEE.ZTBESDL AS ZSL ON M13.MANDT = ZSL.MANDT
+                AND ZSL.CESDLPJT = SUBSTR(M13.POSID,1,6)
+                AND ZSL.CESDLHNO = SUBSTR(M13.POSID,7)
+
+            LEFT OUTER JOIN SAPHEE.ZPST11074M AS ZP174M ON M13.MANDT = ZP174M.MANDT
+                AND ZP174M.PJT = SUBSTR(M13.POSID,1,6)
+                AND ZP174M.HNO = SUBSTR(M13.POSID,7)
+    </isEqual>
+    <isEqual col="GUBN" value="4">
+
+            LEFT OUTER JOIN SAPHEE.ZTBESDT AS ZST ON M13.MANDT = ZST.MANDT
+                AND ZST.CESDTPJT = SUBSTR(M13.POSID,1,6)
+                AND ZST.CESDTHNO = SUBSTR(M13.POSID,7)
+
+            LEFT OUTER JOIN SAPHEE.ZPST11072M AS ZP172M ON M13.MANDT = ZP172M.MANDT
+                AND ZP172M.PJT = SUBSTR(M13.POSID,1,6)
+                AND ZP172M.HNO = SUBSTR(M13.POSID,7)
+    </isEqual>
+    <isEqual col="GUBN" value="5">
+            LEFT OUTER JOIN SAPHEE.ZTBESDB AS ZSB ON M13.MANDT = ZSB.MANDT
+                AND ZSB.CESDBPJT = SUBSTR(M13.POSID,1,6)
+                AND ZSB.CESDBHNO = SUBSTR(M13.POSID,7)
+
+            LEFT OUTER JOIN SAPHEE.ZPST11071M AS ZP171M ON M13.MANDT = ZP171M.MANDT
+                AND ZP171M.PJT = SUBSTR(M13.POSID,1,6)
+                AND ZP171M.HNO = SUBSTR(M13.POSID,7)
+    </isEqual>
+    <isEqual col="GUBN" value="6">
+            LEFT OUTER JOIN SAPHEE.ZTBESDB AS ZSB ON M13.MANDT = ZSB.MANDT
+                AND ZSB.CESDBPJT = SUBSTR(M13.POSID,1,6)
+                AND ZSB.CESDBHNO = SUBSTR(M13.POSID,7)
+
+            LEFT OUTER JOIN SAPHEE.ZPST11071M AS ZP171M ON M13.MANDT = ZP171M.MANDT
+                AND ZP171M.PJT = SUBSTR(M13.POSID,1,6)
+                AND ZP171M.HNO = SUBSTR(M13.POSID,7)
+
+    </isEqual>
+
+            LEFT OUTER JOIN SAPHEE.ZTBESDZ AS ZSDZ ON M13.MANDT= ZSDZ.MANDT
+                AND M13.EBELN = ZSDZ.EBELN
+            AND M13.EBELP = ZSDZ.EBELP 
+            LEFT OUTER JOIN SAPHEE.ZMASTER02 AS ZM2 ON  M13.MANDT = ZM2.MANDT
+                AND  M13.POSID = ZM2.POSID_1
+            LEFT OUTER JOIN SAPHEE.ZMASTER01 AS ZM1 ON   M13.MANDT = ZM1.MANDT 
+                AND SUBSTR(M13.POSID,1,6) = ZM1.POSID 
+  
+          LEFT OUTER JOIN SAPHEE.ZPPT004 AS P4 ON M13.MANDT = P4.MANDT
+                AND M13.POSID = P4.WOKNUM
+                AND M13.MATNR = P4.IDNRK
+    
+    			
+      WHERE 1= 1
+    <isEqual col="DGBN" value="1">
+        AND M13.SHIPDAT BETWEEN #DATE_FM# AND #DATE_TO#
+    </isEqual>
+
+    <isNotNull col="LIFNR">
+        AND M13.LIFNR = #LIFNR#
+    </isNotNull>
+    
+    <isNotNull col="POSID">
+        AND M13.POSID LIKE #POSID# || '%'
+    </isNotNull>
+    
+    
+    <isEqual col="GUBN" value="2">
+    -- MC BEAM  -- 최정윤과장 요청으로 전기기종에서 기종을 변경 2013.10.16 HSS
+        AND (ZM2.ZSPEC1 LIKE 'SSVF%' OR ZM2.ZSPEC12 LIKE 'WBSS1%')
+       <isNotNull col="ZQNTY">
+           AND ZM1.ZQNTY = (CASE WHEN '1' &lt; '10' THEN '0' || #ZQNTY# ELSE #ZQNTY# END )
+       </isNotNull> 
+    </isEqual>
+    <isEqual col="GUBN" value="3">
+    -- RAIL B/K
+        AND ZM2.ZSPEC11 &gt;= '010'  AND ZM1.ZQNTY &gt;= '04'         
+    </isEqual>
+    <isBetween col="GUBN" start="4" end="5">
+       <isNotNull col="ZQNTY">
+           AND ZM1.ZQNTY = (CASE WHEN '1' &lt; '10' THEN '0' || #ZQNTY# ELSE #ZQNTY# END )
+       </isNotNull>
+    </isBetween>
+    <isEqual col="GUBN" value="6">
+    -- ROPE
+        AND ZM1.ZQNTY > '02'
+    </isEqual>
+
+   
+   ) AS MM
+     LEFT OUTER JOIN   SAPHEE.ZLCODE AS MM028  ON MM028.MANDT=MM.MANDT 
+                                                                            AND MM028.CODE1='PS101' 
+                                                                            AND MM028.LANG = #G_LANG# 
+                                                                            AND MM028.CODE2=MM.REP
+
+
+   WHERE ROWNO = 1
+    <isNotEqual col="DGBN" value="1">
+        AND MM.CESDBBJD BETWEEN #DATE_FM# AND #DATE_TO#
+    </isNotEqual>
+
+   ORDER BY MM.LIFNR,MM.POSID
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="UDATE_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="UDATE_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="DATE_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="DATE_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="GUBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="BUDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="CESDBBJD" size="24" type="VARCHAR" description="" /> 
+		<col name="CESDZBGO" size="0" type="VARCHAR" description="" /> 
+		<col name="CESDZIDT" size="24" type="VARCHAR" description="" /> 
+		<col name="CESDZJDT" size="24" type="VARCHAR" description="" /> 
+		<col name="CESDZMSY" size="0" type="VARCHAR" description="" /> 
+		<col name="CHECK" size="1" type="VARCHAR" description="" /> 
+		<col name="CRDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="FLAG" size="1" type="VARCHAR" description="" /> 
+		<col name="JAMB_TYPE" size="9" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="30" type="VARCHAR" description="" /> 
+		<col name="LNAME" size="105" type="VARCHAR" description="" /> 
+		<col name="POSID" size="4000" type="VARCHAR" description="" /> 
+		<col name="POST1" size="120" type="VARCHAR" description="" /> 
+		<col name="SDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="SHIPDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="SPEC" size="180" type="VARCHAR" description="" /> 
+		<col name="TXZ01" size="120" type="VARCHAR" description="" /> 
+		<col name="ZQNTY" size="6" type="VARCHAR" description="" /> 
+		<col name="ZSPEC11" size="9" type="VARCHAR" description="" /> 
+		<col name="ZSPEC12" size="15" type="VARCHAR" description="" /> 
+	</output>
+</query>

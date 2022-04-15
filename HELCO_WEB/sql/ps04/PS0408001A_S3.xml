@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT  M1.POSID
+       ,'N' AS SAVE_GBN
+       ,M1.ZSITE_NM
+       ,M1.ADDR1||' '||ADDR2 AS ZSITE_ADDR
+       ,M1.CONTR_DA
+       ,M1.ZQNTY
+       ,M2.LIFNR
+       ,M.NAME1
+       ,M.J_1KFREPRE AS REP
+       ,M.TELF1
+       ,TRIM(M.MCOD3)||' '||TRIM(M.STRAS) AS ADDR
+       ,'01' AS SEQ
+       ,'' AS SCONTDT
+       ,(SELECT MIN(M02.ZZCHAKD) FROM SAPHEE.ZMASTER02 M02 WHERE M02.MANDT = M2.MANDT AND M02.POSID = M2.POSID AND M02.ZZCHAKD > '00000000') AS CHAGDT 
+       ,(SELECT MAX(M02.ZZCOMP2) FROM SAPHEE.ZMASTER02 M02 WHERE M02.MANDT = M2.MANDT AND M02.POSID = M2.POSID AND M02.ZZCOMP2 > '00000000') AS JUNDT
+       ,HEX(CURRENT DATE) AS SENDDT
+--       ,(SELECT SUM(SAPHEE.GET_CURRENCY2(WAERS,DMBTR)) FROM SAPHEE.ZSDT0029 WHERE MANDT = M1.MANDT AND KIDNO = M1.POSID AND ZCANDT = '00000000') AS CONTAMT
+       ,0 AS CONTAMT
+       ,'' AS CONTHAMT
+       ,VALUE(P2.TOT,0) AS SCONTAMT
+       ,'' AS SCONTHAMT
+       ,0 AS SUPAMT
+       ,'' AS SUPHAMT
+       ,VALUE(P3.BUDGET,0) AS SCONTWAMT
+       ,'' AS SCONTWHAMT
+       ,0 AS VAT
+       ,'' AS HVAT
+       ,0 AS SIGONGAMT
+       ,'' AS SIGONGHAMT
+       ,VALUE(ROUND(dec(P2.TOT)*100/dec(P3.BUDGET),2),0) AS RATE
+       ,P.CONUM AS CONUM
+       ,P.LICNUM AS LICNUM
+       ,P.LICDT AS LICDT
+       ,P.OPENDT AS OPENDT
+       ,P.SITE_REP AS SITE_REP
+       ,P.SITE_JUNO AS SITE_JUNO
+       ,P.CERTNO AS CERTNO
+       ,P.ITEM AS ITEM
+       ,P.GRADE AS GRADE
+       ,P.CELLP AS CELLP
+       ,P.CERTDT AS CERTDT
+       ,'' AS PRTGBN
+       ,VBAK.KUNNR AS KUNNR
+       ,KNA1.NAME1 AS KNAME
+       ,KNA1.STCD2 AS STCD2 
+       ,KNA1.ORT01||' '||KNA1.STRAS AS KADDR	
+	   , VALUE(P2.LAB_C,0) AS LAB_C
+       ,'' AS HHADO
+       ,'' AS VAT2
+       ,'' AS HVAT3
+       ,'' AS TOTAL2
+       ,'' AS HTOTAL2  
+       ,'' AS HLAB_C	   
+        --,'' AS LAB_C
+FROM  SAPHEE.ZMASTER01 AS M1
+     INNER JOIN SAPHEE.VBAK AS VBAK ON M1.MANDT=VBAK.MANDT AND M1.POSID=VBAK.ZZPJT_ID
+     INNER JOIN SAPHEE.KNA1 AS KNA1 ON VBAK.MANDT=KNA1.MANDT AND VBAK.KUNNR=KNA1.KUNNR
+	 LEFT OUTER JOIN (
+	    SELECT  PS100.MANDT
+        	   ,PS100.PSPID
+               ,SUM(PS100.TOT) AS TOT
+        	   ,SUM(PS100.BUDGET) AS BUDGET
+  		       ,SUM(PS100.LAB_C) AS LAB_C
+        FROM   SAPHEE.ZPST0100 PS100,
+               (
+                SELECT  PS0100.MANDT
+                       ,PS0100.PSPID
+                       ,PS0100.POSID
+                       ,MAX(PS0100.CHGNO) CHGNO
+        			   ,CNF_GBN
+                FROM  SAPHEE.ZPST0113 PS113
+                     ,SAPHEE.ZPST0100 PS0100
+                WHERE PS113.MANDT = #G_MANDT#
+                AND   PS113.GUBUN = '5'
+                AND   PS113.STATE = 'Y'
+                AND   PS113.CNF_GBN = 'A'
+                AND   PS113.MANDT = PS0100.MANDT
+                AND   PS113.PSPID = PS0100.PSPID
+                AND   PS113.POSID = PS0100.POSID
+                AND   PS0100.GUBUN IN ('10','11','12','20')
+         	    GROUP BY PS0100.MANDT,PS0100.PSPID,PS0100.POSID,CNF_GBN
+               ) PS0100B
+        WHERE PS100.MANDT = PS0100B.MANDT
+        AND   PS100.PSPID = PS0100B.PSPID
+        AND   PS100.POSID = PS0100B.POSID
+        AND   PS100.CHGNO = PS0100B.CHGNO
+        AND   PS100.PSPID = #POSID#
+        GROUP BY PS100.PSPID,PS100.MANDT
+       ) AS P2
+	   ON M1.MANDT = P2.MANDT
+	   AND M1.POSID = P2.PSPID
+	  LEFT OUTER JOIN (
+	  SELECT  B.MANDT, SUBSTR(A.POSID,1,6) AS PSPID,SUM( B.WTG001 + B.WTG002 + B.WTG003 + B.WTG004 + B.WTG005 + B.WTG006 +B.WTG007 + B.WTG008 + B.WTG009 + B.WTG010 + B.WTG011 + B.WTG012 )*100 AS BUDGET
+      FROM  SAPHEE.PRPS AS A INNER JOIN SAPHEE.COSP AS B
+        ON  A.MANDT = B.MANDT AND A.OBJNR = B.OBJNR
+     WHERE  A.MANDT = #G_MANDT#
+       AND  A.POSID LIKE #POSID# ||'%'
+       AND  A.ZZWBS03 = ''
+       AND  B.WRTTP = '01'
+       AND  B.VERSN = '000'
+       AND  B.VRGNG = 'RKP1'
+       AND  B.KSTAR = '0053037010'
+	   GROUP BY B.MANDT, SUBSTR(A.POSID,1,6)
+	  ) AS P3
+	   ON M1.MANDT = P3.MANDT
+	   AND M1.POSID = P3.PSPID
+     INNER JOIN (SELECT MANDT,POSID,LIFNR 
+                           FROM SAPHEE.ZMASTER02 AS M02 
+                         WHERE M02.MANDT = #G_MANDT# AND M02.POSID = #POSID# FETCH FIRST 1 ROWS ONLY)  AS M2
+          ON M1.MANDT = M2.MANDT
+         AND M1.POSID = M2.POSID
+
+     INNER JOIN SAPHEE.ZMMT012 AS M
+          ON M.MANDT = M2.MANDT
+        AND M.LIFNR = M2.LIFNR
+
+     LEFT OUTER JOIN SAPHEE.ZPST0135 AS P
+        ON M.MANDT = P.MANDT
+       AND M.LIFNR = P.LIFNR
+
+WHERE M1.MANDT = #G_MANDT#
+AND M1.POSID = #POSID#
+--AND M1.MANDT = M2.MANDT
+--AND M1.POSID = M2.POSID
+--AND M.MANDT = M2.MANDT
+--AND M.LIFNR = M2.LIFNR
+AND M.LOEVM = ''	
+
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

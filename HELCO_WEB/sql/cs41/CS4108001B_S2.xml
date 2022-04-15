@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.VBELN   
+      ,CS006.PSPID 
+      ,CS006.SEQNO 
+      ,'지급업체 '||SUBSTR(CS006.SEQNO,3,1) SEQNO_T
+      ,CS006.BLDAT
+      ,CS006.FGBN 
+      ,CASE WHEN CS006.INAME1 != '' THEN  CS006.INAME1
+            ELSE (SELECT NAME1 FROM SAPHEE.LFA1 WHERE MANDT = #G_MANDT# AND LIFNR = CS006.WRKLFN )
+       END INAME1
+      ,CS006.WRKLFN
+      ,CS006.TWBTR*100 TWBTR  
+      ,CS006.STATE
+      ,CS006.BELNR
+      ,'X' FLAG
+      ,CS006T.ATEXT
+
+ FROM SAPHEE.VBAK A  LEFT OUTER JOIN SAPHEE.VBPA B
+                             ON A.MANDT = B.MANDT
+                             AND A.VBELN = B.VBELN
+                             AND B.PARVW = 'Z1'
+   												  
+                     LEFT OUTER JOIN SAPHEE.ZWBT010 C
+                             ON A.MANDT = C.MANDT
+                             AND B.LIFNR = C.LIFNR
+   												  
+                     LEFT OUTER JOIN SAPHEE.ZLCODE D
+                             ON A.MANDT = D.MANDT
+                             AND D.CODE1 = 'VKGRP'
+                             AND D.CODE2 = A.VKGRP
+                             AND D.LANG = 'ko'
+                                         
+                      LEFT OUTER JOIN SAPHEE.ZMASTER01 E
+                              ON A.MANDT = E.MANDT
+                             AND SUBSTR(A.ZZPJT_ID,1,6) = E.POSID
+                                         
+                      INNER JOIN SAPHEE.ZCST005 CS005
+                              ON A.MANDT = CS005.MANDT
+                             AND A.VBELN = CS005.VBELN
+                             AND A.ZZPJT_ID = CS005.PSPID
+                                         
+                      INNER JOIN SAPHEE.ZCST006 CS006
+                              ON A.MANDT = CS006.MANDT
+                             AND CS005.PSPID = CS006.PSPID
+                                         
+                      LEFT OUTER JOIN SAPHEE.ZCST006T CS006T
+                              ON A.MANDT = CS006T.MANDT
+                             AND CS005.PSPID = CS006T.PSPID
+                             AND CS006.SEQNO = CS006T.SEQNO
+   
+ WHERE A.MANDT = #G_MANDT#
+   AND A.AUART = 'ZR13' -- 수리공사
+   AND A.VBELN = #VBELN#
+   AND A.ZZPJT_ID = #PSPID#
+   
+   --AND (A.VKBUR BETWEEN 'E900' AND 'EF00' OR A.VKBUR = 'EI00')
+   --AND (A.VKBUR BETWEEN 'E900' AND 'EF00' OR A.VKBUR = 'EI00' OR A.VKBUR = 'BJ00' OR A.VKBUR = 'EK00')
+   AND (A.VKBUR BETWEEN 'E900' AND 'EF00' OR A.VKBUR = 'EI00' OR A.VKBUR = 'BJ00' OR A.VKBUR = 'EK00' OR A.VKBUR = 'BK00' OR A.VKBUR = 'BL00' OR A.VKBUR = 'BM00')
+   
+   AND A.SPART IN ( '10' ,'20' )
+   AND A.NETWR > 0
+   AND A.VBTYP != 'B'
+
+ORDER BY CS006.SEQNO                  
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list3">
+	</output>
+</query>

@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[HRTS설치현황 대상 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+      '' CHK
+      ,A.PJT
+      ,A.HNO
+      ,A.ARA
+      ,A.BSU
+      ,SAPHEE.CODE_CONV(A.MANDT,'VKGRP',D.VKGRP) VKGRP_NM
+      ,SAPHEE.CODE_CONV(A.MANDT,'CS115',A.ARA) ARA_NM
+      ,SAPHEE.GET_VENDER_N_NAME(A.MANDT,A.BSU) BSU_NM
+      ,B.CS215_SDT  SDT
+      ,B.CS215_HTL  HTL
+      ,B.CS215_EOE  EOE
+      ,(SELECT MAX(NAME1) FROM SAPHEE.ZMMT012 WHERE MANDT = #G_MANDT# AND LIFNR = B.CS215_EOE) ENM
+      ,B.CS215_EPN  EPN
+      ,C.ZSITE_NM   SPT
+      ,C.ADDR1||C.ADDR2 ADR
+      ,B.CS215_FNAME FNAME
+      ,B.CS215_FSIZE FSIZE
+      ,B.CS215_FPATH FPATH
+      ,B.CS215_FNAME_APP FNAME_APP
+      ,CASE WHEN B.CS215_FNAME_APP &gt; '' THEN 'Y' ELSE '' END IMG
+      ,B.CS215_RMK RMK
+      ,VALUE(B.CS215_PYN,'') PYN
+      ,E.CS126_GNO GNO
+      ,E.CS126_CST CST
+      ,E.VBELN VBELN
+  FROM SAPHEE.ZCST111 A LEFT OUTER JOIN SAPHEE.ZCST215 B
+                                ON A.MANDT = B.MANDT
+                               AND A.PJT   = B.CS215_PJT
+                               AND A.HNO   = B.CS215_HNO
+                               AND A.CST   = B.CS215_CST
+
+                        LEFT OUTER JOIN SAPHEE.ZMASTER01 C
+                                ON A.MANDT = C.MANDT
+                               AND A.PJT   = C.POSID
+                               
+                        LEFT OUTER JOIN SAPHEE.ZWBT010 D
+                                ON A.MANDT = D.MANDT
+                               AND A.BSU   = D.LGORT
+                               
+                        INNER JOIN SAPHEE.ZCST126 E
+                                ON A.MANDT = E.MANDT
+                               AND A.PJT   = E.CS126_PJT
+                               AND A.HNO   = E.CS126_HNO
+                           --    AND A.CST   = E.CS126_CST
+                        	   
+                        INNER JOIN SAPHEE.VBAK F
+                                ON E.MANDT     = F.MANDT
+                               AND E.VBELN     = F.VBELN
+                               AND E.CS126_GNO = F.ZZPJT_ID
+                      		   
+                        INNER JOIN SAPHEE.ZMMT031 G
+                                ON A.MANDT     = G.MANDT
+                               AND E.CS126_PJT = SUBSTR(G.POSID,1,6)
+                      	   --  AND E.CS126_CST = SUBSTR(G.UPN,7,3)	사업자변경으로 거래선 변경될 수 있으므로 고려대상제외 04/15
+                      	   --  AND E.CS126_HNO = SUBSTR(G.POSID,7,3)  동일문서번호로 여러호기청구시 리스트에 미출력되어 보완                    		
+  
+ WHERE A.MANDT = #G_MANDT#
+   AND A.EXC = ''
+   AND A.HST NOT IN ('F','D')    
+   AND SUBSTR(A.HNO,1,1) NOT IN ('J','G')
+-- AND E.CS126_FHG = 'Y'	-- 최초 HRTS 여부	(최초여부제외)
+   AND E.CS126_HYN = 'Y'	-- HRTS 여부
+   AND E.CS126_HWR = 'B'	-- 회선종류(A: 유선, B: 무선)
+   AND E.CS126_DDT = ''
+   AND E.CS126_PST = 'A6'
+   AND E.CS126_USD &lt;= HEX(CURRENT DATE)
+   AND E.CS126_UMR &gt;= HEX(CURRENT DATE)
+   AND E.CS126_HNO = SUBSTR(G.POSID,7,3)
+--   AND E.CS126_CST = SUBSTR(G.UPN,7,3)
+   AND F.NETWR > 0               --수주금액
+   AND G.REQKIND = 'D'           --HRTS청구 구분
+   AND G.APDAT &gt; '20151101'   --자재HRTS청구 승인일자(도입한 201511부터)
+   AND G.RECE_F = '3'            --자재HRTS청구 승인상태
+<isNotNull col="REQNO">
+   AND G.REQNO = #REQNO#
+</isNotNull>    
+<isNotNull col="FYM">
+   AND B.CS215_SDT BETWEEN #FYM# AND #TYM#
+</isNotNull>   
+<isNotNull col="PJT">
+   AND A.PJT = #PJT#
+</isNotNull>
+<isNotNull col="ARA">
+   AND A.ARA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+   AND A.BSU = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+   AND A.BPM = #BPM#
+</isNotNull>
+<isNotNull col="TEM">
+   AND D.VKGRP = #TEM# 
+</isNotNull>
+<isNotNull col="GBN">
+   AND D.BSU_GB = '1'		-- 보수협력사아닌 직원 서울직영현장 조회 위해 추가
+</isNotNull>
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

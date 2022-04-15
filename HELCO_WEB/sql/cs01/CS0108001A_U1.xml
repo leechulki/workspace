@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>update</type>
+	<description><![CDATA[BOM 1레벨 자재 동기화]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>	
+	
+	MERGE INTO SAPHEE.ZCST645 AS T1
+	USING (
+		SELECT 
+			   a.matnr as MATNRL1 --"자재번호",
+		 	   , '0' AS MATNRL2 --"2 level 자재번호"
+			   , c.mtart AS MTART -- 자재유형
+		       , b.maktx AS MAKTX --"품명",
+		       , c.zsize AS ZSIZE -- "재질",  
+		       , a.meins AS MEINS --"단위",
+			   , c.MATNR_NM AS MATNR_NM --"자재명"
+		       , (kst001 +kst002 +kst003 +kst004 + kst006 + kst007 +kst008 + kst009 + kst011 + kst013) * 100 AS SAMT2 -- "원가" 
+		       , c.BLOCK_NO AS BLOCK_NO
+		  FROM saphee.keko AS a 
+		   INNER JOIN saphee.makt AS b 
+		       ON a.mandt = b.mandt 
+		       AND a.matnr = b.matnr 
+		       AND b.spras = '3' 
+		   INNER JOIN saphee.mara AS c 
+		       ON a.mandt = c.mandt 
+		       AND a.matnr = c.matnr 
+		   INNER JOIN saphee.keph AS d 
+		       ON a.mandt = d.mandt 
+		       AND a.kalnr = d.kalnr 
+		       AND a.kadky = d.kadky 
+		       AND a.tvers = d.tvers 
+		       AND a.bwvar = d.bwvar 
+		       AND d.kkzst = '' 
+		 WHERE a.mandt = #G_MANDT# 
+		       AND a.BZOBJ = '0' 
+		       AND a.kalka = '01' --원가계산유형 PC1 
+		       AND a.kadky = 
+		       (SELECT max(kadky) 
+		         FROM saphee.keko 
+		        WHERE mandt = #G_MANDT# 
+		              AND BZOBJ = '0' 
+		              AND kalka = '01' --원가계산유형 PC1 
+		              AND tvers = '01' --원가계산버전 
+		              AND bwvar = 'Z05' --평가변형 
+		              AND kokrs = '1000' --관리회계영역 
+		       WITH ur
+		          ) --원가계산일 (키) 
+		          AND a.tvers = '01' --원가계산버전 
+		          AND a.bwvar = 'Z05' --평가변형 
+		          AND a.kokrs = '1000' --관리회계영역 
+		          AND a.kalst = '0002' --원가계산레벨 
+		 ORDER BY a.matnr 
+		   WITH ur
+	) B1
+	 
+				ON					     
+		        	T1.MANDT = #G_MANDT#
+		        AND T1.MATNRL1 = B1.MATNRL1
+		        AND T1.MATNRL2 = '0'
+
+	WHEN  MATCHED THEN
+	UPDATE
+	          SET 
+					T1.SAMT2 = B1.SAMT2,      
+					T1.UDATE = HEX(CURRENT DATE),   
+					T1.UNAME = #G_USER_ID#
+	        	
+	      
+	WHEN NOT MATCHED THEN
+	       INSERT (
+		        	T1.MANDT,     
+					T1.MATNRL1,        
+					T1.MATNRL2,         
+					T1.LEVEL1,       
+					T1.MTART,           
+					T1.MAKTX,        
+					T1.ZSIZE, 
+					T1.MEINS, 
+					T1.MATNR_NM, 
+					T1.SAMT2, 
+					T1.BLOCK_NO, 
+					T1.IDATE,
+					T1.INAME
+				)
+				VALUES 
+				( 
+					#G_MANDT#,
+					B1.MATNRL1,        
+					B1.MATNRL2,         
+					'1',       
+					B1.MTART,           
+					B1.MAKTX,        
+					B1.ZSIZE, 
+					B1.MEINS, 
+					B1.MATNR_NM, 
+					B1.SAMT2, 
+					B1.BLOCK_NO,
+					HEX(CURRENT DATE),
+					#G_USER_ID#
+				)		
+						
+    
+	</statement>	
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="_none">	
+	</output>
+	</query>

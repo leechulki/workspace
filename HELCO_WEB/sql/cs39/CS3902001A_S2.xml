@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>	
+	<![CDATA[
+	SELECT A.PJT
+	      ,A.HNO
+	      ,A.IGD
+	      ,VALUE(A.ISD,'') AS ISD
+	      ,A.IKD
+	      ,CASE WHEN A.IKD > '' THEN B.CS157_CAB ELSE A.ARA END ARA
+	      ,CASE WHEN A.IKD > '' THEN B.CS157_CHB ELSE A.BSU END BSU
+	      ,Z.ZSPEC3
+	      ,VALUE(C.ABG,'') AS ABG
+        ,(SELECT COUNT(*) FROM SAPHEE.ZMASTER02 WHERE MANDT = #G_MANDT# AND POSID = A.PJT AND SUBSTR(POSID_1,7,1) IN ('L') AND TXT04 != 'C') AS CNT_L
+        ,(SELECT COUNT(*) FROM SAPHEE.ZMASTER02 WHERE MANDT = #G_MANDT# AND POSID = A.PJT AND SUBSTR(POSID_1,7,1) IN ('S','W') AND TXT04 != 'C') AS CNT_S
+        ,'' AS STO
+        ,SUBSTR(#GDATE# ,1,6) AS YYYYMM
+	  FROM (
+	          SELECT
+	                  CS101_PJT PJT
+	                 ,CS101_HNO HNO
+	                 ,MAX(CS101_ARA) ARA
+	                 ,MAX(CS101_BSU) BSU
+	                 ,MAX(CS101_IGD) IGD
+	                 ,MAX(CS101_ISD) ISD
+	                 ,MIN(CS157_IKD) IKD
+	
+	            FROM SAPHEE.ZCST101 A LEFT OUTER JOIN SAPHEE.ZCST157 B
+	                                        ON A.MANDT = B.MANDT
+	                                       AND A.CS101_PJT = B.CS157_PJT
+	                                       AND A.CS101_HNO = B.CS157_HNO
+	                                       AND B.CS157_IKD >= A.CS101_ISD
+	
+	           WHERE A.MANDT = #G_MANDT#
+	             AND A.CS101_IGD BETWEEN SUBSTR(#GDATE# ,1,6)||'01' AND #GDATE#
+	             AND SUBSTR(A.CS101_HNO,1,1) IN ('L','S','W','C')
+	             AND CS101_PJT NOT LIKE 'M%'
+	             AND MDATE <= #GDATE#
+	             AND CS101_ARA != ''
+	
+	           GROUP BY CS101_PJT,CS101_HNO
+	
+	       ) A LEFT OUTER JOIN SAPHEE.ZCST157 B
+	                   ON B.MANDT = #G_MANDT#
+	                  AND A.PJT = B.CS157_PJT
+	                  AND A.HNO = B.CS157_HNO
+	                  AND A.IKD = B.CS157_IKD
+	                  
+             LEFT OUTER JOIN SAPHEE.ZCST111 C
+	                   ON C.MANDT = #G_MANDT#
+	                  AND C.PJT = A.PJT
+	                  AND C.HNO = A.HNO
+	                  
+             LEFT OUTER JOIN SAPHEE.ZMASTER02 Z
+	                   ON Z.MANDT = #G_MANDT#
+	                  AND Z.POSID = A.PJT
+	                  AND Z.POSID_1 = A.PJT||A.HNO
+	                  
+]]>
+	</statement>	
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="_none">	
+	</output>
+	</query>

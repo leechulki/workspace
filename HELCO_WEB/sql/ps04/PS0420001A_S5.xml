@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	
+   SELECT   '' AS CHK, T.PSPID, T.POSID ,   W.SEQNO,  T.ZSITE_NM ,T.ZMAN, T.ZMAN_NM, T.P_PRO_R, F.USERNAME AS PR_MAN_NM,
+              W.LIFNR_BF,      W.LIFNR_AF,     W.TEMNO,  CAST( #PSWEB_GBN#  AS VARCHAR(3)) AS PSWEB_GBN, '' AS GBN, 
+              W.PROPO_DAT,  W.PROPO_MAN,   W.TRANSACT,   W.TRANS_DAT,
+			  CASE WHEN (VALUE((SELECT F.TOT_MH
+                       FROM SAPHEE.ZPST0100 AS F
+                      WHERE F.PSPID =T.PSPID
+                        AND F.POSID = T.POSID
+                        AND F.CHGNO = ( SELECT MAX( E.CHGNO )
+                                          FROM SAPHEE.ZPST0113 AS E
+                                          WHERE E.MANDT = F.MANDT
+                                            AND E.CNF_GBN = 'A'
+                                            AND E.PSPID = F.PSPID
+                                            AND E.POSID = F.POSID
+                                            AND E.GUBUN = '5'
+                                            AND E.STATE = 'Y')) ,0)) = 0 THEN 'X' ELSE 'O'END  AS FINAL_CHK,
+     
+                                            
+                                            
+             CASE WHEN ((SELECT COUNT(*) FROM SAPHEE.ZPST0115A AS H WHERE H.MANDT  = T.MANDT AND H.PSPID = T.PSPID AND H.POSID = T.POSID 
+			                        AND H.SEQNO = (SELECT MAX(X.SEQNO) FROM SAPHEE.ZPST0115A AS X WHERE X.MANDT = H.MANDT AND X.PSPID = H.PSPID AND X.POSID = H.POSID)
+                        			AND H.GUBUN = '5' AND H.STATE = 'Y'))  &lt;&gt;   0  OR  (SELECT COUNT(*) FROM SAPHEE.ZPST0115A AS H WHERE H.MANDT  = T.MANDT AND H.PSPID = T.PSPID AND H.POSID = T.POSID) = 0  THEN '없음' ELSE '있음' END BAL, 
+  	        VALUE(( SELECT SUM( X.PRO_R ) FROM SAPHEE.ZPST0112 AS X WHERE X.MANDT = T.MANDT  AND X.PSPID = T.PSPID	AND X.POSID = T.POSID ),0.0) AS L_PRO_R    ,             			
+		
+			  CASE WHEN C.LIFNRCHK = '1' THEN '직발주' 
+	         WHEN C.LIFNRCHK = '2'  THEN '공동수급'
+	         ELSE '' END AS SOGBN1,
+	        
+			CASE WHEN C.LIFNRCHK = '1' THEN CASE WHEN D.GUBUN1 = '0' THEN '미입력'
+                                                                              WHEN D.GUBUN1 = '1' THEN '완료'
+                                                                              WHEN D.GUBUN1 = '2' THEN '미완료'
+                                                                              WHEN D.GUBUN1 = '3' THEN '거부'
+                                                                              ELSE  ''
+                                                                     END
+                        WHEN C.LIFNRCHK = '2' THEN CASE WHEN E.GUBUN1 = '0' THEN '미입력'
+                                                                              WHEN E.GUBUN1 = '1' THEN '동일업체투입'
+                         			                      WHEN E.GUBUN1 = '2' THEN '미완료'
+                                                    		        WHEN E.GUBUN1 = '3' THEN '승인불가'
+                                                    		        WHEN E.GUBUN1 = '4' THEN '추가약정완료'
+                                                    		        WHEN E.GUBUN1 = '5' THEN '변경합의서승인'
+                                                                             ELSE  ''     END      ELSE ''  END AS SOGBN2
+          , CASE WHEN (
+  	  					SELECT COUNT(1)
+  	  					  FROM SAPHEE.ZPSTW001F AS X
+  	  					 WHERE X.MANDT = #G_MANDT#
+  	  					   AND X.PSPID = W.PSPID 
+  	              ) > 0
+  	         THEN 'X'
+  	         ELSE ''
+  	         END AS FILE_INDC 
+FROM
+( SELECT A.MANDT, A.POSID AS PSPID, A.POSID_1 AS POSID,  B.ZSITE_NM, B.ZMAN,  B.ZMAN_NM,
+              VALUE(( SELECT SUM( X.PRO_R ) 
+					    FROM  SAPHEE.ZPST0116 AS X
+					   WHERE X.MANDT = A.MANDT  
+					     AND X.PSPID = A.POSID 
+					     AND X.POSID = A.POSID_1
+					     AND X.BELNR  &lt;&gt;  '' 
+					     AND X.ZERROR = '' ),0.0) AS P_PRO_R
+	FROM SAPHEE.ZMASTER02 AS A
+  INNER JOIN SAPHEE.ZMASTER01 AS B 
+      ON A.MANDT = B.MANDT
+	  AND A.POSID = B.POSID
+
+  WHERE A.MANDT = #G_MANDT#     
+    <isNotNull col="PSPID">
+      AND A.POSID = #PSPID#
+    </isNotNull>
+    <isNull col="PSPID">
+      	<isNotNull col="PROPO_DAT_F">
+		AND A.ZZSHIP1 BETWEEN #PROPO_DAT_F# AND #PROPO_DAT_T#
+		</isNotNull>
+    </isNull>
+      
+	  
+   ) 	AS T
+ INNER JOIN SAPHEE.ZPSTW001 AS W
+     ON T.MANDT = W.MANDT
+	 AND T.PSPID = W.PSPID
+	 AND T.POSID =  W.POSID
+	 
+	 LEFT OUTER JOIN SAPHEE.VBAK AS C
+	    ON T.MANDT = C.MANDT
+      AND T.PSPID = C.ZZPJT_ID  
+	
+     LEFT OUTER JOIN  SAPHEE.ZPST0033 AS D
+        ON T.MANDT = D.MANDT
+      AND T.PSPID = D.PSPID
+	  
+     LEFT OUTER JOIN  SAPHEE.ZPST0030 AS E
+        ON T.MANDT = E.MANDT
+      AND T.PSPID   = E.PSPID 
+	
+     LEFT OUTER JOIN SAPHEE.ZUSERF AS F
+        ON W.MANDT = F.MANDT
+       AND W.PROPO_MAN = F.USERNUMB
+
+ 
+   WHERE T.MANDT = #G_MANDT#
+       AND T.P_PRO_R &lt; 100
+	     <isNotNull col="TRANSACT">
+      AND W.TRANSACT = #TRANSACT#
+      </isNotNull>    
+      <isEqual col="PSWEB_GBN" value="Y">
+        AND   W.PROPO_MAN = #G_USER_ID#
+       </isEqual>
+      <isNotNull col="LIFNR">
+      AND (W.LIFNR_BF = #LIFNR# OR W.LIFNR_AF = #LIFNR# )
+      </isNotNull>   
+	   
+    ORDER BY  T.PSPID,  T.POSID,  W.SEQNO
+    FOR FETCH ONLY WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT T.PSPID, T.REQ_DAT ,T.CHGNO, SUM(T.QTY) QTY ,  M.ZSITE_NM , A.STATE,  A.SEND_DAT ,  A.USE_DAT , F.USERNAME AS REQ_MAN, m.zzactss, m.text30,
+               (SELECT X.SITE_MAN FROM SAPHEE.ZPSTHOOKD AS X WHERE T.MANDT = X.MANDT AND X.PSPID =  T.PSPID AND T.REQ_DAT = X.REQ_DAT AND T.CHGNO = X.CHGNO  FETCH FIRST 1 ROWS ONLY  ) AS SITE_MAN,
+			   (SELECT X.SITE_TEL FROM SAPHEE.ZPSTHOOKD AS X WHERE T.MANDT = X.MANDT AND X.PSPID =  T.PSPID AND T.REQ_DAT = X.REQ_DAT AND T.CHGNO = X.CHGNO  FETCH FIRST 1 ROWS ONLY  ) AS SITE_TEL,
+(SELECT X.NAMET  FROM SAPHEE.ZMASTER02 AS X WHERE T.MANDT = X.MANDT AND X.POSID =  T.PSPID  FETCH FIRST 1 ROWS ONLY  ) AS NAMET
+FROM
+   (SELECT B.MANDT ,B.CHGNO, B.PSPID, B.REQ_DAT , (B.QTY1+B.QTY2+B.QTY3) AS QTY
+        FROM SAPHEE.ZPSTHOOKD AS B
+      WHERE B.MANDT = #G_MANDT#
+   <isNotNull col="PJT">
+       AND  B.PSPID = #PJT# 
+    </isNotNull>
+          ) AS T
+  
+  INNER JOIN SAPHEE.ZPSTHOOKM AS A
+      ON A.MANDT = T.MANDT 
+     AND A.PSPID = T.PSPID
+     AND A.REQ_DAT = T.REQ_DAT
+     AND A.CHGNO = T.CHGNO
+  
+  INNER JOIN SAPHEE.ZMASTER01 AS M
+      ON A.MANDT = M.MANDT 
+    AND A.PSPID = M.POSID  
+
+  LEFT OUTER JOIN SAPHEE.ZUSERF AS F
+        ON A.MANDT = F.MANDT
+       AND A.REQ_MAN = F.USERNUMB
+ 
+
+ WHERE T.MANDT = #G_MANDT#
+     <isEqual col="GBN" value="A">
+    AND T.REQ_DAT BETWEEN #FDT# AND #TDT#
+ </isEqual>
+
+ <isEqual col="GBN" value="B">
+    AND A.USE_DAT BETWEEN #FDT# AND #TDT#
+  </isEqual>
+
+ <isEqual col="STATE" value="A">
+    AND A.STATE = 'A'
+ </isEqual>
+
+ <isEqual col="STATE" value="B">
+    AND A.STATE = 'B'
+ </isEqual>
+
+  <isNotNull col="ZZACTSS">
+       AND  M.ZZACTSS = #ZZACTSS# 
+    </isNotNull>
+  
+
+GROUP BY T.MANDT , T.PSPID, T.REQ_DAT ,T.CHGNO,M.ZSITE_NM, A.STATE, A.SEND_DAT ,  A.USE_DAT, A.REQ_MAN , F.USERNAME, m.zzactss, m.text30	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

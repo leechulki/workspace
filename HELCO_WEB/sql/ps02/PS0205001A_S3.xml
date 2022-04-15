@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT A.POSID AS PSPID, A.POSID_1 AS POSID, '00000000'  AS INP_DT, '0000000000' AS LIFNR, ''AS CHECK,
+             A.ZZSHIP1, A.ZZCOMP2, A.ZSPEC1, A.ZSPEC2, A.TEMNO AS PMCD, A.TEMNO2 AS TMCD,
+            VALUE(B.PERNO1,'') AS PERNO1, VALUE(B.PERNO1_NM,'') AS PERNO1_NM, VALUE(B.PERNO2,'') AS PERNO2,                      VALUE(B.PERNO2_NM,'') AS PERNO2_NM, VALUE(B.PERNO3,'') AS PERNO3, 
+            VALUE(B.PERNO3_NM,'') AS PERNO3_NM, VALUE(B.PERNO4,'') AS PERNO4, 
+            VALUE(B.PERNO4_NM,'') AS PERNO4_NM, VALUE(B.PERNO5,'') AS PERNO5, 
+            VALUE(B.PERNO5_NM,'') AS PERNO5_NM, VALUE(B.PERNO6,'') AS PERNO6, 
+            VALUE(B.PERNO6_NM,'') AS PERNO6_NM,
+            '' AS MI_PERNO, '1' AS PER_SUM,
+            (SELECT VALUE(MIN(ST2.INP_DT),'') 
+                FROM SAPHEE.ZPSTW0205 AS ST2 
+              WHERE ST2.MANDT = A.MANDT AND ST2.PSPID  = A.POSID 
+                  AND ST2.POSID = A.POSID_1 
+                  AND ST2.LIFNR = #ZZLIFNR# ) AS FIR_DT,
+            '' AS PRONR,  
+            (SELECT VALUE(SUM(ST2.PRO_R),0) 
+                FROM SAPHEE.ZPST0112 AS ST2 
+              WHERE ST2.MANDT = A.MANDT AND ST2.PSPID = A.POSID 
+                  AND ST2.POSID = A.POSID_1 ) AS PRO_R , A.ZZGUBUN		 
+		 
+   FROM SAPHEE.ZMASTER02 AS A
+
+    LEFT OUTER JOIN ( SELECT T1.MANDT, T1.LIFNR,   T1.TEMNO AS TMCD,   T1.NAMET  AS TMNM,
+			     MAX(CASE WHEN T1.ROWN = 1 THEN T1.PERNO ELSE '' END) AS PERNO1,
+			   MAX(CASE WHEN T1.ROWN = 1 THEN T1.NAMEE ELSE '' END) AS PERNO1_NM,
+			   MAX(CASE WHEN T1.ROWN = 2 THEN T1.PERNO ELSE '' END) AS PERNO2,
+			   MAX(CASE WHEN T1.ROWN = 2 THEN T1.NAMEE ELSE '' END) AS PERNO2_NM,
+			   MAX(CASE WHEN T1.ROWN = 3 THEN T1.PERNO ELSE '' END) AS PERNO3,
+			   MAX(CASE WHEN T1.ROWN = 3 THEN T1.NAMEE ELSE '' END) AS PERNO3_NM,
+			   MAX(CASE WHEN T1.ROWN = 4 THEN T1.PERNO ELSE '' END) AS PERNO4,
+			   MAX(CASE WHEN T1.ROWN = 4 THEN T1.NAMEE ELSE '' END) AS PERNO4_NM,
+			   MAX(CASE WHEN T1.ROWN = 5 THEN T1.PERNO ELSE '' END) AS PERNO5,
+			   MAX(CASE WHEN T1.ROWN = 5 THEN T1.NAMEE ELSE '' END) AS PERNO5_NM,
+			   MAX(CASE WHEN T1.ROWN = 6 THEN T1.PERNO ELSE '' END) AS PERNO6,
+			   MAX(CASE WHEN T1.ROWN = 6 THEN T1.NAMEE ELSE '' END) AS PERNO6_NM
+		       FROM ( SELECT ROW_NUMBER() OVER(PARTITION BY ST1.LIFNR,ST1.TEMNO ) AS ROWN ,
+             				    ST1.MANDT,  ST1.LIFNR, ST1.TEMNO, ST1.NAMET,   ST1.PERNO, ST1.NAMEE	
+                                                  FROM SAPHEE.ZPST0001 AS ST1 
+                                                 WHERE ST1.MANDT = #G_MANDT#
+                                                   AND ST1.LIFNR = #ZZLIFNR#
+                                                   AND ST1.GBN   = 'A'
+	  		           AND ST1.RETIF <> 'X'
+	  		           AND ST1.DELEF <> 'X'
+	  		           AND ST1.POSIT <> 'X'			  
+			       ORDER BY  ST1.TEMNO
+                                                 ) AS T1
+                                  GROUP BY T1.MANDT, T1.LIFNR, T1.TEMNO, T1.NAMET
+		   )  AS B  
+       ON A.MANDT = B.MANDT
+     AND A.LIFNR = B.LIFNR
+     AND A.TEMNO2 = B.TMCD 	   
+ WHERE A.MANDT = #G_MANDT#      
+     AND A.ZZGUBUN BETWEEN '10' AND '14' 
+     AND A.PRART IN ('01', '02', '11') 
+     AND A.ZZCHAKG = 'X'
+     AND A.TXT04 <> 'C'	  
+     AND A.LIFNR = #ZZLIFNR#    
+     AND A.POSID = #PSPID#	   	   
+     AND NOT EXISTS ( SELECT *
+	                       FROM SAPHEE.ZPSTW0205 AS ST2
+		        WHERE ST2.MANDT = A.MANDT
+		            AND ST2.PSPID  = A.POSID
+		            AND ST2.POSID = A.POSID_1
+		            AND ST2.INP_DT = #INP_DT#   ) 
+
+ORDER BY A.POSID, A.POSID_1										    
+
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list1">
+	</output>
+</query>

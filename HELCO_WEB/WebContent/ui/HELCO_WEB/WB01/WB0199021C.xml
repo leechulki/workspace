@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="354" Id="WB0199021C" Left="8" OnLoadCompleted="fn_OnLoadCompleted" OnUnloadCompleted="fn_OnUnloadCompleted" PidAttrib="7" Title="사용그룹정보" Top="8" Ver="1.0" Width="540" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_group_cd">
+				<Contents>
+					<colinfo id="CODE" size="256" type="STRING"/>
+					<colinfo id="CODE_NAME" size="256" type="STRING"/>
+					<colinfo id="CODE_DESC" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_groupList" OnColumnChanged="ds_groupList_OnColumnChanged">
+				<Contents>
+					<colinfo id="GROUP_NAME" size="256" type="STRING"/>
+					<colinfo id="GROUP_DESC" size="256" type="STRING"/>
+					<colinfo id="MANDT" size="256" type="STRING"/>
+					<colinfo id="GNUMB" size="256" type="STRING"/>
+					<colinfo id="GGRUP" size="256" type="STRING"/>
+					<colinfo id="FLAG" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_cond">
+				<Contents>
+					<colinfo id="GNUMB" size="256" type="STRING"/>
+					<record>
+						<GNUMB></GNUMB>
+					</record>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Grid AutoEnter="TRUE" AutoFitEndLine="Hide" BindDataset="ds_groupList" BkColor2="default" BoldHead="true" Border="Flat" Bottom="346" ColSizing="TRUE" Editable="TRUE" Enable="true" EndLineColor="default" FixedColSizing="TRUE" HeadBorder="Flat" HeadHeight="20" Height="302" Id="grd_list" InputPanel="FALSE" Left="8" LineColor="user20" LineType="ExHORZ" OnExpandUp="grd_list_OnExpandUp" OnHeadClick="grd_list_OnHeadClick" Right="532" RowHeight="20" Style="sty_grid" TabOrder="0" TabStop="true" Top="44" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="524">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col width="20"/>
+						<col width="164"/>
+						<col width="100"/>
+						<col width="221"/>
+					</columns>
+					<head>
+						<cell align="center" col="0" display="text" font="Default,9" TrimType="Both"/>
+						<cell align="center" col="1" display="text" font="Default,9" text="그룹명" TrimType="Both"/>
+						<cell align="center" col="2" display="text" font="Default,9" text="그룹ID" TrimType="Both"/>
+						<cell align="center" col="3" display="text" font="Default,9" text="그룹설명" TrimType="Both"/>
+					</head>
+					<body>
+						<cell align="left" bkcolor2="user22" bkimageid='expr:gfn_getFlagBkImageID(getColumn(currow,&#32;&quot;FLAG&quot;))&#32;' col="0" display="text"/>
+						<cell align="left" bkcolor2="user22" col="1" colid="GROUP_NAME" combocol="CODE" combodataset="ds_group_cd" combodisplayrowcnt="10" combotext="CODE_NAME" display="normal" edit='expr:iif(&#32;getColumn(currow,&#32;&quot;FLAG&quot;)&#32;==&#32;&quot;I&quot;,&#32;&quot;normal&quot;,&#32;&quot;none&quot;)' expandimage='expr:iif(&#32;getColumn(currow,&#32;&quot;FLAG&quot;)&#32;==&#32;&quot;I&quot;,&#32;&quot;btn_icon_search&quot;,&#32;&quot;&quot;)' expandshow='expr:iif(&#32;getColumn(currow,&#32;&quot;FLAG&quot;)&#32;==&#32;&quot;I&quot;,&#32;&quot;True&quot;,&#32;&quot;False&quot;)' expandsize="20" imemode="english"/>
+						<cell align="left" bkcolor2="user22" col="2" colid="GGRUP" display="text"/>
+						<cell align="left" bkcolor2="user22" col="3" colid="GROUP_DESC" display="text"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Div Height="36" Id="div_btn" TabOrder="1" Text="Div0" Url="WB01::CommBtnForm.xml" Width="540">
+			<Contents></Contents>
+		</Div>
+	</Form>
+	<Script><![CDATA[/*
+ ******************************************************************************************
+ * 기      능   : 사용자 그룹 정보 관리 
+ * 작  성  자   : 
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+#include "LIB::commons.js";	// 공통 스크립트 
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) {
+	// Form 로드 이벤트 맨 첫줄에 기술 
+	gfn_initForm();
+	
+	ds_cond.setColumn(0, "GNUMB", fa_gnumb);
+	// 조회 
+	fn_query();
+}
+/********************************************************************************
+* 기      능   : 공통코드가 조회된 후의 Callback 함수 
+********************************************************************************/
+function fn_completeInit(sCode, sDsObj, sCodeType) {
+
+}
+/********************************************************************************
+* 기      능   : form UnloadCompleted 
+********************************************************************************/
+function fn_OnUnloadCompleted(obj) {
+	return gfn_isFormUnload(obj);
+}
+//=========================================================================================
+// [ PART 3 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,form닫기)
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 조회 
+********************************************************************************/
+function fn_query() {
+	tit_clearActionInfo();
+	tit_addSearchActionInfo("wb01:WB0199021C_S1");	// 코드 조회 
+	tit_addSearchActionInfo("wb01:WB0199021C_S2");	// 그룹정보 조회
+	
+	tit_callService(
+        ""
+        , ""
+        , "ds_cond=ds_cond"
+        , "ds_group_cd=ds_group_cd ds_groupList=ds_groupList"
+        , ""
+        , "fn_afterQuery"
+        , true);	
+}
+/********************************************************************************
+* 기      능   : 저장  
+********************************************************************************/
+function fn_save() {
+	// 변경 정보 
+	if ( !gfn_isChangeDs(ds_groupList, true, "FLAG") ) {
+		return;
+	}
+	
+	// 프로그램 코드 
+	var dsColNmArr = ["GGRUP"];
+	if( gfn_isGridNull(grd_list, dsColNmArr, null, "FLAG") ) {
+		return;
+	}
+	
+	tit_clearActionInfo();
+	tit_addSaveActionInfo(
+		"wb01:WB0199021C_I1"
+		, ""
+		, "wb01:WB0199021C_D1"
+		, "FLAG");
+		
+	tit_addSearchActionInfo("wb01:WB0199021C_S2");
+	
+	tit_callService(
+        ""
+        , ""
+        , "ds_cond=ds_cond ds_groupList=ds_groupList"
+        , "ds_groupList=ds_groupList"
+        , ""
+        , "fn_afterSave"
+        , true);	
+}
+/********************************************************************************
+* 기      능   : 입력
+********************************************************************************/
+function fn_input() {
+	var nRow = gfn_addGridRow(grd_list, -1, "FLAG");
+	ds_groupList.setColumn(nRow, "GNUMB", fa_gnumb);
+}
+/********************************************************************************
+* 기      능   : 삭제 
+********************************************************************************/
+function fn_delete() {
+	gfn_deleteGridRow( grd_list, ds_groupList.row, "FLAG" );
+}
+/********************************************************************************
+* 기      능   : 닫기  
+********************************************************************************/
+function fn_close() {
+	close();
+}
+/********************************************************************************
+* 기      능   : 복원 
+********************************************************************************/
+function fn_reset() {
+	ds_groupList.Reset();
+}
+//=========================================================================================
+// [ PART 4]
+// Callback 함수 정의 : callback 함수명은 메인 함수의 fn_xxxx() 에서 xxxx 부분은 fn_afterXXXX()
+// 형태가 되도록 작성 
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 조회 Callback  
+********************************************************************************/
+function fn_afterQuery(errCode, errMsg) {
+	gfn_insertEmptyRow(ds_group_cd, G_CODE_NONE, "CODE", "CODE_NAME");
+	
+	grd_list.BindDataset = "ds_groupList";
+	gfn_showSearchMsg(grd_list, errCode, errMsg);
+}
+/********************************************************************************
+* 기      능   : 저장 Callback  
+********************************************************************************/
+function fn_afterSave(errCode, errMsg) {
+	gfn_showMsg("CI00003");
+}
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+// 사용자 정의 함수는 ufn_xxxx() 형태로 작성 
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 사용자 정의 함수  
+********************************************************************************/
+
+
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 : 각 Component 별 이벤트 
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 정렬 처리 
+********************************************************************************/
+function grd_list_OnHeadClick(obj,nCell,nX,nY,nPivotIndex)
+{
+	gfn_sortGrid(obj, nCell);
+}
+/********************************************************************************
+* 기      능   :  그리드 정보 변경 
+********************************************************************************/
+function ds_groupList_OnColumnChanged(obj,nRow,strColumnID,varOldValue,varNewValue,nPivotIndex)
+{
+	if ( strColumnID == "GROUP_NAME") {
+	
+		if(length(Trim(varNewValue)) == 0)
+		{
+			obj.SetColumn(nRow, "GGRUP", "");
+			obj.SetColumn(nRow, "GROUP_NAME", "");
+			obj.SetColumn(nRow, "GROUP_DESC", "");
+			return;
+		}
+
+		var arg = "F_CODE_N="+quote(varNewValue);
+		var arr = gfn_openPopup("WB0199021J", true, arg);
+	
+		if(Length(arr) > 0)
+		{
+			var nFindRow = ds_groupList.SearchRow("GGRUP=='"+arr[0]+"'");
+		
+			if(nFindRow >= 0 && nFindRow != nRow)
+			{
+				gfn_showMsg("CW00040",arr[1]);
+				obj.fireevent = false;
+				obj.SetColumn(nRow, "GGRUP", "");
+				obj.SetColumn(nRow, "GROUP_NAME", "");
+				obj.SetColumn(nRow, "GROUP_DESC", "");
+				obj.fireevent = true;
+				return;
+			}
+			
+			if(arr[3] >= 1)
+			{
+				obj.fireevent = false;
+				obj.SetColumn(nRow, "GGRUP", arr[0]);
+				obj.SetColumn(nRow, "GROUP_NAME", arr[1]);
+				obj.SetColumn(nRow, "GROUP_DESC", arr[2]);
+				obj.fireevent = true;
+			}
+			
+			
+		}
+		
+		ApplyData(grd_list);
+		grd_list.SetFocus();
+		/*
+		for( var i = 0; i < obj.rowCount(); i++ ) {
+			if( i != nRow && varNewValue != "" 
+				&& obj.getColumn(i, "GGRUP") == varNewValue ) {
+				gfn_showMsg("CW00040",varNewValue);
+				obj.setColumn(nRow, "GGRUP", "" );
+				return;
+			}
+		}
+		*/
+		//var row = ds_group_cd.findRow("CODE", varNewValue);
+		//obj.setColumn(nRow, "GROUP_NAME", ds_group_cd.getColumn(row, "CODE_NAME") );
+		//obj.setColumn(nRow, "GROUP_DESC", ds_group_cd.getColumn(row, "CODE_DESC") );
+	}
+}
+
+function grd_list_OnExpandUp(obj,nRow,nCell,strVal,nPivotIndex)
+{
+	if(nCell == 1)	// 돋보기 버튼 클릭 시
+	{
+		var arg = "";
+		var arr = gfn_openPopup("WB0199021J", true, arg);
+		
+		if(Length(arr) > 0)
+		{
+			var nFindRow = ds_groupList.SearchRow("GGRUP=='"+arr[0]+"'");
+		
+			if(nFindRow >= 0)
+			{
+				gfn_showMsg("CW00040",varNewValue);
+				return;
+			}
+			ds_groupList.fireevent = false;
+			ds_groupList.SetColumn(nRow, "GGRUP", arr[0]);
+			ds_groupList.SetColumn(nRow, "GROUP_NAME", arr[1]);
+			ds_groupList.SetColumn(nRow, "GROUP_DESC", arr[2]);
+			ds_groupList.fireevent = true;
+		}
+		
+		ApplyData(grd_list);
+		grd_list.SetFocus();
+	}
+}
+]]></Script>
+</Window>

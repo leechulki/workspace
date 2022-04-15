@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+     consl_no	--상담번호
+     , acpt_no	--접수번호
+     , proc_tc	--고장처리구분
+     , proc_stat_cd	--처리상태
+     , A3.intg_prj_no	--통합프로젝트번호
+     , A3.deal_line_div	--거래선
+     , A3.prj_no	--프로젝트번호
+     , A3.ho_no	--호기번호
+     , LTRIM(RTRIM(B3.prj_nm)) AS prj_nm	--프로젝트명
+     , B4.ho_nm	--호기명
+	 , acpt_date	--접수일자
+	 , acpt_time	--접수시간
+	 , HCSADM.UF_SYSDATE(acpt_date || acpt_time,'YYYY-MM-DD HH:MI:SS',0) AS acpt_datetime	--접수일시
+	 , consl_lcd
+	 , consl_mcd
+	 , consl_scd
+	 , HCSADM.FN_CODEBOOK('CONSL_CD',consl_lcd) AS consl_lcd_nm	--접수유형(대)
+	 , HCSADM.FN_CODEBOOK('CONSL_CD',consl_mcd) AS consl_mcd_nm --접수유형(중)
+	 , HCSADM.FN_CODEBOOK('CONSL_CD',consl_scd) AS consl_scd_nm --접수유형(소)
+	 , bkdn_loc_lcd
+	 , bkdn_loc_cd
+	 , bkdn_cau_cd
+	 , HCSADM.FN_CODEBOOK('040000',bkdn_loc_lcd) AS bkdn_loc_lcd_nm	--고장부위(대)
+	 , HCSADM.FN_CODEBOOK('040000',bkdn_loc_cd) AS bkdn_loc_cd_nm	--고장부위(중)
+	 , HCSADM.FN_CODEBOOK('020000',bkdn_cau_cd) AS bkdn_cau_cd_nm	--고장원인
+	 , proc_rslt_cd	--처리결과
+	 , HCSADM.FN_CODEBOOK('030000',proc_rslt_cd) AS proc_rslt_cd_nm	--고장원인
+	 , acpt_cntn	--접수내용
+ FROM    (
+         SELECT  A2.*, ROW_NUMBER() OVER(ORDER BY acpt_no DESC) rnum
+         FROM    (
+                 SELECT
+                         A.consl_no, B1.acpt_no, B1.proc_tc, B2.proc_stat_cd
+                         , B1.intg_prj_no, B1.deal_line_div, B1.prj_no, B1.ho_no
+                         , B1.acpt_date, B1.acpt_time
+                         , B1.consl_lcd, B1.consl_mcd, B1.consl_scd
+                         , A.call_type_cd, B6.actl_stat_cd, B6.bkdn_loc_lcd
+                         , B6.bkdn_loc_cd, B6.bkdn_cau_cd, B6.proc_rslt_cd
+                         , B1.acpt_cntn
+                   FROM (
+                         SELECT
+                             acpt_no, proc_tc, intg_prj_no, deal_line_div, prj_no
+                             , ho_no, acpt_date, acpt_time, consl_lcd, consl_mcd, acpt_cntn
+                             , consl_scd, consl_no
+                         FROM hcsadm.uc_ass_base
+                         WHERE acpt_date BETWEEN '20140623' AND '20140623' 
+                         ) AS B1
+	                 , hcsadm.uc_crs_consl_hist AS A
+	                 , hcsadm.uc_ass_proc_hist AS B2
+	                 , hcsadm.uc_ass_fin_rpt AS B6
+                     WHERE B1.consl_no=A.consl_no
+                     AND B1.acpt_no=B2.acpt_no
+                     AND B2.acpt_no=B6.acpt_no
+                     AND B2.proc_egnr_user_id=B6.proc_user_id                     
+                 ) A2
+         ) A3
+ LEFT OUTER JOIN hcsadm.sap_prj_info AS B3
+ ON A3.intg_prj_no=B3.prj_no
+ AND A3.deal_line_div=B3.deal_line_div
+ LEFT OUTER JOIN hcsadm.sap_ho_info AS B4
+ ON A3.intg_prj_no=B4.intg_prj_no
+ AND A3.deal_line_div=B4.deal_line_div
+ AND A3.prj_no=B4.prj_no
+ AND A3.ho_no=B4.ho_no
+ WHERE A3.PRJ_NO = #POSID#	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list8">
+	</output>
+</query>

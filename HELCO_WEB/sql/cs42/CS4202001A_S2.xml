@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+SELECT
+        A.TAXNO    TAXNO   
+       ,A.PRIFORM
+       ,A.TAXDATE
+       ,CASE WHEN A.PRIFORM = '5' THEN 'CMS' ELSE '지로' END GUBUN    
+       ,A.VKGRT    S071 --내역(담당지사)    
+       ,A.ADDRS3   S072 --발신주소       
+       ,A.POSTCD2  S073 --발신우편번호         
+       ,A.TELNO    S074 --발신전화번호      
+       ,A.FAXNO    S075 --발신팩스번호  
+       ,A.TAXNO    S076 --세금계산서 번호     
+       ,A.KIDNO   -- 프로젝트         
+       ,A.KUPJT   --현장확인번호      
+       ,A.ADDRS1||A.ADDRS2   S079 -- 주소1                      
+       ,A.NAME||A.NAME1      S080   --상호                          
+       ,A.POSTCD1  S081 --우편번호
+       ,'000' S004         
+       , CASE WHEN A.PRIFORM = '5' 
+              THEN CS713.AMOUNT
+              ELSE CS705.AMOUNT
+         END MISU 
+       ,A.VKGRP
+       ,ZC001.CTEXT2 VKGRP_NM  
+       , CASE WHEN A.PRIFORM = '5' 
+              THEN CS712.SUMAMT
+              ELSE CS706.AMOUNT
+         END AMT 
+       ,CS708.GIROAMT AS AMT2
+       ,'' CHK
+       ,A.KUNNR
+	     ,VALUE(CS708.INFO3,CS710.WORKNM) AS ZSITE_NM --현장명
+       ,A.POSTCD1
+       ,A.POSTCD5
+       ,A.LNAME
+       ,CASE WHEN VALUE(F1004.TAXNO,'') = '' THEN '계산서 정보 없음' ELSE '' END AS TAX1004
+       ,CASE WHEN A.PRIFORM = '5' 
+              THEN 'B'
+              ELSE 'A'
+         END  AS SEAL
+
+
+FROM SAPHEE.ZCST709 A LEFT OUTER JOIN SAPHEE.ZCST708 CS708
+                              ON CS708.MANDT = #G_MANDT#
+                             AND CS708.TAXNO = A.TAXNO
+                      
+                      LEFT OUTER JOIN SAPHEE.ZCST710 CS710
+                              ON CS710.MANDT = #G_MANDT#
+                             AND CS710.TAXNO = A.TAXNO
+                      
+                      LEFT OUTER JOIN SAPHEE.ZCST712 CS712
+                              ON CS712.MANDT = #G_MANDT#
+                             AND CS712.TAXNO = A.TAXNO
+							               AND CS712.TAXCYM LIKE '_%'
+                      
+                      LEFT OUTER JOIN SAPHEE.ZCST713 CS713
+                              ON CS713.MANDT = #G_MANDT#
+                             AND CS713.TAXNO = A.TAXNO
+                             AND CS713.SEQ_GBN = 'TT'
+                      
+                      LEFT OUTER JOIN SAPHEE.ZCST705 CS705
+                              ON CS705.MANDT = #G_MANDT#
+                             AND CS705.TAXNO = A.TAXNO
+                             AND CS705.SEQ_GBN = 'TT'
+                      
+                      LEFT OUTER JOIN SAPHEE.ZCST706 CS706
+                              ON CS706.MANDT = #G_MANDT#
+                             AND CS706.TAXNO = A.TAXNO
+                             AND CS706.SEQ_GBN = 'TT'
+                      
+                      LEFT OUTER JOIN SAPHEE.ZLCODE ZC001
+                              ON ZC001.MANDT = #G_MANDT#
+                             AND ZC001.CODE1 = 'VKGRP' 
+							               AND ZC001.CODE2 = A.VKGRP 
+							               AND ZC001.LANG = 'ko'
+                      
+                      LEFT OUTER JOIN SAPHEE.ZFIT1004 F1004
+                              ON F1004.MANDT = #G_MANDT#
+                             AND F1004.BUKRS = '1000'
+							               AND F1004.TAXNO = A.TAXNO 
+                                                      
+WHERE A.MANDT = #G_MANDT#
+  AND A.CON_KEY = ''
+  AND A.TAXDATE BETWEEN #DAT1# AND #DAT2# 
+<isNotNull col="TAXNO">
+  AND A.TAXNO = #TAXNO#
+</isNotNull>   
+<isNotNull col="VKGRP">
+  AND A.VKGRP = #VKGRP#
+</isNotNull>   
+<isNotNull col="BSU">
+  AND A.LIFNR = #BSU#
+</isNotNull>   
+<isEqual col="PRIFORM" value="A">
+  AND A.PRIFORM in ( '3','4')
+</isEqual>     
+<isEqual col="PRIFORM" value="B">
+  AND A.PRIFORM = '5'
+</isEqual>   
+ORDER BY A.TAXNO
+WITH UR
+  </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

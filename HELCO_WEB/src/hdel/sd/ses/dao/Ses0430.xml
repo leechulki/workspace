@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.ses.dao.Ses0430D"> 
+       
+	<resultMap id="selectListMap" type="hdel.sd.ses.domain.Ses0430">
+	    <result property="mandt" column="MANDT"/>
+	    <result property="zzpjt_id" column="ZZPJT_ID"/>
+	    <result property="qtso_no" column="QTSO_NO"/>
+	    <result property="qtser" column="QTSER"/>
+	    <result property="qtseq" column="QTSEQ"/>
+	    <result property="hogi" column="HOGI"/>
+	    <result property="vkbur" column="VKBUR"/>
+	    <result property="vkgrp" column="VKGRP"/>
+	    <result property="zkunnr" column="ZKUNNR"/>
+	    <result property="zkunnr_nm" column="ZKUNNR_NM"/>
+	    <result property="kunnr" column="KUNNR"/>
+	    <result property="kunnr_nm" column="KUNNR_NM"/>
+		<result property="gsnam" column="GSNAM"/>
+	    <result property="spec" column="SPEC"/>
+	    <result property="znumber" column="ZNUMBER"/>
+	    <result property="zrqseq" column="ZRQSEQ"/>
+	    <result property="zrqflg" column="ZRQFLG"/>
+	    <result property="zrqdat" column="ZRQDAT"/>
+	    <result property="deldat" column="DELDAT"/>
+	    <result property="delgbn" column="DELGBN"/>
+	    <result property="lodat" column="LODAT"/>
+	    <result property="findat" column="FINDAT"/>
+	    <result property="kunnr_z3" column="KUNNR_Z3"/>
+	    <result property="kunnr_z3_nm" column="KUNNR_Z3_NM"/>
+	    <result property="lp_is" column="LP_IS"/>	    
+	</resultMap>
+	
+	<select id="selectList" parameterType="hdel.sd.ses.domain.Ses0430ParamVO" resultMap="selectListMap">
+	SELECT AK.ZZPJT_ID, AK.RECAD_DA, T1.ZRQSEQ, T1.KUNNR_Z3_NM, T1.QTSO_NO, T1.QTSER, T1.QTSEQ, T1.VKBUR, T1.VKGRP,
+	              T1.ZKUNNR, T1.GSNAM, T1.SPEC, T1.ZNUMBER, T1.QTDAT, T1.DELDAT, T1.DELGBN, T1.ZRQDAT, T1.LODAT, T1.FINDAT, T1.LP_IS, T1.CHAI
+	FROM    SAPHEE.VBAK AS AK LEFT OUTER JOIN 
+		(
+		SELECT 	A.MANDT,
+		        A.ZRQSEQ,	      -- 요청 일련번호 
+		       	D.NAME1  AS KUNNR_Z3_NM,     -- 기술영업 담당자 
+		  		A.QTSO_NO,  					  -- 견적번호
+		       	B.QTSER,       					  -- 견적차수      
+			   	C.QTSEQ,       					  -- MO
+			   	'' AS HOGI,                    	  -- 호기 
+				B.VKBUR,        	  -- 부서
+				B.VKGRP,        	  --팀
+				B.ZKUNNR,      	  -- 담당자
+				B.GSNAM,            -- 공사명
+				CASE 
+					WHEN C.MATNR = 'L-1000' OR C.MATNR = 'L-2000' THEN 
+						CASE 
+							WHEN C.TYPE3 = C.ZLEN THEN C.GTYPE||' '||C.ZUSE|| 
+								CASE WHEN C.ZUSE = 'DW' OR C.ZUSE = 'TL'  OR C.ZUSE = 'AM' OR C.ZUSE = 'HA' OR C.ZUSE = 'HF' OR C.ZUSE = 'BD' OR C.ZUSE = 'BH' OR C.ZUSE = 'FT' THEN C.ZACAPA 
+										 ELSE C.TYPE3 
+								END || '-'||C.ZOPN||C.TYPE2||'-'||C.TYPE3
+							ELSE  C.GTYPE||' '||C.ZUSE||
+								CASE WHEN C.ZUSE = 'DW' OR C.ZUSE = 'TL'  OR C.ZUSE = 'AM' OR C.ZUSE = 'HA' OR C.ZUSE = 'HF' OR C.ZUSE = 'BD' OR C.ZUSE = 'BH' OR C.ZUSE = 'FT'   THEN C.ZACAPA 
+										ELSE C.TYPE3 
+								END || '-'||C.ZOPN||C.TYPE2||'-'||C.TYPE3||'/'||C.ZLEN 
+						END 
+					WHEN C.MATNR = 'S-1000' OR C.MATNR = 'S-2000' THEN 
+						C.GTYPE||' '||C.TYPE1||'-'||C.TYPE3||'-'||C.TYPE2 
+					ELSE 
+						C.GTYPE 
+				END  AS SPEC,					--SPEC
+				C.ZNUMBER  AS ZNUMBER,   		--대수
+				B.QTDAT 	 AS QTDAT  ,        --견적일
+				B.DELDAT    AS DELDAT ,      	--납기일
+				CASE  
+				 WHEN SAPHEE.GET_DAYS(B.QTDAT,B.DELDAT) &lt; 90 THEN '단납기'
+				 WHEN SAPHEE.GET_DAYS(B.QTDAT,B.DELDAT) &gt; 90 AND SAPHEE.GET_DAYS(B.QTDAT,B.DELDAT) &lt;= 180 THEN '중납기'
+				 ELSE '장납기'  
+				END  				  AS DELGBN, 	--납기구분
+				A.ZRQDAT			  AS ZRQDAT,   	-- 요청일
+				A.LODAT  			  AS LODAT,     -- 제출기한
+				A.FINDAT 			  AS FINDAT,    -- 배포일 
+				A.LP_IS			  AS LP_IS,		-- LP도면 유무
+				CASE WHEN FINDAT &gt; '00000000' THEN
+  					 DAYS(SUBSTR(FINDAT,1,4)||'-'||SUBSTR(FINDAT,5,2)||'-'||SUBSTR(FINDAT,7,2)) -
+					 DAYS(SUBSTR(ZRQDAT,1,4)||'-'||SUBSTR(ZRQDAT,5,2)||'-'||SUBSTR(ZRQDAT,7,2))
+					 ELSE 0
+			    END AS CHAI,
+			    B.VBELN				
+		FROM   SAPHEE.ZSDT1058 AS A 
+			   INNER JOIN SAPHEE.ZSDT1046 AS B ON A.MANDT = B.MANDT AND A.QTSO_NO = B.QTNUM AND A.QTSER = B.QTSER 
+        	   INNER JOIN SAPHEE.ZSDT1047 AS C ON B.MANDT = C.MANDT AND B.QTNUM = C.QTNUM AND B.QTSER = C.QTSER
+			   INNER JOIN SAPHEE.KNA1 AS D ON A.MANDT = D.MANDT AND A.KUNNR_Z3 = D.KUNNR  
+		WHERE  A.MANDT = #{mandt}
+		AND    A.FINDAT != ''								
+		AND    A.ZRQSEQ = ( SELECT MAX(ZRQSEQ) FROM SAPHEE.ZSDT1058 WHERE MANDT = #{mandt} AND QTSO_NO = A.QTSO_NO )
+		<if test="vkbur !=null and vkbur !=''">           AND B.VKBUR  = #{vkbur} </if>
+		<if test="vkgrp !=null and vkgrp !=''">           AND B.VKGRP  = #{vkgrp} </if>
+		)AS T1  ON AK.MANDT = T1.MANDT AND AK.ZZPJT_ID = T1.VBELN
+	WHERE AK.MANDT = #{mandt}
+	AND   AK.AUART LIKE 'ZS%'
+    <if test="frzrqdat != null and frzrqdat != ''">
+    AND   AK.BSTDK BETWEEN #{frzrqdat} AND #{tozrqdat}    
+    </if>
+	<if test="vkbur !=null and vkbur !=''">           AND AK.VKBUR  = #{vkbur} </if>
+	<if test="vkgrp !=null and vkgrp !=''">           AND AK.VKGRP  = #{vkgrp} </if>
+	WITH UR
+	</select>
+</mapper>  

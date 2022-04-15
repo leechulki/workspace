@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+  A.POSID AS PJT
+ ,B.KUNNR_NM AS PJTNAME
+ ,B.ZSITE_NM AS POST1
+ ,B.ADDR1 || ' ' || B.ADDR2 AS ADDR
+ ,B.ZCITY AS ZCITY
+ ,B.ZCITY_NM AS ZCITYNM
+-- ,CASE WHEN LENGTH(RTRIM(A.ZZACTSS)) = 0 THEN '02' ELSE A.ZZACTSS END AS ZZACTSS
+ ,CASE WHEN LENGTH(RTRIM(A.ZZACTSS)) = 0 THEN '02' ELSE A.ZZACTSS END AS ZZACTSS
+ ,CASE WHEN A.ZZACTSS = '01' THEN '수도권'
+       WHEN A.ZZACTSS = '02' THEN '수도권'
+			 WHEN A.ZZACTSS = '08' THEN '수도권'
+			 WHEN A.ZZACTSS = '10' THEN '수도권'
+			 WHEN A.ZZACTSS = '14' THEN '수도권'
+			 WHEN A.ZZACTSS = '20' THEN '수도권'
+		     WHEN A.ZZACTSS = '19' THEN '수도권'
+			 WHEN A.ZZACTSS = '21' THEN '수도권'
+			 WHEN A.ZZACTSS = '15' THEN '주차'
+			 WHEN A.ZZACTSS = '16' THEN '주차' 
+       WHEN LENGTH(RTRIM(A.ZZACTSS)) = 0 THEN '수도권' ELSE A.TEXT30  END ZZACTSS_NM
+ ,A.POSID_1 AS HNO
+ ,'' AS CHASU
+ ,'' AS EXAMTYPE
+ ,'' AS EXAMREQDATE
+ ,'' AS RELEASE
+ ,'' AS RELEASE2
+ ,'0' AS EXAMREQUEST
+ ,A.ZZSHIP1 AS STARTDATE
+ ,A.ZZCOMP2 AS FINISHDATE
+ ,A.ZSPEC2 AS SPEC
+ ,A.TEMNO2 AS STEAM
+ ,CASE WHEN A.NAMET2='' THEN VALUE((SELECT C.NAMET FROM SAPHEE.ZPST0002 AS C WHERE A.MANDT=C.MANDT AND A.TEMNO2=C.TEMNO AND C.DELEF = ''),'') ELSE A.NAMET2 END AS STEAMNAME
+ ,A.LIFNR AS LIFNR
+ ,VALUE((SELECT D.NAME1 FROM SAPHEE.ZMMT012 AS D WHERE A.MANDT=D.MANDT AND A.LIFNR=D.LIFNR FETCH FIRST 1 ROWS ONLY),'') AS LIFNRNAME
+ ,A.ZZGUBUN AS BGUBUN
+ ,A.ZSPEC1 AS ZSPEC1
+ ,A.ZSPEC4 AS ZSPEC4
+ ,A.ZSPEC7 AS ZSPEC7
+ ,'' AS FLAG
+ ,A.ZZDAT01
+ ,A.POSID_OLD
+ ,'' PARQDT
+  ,'' AS FNAME
+  ,'' AS FNAME_PATH
+  ,'' AS FPATH
+  ,'' AS FNAME_APP
+  ,'' AS FNAME2
+  ,'' AS FNAME_PATH2
+  ,'' AS FPATH2
+  ,'' AS FNAME_APP2
+  ,'' AS GUIDCHK
+  ,'' AS N_CHK
+ ,'' AS G_CHK
+  ,0.0 AS DAESU
+  ,'' AS DAEGI
+  ,'' AS D_CHK
+  --,VALUE(  (SELECT INTEGER(X.ZSPEC3)
+  --		      FROM SAPHEE.ZMASTER02 AS X
+  --		     WHERE X.MANDT = A.MANDT
+  --			   AND X.POSID = A.POSID
+  --			   AND X.POSID_1 = A.POSID_1
+  --			   AND X.ZZGUBUN IN ('10', '13') ), 1000) AS SPEED
+
+  ,VALUE(  (SELECT (CASE WHEN X.ZSPEC3 = '' THEN 0 ELSE INTEGER(X.ZSPEC3) END )
+	      FROM SAPHEE.ZMASTER02 AS X
+	     WHERE X.MANDT = A.MANDT
+	       AND X.POSID = A.POSID
+	       AND X.POSID_1 = A.POSID_1
+	       AND X.ZZGUBUN IN ('10', '13') ), 1000) AS SPEED	
+ -- ,VALUE( (SELECT X.CHK  FROM SAPHEE.ZQMT019T AS X WHERE X.MANDT = A.MANDT AND X.LIFNR = A.LIFNR AND X.NAMET = A.NAMET2), '') AS PASS
+  , VALUE(T.CHK , '') AS PASS
+  , CASE WHEN D.S_DATE &lt;=  HEX(CURRENT DATE) AND D.F_DATE &gt;=  HEX(CURRENT DATE)  THEN VALUE(D.CHK,'')  ELSE '' END AS NOPASS 
+--  , VALUE(D.CHK , '') AS NOPASS
+  , VALUE(T.S_DATE , '00000000') AS S_DATE
+  , VALUE(T.F_DATE , '00000000') AS F_DATE
+  , E.CELLP AS PM_CELLP
+  
+FROM SAPHEE.ZMASTER02 AS A
+	INNER JOIN SAPHEE.ZMASTER01 AS B
+     ON A.MANDT = B.MANDT
+	  AND A.POSID = B.POSID
+     
+	  LEFT OUTER JOIN SAPHEE.LFA1 AS L
+	    ON A.MANDT = L.MANDT
+  		AND A.LIFNR = L.LIFNR
+  		
+  	LEFT OUTER JOIN SAPHEE.ZPST0000 AS P
+	    ON P.MANDT = L.MANDT
+  		AND P.ACTSS = L.ACTSS	
+  	
+   LEFT OUTER JOIN SAPHEE.ZQMT019T AS T
+	ON A.MANDT = T.MANDT 
+   AND A.LIFNR = T.LIFNR 
+   AND A.NAMET2 = T.NAMET
+
+   LEFT OUTER JOIN SAPHEE.ZQMT019P AS D
+	ON A.MANDT = D.MANDT 
+   AND A.LIFNR = D.LIFNR 
+   AND A.NAMET2 = D.NAMET	
+   
+   LEFT OUTER JOIN SAPHEE.ZPST0011 AS E
+    ON E.MANDT = A.MANDT
+   AND E.TEMNO = A.TEMNO
+   		
+WHERE A.MANDT = #G_MANDT#
+  AND A.ZZDAT01 &lt; SUBSTR(SAPHEE.TO_DATETIME(),1,8)
+  AND (A.ZQEGEMSA = '' OR A.ZQEGEMSA = '00000000')
+  AND (A.ZQECHK = 'X' OR A.ZBOSUIN = '' OR A.ZBOSUIN = '00000000')
+  AND A.ZZDAT01 &lt;&gt; ''
+  AND A.ZZDAT01 &lt;&gt; '00000000'
+  AND A.POSID_1 NOT LIKE '______Y__'
+  AND A.POSID_1 NOT LIKE '______T__'
+  AND TRIM(A.MANDT)||TRIM(A.POSID)||TRIM(A.POSID_1) NOT IN
+     (SELECT TRIM(A.MANDT)||TRIM(A.PSPID)||TRIM(A.HOGI)
+        FROM SAPHEE.ZQMT019 A,
+             (
+              SELECT MANDT,WERKS,PSPID,ART,HOGI,MAX(SEQ) SEQ
+              FROM SAPHEE.ZQMT019
+              WHERE MANDT = #G_MANDT#
+              AND ART IN ('8960')
+              GROUP BY MANDT,WERKS,PSPID,ART,HOGI
+             ) B
+        WHERE A.MANDT = B.MANDT
+        AND   A.WERKS = B.WERKS
+        AND   A.PSPID = B.PSPID
+        AND   A.ART   = B.ART
+        AND   A.HOGI  = B.HOGI
+        AND   A.SEQ   = B.SEQ
+        AND   TRIM(A.DSCODE) IN ('A','B','C','D','H','E','')
+      )
+  AND TRIM(A.MANDT)||TRIM(A.POSID)||TRIM(A.POSID_1) NOT IN
+     (SELECT T.PSPID
+FROM (
+SELECT TRIM(A.MANDT)||TRIM(A.PSPID)||TRIM(A.HOGI) PSPID,(SELECT COUNT(*) FROM SAPHEE.ZMASTER02 M02 WHERE M02.MANDT = A.MANDT AND M02.POSID = A.PSPID ) CNT
+        FROM SAPHEE.ZQMT019 A,
+             (
+              SELECT MANDT,WERKS,PSPID,ART,HOGI,MAX(SEQ) SEQ
+              FROM SAPHEE.ZQMT019
+              WHERE MANDT = #G_MANDT#
+              AND ART IN ('8950')
+              GROUP BY MANDT,WERKS,PSPID,ART,HOGI
+             ) B
+        WHERE A.MANDT = B.MANDT
+        AND   A.WERKS = B.WERKS
+        AND   A.PSPID = B.PSPID
+        AND   A.ART   = B.ART
+        AND   A.HOGI  = B.HOGI
+        AND   A.SEQ   = B.SEQ
+        AND   A.ZZGUBUN &lt;&gt; '20' --주차
+        AND   TRIM(A.DSCODE) IN ('')
+) T
+--WHERE T.CNT > 2
+      )
+
+      
+<isNotEqual col="ZZLIFNR" value="">
+ AND A.LIFNR = #ZZLIFNR#
+</isNotEqual>
+<isNotEqual col="TEAM" value="">
+  AND A.TEMNO2 = #TEAM#
+</isNotEqual>
+<isNotEqual col="FPJT" value="">
+	<isEqual col="TPJT" value="">
+		 AND A.POSID = #FPJT#
+	</isEqual>
+</isNotEqual>
+<isNotEqual col="TPJT" value="">
+	<isEqual col="FPJT" value="">
+		 AND A.POSID = #TPJT#
+	</isEqual>
+</isNotEqual>
+<isNotEqual col="FPJT" value="">
+	<isNotEqual col="TPJT" value="">
+		 AND A.POSID BETWEEN #FPJT# AND #TPJT#
+	</isNotEqual>
+</isNotEqual>
+<isNotEqual col="FHNO" value="">
+  AND A.POSID_1 &gt;= #FHNO#
+</isNotEqual>
+<isNotEqual col="THNO" value="">
+  AND A.POSID_1 &lt;= #THNO#
+ </isNotEqual>
+<isNotEqual col="ZZACTSS" value="">
+  AND A.ZZACTSS = #ZZACTSS#
+</isNotEqual>
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="G_VEND_CODE" size="255" type="VARCHAR" description="" /> 
+		<col name="TEAM" size="255" type="VARCHAR" description="" /> 
+		<col name="FPJT" size="255" type="VARCHAR" description="" /> 
+		<col name="TPJT" size="255" type="VARCHAR" description="" /> 
+		<col name="FHNO" size="255" type="VARCHAR" description="" /> 
+		<col name="THNO" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="ADDR" size="211" type="VARCHAR" description="" /> 
+		<col name="BGUBUN" size="6" type="VARCHAR" description="" /> 
+		<col name="CHASU" size="0" type="VARCHAR" description="" /> 
+		<col name="EXAMREQDATE" size="0" type="VARCHAR" description="" /> 
+		<col name="EXAMREQUEST" size="1" type="VARCHAR" description="" /> 
+		<col name="EXAMTYPE" size="0" type="VARCHAR" description="" /> 
+		<col name="FINISHDATE" size="24" type="VARCHAR" description="" /> 
+		<col name="FLAG" size="0" type="VARCHAR" description="" /> 
+		<col name="HNO" size="72" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="30" type="VARCHAR" description="" /> 
+		<col name="LIFNRNAME" size="105" type="VARCHAR" description="" /> 
+		<col name="PJT" size="72" type="VARCHAR" description="" /> 
+		<col name="PJTNAME" size="105" type="VARCHAR" description="" /> 
+		<col name="POST1" size="105" type="VARCHAR" description="" /> 
+		<col name="RELEASE" size="0" type="VARCHAR" description="" /> 
+		<col name="SPEC" size="75" type="VARCHAR" description="" /> 
+		<col name="STARTDATE" size="24" type="VARCHAR" description="" /> 
+		<col name="STEAM" size="18" type="VARCHAR" description="" /> 
+		<col name="STEAMNAME" size="60" type="VARCHAR" description="" /> 
+		<col name="ZCITY" size="12" type="VARCHAR" description="" /> 
+		<col name="ZCITYNM" size="90" type="VARCHAR" description="" /> 
+		<col name="ZSPEC1" size="15" type="VARCHAR" description="" /> 
+		<col name="ZZACTSS" size="9" type="VARCHAR" description="" /> 
+	</output>
+</query>

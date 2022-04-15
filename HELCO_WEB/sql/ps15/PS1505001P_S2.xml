@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[PS1505001P_S2]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--호기별 메모
+SELECT '' AS CHK--체크박스
+     , U.USERNAME AS CRNAM--입력자이름
+     , A.CRNAM AS CRID--입력자ID
+     , A.BELONG--소속
+     , M.JOB_NAME_S AS JOB_NAME--작업구분
+     , (CASE WHEN LOCATE(CHR(10), A.CONTENTS) = '0'
+             THEN (
+                   CASE WHEN LOCATE(CHR(13), A.CONTENTS) = '0'
+                        THEN A.CONTENTS
+                        ELSE SUBSTR(A.CONTENTS, 1, LOCATE(CHR(13), A.CONTENTS) - 1)
+                   END
+                  )
+             ELSE SUBSTR(A.CONTENTS, 1, LOCATE(CHR(10), A.CONTENTS) - 1)
+        END) AS CONTENTS--메모내용(그리드 표시용)
+     , A.CONTENTS AS CONTENTS_ORIG--메모내용(상세 표시용)
+     , A.CRDAT || A.CRTIM AS CRDATE_TIME--입력일시
+     , A.SEQ
+     , A.ALM_INDC--알림대상
+     , A.LIFNR AS MEMO_LIFNR--메모 작성 당시 해당 외주업체코드 - 2019.09.30 강민석K
+  FROM SAPHEE.ZPST0414 A
+  LEFT OUTER JOIN SAPHEE.ZPST0410 M
+    ON M.MANDT = A.MANDT
+   AND M.JOB_CODE = A.JOB_CODE
+  LEFT OUTER JOIN SAPHEE.ZUSERF U
+    ON A.MANDT = U.MANDT
+   AND A.CRNAM = U.USERNUMB
+ WHERE A.MANDT = #G_MANDT#
+   AND A.PSPID = #POSID#--프로젝트번호
+   AND A.POSID = #POSID_1#--호기번호
+   AND M_TYPE = '1'--고정값(메모타입)
+   AND DEL_INDC = 'N'--고정값(삭제여부)
+ ORDER BY A.CRDAT DESC, A.CRTIM DESC
+FOR FETCH ONLY WITH UR
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_memo">
+	</output>
+</query>

@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[완성/수시검사 신청 리스트 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  ''AS CHECK , T.PSPID, T.POSID, T.ZSITE_NM, T.ZSPEC1 , T.ZSPEC2, T.LIFNR ,T.NAME1 , T.PERNO, T.NAMET, T.NAMET2,
+        '00000000' AS REQ_DATE  ,'' AS CHK_KIND  , '' AS CHASU , T.ZZACTSS, T.ZZJUNGO, T.ZZHOGIT
+         , T.STATE, T.STATE2, T.CODE2, T.KINDA_YN, T.REQ_CELL, T.AUSE, T.POSID_DONG, T.ISREMD, T.ZMAN, T.ZMAN_NM, T.APPLS
+         , VALUE((
+         		SELECT X.USERMAIL
+         		  FROM SAPHEE.ZUSERF AS X
+         		 WHERE X.MANDT = T.MANDT
+         		   AND X.USERNUMB = SUBSTR(T.ZMAN,2,8)
+         	),'') AS ZMAN_MAIL
+		 , CAST(#G_USER_ID# AS CHAR(10)) AS REQ_USER_ID
+		 , CAST(#G_USER_NAME# AS CHAR(12)) AS REQ_USER_NM	    
+	     , (CASE WHEN T.WORMO = '0' OR T.WORMO = '00'
+	            THEN ''
+	            ELSE T.WORMO
+	            END) AS WORMO
+        , T.CHK_REQ_INDC
+        , DECODE(   (SELECT COUNT(1)
+					  FROM SAPHEE.ZPST1118
+					 WHERE MANDT = #G_MANDT#
+					   AND GBN = 'M'
+					   AND CLSS = 'PS0710001A'
+					   AND PSPID = T.PSPID),0,'','발송') AS MAIL_INDC
+	    ,   (SELECT COUNT(1)
+			  FROM SAPHEE.ZPST1118
+			 WHERE MANDT = #G_MANDT#
+			   AND GBN = 'M'
+			   AND CLSS = 'PS0710001A'
+			   AND PSPID = T.PSPID) AS MAIL_CNT
+	    , T.DEPT_N
+	    , '' AS BIGO
+	    , T.CHK_COMPL_INDC
+	    , T.SUSI_YN
+	    , T.SUSI_REQ_INDC
+	    , T.SEOLCHI_INDC
+	    , T.SEOLCHI_REQ_INDC
+FROM
+		(SELECT M1.MANDT
+		       ,M1.POSID AS PSPID
+		       ,M2.POSID_1 AS POSID
+		       ,M1.ZSITE_NM
+		       ,M2.ZSPEC1
+		       ,M2.ZSPEC2
+		       ,M2.LIFNR
+		       ,M12.NAME1
+		       ,M2.NAMET
+		       ,M2.TEMNO2 AS PERNO
+		       ,M2.NAMET2
+		       <!-- 
+		       ,VALUE((SELECT MAX(CHASU) 
+		       			 FROM SAPHEE.ZPST0200 P 
+		       			WHERE P.MANDT = M2.MANDT 
+		       			  AND P.PSPID = M2.POSID 
+		       			  AND P.POSID = M2.POSID_1 
+		       			  AND P.CHK_KIND = 'A'),'') AS CHASUA
+		       ,VALUE((SELECT MAX(CHASU) 
+		       		     FROM SAPHEE.ZPST0200 P 
+		       		    WHERE P.MANDT = M2.MANDT 
+		       		      AND P.PSPID = M2.POSID 
+		       		      AND P.POSID = M2.POSID_1 
+		       		      AND P.CHK_KIND = 'C'),'') AS CHASUC  -->
+	   		 	, ( SELECT CASE WHEN COUNT(*)=0 THEN 'N' ELSE 'Y' END
+       		         FROM SAPHEE.ZPST0200 P 
+       		        WHERE P.MANDT = M2.MANDT 
+       		          AND P.PSPID = M2.POSID 
+       		          AND P.POSID = M2.POSID_1 
+       		      ) AS CHK_REQ_INDC <!-- 완성검사, 수시(교체)검사 체크 -->
+       		   , ( SELECT CASE WHEN COUNT(*)=0 THEN 'N' ELSE 'Y' END
+       		         FROM SAPHEE.ZPST0200 P 
+       		        WHERE P.MANDT = M2.MANDT 
+       		          AND P.PSPID = M2.POSID 
+       		          AND P.POSID = M2.POSID_1 
+       		          AND P.CHK_KIND IN ('A', 'B', 'F', 'G', 'D')
+       		      ) AS SEOLCHI_INDC <!-- C, E, H, I 를 신청하려는 경우, A, B, F, G, D  신청 이력이 없으면 에러 -->
+       		   , ( SELECT CASE WHEN COUNT(*)=0 THEN 'N' ELSE 'Y' END
+       		         FROM SAPHEE.ZPST0200 P 
+       		        WHERE P.MANDT = M2.MANDT 
+       		          AND P.PSPID = M2.POSID 
+       		          AND P.POSID = M2.POSID_1
+       		          AND P.CHK_KIND = 'C'
+       		      ) AS SUSI_REQ_INDC <!-- 수시 E, H, I 를 신청하는 경우 C 신청이력이 없으면 에러 -->
+       		   , ( SELECT CASE WHEN COUNT(*)=0 THEN 'N' ELSE 'Y' END
+       		       FROM SAPHEE.ZPST0200 P 
+       		      WHERE P.MANDT = M2.MANDT 
+       		        AND P.PSPID = M2.POSID 
+       		        AND P.POSID = M2.POSID_1
+       		        AND (P.CHK_KIND = 'A' OR P.CHK_KIND = 'D')
+       		     ) AS SEOLCHI_REQ_INDC <!-- B, F, G 를 신청하려는 경우 A 또는 D 신청 이력이 없으면 에러 -->
+       		   , VALUE((
+       		   		SELECT CASE WHEN COUNT(*)=0 THEN 'N' ELSE 'Y' END
+       		   		  FROM SAPHEE.ZPST0201 P
+       		   		 WHERE P.MANDT = M2.MANDT 
+       		           AND P.PSPID = M2.POSID 
+       		           AND P.POSID = M2.POSID_1
+       		           AND P.CHK_KIND = 'A'
+       		           AND ((P.FIN_DATE <![CDATA[<>]]> '' AND P.FIN_DATE <![CDATA[<>]]> '00000000') OR (P.INSP_DATE <![CDATA[<>]]> '' AND P.INSP_DATE <![CDATA[<>]]> '00000000'))
+       		   	 ),'N') AS CHK_COMPL_INDC
+       		   
+		       ,M2.ZZACTSS
+		       ,M2.ZZJUNGO
+		       ,M2.POSID_OLD ZZHOGIT
+		       ,M2.POSID_DONG
+		       ,M2.ZZCOMP2
+		       ,(SELECT B.LIFNR3 
+	               FROM SAPHEE.ZMASTER01 A INNER JOIN SAPHEE.ZPST0007 B ON A.MANDT = B.MANDT AND A.ZCITY = B.ZCITY
+	              WHERE A.MANDT = M1.MANDT
+	                AND A.POSID = M1.POSID) AS CODE2
+		      ,(SELECT CASE WHEN TRIM(B.STATE) = '3' THEN 'Y'
+		                    ELSE 'N'
+			       	    END
+			      FROM SAPHEE.ZPST0023 B
+			     WHERE B.MANDT = M2.MANDT
+			       AND B.PSPID = M2.POSID
+			       AND B.POSID = M2.POSID_1
+			       AND B.ZTYPE = '2'
+		        ) STATE   
+		      ,(SELECT B.APPLS
+			      FROM SAPHEE.ZPST0023 B
+			     WHERE B.MANDT = M2.MANDT
+			       AND B.PSPID = M2.POSID
+			       AND B.POSID = M2.POSID_1
+			       AND B.ZTYPE = '2'
+		        ) APPLS  
+		      ,(SELECT CASE WHEN TRIM(B.STATE) = '3' THEN 'Y'
+		                    ELSE 'N'
+		       	 			END
+		          FROM SAPHEE.ZPST0023 B
+		         WHERE B.MANDT = M2.MANDT
+		           AND B.PSPID = M2.POSID
+		           AND B.POSID = M2.POSID_1
+		           AND B.ZTYPE = '1'
+		        ) STATE2   
+		
+		       ,(SELECT CASE WHEN COUNT(*)=0 THEN 'Y' ELSE 'N' END 
+		           FROM SAPHEE.ZPST0201 P 
+		          WHERE P.MANDT = M2.MANDT 
+		            AND P.PSPID = M2.POSID 
+		            AND P.POSID = M2.POSID_1) AS KINDA_YN <!-- 완성검사 또는 재검이 접수가 되어있는지 체크  -->
+		       ,(SELECT CASE WHEN COUNT(*)=0 THEN 'Y' ELSE 'N' END 
+		           FROM SAPHEE.ZPST0202 P 
+		          WHERE P.MANDT = M2.MANDT 
+		            AND P.PSPID = M2.POSID 
+		            AND P.POSID = M2.POSID_1) AS SUSI_YN <!-- 수시검사 접수가 되어있는지 체크  -->
+		    ,(SELECT  A.CELLP 
+		    	FROM SAPHEE.ZPST0001 A 
+		       WHERE A.MANDT = M2.MANDT 
+		         AND POSIT = 'X'
+		         AND A.GBN = 'A' 
+		         AND A.RETIF = '' 
+		         AND A.LIFNR = M2.LIFNR 
+		         AND A.TEMNO = M2.TEMNO2 
+		         FETCH FIRST 1 ROWS ONLY) AS REQ_CELL   
+			,LEFT(ZSPEC2,2) AS AUSE
+			,M2.ZZCHAKG
+			,(CASE WHEN  M2.ZZGUBUN = '10' THEN 'EL_DREUSE' 
+			           WHEN M2.ZZGUBUN = '11' THEN 'ES_DREUSE'
+			           WHEN M2.ZZGUBUN = '12' THEN 'EW_DREUSE'  ELSE '' END) AS DREUSE
+    
+		     ,(CASE WHEN  M2.ZZGUBUN = '10' THEN 'EL_DKEY' 
+			           WHEN M2.ZZGUBUN = '11' THEN 'ES_DKEY'
+			           WHEN M2.ZZGUBUN = '12' THEN 'EW_DKEY'  ELSE '' END) AS DKEY
+			 , (SELECT SA.WORMO
+	              FROM SAPHEE.ZSDT0091 AS SA
+	             WHERE SA.MANDT   = M2.MANDT
+	                 AND SA.PSPID = M2.POSID
+		   			 AND SA.HOGI  = M2.POSID_1
+	                 AND SA.SEQ   = ( SELECT MAX( Z.SEQ )
+	                                    FROM SAPHEE.ZSDT0005 AS Z
+	                                   WHERE Z.MANDT = SA.MANDT
+	                                     AND Z.HOGI = SA.HOGI
+	                                 ) ) AS WORMO
+			 , M1.ISREMD
+			 , M1.ZMAN
+			 , M1.ZMAN_NM
+			 ,VALUE( (SELECT X.ACTSS_NM FROM SAPHEE.ZPST0000 AS X
+                                                  WHERE X.MANDT = M2.MANDT
+                                                      AND X.ACTSS = M2.ZZACTSS), '') AS DEPT_N --보내는 사람 부서          
+		 FROM SAPHEE.ZMASTER02 M2 LEFT OUTER JOIN SAPHEE.ZMMT012 M12
+		          ON M2.MANDT = M12.MANDT 
+		         AND M2.LIFNR = M12.LIFNR
+		     , SAPHEE.ZMASTER01 M1 
+		WHERE M2.MANDT = #G_MANDT#
+		  AND M2.POSID = #PSPID#
+		<isEqual col="GUBUN" value="10">
+		  AND M2.LIFNR = #G_VEND_CODE_E#
+		</isEqual>
+		<isEqual col="GUBUN" value="30">
+		  AND M2.ZZACTSS = #G_AREA_CODE_E#
+		</isEqual>
+		  AND M2.MANDT = M1.MANDT
+		  AND M2.POSID = M1.POSID
+		  AND (M2.POSID_1 LIKE '______L%' OR M2.POSID_1 LIKE '______S%' OR M2.POSID_1 LIKE '______J%' OR M2.POSID_1 LIKE '______W%')
+		  AND M2.TXT30 <![CDATA[<>]]> '취소'
+
+) AS T
+
+WHERE T.MANDT = #G_MANDT#
+FOR FETCH ONLY WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

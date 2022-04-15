@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="432" Id="Ses0182" Left="8" OnLoadCompleted="fn_OnLoadCompleted" OnUnloadCompleted="fn_OnUnloadCompleted" PidAttrib="7" Title="타사" Top="8" Ver="1.0" Width="400" WorkArea="true">
+		<Div Height="36" Id="div_btn" TabOrder="1" Text="Div0" Url="WB01::CommBtnForm.xml" Width="400">
+			<Contents></Contents>
+		</Div>
+		<Grid AutoFitEndLine="Hide" BindDataset="ds_sbdcm" BkColor2="default" BoldHead="true" Border="Flat" Bottom="389" ColSizing="TRUE" Editable="TRUE" Enable="true" EndLineColor="default" HeadBorder="Flat" HeadHeight="20" Height="347" Id="grd_list" InputPanel="FALSE" Left="8" LineColor="user20" LineType="ExHORZ" OnCellDBLClick="grd_list_OnCellDblClick" OnHeadClick="grd_list_OnHeadClick" OnKeyDown="grd_list_OnKeyDown" OnRButtonDown="grd_list_OnRButtonDown" Right="394" RowHeight="20" Style="sty_grid" TabOrder="-1" TabStop="true" Top="42" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="386">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col fix="left" width="45"/>
+						<col fix="left" width="130"/>
+						<col width="190"/>
+					</columns>
+					<head>
+						<cell align="center" col="0" color="user21" display="text" font="굴림,9" text="No"/>
+						<cell align="center" col="1" color="user21" display="text" font="굴림,9" text="코드"/>
+						<cell align="center" col="2" color="user21" display="text" font="굴림,9" text="명"/>
+					</head>
+					<body>
+						<cell align="center" col="0" display="text" expr="currow+1"/>
+						<cell align="center" autosizing="none" bkcolor2="user22" col="1" colid="CODE" display="text"/>
+						<cell align="left" bkcolor2="user22" col="2" colid="CODE_NAME" display="text"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Button Appearance="FLAT" ButtonStyle="TRUE" Color="user5" Cursor="HAND" DomainID="btn.confirm" Height="22" Id="btn_confirm" ImageID="btn_comm_confirm_k" Left="144" LeftMargin="20" OnClick="fn_confirm" TabOrder="0" Text="확인" Top="397" Width="52"></Button>
+		<Button Appearance="FLAT" ButtonStyle="TRUE" Color="user5" Cursor="HAND" DomainID="btn.cancel" Height="22" Id="btn_cancel" ImageID="btn_comm_cancel_k" Left="200" LeftMargin="20" OnClick="fn_close" TabOrder="0" Text="취소" Top="397" Width="52"></Button>
+	</Form>
+	<Script><![CDATA[/*
+ ******************************************************************************************
+ * 기      능   : 거래선검색 (Com0040) 팝업
+ * 작  성  자   : 구란이
+ * 작성  일자   : 2012.05.14
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    : V1.0 : 2012.09.03 : 신규
+ * COMMENT
+   1. WFC URL 				: 
+   2. WFC OPERATION NAME 	: 
+   3. WFC OBJ NAME 			: 
+   4. 개발자료 :  
+ ******************************************************************************************
+*/
+#include "LIB::commons.js";	// 공통 스크립트 
+#include "LIB::nsfRequest.js";	// 공통 스크립트  /* GNY 추가 */
+#include "LIB::common_hdel.js";	// 공통 스크립트  /* GNY 추가 */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) {
+	// Form 로드 이벤트 맨 첫줄에 기술 
+	gfn_initForm();
+	
+	// 화면제목 설정 및 버튼 활성화 (조회버튼)
+	div_btn.fn_loadUseBtn("", fa_name, "", "");
+
+	grd_list.SetCellProp('Head',1,'Text',fa_name+'코드');
+	grd_list.SetCellProp('Head',2,'Text',fa_name+'명');
+
+	if( IsExistVar("fa_filter1", true) )	{
+		if (length(trim(fa_filter1)) > 0)	{
+			ds_sbdcm.Filter("FILTER1==" + quote(fa_filter1));
+		}
+	}
+}
+
+/********************************************************************************
+* 기      능   : 공통코드가 조회된 후의 Callback 함수 
+********************************************************************************/
+function fn_completeInit(sCode, sDsObj, sCodeType) {
+}
+/********************************************************************************
+* 기      능   : form UnloadCompleted 
+********************************************************************************/
+function fn_OnUnloadCompleted(obj) {
+	return gfn_isFormUnload(obj);
+}
+//=========================================================================================
+// [ PART 3 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,form닫기)
+//=========================================================================================
+
+/********************************************************************************
+* 기      능   : 닫기  
+********************************************************************************/
+function fn_close() {
+	close();
+}
+/********************************************************************************
+* 기      능   : 그리드 헤더 클릭시 정렬 처리 
+********************************************************************************/
+function grd_list_OnHeadClick(obj,nCell,nX,nY,nPivotIndex)
+{
+	if ( nCell == 0 ) {
+		// 현재 처리할 format 기억
+		gfn_selectGridCol("grd_list");
+	} else {
+		gfn_sortGrid(obj,nCell);
+	}
+}
+
+/********************************************************************************
+* 기      능   : 확인버튼 클릭 시
+********************************************************************************/
+function fn_confirm() {
+	// 선택된 거래선코드, 거래선명을 배열에 담는다.
+	var arr = [
+				  ds_sbdcm.GetColumn(ds_sbdcm.row, "CODE")		// 코드
+				, ds_sbdcm.GetColumn(ds_sbdcm.row, "CODE_NAME")	// 명
+			  ];
+
+	ds_sbdcm.Unfilter();
+
+	// 배열을 연동화면으로 전송하고 팝업화면을 닫는다.	 
+	close(arr);  
+}
+
+/********************************************************************************
+// 취소버튼 클릭 시
+********************************************************************************/
+function fn_cancel(obj)
+{  
+	// 팝업화면을 닫는다.
+	fn_close();
+}
+
+function grd_list_OnCellDblClick(obj,nRow,nCell,nX,nY,nPivotIndex)
+{
+	fn_confirm();  // 확인버튼 클릭 호출
+}
+
+function grd_list_OnKeyDown(obj,nChar,bShift,bCtrl,bAlt,nLLParam,nHLParam)
+{
+	if (nChar==13)
+	{
+		fn_confirm();  // 확인버튼 클릭 호출
+	}
+}]]></Script>
+</Window>

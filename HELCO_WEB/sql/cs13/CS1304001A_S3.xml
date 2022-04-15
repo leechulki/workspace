@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+       X.DOCNO,
+       X.APSTAT,
+       X.CRIRUM, -- 2019.07.04 전략마케팅 이상혁 요청.
+       B.CS144_ARA,
+       MAX(I.CTEXT2) ARA_NM,
+       MAX(M.CTEXT2) TEM_NM,
+       MAX(M.CODE2) TEM,
+       B.CS144_BSU,
+       MAX(F.ABR_NM) BSU_NM,
+       A.CS143_SEQ,
+       B.CS144_UPN,
+       B.CS144_CST,
+       CASE WHEN B.CS144_GND IN ('C','D') THEN '' ELSE MAX(B.CS144_PJT) END CS144_PJT,
+       VALUE(MAX(L.CS101_ISD),'') ISD,
+       CASE
+            WHEN B.CS144_GND IN ('','A','B') THEN MAX(VALUE(H.KUNNR_NM,''))
+            WHEN B.CS144_GND IN ('C','D') THEN MAX(VALUE(G.CS121_NAM,''))
+            ELSE B.CS144_GND
+       END NAM_NM,
+       CASE
+            WHEN B.CS144_GND IN ('','A','B') THEN MAX(VALUE(H.ZSITE_NM,''))
+            WHEN B.CS144_GND IN ('C','D') THEN MAX(VALUE(G.CS121_SPT,''))
+            ELSE B.CS144_GND
+       END SPT_NM,
+       A.CS143_SEL,
+       MAX(C.CTEXT2) SEL_NM,
+       A.CS143_GBN,
+       MAX(VALUE(D.CTEXT2,'')) GBN_NM,
+       CASE
+            WHEN B.CS144_GND IN ('','A','B') THEN MAX(VALUE(N.BMT,''))
+            ELSE ''
+       END BMT,
+       CASE
+            WHEN B.CS144_GND IN ('C','D') THEN MAX(VALUE(K.CS126_UMR,''))
+            ELSE ''
+       END UMR,
+       CASE
+            WHEN B.CS144_GND IN ('C','D') THEN MAX(VALUE(K.CS126_RMR,''))
+            ELSE ''
+       END RMR,
+        CASE
+            WHEN B.CS144_GND IN ('C','D') THEN MAX(VALUE(K.CS126_CHA,''))
+            ELSE ''
+       END CS126_CHA,
+       COUNT(*) CNT,
+       SUM(VALUE(INT(J.ZSPEC9),0)) PLT,
+       A.CS143_JHD,
+       A.CS143_FSD,
+       A.CS143_PST,
+       MAX(E.CTEXT2) PST_NM,
+       B.CS144_GND,
+       CASE
+            WHEN B.CS144_GND IN ('','A','B') THEN MAX(VALUE(H.ADDR1,'')) ||' '|| MAX(VALUE(H.ADDR2,''))
+--            WHEN B.CS144_GND IN ('','A','B') THEN MAX(VALUE(G1.CS121_P1C,'')) || ' ' || MAX(VALUE(G1.CS121_P2C,''))
+            WHEN B.CS144_GND IN ('C','D') THEN MAX(VALUE(G.CS121_P1C,'')) ||' '|| MAX(VALUE(G.CS121_P2C,''))
+            ELSE ''
+       END ADDR,
+       SUM(VALUE(K.CS126_AMT,0)) AMT,
+       '' RMK,
+       MAX(A.CS143_SCP) SCD_NM,
+       MAX(A.CS143_AMT) UNT,
+       MAX(A.CS143_HJT) HJT,
+       CASE  MAX(A.CS143_TSA) 
+            WHEN '0' THEN (SELECT ZSITE_NM FROM SAPHEE.ZMASTER01 WHERE MANDT = #G_MANDT# AND POSID = MAX(A.CS143_HJT))
+            ELSE MAX(A.CS143_HPT)
+       END HPT_NM,
+       MAX(A.CS143_HNT) HNT,
+       MAX(A.CS143_HDD) HDD,
+       SUM(CASE WHEN K.CS126_KND > ''  THEN 1 ELSE 0 END) FCNT,     
+       SUM(CASE WHEN K.CS126_HYN = 'Y' THEN 1 ELSE 0 END) HCNT,     
+       SUM(CASE WHEN K.CS126_DYN = 'Y' THEN 1 ELSE 0 END) DCNT,     
+       SUM(CASE WHEN K.CS126_SLA = 'Y' THEN 1 ELSE 0 END) SCNT
+       
+     , A.CS143_FLG    AS FLG                                                                        --추가(2020.02.17)
+     
+     ,CAST(A.CS143_FSA AS VARCHAR(500)) as FSA
+	 ,A.CS143_REQ as REQ
+	 ,A.CS143_RLT as RLT
+	 ,A.CS143_RMK as RMK_1
+     
+     
+  FROM
+       SAPHEE.ZCST143 A
+              LEFT OUTER JOIN SAPHEE.ZLCODE D ON D.MANDT = A.MANDT
+                                             AND D.CODE2 = A.CS143_GBN
+                                             AND D.CODE1 = 'CS157'
+                                             AND D.LANG = 'ko'                                            
+              LEFT OUTER JOIN SAPHEE.ZWBAP01 X ON A.MANDT = X.MANDT AND X.DOCKIND ='7' 
+                                              AND A.CS143_DOC = X.DOCNO,   
+       SAPHEE.ZCST144 B
+              LEFT OUTER JOIN SAPHEE.ZCST121 G ON G.MANDT = B.MANDT
+                                              AND G.CS121_UPN = B.CS144_UPN
+                                              AND G.CS121_CST = B.CS144_CST            
+              LEFT OUTER JOIN SAPHEE.ZMASTER01 H ON H.MANDT = B.MANDT
+                                                AND H.POSID = B.CS144_PJT
+              LEFT OUTER JOIN SAPHEE.ZMASTER02 J ON J.MANDT = B.MANDT
+                                                AND J.POSID = B.CS144_PJT
+                                                AND J.POSID_1 = B.CS144_PJT || B.CS144_HNO
+              LEFT OUTER JOIN SAPHEE.ZCST121 G1 ON G1.MANDT = H.MANDT
+                                              AND H.POSID = G1.CS121_UPN
+                                              AND G1.CS121_CST =''
+              LEFT OUTER JOIN SAPHEE.ZCST126 AS K ON K.MANDT = B.MANDT
+                              AND K.CS126_UPN = B.CS144_UPN
+                              AND K.CS126_CST = B.CS144_CST
+                              AND K.CS126_PJT = B.CS144_PJT
+                              AND K.CS126_HNO = B.CS144_HNO
+                              AND K.CS126_GNO = B.CS144_GNO
+                              AND K.CS126_DDT = '' 
+                              AND K.CS126_PST = 'A6'
+
+              LEFT OUTER JOIN SAPHEE.ZCST101 L ON L.MANDT = B.MANDT
+                                              AND L.CS101_PJT = B.CS144_PJT
+                                              AND L.CS101_HNO = B.CS144_HNO
+              LEFT OUTER JOIN (
+                               SELECT
+                                      CS116_PJT PJT,
+                                      CS116_HNO HNO,
+                                      MAX(CS116_BMT) BMT
+                                 FROM
+                                      SAPHEE.ZCST116
+                                WHERE
+                                      MANDT = #G_MANDT#
+                                  AND CS116_PST = 'A6'
+                               GROUP BY
+                                      CS116_PJT,
+                                      CS116_HNO
+                              ) N ON N.PJT = B.CS144_PJT
+                                 AND N.HNO = B.CS144_HNO,
+       SAPHEE.ZLCODE C,
+       SAPHEE.ZLCODE E,
+       SAPHEE.ZLCODE I,
+       SAPHEE.ZWBT010 F   
+              LEFT OUTER JOIN SAPHEE.ZLCODE M
+                           ON F.MANDT = M.MANDT
+                          AND F.VKGRP = M.CODE2
+                          AND M.CODE1 = 'VKGRP'
+                          AND M.LANG = 'ko' 
+ WHERE
+       A.MANDT = #G_MANDT#
+   AND A.MANDT = B.MANDT
+   AND A.CS143_SEQ = B.CS144_SEQ
+   AND A.MANDT = C.MANDT
+   AND A.CS143_SEL = C.CODE2
+   AND C.CODE1 = 'CS156'
+   AND C.LANG = 'ko'
+   AND A.MANDT = E.MANDT
+   AND A.CS143_PST = E.CODE2
+   AND E.CODE1 = 'CS117'
+   AND E.LANG = 'ko'
+   AND B.MANDT = I.MANDT
+   AND B.CS144_ARA = I.CODE2
+   AND I.CODE1 = 'CS115'
+   AND I.LANG = 'ko'
+   AND B.MANDT = F.MANDT
+   AND B.CS144_BSU = F.LGORT
+   AND F.LGORT > ''
+<isEqual col="DGBN" value="A">
+   AND A.CS143_JHD BETWEEN #SDT# AND #EDT#
+</isEqual>
+<isEqual col="DGBN" value="B">
+   AND A.CS143_FSD BETWEEN #SDT# AND #EDT#
+</isEqual>
+<isNotNull col="PST">
+   AND A.CS143_PST = #PST#
+</isNotNull>
+<isNotNull col="UPN">
+   AND B.CS144_UPN = #UPN#
+</isNotNull>
+<isNotNull col="CST">
+   AND B.CS144_CST = #CST#
+</isNotNull>
+<isNotNull col="PJT">
+   AND B.CS144_PJT = #PJT#
+</isNotNull>
+<isNotNull col="ARA">
+   AND B.CS144_ARA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+   AND B.CS144_BSU = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+   AND B.CS144_BPM = #BPM#
+</isNotNull>
+<isNotNull col="TEM">
+   AND F.VKGRP = #TEM#
+</isNotNull>
+<isNotNull col="SEL">
+   AND A.CS143_SEL = #SEL#
+</isNotNull>
+<isNotNull col="FAIL">
+   AND A.CS143_GBN = #FAIL#
+</isNotNull>
+<isEqual col="JPGBN" value="1">
+  AND SUBSTR(B.CS144_HNO,1,1) IN ('L','S','W','F')
+</isEqual>
+<isEqual col="JPGBN" value="2">
+  AND SUBSTR(B.CS144_HNO,1,1) IN ('G','J')
+</isEqual>
+GROUP BY
+       A.CS143_SEQ,
+       B.CS144_ARA,
+       B.CS144_BSU,
+       B.CS144_UPN,
+       B.CS144_CST,
+       A.CS143_SEL,
+       A.CS143_GBN,
+       A.CS143_JHD,
+       A.CS143_FSD,
+       A.CS143_PST,
+       B.CS144_GND,
+       X.DOCNO,
+       X.APSTAT,
+       X.CRIRUM
+       
+     , A.CS143_FLG                                                                                  --추가(2020.02.17)
+     
+     ,CAST(A.CS143_FSA AS VARCHAR(500))
+	 ,A.CS143_REQ
+	 ,A.CS143_RLT
+	 ,A.CS143_RMK
+     
+     
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="SDT" size="255" type="VARCHAR" description="" /> 
+		<col name="EDT" size="255" type="VARCHAR" description="" /> 
+		<col name="PST" size="255" type="VARCHAR" description="" /> 
+		<col name="UPN" size="255" type="VARCHAR" description="" /> 
+		<col name="CST" size="255" type="VARCHAR" description="" /> 
+		<col name="PJT" size="255" type="VARCHAR" description="" /> 
+		<col name="ARA" size="255" type="VARCHAR" description="" /> 
+		<col name="BSU" size="255" type="VARCHAR" description="" /> 
+		<col name="BPM" size="255" type="VARCHAR" description="" /> 
+		<col name="SEL" size="255" type="VARCHAR" description="" /> 
+		<col name="FAIL" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

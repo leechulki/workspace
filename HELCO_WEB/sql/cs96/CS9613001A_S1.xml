@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+           VALUE(SAPHEE.CODE_CONV(A.MANDT,'VKGRP',A.VKGRP ),'') VKGRP,
+           CASE WHEN A.GBN2 = '1' THEN '중저속'
+                WHEN A.GBN2 = '2' THEN '고속'
+                WHEN A.GBN2 = '3' THEN 'E/S, M/W'
+                ELSE ''
+            END GBN2,
+           VALUE(MAX(CASE WHEN B.HST = 'A' THEN B.CNT END),0) CNT_U,
+           VALUE(MAX(CASE WHEN B.HST = 'B' THEN B.CNT END),0) CNT_M,
+           
+           VALUE(MAX(CASE WHEN C.GBN = 'A' THEN C.CNT END),0) CNT_A,
+           VALUE(MAX(CASE WHEN C.GBN = 'B' THEN C.CNT END),0) CNT_B,
+           VALUE(MAX(CASE WHEN C.GBN = 'C' THEN C.CNT END),0) CNT_C,
+/*
+자격보유 필요인원
+1.기술인력 300대 이하 2명 / 300대 초과 시 100대 당 1명씩 추가
+2.책임인력 1,000대 이하 1명 / 1,000대 초과 시 1명만 초과
+3.실무인력 3
+*/                  
+           CASE WHEN VALUE(MAX(CASE WHEN B.HST = 'A' THEN B.CNT END),0) &lt;= 300 THEN 2
+           	    ELSE 2 +( (VALUE(MAX(CASE WHEN B.HST = 'A' THEN B.CNT END),0) - 300) / 100)
+		          END   CNT_AS,
+		       CASE WHEN VALUE(MAX(CASE WHEN B.HST = 'A' THEN B.CNT END),0) &lt;= 1000 THEN 1
+		            ELSE 2 
+		          END CNT_BS,
+           3  CNT_CS           
+  FROM (
+            SELECT DISTINCT A.MANDT, A.BSU_ARA ARA, A.VKGRP , '1' GBN2
+                         FROM SAPHEE.ZWBT010 A
+                        WHERE A.MANDT = #G_MANDT#
+                          AND A.LGORT > ''
+                          AND A.VKGRP > ''
+                       <isNotNull col="VKGRP">
+                          AND A.VKGRP = #VKGRP#
+                       </isNotNull>
+                          AND A.VKGRP NOT IN ('C76','C86')
+            	            AND A.VKGRP NOT LIKE 'E5%'	  
+            			  UNION ALL
+            
+            SELECT DISTINCT A.MANDT, A.BSU_ARA ARA, A.VKGRP , '2' GBN2
+                         FROM SAPHEE.ZWBT010 A
+                        WHERE A.MANDT = #G_MANDT#
+                          AND A.LGORT > ''
+                          AND A.VKGRP > ''
+                       <isNotNull col="VKGRP">
+                          AND A.VKGRP = #VKGRP#
+                       </isNotNull>
+                          AND A.VKGRP NOT IN ('C76','C86')
+                          AND A.VKGRP NOT LIKE 'E5%'  
+            			  UNION ALL
+            
+            SELECT DISTINCT A.MANDT, A.BSU_ARA ARA, A.VKGRP , '3' GBN2
+                         FROM SAPHEE.ZWBT010 A
+                        WHERE A.MANDT = #G_MANDT#
+                          AND A.LGORT > ''
+                          AND A.VKGRP > ''
+                       <isNotNull col="VKGRP">
+                          AND A.VKGRP = #VKGRP#
+                       </isNotNull>
+                          AND A.VKGRP NOT IN ('C76','C86')
+                          AND A.VKGRP NOT LIKE 'E5%' 
+                                                   ) A   LEFT OUTER JOIN (  SELECT VKGRP, HST, GBN2, COUNT(*) CNT
+                                                                              FROM (                                             
+                                                                                     SELECT A.ARA,
+                                                                                            CASE WHEN A.HST IN ('S','M') THEN 'B'
+                                                                                                 WHEN A.HST IN ('B','H','U') AND A.UPN &lt;&gt; '' THEN 'A' ELSE '' END HST,
+                                                                                            VALUE(B.CS126_SLA,'') SLA,
+                                                                                            C.VKGRP,
+                                                                                            CASE WHEN SUBSTR(A.HNO,1,1) = 'L' AND INT(VALUE(REPLACE(ZSPEC3,' ','0') ,'0')) &gt;= 240 THEN '2'
+                                                                                                 WHEN SUBSTR(A.HNO,1,1) = 'L' AND INT(VALUE(REPLACE(ZSPEC3,' ','0') ,'0')) &lt; 240  THEN '1' 
+                                                                                                      ELSE '3' END GBN2,
+                                                                                            VALUE(REPLACE(ZSPEC3,' ','0') ,'0') ZSPEC3
+                                                                                       FROM SAPHEE.ZCST111 A LEFT OUTER JOIN SAPHEE.ZCST126 B
+                                                                                                                          ON A.MANDT = B.MANDT
+                                                                                                                         AND A.PJT = B.CS126_PJT
+                                                                                                                         AND A.HNO = B.CS126_HNO
+                                                                                                                         AND B.CS126_PST = 'A6'
+                                                                                                                         AND B.CS126_DDT = ''
+                                                                                                                         AND B.CS126_SLA = 'Y'
+                                                                                                                         AND HEX(CURRENT DATE) BETWEEN B.CS126_USD AND B.CS126_UHJ 
+                                                                                                             
+                                                                                                             LEFT OUTER JOIN SAPHEE.ZWBT010 C
+                                                                                                                          ON A.MANDT = C.MANDT
+                                                                                                                         AND A.BSU = C.LGORT
+                                                                                                             
+                                                                                                             LEFT OUTER JOIN SAPHEE.ZMASTER02 D
+                                                                                                                          ON A.MANDT = D.MANDT
+                                                                                                                         AND A.PJT = D.POSID
+                                                                                                                         AND A.PJT||A.HNO = D.POSID_1
+                                                                                      WHERE A.MANDT = #G_MANDT#
+                                                                                        AND A.ARA > ''
+                                                                                        AND A.BSU > ''
+                                                                                        AND A.EXC = ''
+                                                                                        AND A.HST NOT IN ('D','F')
+                                                                                        AND SUBSTR(A.HNO,1,1) NOT IN ('J','G')
+                                                                                        AND A.HST IN ('B','S','H','M','U')
+                                                                                        AND VALUE(B.CS126_SLA,'') = ''
+                                                                                     <isNotNull col="VKGRP">
+                                                                                        AND C.VKGRP = #VKGRP#
+                                                                                     </isNotNull>
+                                                                                   ) A
+                                                                            GROUP BY  VKGRP, HST, GBN2   
+                                                                          ) B
+                                                                   ON A.VKGRP = B.VKGRP
+                                                                  AND A.GBN2  = B.GBN2
+                                                          
+                                                          LEFT OUTER JOIN (                                                   
+                                                                                                                              
+                                                                             SELECT VKGRP , GBN,  GBN2 , COUNT(*) CNT
+                                                                               FROM (
+                                                                                      SELECT VKGRP , GBN , CASE WHEN GBN = 'C' THEN '1' ELSE MAX(GBN2) END GBN2  --실무인력은 교육구분이 없음                                                                                 
+                                                                                        FROM SAPHEE.ZCST210 A LEFT OUTER JOIN SAPHEE.ZCST211 B     
+                                                                                                                ON A.MANDT = B.MANDT
+                                                                                                               AND A.PSNO = B.PSNO 
+                                                                                                               AND A.GBN = B.GBN1       
+                                                                                                              
+                                                                                                              LEFT OUTER JOIN SAPHEE.ZHRT001 C     
+                                                                                                                ON A.MANDT = C.MANDT
+                                                                                                               AND A.PSNO = C.PSNO       
+                                                                                       WHERE A.MANDT = #G_MANDT#     
+                                                                                         AND A.VKGRP > ''       
+                                                                                         AND B.C_NO  > ''  
+                                                                                         AND ( C.LEAV = '00000000' )   
+                                                                                         AND C.DPT1 NOT IN ('A1','F6')   
+                                                                                      <isNotNull col="VKGRP">
+                                                                                         AND A.VKGRP = #VKGRP#
+                                                                                      </isNotNull>
+                                                                                      <isEqual col="DGBN" value="A">
+                                                                                     		 <isNotNull col="SDT">
+                                                                                         AND C.ENTR BETWEEN #SDT# AND #EDT#
+                                                                                     		 </isNotNull>
+                                                                                         AND #EDT# &gt;= C.ENTR 
+                                                                                      </isEqual>
+                                                                                      <isEqual col="DGBN" value="B">
+                                                                                     		 <isNotNull col="SDT">
+                                                                                         AND C.LEAV BETWEEN #SDT# AND #EDT#
+                                                                                     		 </isNotNull>
+                                                                                         AND #EDT# &gt;= C.LEAV 
+                                                                                      </isEqual>                                                                                
+                                                                                       GROUP BY A.PSNO,  VKGRP, GBN                                                                                   
+                                                                                     ) A
+                                                                                     
+                                                                              GROUP BY VKGRP , GBN,  GBN2
+                                                                          ) C
+                                                                   ON A.VKGRP = C.VKGRP
+                                                                  AND A.GBN2  = C.GBN2
+GROUP BY A.MANDT, A.VKGRP , A.GBN2
+ORDER BY A.MANDT, A.VKGRP , A.GBN2
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

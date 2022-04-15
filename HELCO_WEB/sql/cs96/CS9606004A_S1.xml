@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[모뎀 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT AA.*, 
+       COALESCE(Z8.CS658_ADR,'') AS ADDR2, 
+       COALESCE(ZZ.SID,'') AS SID , 
+       --COALESCE(Q3.DIPBXNUMB,'') AS QDCM , 
+       --COALESCE(Q4.DIPBXNUMB,'') AS QDCM   (QDCM2로 되어 있어야 하는데 잘못 되어 있었음)
+       
+       (CASE WHEN TRIM(VALUE(Q5.INPUT_VAL, '')) = '' THEN COALESCE(Q3.DIPBXNUMB,'') ELSE Q5.INPUT_VAL END) AS QDCM,
+       COALESCE(Q4.DIPBXNUMB,'') AS QDCM2
+       
+  FROM 
+       (SELECT Z6.CS656_PJT AS PJT, 
+              Z6.CS656_HNO AS HNO, 
+              M1.ZSITE_NM AS SNM, 
+              M1.ADDR1 ||' ' || M1.ADDR2 AS ADDR, 
+              Z6.CS656_HRNO AS HRNO, 
+              Z6.CS656_DNO AS DCM, 
+              M2.ZZBSU AS BSU , 
+              M2.ZZBPM AS BPM , 
+              SAPHEE.CODE_CONV(#G_MANDT#,'CS115',M1.ZZARA) AS ARA_NM ,
+              M2.POSID_1 
+         FROM SAPHEE.ZCST656 Z6 LEFT OUTER JOIN SAPHEE.ZMASTER01 M1
+                                        ON Z6.MANDT = M1.MANDT 
+                                       AND M1.POSID = Z6.CS656_PJT
+                                                                       
+                                LEFT OUTER JOIN SAPHEE.ZMASTER02 M2  
+                                        ON Z6.MANDT = M2.MANDT 
+                                       AND M2.POSID = Z6.CS656_PJT 
+                                       AND Z6.CS656_HNO = SUBSTR(M2.POSID_1,7,3)
+        WHERE Z6.MANDT= #G_MANDT# 
+
+	<isNotNull col="ARA">
+              AND M1.ZZARA = #ARA#
+	</isNotNull>
+	<isNotNull col="BSU">
+              AND M2.ZZBSU = #BSU#
+	</isNotNull>
+	
+	<isNotNull col="TEM">
+--			AND = #TEM#
+	</isNotNull>
+	
+	<isNull col="TEM">
+		<isNotNull col="DPT">
+			AND M2.ZZBSU IN (SELECT CODE2 AS CODE
+							   FROM SAPHEE.ZLCODE
+							  WHERE MANDT = #G_MANDT#
+							    AND LANG = #G_LANG#
+							    AND CODE1 = 'VKGRP'
+							    AND DTEXT1 = #DPT#)		 
+		</isNotNull>
+	</isNull>
+	
+	
+	<isNotNull col="BPM">
+              AND M2.ZZBPM = #BPM#
+	</isNotNull>
+	<isNotNull col="PJT">
+              AND Z6.CS656_PJT like '%'||#PJT#||'%'
+	</isNotNull>
+              
+              
+              
+       ) AA 
+   LEFT OUTER JOIN SAPHEE.ZCST111 ZZ 
+       ON ZZ.MANDT = #G_MANDT# 
+       AND AA.PJT = ZZ.PJT 
+       AND AA.HNO = ZZ.HNO 
+   LEFT OUTER JOIN SAPHEE.ZCST658 Z8 
+       ON Z8.MANDT = #G_MANDT# 
+       AND AA.DCM = Z8.CS658_MNO 
+   LEFT OUTER JOIN SAPHEE.ZQMTW0203 Q3 
+       ON Q3.MANDT = #G_MANDT# 
+       AND Q3.DIPBXNUMB != '00000000000' 
+       AND AA.PJT= Q3.PSPID
+       AND AA.PJT||AA.HNO = Q3.POSID
+       
+   LEFT OUTER JOIN SAPHEE.ZPSTW1401 Q4 
+       ON Q4.MANDT = #G_MANDT# 
+       AND AA.PJT= Q4.PSPID
+       AND AA.PJT||AA.HNO = Q4.POSID
+       AND Q4.GBN = 'C'
+       
+    --추가
+	LEFT OUTER JOIN SAPHEE.ZQMT056 AS Q5
+	   ON Q5.MANDT = #G_MANDT# 
+	 --AND T.PJT = SUBSTR(Q5.POSID, 1, 6)
+	 --AND T.HNO = SUBSTR(Q5.POSID, 7, 3)
+	 AND AA.PJT || AA.HNO =  Q5.POSID 	  	 
+	 AND Q5.EL_TYPE = 'EL'
+     AND Q5.LCD = '06'
+     AND Q5.MCD = '02'
+     AND Q5.SCD = '01'   
+       
+ FOR FETCH ONLY
+  WITH UR	
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

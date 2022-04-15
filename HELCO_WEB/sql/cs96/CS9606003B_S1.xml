@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--제약조건 추가 (2019.04.30 bgt)	
+SELECT
+       '' FLAG,
+       '' CHK,
+       A.PJT,
+       A.HNO,
+       A.ARA,
+       SAPHEE.CODE_CONV(A.MANDT,#G_LANG#,'CS115',A.ARA) ARA_NM,
+       B.VKGRP,
+       SUBSTR(B.VKGRP,1,2)||'00' AS VKBUR,
+       A.BSU,
+       B.ABR_NM BSU_NM,
+       REPLACE(A.DIPBXNUMB,'-','') DIPBXNUMB,
+       C.ZSPEC12,
+       E.CS101_ISD ISD,
+       E.CS101_HNA HNA,
+       G.CS121_SPT SPT,
+       (SELECT VALUE(VALUE,'')  FROM SAPHEE.ZSDT0005 WHERE MANDT = A.MANDT AND HOGI = CONCAT(A.PJT, A.HNO) AND CHARACTERISTIC = 'EL_DEPH' ORDER BY SEQ DESC FETCH FIRST 1 ROW ONLY) EL_DEPH,
+       (SELECT VALUE(VALUE,'')  FROM SAPHEE.ZSDT0005 WHERE MANDT = A.MANDT AND HOGI = CONCAT(A.PJT, A.HNO) AND CHARACTERISTIC = 'EL_DEPHF' ORDER BY SEQ DESC FETCH FIRST 1 ROW ONLY) EL_DEPHF,
+       VALUE(F.MANDT,'999') AS SFLAG,
+       F.CS411_DIPBXA,
+       F.CS411_DIPBXB,
+       F.CS411_DDAT,
+       F.CS411_DAT,
+       F.CS411_HRTSA,
+       F.CS411_HRTSB,
+       F.CS411_HDAT,
+       VALUE(F.CS411_WKER , CAST(#G_USER_NAME# AS VARCHAR(20))) AS CS411_WKER,
+       F.CS411_EQA,
+       F.CS411_HBOARD,
+       F.FNAM,
+       F.FSIZE,
+       F.CS411_WKER AS ERNAM,
+       F.CS411_DCAN,
+       F.CS411_HCAN,
+       F.CS411_DCAND,
+       F.CS411_HCAND,
+       F.CS411_DCHK,
+       F.CS411_HCHK,
+       F.CS411_LDCHK,
+       F.CS411_LHCHK,
+       F.CS411_DWBS,
+       F.CS411_HWBS
+  FROM
+       SAPHEE.ZCST111 A  LEFT OUTER JOIN SAPHEE.ZWBT010 B
+                                      ON A.MANDT = B.MANDT
+                                     AND A.BSU = B.LGORT 
+                         
+                         LEFT OUTER JOIN SAPHEE.ZMASTER02 C
+                                      ON A.MANDT = C.MANDT
+                                     AND A.PJT = C.POSID 
+                                     AND A.HNO = SUBSTR(C.POSID_1,7,3)
+                                     
+                         LEFT OUTER JOIN SAPHEE.ZCST101 E 
+                                      ON A.MANDT = E.MANDT
+                                     AND A.PJT = E.CS101_PJT 
+                                     AND A.HNO = E.CS101_HNO
+                         
+                         LEFT OUTER JOIN SAPHEE.ZCST411 F
+                                      ON A.MANDT = F.MANDT
+                                     AND A.PJT = F.CS411_PJT
+                                     AND A.HNO = F.CS411_HNO
+                         
+                         LEFT OUTER JOIN SAPHEE.ZCST121 G
+                                      ON A.MANDT = G.MANDT
+                                     AND A.PJT = G.CS121_UPN
+                                     AND G.CS121_CST = ''
+                                  
+                         LEFT OUTER JOIN SAPHEE.ZCST005 H
+                                      ON F.MANDT = H.MANDT 
+                                     AND (F.CS411_HWBS = H.PSPID OR F.CS411_DWBS = H.PSPID)                                                    	                                
+                         
+                         LEFT OUTER JOIN SAPHEE.ZCST006 I
+                                      ON F.MANDT = I.MANDT 
+                                     AND B.LIFNR = I.WRKLFN
+                                     AND (F.CS411_HWBS = I.PSPID OR F.CS411_DWBS = I.PSPID) 
+ WHERE
+       A.MANDT = #G_MANDT#
+       
+<isEqual col="CANCEL" value="1">    
+   AND (F.CS411_DCAN !=''  OR F.CS411_HCAN != '')   
+</isEqual>    
+<isEqual col="TARGET" value="1">   
+   AND( (F.CS411_DDAT != '' AND F.CS411_DCAN ='' ) OR (F.CS411_HDAT != '' AND F.CS411_HCAN ='' )  )
+--   AND (F.CS411_DDAT != '' OR F.CS411_HDAT != '')
+--   AND (F.CS411_DCAN =''   OR F.CS411_HCAN = '')   
+</isEqual>    
+<isEqual col="KISUNG" value="B">   
+--지급대상
+   AND (F.CS411_DCAN !=''  OR F.CS411_HCAN != '') 
+   AND (F.CS411_LHCHK = '1' OR F.CS411_LDCHK = '1')
+   AND F.FNAM != ''
+</isEqual>
+<isEqual col="KISUNG" value="C">
+--작업완료
+   AND (F.CS411_DCAN !=''  OR F.CS411_HCAN != '') 
+   AND (F.CS411_LHCHK = '1' OR F.CS411_LDCHK = '1')
+   AND(F.CS411_DCHK != ''  OR F.CS411_HCHK != '' )
+   AND F.FNAM != ''
+</isEqual> 
+<isEqual col="KISUNG" value="D">
+--전표처리완료
+   AND(F.CS411_DCHK != ''  OR F.CS411_HCHK != '' )
+   AND (F.CS411_LHCHK = '1' OR F.CS411_LDCHK = '1')
+   AND I.STATE = '3'
+</isEqual>
+<isNotNull col="DIPBXNUMB">
+   AND A.DIPBXNUMB LIKE '%'||#DIPBXNUMB#||'%'
+</isNotNull>
+<isNotNull col="PJT">
+   --AND A.PJT = #PJT#
+   AND A.PJT like '%'||#PJT#||'%'
+</isNotNull>
+<isNotNull col="ARA">
+   AND A.ARA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+   AND A.BSU = #BSU#
+</isNotNull>
+<isNotNull col="BPM">
+   AND A.BPM = #BPM#
+</isNotNull>
+<isNotNull col="TEM">
+   AND B.VKGRP = #TEM#
+</isNotNull>
+<isNull col="TEM">
+	<isNotNull col="DPT">
+		AND B.VKGRP IN (SELECT CODE2 AS CODE
+                          FROM SAPHEE.ZLCODE
+                         WHERE MANDT = #G_MANDT#
+                           AND LANG  = #G_LANG# 
+                           AND CODE1 = 'VKGRP'
+                           AND DTEXT1 = #DPT#)										
+	</isNotNull>
+</isNull>
+   AND B.LGORT > ''
+   AND A.HST NOT IN ('D')
+   AND SUBSTR(A.HNO,1,1) IN ('L','S','W')
+ORDER BY
+       A.PJT,
+       A.HNO
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

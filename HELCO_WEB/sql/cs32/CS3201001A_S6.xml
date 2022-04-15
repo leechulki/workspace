@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  A.MANDT
+       ,A.UPN
+       ,A.ARA
+       ,A.BSU
+	   ,(SELECT MM028.CTEXT2
+	     FROM SAPHEE.ZLCODE MM028
+		 WHERE MM028.MANDT = A.MANDT
+		 AND MM028.LANG = #G_LANG#
+		 AND MM028.CODE1= 'CS115'
+		 AND MM028.CODE2 = A.ARA
+		) ARA_NM
+	   ,(SELECT DISTINCT MM012.NAME1
+	     FROM SAPHEE.ZMMT005 MM005
+		      ,SAPHEE.ZMMT012 MM012
+		 WHERE MM005.MANDT = A.MANDT
+		 AND MM005.LGORT = A.BSU
+		 AND MM005.MANDT = MM012.MANDT
+		 AND MM005.LIFNR = MM012.LIFNR
+		) BSU_NM
+		,(SELECT DISTINCT BC.CCSB1EPN
+	     FROM SAPHEE.ZMMT005 MM005
+		      ,SAPHEE.ZWBT010 WB
+			  ,SAPHEE.ZTBCSB1 BC
+		 WHERE MM005.MANDT = A.MANDT
+		 AND MM005.LGORT = A.BSU
+		 AND MM005.MANDT = WB.MANDT
+		 AND MM005.LIFNR = WB.LIFNR
+		 AND WB.MANDT = BC.MANDT
+		 AND WB.BSU_PM = BC.CCSB1EMP
+		) BSU_PM
+	   ,(SELECT DISTINCT CS121.CS121_NAM
+	     FROM SAPHEE.ZCST121 CS121
+		 WHERE CS121.MANDT = A.MANDT
+		 AND CS121.CS121_UPN = A.UPN
+		 AND CS121.CS121_CST = A.CST
+	    ) CURR_NM
+       ,A.CST
+	   ,VALUE(A.SUJU_AMT,0) SUJU_AMT
+	   ,VALUE(B.MCUL_AMT,0) MCUL_AMT
+	   ,VALUE(A.SUJU_AMT,0)-VALUE(B.MCUL_AMT,0) MIBA_AMT
+FROM  ( SELECT CS.MANDT
+               ,CS.CS131_UPN UPN
+               ,CS.CS131_CST CST
+               ,CS.CS131_ARA ARA
+               ,CS.CS131_BSU BSU
+        	   ,SUM(CS.CS131_AMT) SUJU_AMT
+        FROM SAPHEE.ZCST131 CS,
+			     (SELECT MANDT
+			            ,BSU_PM BPM
+			            ,(SELECT LGORT
+				         FROM SAPHEE.ZMMT005 MM005
+					     WHERE MM005.MANDT = WB010.MANDT
+					     AND MM005.LIFNR = WB010.LIFNR
+					     FETCH FIRST 1 ROWS ONLY
+					     ) BSU
+            	    FROM SAPHEE.ZWBT010 WB010
+				   WHERE MANDT = #G_MANDT#
+		    <isNotNull col="BPM">
+                     AND BSU_PM = #BPM#
+            </isNotNull>
+		    <isNotNull col="TEM">
+                     AND VKGRP = #TEM#
+            </isNotNull>				    				     
+				  ORDER BY BSU_PM
+				 ) WB
+        WHERE CS.MANDT = #G_MANDT#
+        AND CS.CS131_GND IN ('D','E')
+        AND CS.CS131_MYB = ''
+        AND CS.CS131_YYM = #YYYYMMF#
+        AND CS.MANDT = WB.MANDT
+		AND CS.CS131_BSU = WB.BSU
+        GROUP BY CS.MANDT,CS.CS131_UPN,CS.CS131_CST,CS.CS131_ARA,CS.CS131_BSU
+       ) A
+       LEFT OUTER JOIN
+       ( SELECT CS.MANDT
+               ,CS.CS131_UPN UPN
+               ,CS.CS131_CST CST
+               ,CS.CS131_ARA ARA
+               ,CS.CS131_BSU BSU
+        	   ,SUM(CS.CS131_AMT) MCUL_AMT
+        FROM SAPHEE.ZCST131 CS,
+			     (SELECT MANDT
+			            ,BSU_PM BPM
+			            ,(SELECT LGORT
+				         FROM SAPHEE.ZMMT005 MM005
+					     WHERE MM005.MANDT = WB010.MANDT
+					     AND MM005.LIFNR = WB010.LIFNR
+					     FETCH FIRST 1 ROWS ONLY
+					     ) BSU
+            	    FROM SAPHEE.ZWBT010 WB010
+				   WHERE MANDT = #G_MANDT#
+		    <isNotNull col="BPM">
+                     AND BSU_PM = #BPM#
+            </isNotNull>
+		    <isNotNull col="TEM">
+                     AND VKGRP = #TEM#
+            </isNotNull>
+				  ORDER BY BSU_PM
+				 ) WB
+        WHERE CS.MANDT = #G_MANDT#
+        AND CS.CS131_GND IN ('D','E')
+        AND CS.CS131_MYB = ''
+        AND CS.CS131_TIS > ''
+        AND CS.CS131_YYM = #YYYYMMF#
+        AND CS.MANDT = WB.MANDT
+		AND CS.CS131_BSU = WB.BSU
+        GROUP BY CS.MANDT,CS.CS131_UPN,CS.CS131_CST,CS.CS131_ARA,CS.CS131_BSU
+       ) B
+       ON A.MANDT = B.MANDT
+       AND A.UPN = B.UPN
+       AND A.CST = B.CST
+       AND A.BSU = B.BSU
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="BPM" size="255" type="VARCHAR" description="" /> 
+		<col name="YYYYMMF" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="UPN" size="18" type="VARCHAR" description="" /> 
+		<col name="ARA" size="6" type="VARCHAR" description="" /> 
+		<col name="BSU" size="15" type="VARCHAR" description="" /> 
+		<col name="ARA_NM" size="60" type="VARCHAR" description="" /> 
+		<col name="BSU_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="BSU_PM" size="30" type="VARCHAR" description="" /> 
+		<col name="CURR_NM" size="150" type="VARCHAR" description="" /> 
+		<col name="CST" size="9" type="VARCHAR" description="" /> 
+		<col name="SUJU_AMT" size="11" type="INTEGER" description="" /> 
+		<col name="MCUL_AMT" size="11" type="INTEGER" description="" /> 
+		<col name="MIBA_AMT" size="11" type="INTEGER" description="" /> 
+	</output>
+</query>

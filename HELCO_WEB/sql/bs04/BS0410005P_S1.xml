@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT T1.MAKE_MM,
+             T1.PSPID,
+             T1.BSTNK,
+ 	         T1.CONTENT  ,
+	        T1.NETWR, 
+	        T1.PLAN,
+	        T1.ERNAMNM,
+  (CASE   WHEN T1.MR_DPT1 = 'B1' THEN '영업 1부'           
+	       WHEN T1.MR_DPT1 = 'B2' THEN '영업 2부'           
+			   WHEN T1.MR_DPT1 = 'B3' THEN 'M.P영업부'          
+			   WHEN T1.MR_DPT1 = 'B4' THEN '영업 3부'           
+			   WHEN T1.MR_DPT1 = 'B5' THEN '해외영업 1부'       
+			   WHEN T1.MR_DPT1 = 'B6' THEN '해외영업 2부'       
+			   WHEN T1.MR_DPT1 = 'B7' THEN '해외기술영업팀'     
+			   WHEN T1.MR_DPT1 = 'B8' THEN '기술영업부'              
+			   WHEN T1.MR_DPT1 = 'CA' THEN 'S/S 영업부'         
+			   WHEN T1.MR_DPT1 = 'E2' THEN '설치관리부'         
+			   WHEN T1.MR_DPT1 = 'E3' THEN '서비스관리부'                 
+			   WHEN T1.MR_DPT1 = 'E6' THEN '리모델링영업부'     
+			   WHEN T1.MR_DPT1 = 'F7' THEN '효율개선부'         
+			   WHEN T1.MR_DPT1 = 'H4' THEN 'Special TFT'          
+			   WHEN T1.MR_DPT1 = 'CE' THEN 'S/S SE부'         
+			   WHEN T1.MR_DPT1 = 'CC' THEN 'S/S 기술부'       
+			   WHEN T1.MR_DPT1 = 'CD' THEN 'S/S 서비스팀'          
+	
+					  ELSE ''   END) AS MR_DPT_1,
+			                               T1.ACTION,
+			                               T1.TYPE,
+                                         T1.VKBURNM,
+										T1. MAKF_DTT
+										 
+	
+
+FROM
+(SELECT A.MAKE_MM,
+             A.PSPID,
+             (SELECT B.BSTNK  FROM SAPHEE.VBAK AS B   WHERE  A.MANDT = B.MANDT  AND A.PSPID   = B.ZZPJT_ID) AS BSTNK,
+             A.TYPE,
+	(SELECT B.SAYU  FROM SAPHEE.ZSDTW007 AS B   WHERE  A.MANDT = B.MANDT  AND A.PSPID   = B.PSPID  fetch first 1 rows only) AS CONTENT  ,
+	CAST(A. MR_NETWR * VALUE(E.ACCOUNTS,1)  AS DECIMAL(13, 2) )  AS  NETWR, 
+	CASE WHEN A.PSPID = C.PSPID THEN '사전계획' ELSE '미계획' END AS PLAN,
+	 VALUE((SELECT ST.USERNAME FROM SAPHEE.ZUSERF AS ST 
+                             WHERE ST.MANDT = A.MANDT AND ST.USERNUMB = A.ERNAM), '') AS ERNAMNM,
+               A.MR_DPT1,
+			    A.ACTION,
+			  (SELECT ST.BEZEI FROM SAPHEE.TVKBT AS ST 
+                  WHERE ST.MANDT = B.MANDT AND ST.SPRAS = '3' AND ST.VKBUR = B.VKBUR) AS VKBURNM
+	
+			 ,substr(#MAKF_DTT#,1,6) as  MAKF_DTT
+
+			 
+FROM SAPHEE.ZSDTW006  AS A
+INNER JOIN SAPHEE.VBAK AS B
+        ON A.MANDT = B.MANDT
+      AND A.PSPID   = B.ZZPJT_ID
+
+						  
+LEFT OUTER JOIN SAPHEE.ZSDTW004 AS C
+        ON A.MANDT  =C.MANDT
+         AND A.PSPID   = C.PSPID
+						  
+LEFT OUTER JOIN SAPHEE.ZCURRCHG AS E
+        ON E.MANDT  = B.MANDT
+      AND E.WAERK  = B.WAERK    
+  WHERE A.MANDT = #G_MANDT#
+          
+
+ <isNotEqual col="MR_DPT1" value="A">
+   AND A.MR_DPT1 =  #MR_DPT1#
+</isNotEqual>
+
+
+ AND A.MAKE_MM = SUBSTR(#MAKF_DTT#,1,6)     
+  
+
+UNION
+
+SELECT A.MAKE_MM,
+              A.PSPID,
+             (SELECT B.BSTNK  FROM SAPHEE.VBAK AS B   WHERE  A.MANDT = B.MANDT  AND A.PSPID   = B.ZZPJT_ID) AS BSTNK,
+	A.TYPE,
+	(SELECT B.SAYU  FROM SAPHEE.ZSDTW009 AS B   WHERE  A.MANDT = B.MANDT  AND A.PSPID   = B.PSPID  fetch first 1 rows only) AS CONTENT  ,
+	CAST(A. MR_NETWR * VALUE(E.ACCOUNTS,1)  AS DECIMAL(13, 2) )  AS  NETWR, 
+	CASE WHEN A.PSPID = C.PSPID THEN '사전계획' ELSE '미계획' END AS PLAN,
+	  VALUE((SELECT ST.USERNAME FROM SAPHEE.ZUSERF AS ST 
+                             WHERE ST.MANDT = A.MANDT AND ST.USERNUMB = A.ERNAM), '') AS ERNAMNM,
+   DEPARTMENT AS MR_DPT1,
+			  A.ACTION,
+			  (SELECT ST.BEZEI FROM SAPHEE.TVKBT AS ST 
+                  WHERE ST.MANDT = B.MANDT AND ST.SPRAS = '3' AND ST.VKBUR = B.VKBUR) AS VKBURNM
+				  
+			, substr(#MAKF_DTT#,1,6) as  MAKF_DTT
+			 
+
+			 
+FROM SAPHEE.ZSDTW008  AS A
+INNER JOIN SAPHEE.VBAK AS B
+        ON A.MANDT = B.MANDT
+      AND A.PSPID   = B.ZZPJT_ID
+	  
+	  						  
+LEFT OUTER JOIN SAPHEE.ZSDTW004 AS C
+        ON A.MANDT  =C.MANDT
+         AND A.PSPID   = C.PSPID
+						  
+						  
+LEFT OUTER JOIN SAPHEE.ZCURRCHG AS E
+        ON E.MANDT  = B.MANDT
+      AND E.WAERK  = B.WAERK    
+         
+  WHERE A.MANDT = #G_MANDT#
+          
+
+ <isNotEqual col="MR_DPT1" value="A">
+   AND A.MR_DPT1 =  #MR_DPT1#
+</isNotEqual>
+
+
+ AND A.MAKE_MM = SUBSTR(#MAKF_DTT#,1,6)     
+
+
+ 
+ UNION
+ 
+ SELECT A.MAKE_MM,
+              A.PSPID,
+              B. BSTNK,
+	A.TYPE,
+	(SELECT B.SAYU  FROM SAPHEE.ZSDTW032 AS B   WHERE  A.MANDT = B.MANDT  AND A.PSPID   = B.PSPID  fetch first 1 rows only) AS CONTENT  ,
+	CAST(A. MR_NETWR * VALUE(E.ACCOUNTS,1)  AS DECIMAL(13, 2) )  AS  NETWR, 
+	CASE WHEN A.PSPID = C.PSPID THEN '사전계획' ELSE '미계획' END AS PLAN,
+	  VALUE((SELECT ST.USERNAME FROM SAPHEE.ZUSERF AS ST 
+                             WHERE ST.MANDT = A.MANDT AND ST.USERNUMB = A.ERNAM), '') AS ERNAMNM,
+   A.DEPT AS MR_DPT1,
+			  A.ACTION,
+			  (SELECT ST.BEZEI FROM SAPHEE.TVKBT AS ST 
+                  WHERE ST.MANDT = B.MANDT AND ST.SPRAS = '3' AND ST.VKBUR = B.VKBUR) AS VKBURNM
+				  
+			, substr(#MAKF_DTT#,1,6) as  MAKF_DTT
+			 
+
+			 
+FROM SAPHEE.ZSDTW031  AS A
+INNER JOIN SAPHEE.VBAK AS B
+        ON A.MANDT = B.MANDT
+      AND A.PSPID   = B.ZZPJT_ID
+	  
+	  						  
+LEFT OUTER JOIN SAPHEE.ZSDTW004 AS C
+        ON A.MANDT  =C.MANDT
+         AND A.PSPID   = C.PSPID
+						  
+						  
+LEFT OUTER JOIN SAPHEE.ZCURRCHG AS E
+        ON E.MANDT  = B.MANDT
+      AND E.WAERK  = B.WAERK    
+	  
+ WHERE A.MANDT = #G_MANDT#
+          
+
+ <isNotEqual col="MR_DPT1" value="A">
+   AND A.DEPT =  #MR_DPT1#
+</isNotEqual>
+
+
+ AND A.MAKE_MM = SUBSTR(#MAKF_DTT#,1,6)     
+
+ UNION 
+ 
+ SELECT A.MAKE_MM,
+              A.PSPID,
+              B. BSTNK,
+	A.TYPE,
+	(SELECT B.SAYU  FROM SAPHEE.ZSDTW042 AS B   WHERE  A.MANDT = B.MANDT  AND A.PSPID   = B.PSPID  fetch first 1 rows only) AS CONTENT  ,
+	CAST(A. MR_NETWR * VALUE(E.ACCOUNTS,1)  AS DECIMAL(13, 2) )  AS  NETWR, 
+	CASE WHEN A.PSPID = C.PSPID THEN '사전계획' ELSE '미계획' END AS PLAN,
+	  VALUE((SELECT ST.USERNAME FROM SAPHEE.ZUSERF AS ST 
+                             WHERE ST.MANDT = A.MANDT AND ST.USERNUMB = A.ERNAM), '') AS ERNAMNM,
+   A.DEPT AS MR_DPT1,
+			  A.ACTION,
+			  (SELECT ST.BEZEI FROM SAPHEE.TVKBT AS ST 
+                  WHERE ST.MANDT = B.MANDT AND ST.SPRAS = '3' AND ST.VKBUR = B.VKBUR) AS VKBURNM
+				  
+			, substr(#MAKF_DTT#,1,6) as  MAKF_DTT
+			 
+
+			 
+FROM SAPHEE.ZSDTW041  AS A
+INNER JOIN SAPHEE.VBAK AS B
+        ON A.MANDT = B.MANDT
+      AND A.PSPID   = B.ZZPJT_ID
+	  
+	  						  
+LEFT OUTER JOIN SAPHEE.ZSDTW004 AS C
+        ON A.MANDT  =C.MANDT
+         AND A.PSPID   = C.PSPID
+						  
+						  
+LEFT OUTER JOIN SAPHEE.ZCURRCHG AS E
+        ON E.MANDT  = B.MANDT
+      AND E.WAERK  = B.WAERK    
+   WHERE A.MANDT = #G_MANDT#
+          
+
+ <isNotEqual col="MR_DPT1" value="A">
+   AND A.DEPT =  #MR_DPT1#
+</isNotEqual>
+
+ AND A.MAKE_MM = SUBSTR(#MAKF_DTT#,1,6)     
+
+) AS T1	</statement>
+	<input default-name="ds_cond_p">
+	</input>
+	<output default-name="ds_list_p2">
+	</output>
+</query>

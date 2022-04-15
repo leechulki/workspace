@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  T.MANDT,
+        T.PSPID,
+        T.POSID,
+        T.CHGNO,
+        T.LIFNR,
+        T.NAME1,
+        T.BALJU_TOT,
+        T.BEFORE_TOT,
+        T.AFTER_TOT,
+        T.BEFORE_TOT AS SUM_TOT,
+        T.ZSITE_NM,
+        T.POSID_OLD,
+        T.ZSPEC2,
+        T.ZSPEC1,
+        T.DAT,
+        CASE WHEN T.PAYDAT = '00000000' THEN '' ELSE T.PAYDAT END AS PAYDAT
+FROM (
+        SELECT  A.MANDT,
+                A.PSPID,
+                A.POSID,
+                A.CHGNO,
+                A.LIFNR,
+                M12.NAME1 AS NAME1,
+                VALUE(A.TOT,0) AS BALJU_TOT,
+                VALUE(A.TOT,0) AS BEFORE_TOT,
+                0 AS AFTER_TOT,
+                M1.ZSITE_NM AS ZSITE_NM,
+                M2.POSID_OLD AS POSID_OLD,
+                M2.ZSPEC2,
+                M2.ZSPEC1,
+                A.DAT,
+                (SELECT P.PAYDAT FROM SAPHEE.ZPST0118 AS P WHERE P.MANDT = A.MANDT AND P.PSPID = A.PSPID AND P.POSID = A.POSID AND P.CHGNO = A.CHGNO) AS PAYDAT
+        FROM   (
+                SELECT  PS102.MANDT,
+                        PS102.PSPID,
+                        PS102.POSID,
+                        PS102.LIFNR,
+                        MAX(PS102.CHGNO) AS CHGNO,
+                        SUM(PS102.TOT) AS TOT,
+                        MAX(PS102.DAT) AS DAT
+                FROM   SAPHEE.ZPST0102 PS102
+                WHERE PS102.MANDT = #G_MANDT#
+                <isNotNull col="ZZACTSS">
+                AND   PS102.ACTSS = #ZZACTSS#
+                </isNotNull>
+                <isNotNull col="LIFNR">
+                AND   PS102.LIFNR = #LIFNR#
+                </isNotNull>
+                AND   PS102.PSPID = #PSPID#
+                AND (
+                		EXISTS (
+                					SELECT X.PSPID||X.POSID||X.CHGNO
+                					  FROM SAPHEE.ZPST0113 X
+                					 WHERE X.MANDT = PS102.MANDT
+                					   AND X.PSPID = PS102.PSPID
+						               AND X.POSID = PS102.POSID
+						               AND X.CHGNO = PS102.CHGNO
+						               AND X.CNF_GBN = 'B'
+						               AND X.GUBUN = '5'
+						               AND X.STATE = 'Y'
+                			   )
+                	    OR
+                	    
+                	    EXISTS (
+                	    			SELECT X.PSPID||X.POSID
+                	    			  FROM SAPHEE.ZPSTW1401 X
+                	    			 WHERE X.MANDT = PS102.MANDT
+                	    			   AND X.PSPID = PS102.PSPID
+                	    			   AND X.POSID = PS102.POSID
+                	    			   AND X.GBN   = 'B' -- 양중
+                	    			   AND X.STATE = 'C' -- 전표처리 된 건
+                	    	   )
+                	    
+                		
+                	)
+                GROUP BY PS102.MANDT,PS102.PSPID,PS102.POSID,PS102.LIFNR
+               ) AS A
+               LEFT OUTER JOIN SAPHEE.ZMASTER01 M1
+               ON A.MANDT = M1.MANDT
+               AND A.PSPID = M1.POSID
+               LEFT OUTER JOIN SAPHEE.ZMASTER02 M2
+               ON A.MANDT = M2.MANDT
+               AND A.PSPID = M2.POSID
+               AND A.POSID = M2.POSID_1
+               LEFT OUTER JOIN SAPHEE.ZMMT012 M12
+               ON A.MANDT = M12.MANDT
+               AND A.LIFNR = M12.LIFNR
+       ) AS T
+
+UNION ALL
+
+SELECT  T.MANDT,
+        '' AS PSPID,
+        '' AS POSID,
+        '' AS CHGNO,
+        T.LIFNR,
+        '소  계(업체별)' AS NAME1,
+        SUM(T.BALJU_TOT) AS BALJU_TOT,
+        SUM(T.BEFORE_TOT) AS BEFORE_TOT,
+        SUM(T.AFTER_TOT) AS AFTER_TOT,
+        SUM(T.BEFORE_TOT) AS SUM_TOT,
+        '' AS ZSITE_NM,
+        '' AS POSID_OLD,
+        '' AS ZSPEC2,
+        '' AS ZSPEC1,
+        '' AS DAT,
+        '' AS PAYDAT
+FROM (
+        SELECT  A.MANDT,
+                A.PSPID,
+                A.POSID,
+                A.CHGNO,
+                A.LIFNR,
+                VALUE(A.TOT,0) AS BALJU_TOT,
+                VALUE(A.TOT,0) AS BEFORE_TOT,
+                0 AS AFTER_TOT
+        FROM   (
+                SELECT  PS102.MANDT,
+                        PS102.PSPID,
+                        PS102.POSID,
+                        PS102.LIFNR,
+                        MAX(PS102.CHGNO) AS CHGNO,
+                        SUM(PS102.TOT) AS TOT
+                FROM   SAPHEE.ZPST0102 PS102
+                WHERE PS102.MANDT = #G_MANDT#
+
+                <isNotNull col="ZZACTSS">
+                AND   PS102.ACTSS = #ZZACTSS#
+                </isNotNull>
+                <isNotNull col="LIFNR">
+                AND   PS102.LIFNR = #LIFNR#
+                </isNotNull>
+                AND   PS102.PSPID = #PSPID#
+                AND (
+                		EXISTS (
+                					SELECT X.PSPID||X.POSID||X.CHGNO
+                					  FROM SAPHEE.ZPST0113 X
+                					 WHERE X.MANDT = PS102.MANDT
+                					   AND X.PSPID = PS102.PSPID
+						               AND X.POSID = PS102.POSID
+						               AND X.CHGNO = PS102.CHGNO
+						               AND X.CNF_GBN = 'B'
+						               AND X.GUBUN = '5'
+						               AND X.STATE = 'Y'
+                			   )
+                	    OR
+                	    
+                	    EXISTS (
+                	    			SELECT X.PSPID||X.POSID
+                	    			  FROM SAPHEE.ZPSTW1401 X
+                	    			 WHERE X.MANDT = PS102.MANDT
+                	    			   AND X.PSPID = PS102.PSPID
+                	    			   AND X.POSID = PS102.POSID
+                	    			   AND X.GBN   = 'B' -- 양중
+                	    			   AND X.STATE = 'C' -- 전표처리 된 건
+                	    	   )
+                	    
+                		
+                	)
+                GROUP BY PS102.MANDT,PS102.PSPID,PS102.POSID,PS102.LIFNR
+               ) AS A
+
+       ) AS T
+GROUP BY T.MANDT,T.LIFNR
+
+UNION ALL
+
+SELECT  T.MANDT,
+        '' AS PSPID,
+        '' AS POSID,
+        '' AS CHGNO,
+        '' AS LIFNR,
+        '총 합 계' AS NAME1,
+        SUM(T.BALJU_TOT) AS BALJU_TOT,
+        SUM(T.BEFORE_TOT) AS BEFORE_TOT,
+        SUM(T.AFTER_TOT) AS AFTER_TOT,
+        SUM(T.BEFORE_TOT) AS SUM_TOT,
+        '' AS ZSITE_NM,
+        '' AS POSID_OLD,
+        '' AS ZSPEC2,
+        '' AS ZSPEC1,
+        '' AS DAT,
+        '' AS PAYDAT
+FROM (
+        SELECT  A.MANDT,
+                A.PSPID,
+                A.POSID,
+                A.CHGNO,
+                A.LIFNR,
+                VALUE(A.TOT,0) AS BALJU_TOT,
+                VALUE(A.TOT,0) AS BEFORE_TOT,
+                0 AS AFTER_TOT
+        FROM   (
+                SELECT  PS102.MANDT,
+                        PS102.PSPID,
+                        PS102.POSID,
+                        PS102.LIFNR,
+                        MAX(PS102.CHGNO) AS CHGNO,
+                        SUM(PS102.TOT) AS TOT
+                FROM   SAPHEE.ZPST0102 PS102
+                WHERE PS102.MANDT = #G_MANDT#
+
+                <isNotNull col="ZZACTSS">
+                AND   PS102.ACTSS = #ZZACTSS#
+                </isNotNull>
+                <isNotNull col="LIFNR">
+                AND   PS102.LIFNR = #LIFNR#
+                </isNotNull>
+                AND   PS102.PSPID = #PSPID#
+                AND (
+                		EXISTS (
+                					SELECT X.PSPID||X.POSID||X.CHGNO
+                					  FROM SAPHEE.ZPST0113 X
+                					 WHERE X.MANDT = PS102.MANDT
+                					   AND X.PSPID = PS102.PSPID
+						               AND X.POSID = PS102.POSID
+						               AND X.CHGNO = PS102.CHGNO
+						               AND X.CNF_GBN = 'B'
+						               AND X.GUBUN = '5'
+						               AND X.STATE = 'Y'
+                			   )
+                	    OR
+                	    
+                	    EXISTS (
+                	    			SELECT X.PSPID||X.POSID
+                	    			  FROM SAPHEE.ZPSTW1401 X
+                	    			 WHERE X.MANDT = PS102.MANDT
+                	    			   AND X.PSPID = PS102.PSPID
+                	    			   AND X.POSID = PS102.POSID
+                	    			   AND X.GBN   = 'B' -- 양중
+                	    			   AND X.STATE = 'C' -- 전표처리 된 건
+                	    	   )
+                	    
+                		
+                	)
+                GROUP BY PS102.MANDT,PS102.PSPID,PS102.POSID,PS102.LIFNR
+               ) AS A
+       ) AS T
+GROUP BY T.MANDT
+
+ORDER BY MANDT,LIFNR DESC,PSPID DESC,POSID
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

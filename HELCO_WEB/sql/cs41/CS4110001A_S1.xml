@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--쿼리의 경우 10초 이내에 실행되나 Client단 에서 서비스 자회사의 지로번호를 금감원 지로 식별번호에 맞게 생성해주는 로직이 수행되어 해당 프로그램 튜닝 불가함. 2020.11.02 Han J.H
+SELECT  T.ADR,  T.CS131_GNO,  T.KG_ADR,  T.KD_ADR       
+       ,T.EGNAME       
+       ,T.KNUM,  T.CS121_NZIB,  T.PDATE,  T.CS131_YYM,  T.AUART
+       ,SUM(T.AMT) AS AMT,  SUM(T.TOT) AS TOT,  T.CS121_EM1,  SUM(T.TOT2) AS TOT2,  T.CS131_YYM2, T.KNUM2,  T.CS121_SPT,  T.BIGO
+	   ,T.CTEXT2,  SUM(T.TOT3) AS TOT3,  T.GRO,  '' AS GRO1,  '' AS GRO2,  '' AS GRO3,  '' AS GRO4
+	   ,T.REGIO,  T.VBELN,  T.CS131_YYM3,  T.KNUM3,  T.CS121_SPT2,  T.BIGO2,  T.CTEXT2 AS CTEXT2_2,  T.DNNUM
+	   ,'' AS CUPN,  T.TCD
+	   ,(CASE WHEN TRIM(T.CS121_JZR) = '' THEN 'N' ELSE  T.CS121_JZR END) AS CS121_JZR
+	   
+  FROM (
+		   SELECT  '유상' AS KK 
+		              --,D.MCOD3 || ' ' || D.STRAS AS ADR       --지사주소(반송처)
+		              ,D.STRAS AS ADR       --지사주소(반송처)
+					  ,A.CS131_GNO                                        --프로젝트번호
+					  ,E.CS121_P1B || E.CS121_P2B AS KG_ADR  --고객주소(지번)
+		  		      ,E.CS121_DP1B || E.CS121_DP2B AS KD_ADR --고객주소(도로명)
+					  
+					  --,E.EGNAME  --이름(상호) -> 이름(상호)를 아래 값으로 변경
+					  ,E.CS121_GSH || ' ' || CS121_CDP AS EGNAME
+					    
+					  ,E.KUNNR || A.CS131_UPN AS KNUM --고객번호  
+					  ,E.CS121_NZIB --우편번호(신규5자리)
+					  ,HEX(CURRENT DATE)  AS PDATE --출력기준일 
+					  ,A.CS131_YYM --청구년월1
+					  ,'월정보수'  AS AUART  --품목1 
+					  
+					  --,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT + A.CS131_VAT) AS AMT  -- 금액1
+					  ,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT) AS AMT  -- 금액1
+					  
+					  --,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT + A.CS131_VAT) AS TOT  -- 총청구금액
+					  ,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT) AS TOT  -- 총청구금액
+					  
+					  ,E.CS121_EM1 --세금계산서수신E-Mail
+					  
+					  --,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT + A.CS131_VAT) AS TOT2  -- 총청구금액2
+					  ,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT) AS TOT2  -- 총청구금액2
+					  
+					  ,A.CS131_YYM AS CS131_YYM2 --청구년월2
+					  ,E.KUNNR || A.CS131_UPN  AS KNUM2  --고객번호2 
+					  ,E.CS121_SPT  --현장명
+					  ,'월정보수'  AS BIGO --내역
+					  
+					  --,F.CTEXT2  --지역지사
+					  --,(SELECT F.CTEXT2  
+					  --    FROM SAPHEE.ZLCODE AS F 
+					  --   WHERE F.MANDT = A.MANDT  AND F.CODE2 = B.VKGRP AND F.LANG = 'ko'  AND F.CODE1 = 'VKGRP') AS CTEXT2  --지역지사  
+					  ,B.ABR_NM  AS CTEXT2  --지역지사 에서 지역명으로 변경
+					  
+					  
+					  --,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT + A.CS131_VAT) AS TOT3  -- 총청구금액3			  
+					  ,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT) AS TOT3  -- 총청구금액3
+					  
+					  ,'' AS GRO --지로전자번호   (임시로 공란)
+					  ,G.REGIO --지역코드 
+					  ,A.VBELN --S/O번호		
+					  	
+					  ,A.CS131_YYM AS CS131_YYM3 --청구년월3
+					  ,E.KUNNR || A.CS131_UPN AS KNUM3 --고객번호3  
+					  
+					  
+					  
+					  ,E.CS121_SPT AS CS121_SPT2  --현장명2
+					  ,'월정보수'  AS BIGO2 --내역2
+					  
+					  --,F.CTEXT2 AS CTEXT2_2  --지역지사 2
+					  /*
+					  (SELECT F.CTEXT2  
+					     FROM SAPHEE.ZLCODE AS F 
+					    WHERE F.MANDT = A.MANDT  AND F.CODE2 = B.VKGRP AND F.LANG = 'ko'  AND F.CODE1 = 'VKGRP') AS CTEXT2_2  --지역지사 2
+					  */
+					  
+					  ,'' AS DNNUM --전자잡부번호 (임시로 공란)  
+					  ,(CASE WHEN LENGTH(TRIM(G.STCD2)) > 0 THEN '11' 
+		                     ELSE '12'
+			            END) AS TCD
+			          ,E.CS121_JZR
+					  
+					  
+		   FROM SAPHEE.ZCST131 AS A
+		  INNER JOIN SAPHEE.ZWBT010 AS B
+		     ON A.MANDT = B.MANDT
+		    AND A.CS131_BSU = B.LGORT
+		/*
+		  INNER JOIN SAPHEE.ZCST126 AS C
+		     ON  A.CS131_GNO = C.CS126_GNO
+			AND  A.CS131_UPN = C.CS126_UPN
+			AND  A.CS131_CST = C.CS126_CST
+			AND  A.CS131_PJT = C.CS126_PJT
+			AND  A.CS131_HNO = C.CS126_HNO
+			AND  A.CS131_SEQ = C.CS126_SEQ
+		*/	  
+		   LEFT OUTER JOIN SAPHEE.ZMMT012 AS D	  
+			 ON B.MANDT = D.MANDT
+			AND B.LIFNR = D.LIFNR
+			 
+		   LEFT OUTER JOIN SAPHEE.ZCST121 AS E
+			 ON A.MANDT = E.MANDT  AND A.CS131_UPN = E.CS121_UPN  AND  A.CS131_CST = E.CS121_CST
+		/*
+		   LEFT OUTER JOIN SAPHEE.ZLCODE AS F
+			 ON C.MANDT = F.MANDT  AND  C.VKGRP = F.CODE2  AND F.LANG = 'ko'  and F.CODE1 = 'VKGRP'  
+		*/
+		   LEFT OUTER JOIN SAPHEE.KNA1 AS G
+			 ON E.MANDT = G.MANDT  AND  E.KUNNR = G.KUNNR
+				
+		  WHERE A.MANDT = #G_MANDT#
+		    AND A.CS131_YYM = SUBSTR(#FYM#,1,6)  --'201904'
+		    AND A.CS131_TIS > '19990101'
+		    AND A.CS131_MYB = ''
+		    AND A.CS131_GND IN ('C', 'D', 'E')    -- "C:유상공사 D:유상일반  E:인원상주	 
+		    AND ( A.CS131_AMT != 0  OR  A.CS131_DMT != 0   OR  A.CS131_HMT != 0 )
+		    AND A.CS131_GNO != '' 
+			AND A.CS131_HNO != 'Z99'
+			
+			--AND C.CS126_DDT = ''  AND C.CS126_PST = 'A6'
+			
+			AND EXISTS    (SELECT NULL  
+			                 FROM SAPHEE.ZCST126 AS X
+						    WHERE X.MANDT = A.MANDT
+							  AND X.CS126_GNO = A.CS131_GNO 
+			                  AND X.CS126_UPN = A.CS131_UPN 
+							  AND X.CS126_CST = A.CS131_CST 
+							  AND X.CS126_PJT = A.CS131_PJT 
+							  AND X.CS126_HNO = A.CS131_HNO 
+							  AND X.CS126_SEQ = A.CS131_SEQ   
+							  AND X.CS126_DDT = ''  
+							  AND X.CS126_PST = 'A6' )			
+			
+			
+		   	<isNotNull col="UPN">
+		     AND A.CS131_UPN = #UPN#
+			</isNotNull>
+			<isNotNull col="CST">
+		     AND A.CS131_CST = #CST#
+			</isNotNull>				
+			<isNotNull col="BSU">
+		     AND B.LGORT = #BSU#
+			</isNotNull>
+			<isNotNull col="TEM">
+		     AND B.VKGRP = #TEM# 
+			</isNotNull> 	
+			
+
+			 
+		 UNION ALL 
+		
+		    SELECT  '상주' AS KK 
+			   		  --,D.MCOD3 || ' ' || D.STRAS AS ADR
+			   		  ,D.STRAS AS ADR
+					  ,A.CS131_GNO
+					  ,E.CS121_P1B || E.CS121_P2B AS KG_ADR
+		  		      ,E.CS121_DP1B || E.CS121_DP2B AS KD_ADR		
+		  		      
+					  --,E.EGNAME  --이름(상호) -> 이름(상호)를 아래 값으로 변경
+					  ,E.CS121_GSH || ' ' || CS121_CDP AS EGNAME	
+					  	  	  
+					  ,E.KUNNR || A.CS131_UPN AS KNUM  
+					  ,E.CS121_NZIB
+					  ,HEX(CURRENT DATE)  AS PDATE
+					  ,A.CS131_YYM
+					  ,'월정보수'  AS AUART 
+					  
+					  --,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT + A.CS131_VAT) AS AMT
+					  ,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT) AS AMT
+					  
+					  --,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT + A.CS131_VAT) AS TOT
+					  ,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT) AS TOT
+					  
+					  ,E.CS121_EM1
+					  
+					  --,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT + A.CS131_VAT) AS TOT2
+					  ,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT) AS TOT2  
+					  
+					  ,A.CS131_YYM AS CS131_YYM2 --청구년월2
+					  ,E.KUNNR || A.CS131_UPN  AS KNUM2 
+					  ,E.CS121_SPT 
+		  			  ,'월정보수'  AS BIGO
+		  			  
+		  			  /*
+					  ,(SELECT MAX(Z2.CTEXT2)
+					      FROM SAPHEE.ZCST126 AS Z1
+					  	 INNER JOIN SAPHEE.ZLCODE AS Z2
+						    ON Z1.MANDT = Z2.MANDT  
+						   AND  Z1.VKGRP = Z2.CODE2  
+						   AND Z2.LANG = 'ko'  
+						   AND Z2.CODE1 = 'VKGRP'  		
+						 WHERE Z1.MANDT = A.MANDT 
+						   AND Z1.CS126_GNO = A.CS131_GNO 
+						   AND Z1.CS126_DDT = ''  
+						   AND Z1.CS126_PST = 'A6'
+					    ) AS CTEXT2           --지역지사
+					   */
+					   ,B.ABR_NM  AS CTEXT2  --지역지사 에서 지역명으로 변경
+					   
+					   
+					  --,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT + A.CS131_VAT) AS TOT3 
+					  ,(A.CS131_AMT + A.CS131_HMT + A.CS131_DMT) AS TOT3
+		
+					  ,'' AS GRO --지로전자번호   (임시로 공란)
+					  ,G.REGIO --지역코드 
+					  ,A.VBELN --S/O번호
+					 
+					  ,A.CS131_YYM AS CS131_YYM3 
+					  ,E.KUNNR || A.CS131_UPN AS KNUM3  
+					  
+					  ,E.CS121_SPT AS CS121_SPT2
+					  ,'월정보수'  AS BIGO2 
+					  
+					  /*
+					  ,(SELECT MAX(Z2.CTEXT2)
+					        FROM SAPHEE.ZCST126 AS Z1
+							INNER JOIN SAPHEE.ZLCODE AS Z2
+							    ON Z1.MANDT = Z2.MANDT  AND  Z1.VKGRP = Z2.CODE2  AND Z2.LANG = 'ko'  and Z2.CODE1 = 'VKGRP'  		
+						 WHERE Z1.MANDT = A.MANDT AND  Z1.CS126_GNO = A.CS131_GNO AND Z1.CS126_DDT = ''  AND Z1.CS126_PST = 'A6'
+					    ) AS CTEXT2_2
+					  */
+					  
+					  ,'' AS DNNUM 
+					  
+					  ,(CASE WHEN LENGTH(TRIM(G.STCD2)) > 0 THEN '11' 
+		                     ELSE '12'
+			            END) AS TCD			
+			          ,E.CS121_JZR		  
+					  
+		    FROM SAPHEE.ZCST131 AS A
+		   INNER JOIN SAPHEE.ZWBT010 AS B
+		      ON A.MANDT = B.MANDT
+		     AND A.CS131_BSU = B.LGORT
+		/*
+		   INNER JOIN SAPHEE.ZCST127 AS C
+			  ON  A.CS131_GNO = C.CS127_GNO
+			 AND  A.CS131_UPN = C.CS127_UPN
+			 AND  A.CS131_CST = C.CS127_CST
+			 AND  A.CS131_SEQ = C.CS127_SEQ
+			 AND  A.CS131_ISR = C.CS127_ISR
+		*/
+		    LEFT OUTER JOIN SAPHEE.ZMMT012 AS D	  
+			  ON B.MANDT = D.MANDT
+			 AND B.LIFNR = D.LIFNR		
+				
+			LEFT OUTER JOIN SAPHEE.ZCST121 AS E
+			  ON A.MANDT = E.MANDT  AND A.CS131_UPN = E.CS121_UPN  AND  A.CS131_CST = E.CS121_CST		
+				
+		-- 	LEFT OUTER JOIN SAPHEE.ZLCODE AS F
+		-- 	   ON C.MANDT = F.MANDT  AND  C.VKGRP = F.CODE2  AND F.LANG = 'ko'  and F.CODE1 = 'VKGRP'  		
+				
+			LEFT OUTER JOIN SAPHEE.KNA1 AS G
+			  ON E.MANDT = G.MANDT  AND  E.KUNNR = G.KUNNR		
+				
+				
+		   WHERE A.MANDT = #G_MANDT#
+		     AND A.CS131_YYM = SUBSTR(#FYM#,1,6)  --'201904'
+		     AND A.CS131_TIS > '19990101'
+		     AND A.CS131_MYB = ''
+		     AND A.CS131_GND IN ('C', 'D', 'E')    -- "C:유상공사 D:유상일반  E:인원상주
+			 
+		     AND ( A.CS131_AMT != 0  OR  A.CS131_DMT != 0   OR  A.CS131_HMT != 0 )
+		     AND A.CS131_GNO != '' 
+			 AND A.CS131_HNO = 'Z99'
+			 
+			 --AND C.CS127_DDT = ''  AND C.CS127_PST = 'A6'
+			 
+		 	 AND EXISTS    (SELECT NULL  
+			                  FROM SAPHEE.ZCST127 AS X
+						     WHERE X.MANDT = A.MANDT
+							   AND X.CS127_GNO = A.CS131_GNO 
+			                   AND X.CS127_UPN = A.CS131_UPN 
+							   AND X.CS127_CST = A.CS131_CST 							   
+							   AND X.CS127_SEQ = A.CS131_SEQ   
+							   AND X.CS127_DDT = ''  
+							   AND X.CS127_PST = 'A6'   )	
+			 
+			 
+		   	<isNotNull col="UPN">
+		     AND A.CS131_UPN = #UPN#
+			</isNotNull>
+			<isNotNull col="CST">
+		     AND A.CS131_CST = #CST#
+			</isNotNull>
+			
+			<isNotNull col="BSU">
+		     AND B.LGORT = #BSU#
+			</isNotNull>
+			<isNotNull col="TEM">
+		     AND B.VKGRP = #TEM# 
+			</isNotNull> 	
+			
+ 	   )  AS  T
+
+ GROUP BY   T.ADR,  T.CS131_GNO,  T.KG_ADR,  T.KD_ADR,  T.EGNAME,  T.KNUM,  T.CS121_NZIB,  T.PDATE,  T.CS131_YYM,  T.AUART  
+           ,T.CS121_EM1,  T.CS131_YYM2,  T.KNUM2,  T.CS121_SPT,  T.BIGO,  T.CTEXT2,  T.GRO,  T.REGIO,  T.VBELN,  T.CS131_YYM3,  T.KNUM3
+		   ,T.CS121_SPT2,  T.BIGO2
+		   --,T.CTEXT2_2
+		   ,T.DNNUM
+		   ,T.TCD
+		   ,T.CS121_JZR
+
+
+
+
+
+
+
+
+
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

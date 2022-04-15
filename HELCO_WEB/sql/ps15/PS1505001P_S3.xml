@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[PS1505001P_S3]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--메모 입력자 정보 조회(소속)
+WITH RECV_TBL(PSNO, BUMO, DEPT, LEVEL) AS
+(
+  SELECT T2.PSNO
+       , T1.BUMO
+       , T2.DEPT
+       , 1 AS LEVEL
+    FROM SAPHEE.ZHRT011 T1
+       , SAPHEE.ZHRT001 T2
+   WHERE T1.MANDT = #G_MANDT#
+     AND T1.MANDT = T2.MANDT
+     AND T1.DEPT  = T2.DEPT
+   UNION ALL
+  SELECT T1.PSNO
+       , T2.BUMO AS BUMO
+       , T1.DEPT
+       , LEVEL+1 AS LEVEL
+    FROM RECV_TBL AS T1
+       , SAPHEE.ZHRT011 T2
+   WHERE T2.MANDT = #G_MANDT#
+     AND T1.BUMO = T2.DEPT
+)
+SELECT IRUM AS USERNAME--입력자이름
+     , GUBUN AS BELONG--소속
+  FROM (
+        SELECT T1.LEVEL
+             , T1.BUMO,
+               --표시할 소속이 추가될 경우 수정해야함. 2019.07.15 강민석K
+               (CASE WHEN T1.BUMO = 'A0000043' THEN '영업'
+                     WHEN T1.BUMO = 'A0000048' THEN '설치'
+                     WHEN T1.BUMO = 'A0000009' THEN '구매'
+                     WHEN T1.BUMO = 'A0000005' THEN '서비스'
+                     ELSE '기타'
+                END) AS GUBUN
+             , SUBSTR(T1.PSNO,2,8) AS PSNO
+             , T2.DPT1_N, T2.DEPT_N, T2.RANK, T2.RANK_N, T2.IRUM, T3.USERMAIL, T2.MAIL, T2.TELH
+          FROM RECV_TBL T1
+         INNER JOIN SAPHEE.ZHRT001 T2
+            ON T1.PSNO = T2.PSNO
+           AND T2.MANDT = #G_MANDT#
+         INNER JOIN SAPHEE.ZUSERF T3
+            ON SUBSTR(T1.PSNO, 2, 8) = T3.USERNUMB
+           AND T3.MANDT = #G_MANDT#
+         WHERE (
+                (T1.BUMO != '00000000' AND T1.BUMO != '0000000000'
+                 --표시할 소속이 추가될 경우 수정해야함. 2019.07.15 강민석K
+                 AND T1.BUMO IN ('A0000043', 'A0000048', 'A0000009', 'A0000005'))
+                OR
+                (T2.DEPT IN ('FL010000', 'FL020000') AND LEVEL = '1')
+               )
+           AND T2.LEAV = '00000000'
+         UNION 
+        SELECT '1' AS LEVEL
+             , '99999999' AS BUMO
+             , '업체' AS GUBUN
+             , USERNUMB AS PSNO
+             , SAPHEE.GET_VENDER_NAME(#G_MANDT#, USERCODE) AS DPT1_N
+             , SAPHEE.GET_VENDER_NAME(#G_MANDT#, USERCODE) AS DEPT_N
+             , '' AS RANK
+             , '' AS RANK_N
+             , USERNAME AS IRUM
+             , USERMAIL
+             , USERMAIL AS MAIL
+             , USERMBPN AS TELH
+          FROM SAPHEE.ZUSERF
+         WHERE MANDT = #G_MANDT#
+           AND (USERLEAV = '' OR USERLEAV = '00000000')
+           -------------------------------------------------
+           --테스트ID 사용을 위해 임시로 쿼리 변경. 배포 시 제거할 지 확인 후 처리 해야함. 2019.07.15 강민석K
+           --AND USERNUMB LIKE '9%'
+           --AND (USERNUMB LIKE '9%' OR USERNUMB LIKE 'TEST%')
+           -------------------------------------------------
+       ) TBL
+ WHERE TBL.PSNO = #G_USER_ID#
+FOR FETCH ONLY WITH UR
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

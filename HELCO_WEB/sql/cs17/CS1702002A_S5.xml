@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT '' CHECK                                                                                                                                   
+      ,'S' GBN                                                                                                                                    
+      ,HR.PJT                                                                                                                                     
+      ,HR.HNO                                                                                                                                     
+      ,HR.SPEC1                                                                                                                                   
+      ,HR.SPEC2                                                                                                                                   
+      ,HR.SPEC3                                                                                                                                   
+      ,HR.SPEC4                                                                                                                                   
+      ,HR.SPEC6                                                                                                                                   
+      ,HR.SPEC7                                                                                                                                   
+      ,HR.ZGUBUN 
+      ,HR.SID                                                                                                                                       
+      ,HR.BPM                                                                                                                                     
+      ,HR.BSU                                                                                                                                     
+      ,HR.JUJ                                                                                                                                     
+      ,HR.BUJ                                                                                                                                     
+      ,HR.IJD                                                                                                                                     
+      ,HR.BLD
+      ,HR.PST                                                                                                                                     
+      ,CASE WHEN HR.PST = 'A1' THEN '작성'                                                                                                        
+            WHEN HR.PST = 'A2' THEN '반송'                                                                                                        
+            WHEN HR.PST = 'A6' THEN '승인'                                                                                                        
+        END PST_NM                                                                                                                                   
+      ,HR.CCG                                                                                                                                     
+      ,CASE WHEN HR.EXC = 'Y' AND HR.MAC = 'N' THEN 'A'                                                                                           
+            WHEN HR.EXC = 'N' AND HR.MAC = 'Y' THEN 'B'                                                                                           
+            WHEN HR.EXC = 'N' AND HR.MAC = 'N' THEN 'C'                                                                                           
+            WHEN HR.EXC = 'Y' AND HR.MAC = 'Y' THEN 'B'                                                                                           
+        END RSN                                                                                                                                   
+       ,HR.SPEC4_NM                                                                                                                               
+       ,HR.ZGUBUN_NM                                                                                                                              
+       ,HR.BSU_NM                                                                                                                                 
+       ,HR.BLD_NM                                                                                                                                 
+       ,'' AS BPMTEXT                                                                                                                             
+       ,HR.JUJ_NM                                                                                                                                 
+       ,HR.BUJ_NM                                                                                                                                 
+       ,CASE WHEN HR.CCG = 'A' THEN '자사'                                                                                                        
+             WHEN HR.CCG = 'B' THEN '타사'                                                                                                        
+         END GBN_NM                                                                                                                               
+       ,CASE WHEN HR.EXC = 'Y' AND HR.MAC = 'N' THEN '계산서분리 청구'                                                                            
+             WHEN HR.EXC = 'N' AND HR.MAC = 'Y' THEN '보수자재 청구'                                                                              
+             WHEN HR.EXC = 'N' AND HR.MAC = 'N' THEN '보수회수계약 등록'                                                                          
+             WHEN HR.EXC = 'Y' AND HR.MAC = 'Y' THEN 'B'                                                                                          
+         END RSN_NM                                                                                                                               
+  FROM ( SELECT A.POSID PJT                                                                                                                       
+               ,SUBSTR(A.POSID_1,7,3) HNO                                                                                                         
+               ,A.ZSPEC1 SPEC1 --기종                                                                                                             
+               ,A.ZSPEC2 SPEC2 --사양                                                                                                             
+               ,A.ZSPEC3 SPEC3 --속도                                                                                                             
+               ,A.ZSPEC4 SPEC4 --용도                                                                                                             
+               ,A.ZSPEC6 SPEC6 --용량                                                                                                             
+               ,CAST(A.ZSPEC7 AS INTEGER) SPEC7 --층수                                                                                            
+               ,A.ZGUBUN ZGUBUN --빌딩구분
+               ,C.SID                                                                                                        
+               ,C.BPM                                                                                                                             
+               ,C.BSU                                                                                                                             
+               ,C.JUJ                                                                                                                             
+               ,C.BUJ                                                                                                                             
+               ,C.IJD --입주일                                                                                                                    
+               ,C.BLD                                                                                                                             
+               ,VALUE(C.CCG,'') CCG                                                                                                               
+               ,C.MAC                                                                                                                             
+               ,CASE WHEN VALUE(C.EXC,'') = 'X' THEN 'Y'                                                                                          
+                     ELSE 'N'                                                                                                                     
+                END EXC                                                                                                                           
+               ,VALUE(D.CS202_PST,'A6') PST                                                                                                                   
+               ,SAPHEE.GET_VENDER_N_NAME(CAST(#G_MANDT# AS CHAR(3)),C.BSU) BSU_NM                                                                 
+               ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = #G_MANDT# AND CODE1 = 'CS121' AND CODE2 = A.ZSPEC4 AND LANG = #G_LANG# ) SPEC4_NM 
+               ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = #G_MANDT# AND CODE1 = 'CS112' AND CODE2 = A.ZGUBUN AND LANG = #G_LANG# ) ZGUBUN_NM
+               ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = #G_MANDT# AND CODE1 = 'CS123' AND CODE2 = C.BLD AND LANG = #G_LANG# ) BLD_NM      
+               ,(SELECT CCSB1EPN FROM SAPHEE.ZTBCSB1 WHERE MANDT = #G_MANDT# AND CCSB1EMP = C.JUJ) JUJ_NM                                         
+               ,(SELECT CCSB1EPN FROM SAPHEE.ZTBCSB1 WHERE MANDT = #G_MANDT# AND CCSB1EMP = C.BUJ) BUJ_NM                                         
+                                                                                                                                                  
+          FROM SAPHEE.ZMASTER02 A LEFT OUTER JOIN SAPHEE.ZCST111 C                                                                                
+                                               ON C.MANDT = A.MANDT                                                                               
+                                              AND C.PJT = A.POSID                                                                                 
+                                              AND C.HNO = SUBSTR(A.POSID_1,7,3)                                                                   
+                                  LEFT OUTER JOIN SAPHEE.ZCST202 D                                                                                
+                                               ON D.MANDT = A.MANDT                                                                               
+                                              AND D.CS202_PJT = A.POSID                                                                           
+                                              AND D.CS202_HNO = SUBSTR(A.POSID_1,7,3)                                                             
+                                  LEFT OUTER JOIN SAPHEE.ZTBCSB1 F                                                                                
+                                               ON F.MANDT = A.MANDT                                                                               
+                                              AND F.CCSB1EMP = C.BUJ                                                                              
+         WHERE A.MANDT = #G_MANDT#                                                                                                                
+           AND A.POSID = #PJT#                                                                                                                    
+       )HR                                                                                                                                        
+  WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+	<![CDATA[
+		        SELECT           
+		       		 CASE B.GBN
+		                WHEN 'A' THEN 'QC검사성적서'
+		                WHEN 'B' THEN '인수증'
+		                WHEN 'C' THEN '품질보증서'
+		                WHEN 'D' THEN '미결사항 확인서'
+		                WHEN 'E' THEN '착공전(출하) 실측'
+		                WHEN 'F' THEN '초고속(진동)'
+		                WHEN 'G' THEN '초고속(소음)'
+		                WHEN 'H1' THEN '[E/S] 자재양중-안전교육'
+		                WHEN 'H2' THEN '[E/S] 자재양중-기구상태'
+		                WHEN 'H3' THEN '[E/S] Truss-안전교육'
+		                WHEN 'H4' THEN '[E/S] Truss-안전난간대'
+		                WHEN 'K1' THEN '3단계-임시카 방호천정'
+		                WHEN 'J1' THEN 'Pricing Committee'
+		                WHEN 'K' THEN '착공전 실측(E/S)'
+		                WHEN 'L' THEN '착공전 실측(M/W)'
+		                WHEN 'U' THEN '공사용협의록'
+		                WHEN 'M' THEN '설치품질검사팀 확인서'
+		            ELSE
+		            (
+		                CASE WHEN B.GBN  <> '' THEN D.GBN_NM ELSE '' END
+		            ) END AS GBN_NM
+		            , D.GBN_NM AS GBN_NM2
+		            , A.POSID
+		            , A.MANDT
+		            , A.VER
+		            , A.POSID_1 -- 호기정보
+		            , P.GUBUN
+		            , G.ZSITE_NM  -- 현장명
+		            , A.TEXT30 
+		            , A.NAMET -- PM            
+		            , E.NAME1 -- 협력업체
+		            -- , (SELECT X.NAMET FROM SAPHEE.ZPST0002 AS X WHERE A.MANDT = X.MANDT AND A.LIFNR = X.LIFNR AND A.TMCD = X.TEMNO ) AS NAMET2-- 팀장
+		            , A.NAMET2 -- 팀장
+		            , A.ZZSHIP1 -- 착공예정일
+		            , (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = A.MANDT AND USERNUMB = B.CNAME) AS CNAME2
+		            , (SELECT DECODE(USERMBPN , NULL, USERTELE, USERMBPN) FROM SAPHEE.ZUSERF WHERE MANDT = A.MANDT AND USERNUMB = B.CNAME) AS CMBPN
+		            , CASE WHEN VALUE(B.CNAME, '') = ''  THEN 'X' ELSE '' END AS COLOR
+		            , VALUE(B.GBN , '') AS GBN            
+		            , D.TYPE
+		            , D.GNO
+		            , D.GNO_STEP
+		            , D.SAFE
+		            , D.SAFE_CK
+		            , CASE WHEN B.MOBILE = 'X'
+		                   THEN 'M'
+		                   ELSE 'S'
+		                   END AS DEVICE_GBN
+		            , X3.PRONR
+		            , X4.PROWRK
+		            , X4.PRO_R
+		            , U.FNAME
+		            , U.FPATH
+		            -- , U.FNAME_APP
+		            ,  (
+		                 SELECT X51.FNAME               
+		                   FROM SAPHEE.ZPSTW0304 X51
+		             INNER JOIN (  
+		                          SELECT G5.MANDT
+		                               , DECODE( MIN(G5.INP_DT), NULL, MIN(G5.INP_DT)
+		                                                       , '' , MIN(G5.INP_DT)
+		                                                       , MAX(G5.INP_DT) ) AS INP_DT
+		                               , G5.PSPID
+		                               , G5.POSID 
+		                               , G5.GUBUN
+		                               , G5.VER
+		                               , G5.PRONR
+		                            FROM SAPHEE.ZPSTW0304 G5
+		                        GROUP BY G5.MANDT
+		                               , G5.PSPID
+		                               , G5.POSID 
+		                               , G5.GUBUN
+		                               , G5.VER
+		                               , G5.PRONR    
+		                        ) AS X52 
+		                     ON X51.MANDT  = X52.MANDT 
+		                    AND X51.PSPID  = X52.PSPID 
+		                    AND X51.POSID  = X52.POSID
+		                    AND X51.GUBUN  = X52.GUBUN
+		                    AND X51.VER    = X52.VER
+		                    AND X51.PRONR  = X52.PRONR 
+		                    AND X51.INP_DT = X52.INP_DT
+		                  WHERE A.MANDT    = X51.MANDT 
+		                    AND P.GUBUN    = X51.GUBUN 
+		                    AND P.VER      = X51.VER                
+		                    AND X3.PRONR   = X51.PRONR
+		                    AND A.POSID    = X51.PSPID 
+		                    AND A.POSID_1  = X51.POSID
+		                ) AS FNAME_APP		             
+		             , U.CDATE
+		             , B.CDATE || B.CTIME AS CTIME             
+		             -- 승인관련 데이터 
+		             , VALUE(AR.APRCD, 'N') AS APRCD 
+		             -- , DECODE(  AR.APRCD, 'Y' ,    SUBSTR(AR.APRDT, 1, 8)) AS APRDT
+		             , AR.APRDT             
+		             , T112.CRDAT AS COL  -- 기성일자
+		             , AR.APRID 
+		             , (SELECT USERNAME FROM SAPHEE.ZUSERF WHERE MANDT = A.MANDT AND USERNUMB = AR.APRID) AS APRNM
+		          FROM SAPHEE.ZMASTER02 AS A		        
+		    INNER JOIN SAPHEE.ZMASTER01 AS G 
+		            ON A.MANDT = G.MANDT
+		           AND A.POSID = G.POSID
+	   LEFT OUTER JOIN SAPHEE.LFA1 AS E 
+	                ON A.MANDT = E.MANDT
+		           AND A.LIFNR = E.LIFNR
+       LEFT OUTER JOIN SAPHEE.ZPSTW1502 AS F 
+                    ON A.MANDT = F.MANDT
+		           AND A.POSID =  F.PSPID
+                   AND A.POSID_1  = F.POSID
+       LEFT OUTER JOIN SAPHEE.ZPST0111M AS P
+		            ON P.MANDT = A.MANDT
+		           AND P.GUBUN = A.ZZGUBUN
+		           AND P.TYPE = A.TYPE
+		           AND P.VER = A.VER
+	   LEFT OUTER JOIN SAPHEE.ZPST1106 AS D
+                    ON P.MANDT = D.MANDT
+                   AND P.STEP3_GBN =  D.TYPE
+       LEFT OUTER JOIN SAPHEE.ZPST0111T X3
+                    ON A.MANDT = X3.MANDT
+		           AND P.GUBUN = X3.GUBUN
+		           AND P.TYPE = X3.TYPE
+		           AND P.VER = X3.VER
+		           AND D.GNO = X3.GNO
+	   LEFT OUTER JOIN SAPHEE.ZPST0111 X4 
+	                ON (X3.MANDT = X4.MANDT AND X3.GUBUN = X4.GUBUN AND X3.VER = X4.VER AND X3.PRONR = X4.PRONR AND X3.TYPE = X4.TYPE)
+       LEFT OUTER JOIN SAPHEE.ZPST0112 T112 
+                    ON A.MANDT = T112.MANDT 
+		           AND A.POSID = T112.PSPID 
+		           AND A.POSID_1 = T112.POSID
+		           AND P.GUBUN = T112.GUBUN
+		           AND X3.PRONR = T112.PRONR
+	   LEFT OUTER JOIN SAPHEE.ZCMFL001 AS B
+		            ON A.MANDT = B.MANDT
+		           AND A.POSID = B.PSPID
+		           AND A.POSID_1 = B.POSID
+		           AND D.GBN = B.GBN
+	   LEFT OUTER JOIN SAPHEE.ZPST1150 AS AR 
+		            ON A.MANDT = AR.MANDT
+		           AND A.POSID = AR.POSID
+		           AND A.POSID_1 = AR.POSID_1
+		           AND P.GUBUN = AR.GUBUN
+		           AND D.TYPE = AR.TYPE
+		           AND A.VER = AR.VER
+		           AND B.GBN = AR.GBN
+		           AND AR.USEYN = '1'
+		    INNER JOIN SAPHEE.ZCMFL002 U ON A.MANDT = U.MANDT
+		           AND A.POSID = U.PSPID 
+		           AND A.POSID_1 = U.POSID
+		           AND B.GBN = U.GBN        
+		         WHERE A.MANDT = #G_MANDT#
+		           AND A.VER IN ( '003', '004', '005' )
+		           AND A.ZZGUBUN NOT IN  ('11','14')   -- 김찬형팀장 요청으로 E/S 를 제외 반영 20210819
+		]]>    
+		       <isNotNull col="APRCD">
+		           AND VALUE(DECODE(AR.APRCD , 'R', 'N', AR.APRCD)  , 'N') = #APRCD#	 
+		       </isNotNull>
+		       <isNotNull col="PSPID">
+		           AND A.POSID = #PSPID#	 
+		       </isNotNull>		
+		       <isNotNull col="ZZPMNUM">
+		           AND A.TEMNO = #ZZPMNUM#
+		       </isNotNull>		 	        
+		 	   <isNotNull col="TMCD">
+		           AND A.TEMNO2 = #TMCD#
+		       </isNotNull>
+		       <isNull col="PSPID">
+		           AND U.CDATE BETWEEN  #INP_DTF# AND #INP_DTT#
+		       </isNull>
+		       <isNotNull col="ZZLIFNR">
+		           AND A.LIFNR = #ZZLIFNR#      
+		       </isNotNull>
+			   <isNotNull col="ZZACTSS">
+		           AND A.ZZACTSS = #ZZACTSS#
+				</isNotNull>					
+		ORDER BY A.POSID, A.POSID_1 , D.GBN
+		        FOR FETCH ONLY
+		        WITH UR	
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list1">
+	</output>
+</query>

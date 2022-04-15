@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>update</type>
+    <description><![CDATA[결재상태관리 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+MERGE INTO SAPHEE.ZFST0301 AS A
+USING   (   
+            SELECT  1 AS ORDR, MANDT, ADOC_NUMB, ADOC_NTIM, DRAF_STAT, ADIT_STAT, APPR_STAT
+            FROM    SAPHEE.ZFST0103 
+            WHERE   MANDT = #G_MANDT#
+            AND     ADOC_CLAS = CAST(#ADOC_CLAS# AS VARCHAR(60))
+            AND     ADOC_NUMB = CAST(#ADOC_NUMB# AS VARCHAR(60))
+            AND     ADOC_NTIM = CAST(COALESCE( NULLIF(TRIM(#ADOC_NTIM#||''), ''), '-1') AS INTEGER )
+            UNION  
+            SELECT  2, #G_MANDT# , CAST(#ADOC_NUMB# AS VARCHAR(60)), CAST(COALESCE( NULLIF(TRIM(#ADOC_NTIM#||''), ''), '1') AS INTEGER ), '110', '', ''
+            FROM    SYSIBM.SYSDUMMY1
+            ORDER   BY 1
+            FETCH   FIRST 1 ROW ONLY
+            WITH    UR
+        ) AS B 
+ON      A.MANDT = A.MANDT -- 클라이언트
+AND     A.OCNT_NUMB = B.ADOC_NUMB -- 결재문서번호
+AND     A.EBDG_MGSQ = B.ADOC_NTIM -- 결재문서차수
+WHEN MATCHED THEN
+       UPDATE
+          SET
+        EBDG_MGST = CASE 
+                                
+                    /* 시행예산폐기 */
+                    WHEN A.EBDG_MGST NOT IN ( '310', '360' ) AND B.DRAF_STAT = '510' 
+                        THEN '310'
+                    
+                    /* 시행예산반려 */
+                    WHEN A.EBDG_MGST NOT IN ( '320', '350', '360' ) AND ( B.ADIT_STAT = '040' OR B.APPR_STAT = '040' ) 
+                        THEN '320'
+                    
+                    /* 시행예산승인 */
+                    WHEN A.EBDG_MGST NOT IN ( '310', '350', '360' ) AND ( B.DRAF_STAT = '150' OR B.ADIT_STAT = '250' OR B.APPR_STAT = '390') 
+                        THEN '350' 
+                    
+                    /* 시행예산결재중 */
+                    WHEN A.EBDG_MGST NOT IN ( '350', '360' ) AND B.DRAF_STAT = '190' AND B.ADIT_STAT NOT IN ( '040', '250' ) AND B.APPR_STAT NOT IN ( '040', '390' ) 
+                        THEN '340' 
+                    
+                    /* 시행예산작성중 */
+                    WHEN A.EBDG_MGST NOT IN ( '350', '360' ) AND B.DRAF_STAT NOT IN ( '150', '190' ) AND B.ADIT_STAT != '250' AND B.APPR_STAT != '390' 
+                        THEN '330' 
+                    
+                    /* 기타 원본 유지 */
+                    ELSE A.EBDG_MGST END 
+    </statement>
+    <input default-name="ds_doc_stat">
+        <col name="MANDT" size="9" type="VARCHAR" description="클라이언트" />
+        <col name="ADOC_CLAS" size="30" type="VARCHAR" description="결재문서구분" />
+        <col name="ADOC_NUMB" size="60" type="VARCHAR" description="결재문서번호" />
+        <col name="ADOC_NTIM" size="2" type="SMALLINT" description="결재문서차수" />
+    </input>
+    <output default-name="_none">
+    </output>
+</query>

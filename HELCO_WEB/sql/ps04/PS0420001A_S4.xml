@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT T.PSPID, T.POSID ,
+		(SELECT SAPHEE.FILLINZERO(INT(VALUE(MAX(SEQNO),'0')+1),3)   
+			     FROM SAPHEE.ZPST0115 AS B   
+			 WHERE B.MANDT  = #G_MANDT#
+               AND B.PSPID = #PSPID#
+	           AND B.POSID = #POSID#  ) AS SEQNO,
+	  (T.POSID || '-E') AS POSIDX,
+	  (SELECT B.LIFNR  FROM SAPHEE.ZMASTER02 AS B WHERE B.MANDT  = #G_MANDT# AND B.POSID = #PSPID# AND B.POSID_1 = #POSID#  ) AS LIFNR_F ,
+	   HEX(CURRENT DATE) AS TRDAT, T.L_PRO_R , '' AS LIFNR_T , '' AS TEMNO_T , '' AS NAMET_T,
+	   (100 - T.L_PRO_R) AS R_PRO_R, T.P_PRO_R, 
+	   T.TWBTR,(T.TWBTR - T.WRBTR) AS JWBYR, 'KRW' AS WAERS ,
+       (SELECT B.TEMNO2  FROM SAPHEE.ZMASTER02 AS B WHERE B.MANDT  =  #G_MANDT# AND B.POSID = #PSPID# AND B.POSID_1 = #POSID#   ) AS TEMNO_F ,
+	   (SELECT B.NAMET2  FROM SAPHEE.ZMASTER02 AS B WHERE B.MANDT  =  #G_MANDT# AND B.POSID = #PSPID# AND B.POSID_1 = #POSID#  ) AS NAMET_F ,
+	   (SELECT COUNT(*) FROM SAPHEE.ZPST0120 AS B WHERE B.MANDT  = #G_MANDT# AND B.PSPID = #PSPID# AND B.POSID = #POSID#  ) AS CHU ,
+	   (SELECT COUNT(*) FROM SAPHEE.ZPST0115A AS B WHERE B.MANDT  = #G_MANDT# AND B.PSPID = #PSPID# AND B.POSID = #POSID# 
+			                        AND B.SEQNO = (SELECT MAX(X.SEQNO) FROM SAPHEE.ZPST0115A AS X WHERE X.MANDT = B.MANDT AND X.PSPID = B.PSPID AND X.POSID = B.POSID)
+                        			AND B.GUBUN = '5' AND B.STATE = 'Y') AS BAL , T.CHK
+			 
+FROM
+(SELECT A.POSID AS PSPID, A.POSID_1 AS POSID,
+      -- (A.TOT / 100 ) AS TWBTR , 
+	     (VALUE((SELECT X1.TOT FROM SAPHEE.ZPST0100 AS X1
+                           WHERE X1.MANDT = A.MANDT   AND    X1.PSPID = A.POSID
+                             AND X1.POSID = A.POSID_1
+                             AND X1.CHGNO = ( SELECT MAX( X2.CHGNO )
+                                                FROM SAPHEE.ZPST0113 AS X2
+                                               WHERE X2.MANDT = X1.MANDT   AND   X2.CNF_GBN = 'A'
+                                                 AND X2.PSPID = X1.PSPID   AND   X2.POSID = X1.POSID
+                                                 AND X2.GUBUN = '5'        AND   X2.STATE = 'Y') ), 0) / 100 )AS  TWBTR , 
+			VALUE(( SELECT SUM( X.PRO_R ) FROM  SAPHEE.ZPST0116 AS X
+                                              WHERE X.MANDT = #G_MANDT#  AND X.PSPID = #PSPID#	AND X.POSID = #POSID#
+                                                  AND X.BELNR <> '' AND X.ZERROR = '' ),0.0) AS P_PRO_R,
+			 VALUE(( SELECT SUM( X.PRO_R ) FROM SAPHEE.ZPST0112 AS X WHERE X.MANDT = #G_MANDT#  AND X.PSPID = #PSPID#	AND X.POSID = #POSID# ),0.0) AS L_PRO_R,
+			 VALUE(( SELECT SUM( X.WRBTR ) FROM SAPHEE.ZPST0116 AS X WHERE X.MANDT = #G_MANDT#  AND X.PSPID = #PSPID#	AND X.POSID = #POSID#
+                                                  AND X.BELNR <> '' AND X.ZERROR = '' ),0) AS WRBTR,
+                                                  
+			                                       
+               CASE WHEN VALUE((SELECT COUNT(*) 
+                                          FROM SAPHEE.ZPST0113 AS E
+                                          WHERE E.MANDT = A.MANDT
+                                            AND E.CNF_GBN = 'A'
+                                            AND E.PSPID = A.POSID
+                                            AND E.POSID = A.POSID_1
+                                            AND E.GUBUN = '5'
+                                            AND E.STATE = 'Y' ) , 0) = 0 THEN 'X' ELSE '' END AS CHK	
+
+
+FROM SAPHEE.ZMASTER02 AS A
+WHERE A.MANDT  = #G_MANDT#
+    AND A.POSID = #PSPID#
+	AND A.POSID_1 = #POSID#
+
+											
+) AS T ]]></statement>
+	<input default-name="ds_cond2">
+	</input>
+	<output default-name="ds_list_tmp2">
+	</output>
+</query>

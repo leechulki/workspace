@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  T1.MANDT
+       ,T1.NAM
+       ,T1.NUM
+       ,T1.A_QTY
+       ,(T1.A_QTY - CASE WHEN T1.B_QTY > 0 THEN T1.B_QTY WHEN T1.B_QTY = 0 AND T1.C_QTY > 0 THEN T1.C_QTY ELSE 0 END ) AS PM_QTY
+	   ,CASE WHEN T1.B_QTY > 0 THEN T1.B_QTY WHEN T1.B_QTY = 0 AND T1.C_QTY > 0 THEN T1.C_QTY ELSE 0 END AS B_QTY
+       ,CASE WHEN T1.B_QTY = 0 AND T1.C_QTY > 0 THEN '*' ELSE ' ' END ||' '||TRIM(T1.ADR) AS ADR
+	   ,CASE WHEN T1.B_QTY = 0 AND T1.C_QTY > 0 THEN '*' ELSE '' END AS MARK
+	   ,'1' AS GBN
+	   ,T1.B_QTY AS BSUM_QTY
+FROM  (
+        SELECT  T.MANDT
+               ,T.YMD
+               ,T.NUM
+               ,T.NAM
+               ,T.A_QTY
+               ,T.B_QTY
+               ,VALUE((SELECT SUM(C.QTY)
+        			   FROM SAPHEE.ZTBEJULF1 AS C
+        			   WHERE C.MANDT = T.MANDT
+        			   AND C.NUM = T.NUM
+        			   AND C.YMD = #BYMD#
+        			   AND T.B_QTY = 0
+        			  ),0) AS C_QTY
+               ,T.ADR
+        FROM  (
+                SELECT  A.MANDT
+                       ,A.YMD
+                       ,A.NUM
+                       ,A.NAM
+                       ,A.QTY AS A_QTY
+                       ,VALUE(B.QTY,0) AS B_QTY
+                       ,A.ADR
+                FROM SAPHEE.ZTBEJULF1 AS A
+                     LEFT OUTER JOIN SAPHEE.ZTBEJULF1 AS B
+                     ON A.MANDT = B.MANDT
+                     AND (CASE WHEN LENGTH(A.NUM) = 13 THEN A.NUM||'00' ELSE A.NUM END) = B.NUM
+                     AND A.GEJ = B.GEJ
+                     AND A.RGB = B.RGB
+                     AND A.HAP = B.HAP
+                     AND B.YMD = #BYMD#
+                     AND A.YMD = #AYMD#
+                WHERE A.MANDT = #G_MANDT#
+                AND A.YMD = #AYMD#
+<isEqual col="QTY" value="1">
+                AND A.QTY &gt;= 1000
+</isEqual>
+<isEqual col="CST" value="1">
+                AND A.CST  IN ('01','12')
+</isEqual>
+<isEqual col="CST" value="2">
+                AND A.CST NOT IN ('01','12')
+</isEqual>
+              ) AS T
+      ) AS T1
+<isEqual col="GUBUN" value="1">
+WHERE (T1.A_QTY - CASE WHEN T1.B_QTY > 0 THEN T1.B_QTY WHEN T1.B_QTY = 0 AND T1.C_QTY > 0 THEN T1.C_QTY ELSE 0 END ) &lt;&gt; 0
+</isEqual>
+
+<isEqual col="SORT" value="1">
+ORDER BY GBN,NAM
+</isEqual>
+<isEqual col="SORT" value="2">
+ORDER BY GBN,A_QTY DESC
+</isEqual>
+
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="BYEAR" size="255" type="VARCHAR" description="" /> 
+		<col name="AYEAR" size="255" type="VARCHAR" description="" /> 
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="QTY" size="255" type="VARCHAR" description="" /> 
+		<col name="CST" size="255" type="VARCHAR" description="" /> 
+		<col name="GUBUN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

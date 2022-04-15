@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	SELECT T.LIFNR,  T.NAME1,
+       T.INQTY, -- 인수수량
+	   T.OUTQTY , -- 인계수량
+	   T.IPQTY ,-- 신규 신청 + 회수 (C)
+	   T.LOSQTY , -- 폐기수량 (B)
+	   T.RUQTY , -- 재사용 수량 (D)
+	   T. BANQTY , --회수  (A)
+	   T.TOTQTY ,-- 신청수량(e)
+	    ROUND((CAST(T.BANQTY   AS DECIMAL(13, 2)) /  CAST(T.TOTQTY   AS DECIMAL(13, 2)) ) * 100,1) AS P1,
+		 ROUND((CAST(T.LOSQTY   AS DECIMAL(13, 2)) /  CAST(T.TOTQTY   AS DECIMAL(13, 2)) ) * 100,1) AS P2
+FROM
+(
+SELECT A.LIFNR,   L.NAME1, 
+       SUM(A.INQTY) AS  INQTY, -- 인수수량
+	   SUM(A.OUTQTY) AS OUTQTY , -- 인계수량
+	   (SUM(A.IPQTY)  + SUM(A.BANQTY)  ) AS IPQTY ,-- 신규 신청 + 회수 (C)
+	   SUM(A.LOSQTY) AS LOSQTY , -- 폐기수량 (B)
+	   SUM(A.RUQTY) AS  RUQTY , -- 재사용 수량 (D)
+	   (SUM(A.BANQTY)) AS  BANQTY , --회수  (a)
+	  (SUM(A.IPQTY)) AS  TOTQTY -- 신청수량(e)
+			 
+ FROM SAPHEE.ZPSTW0113 AS A
+ LEFT OUTER JOIN SAPHEE.LFA1 AS L
+   ON A.MANDT = L.MANDT
+   AND A.LIFNR = L.LIFNR
+WHERE A.MANDT  = #G_MANDT#
+  AND A.LIFNR IN (
+                   SELECT DISTINCT LIFNR
+                     FROM SAPHEE.ZPSTW0113  PS
+                     WHERE PS.MANDT = A.MANDT
+                      <isNotNull col="PSPID">
+                      AND PS.PSPID = #PSPID#
+                      </isNotNull> 
+                      )
+	
+ <isNotNull col="LIFNR">
+   AND A.LIFNR = #LIFNR#
+ </isNotNull>
+
+	
+ <isNotNull col="ZZACTSS">
+   AND L.ACTSS = #ZZACTSS#
+ </isNotNull>
+
+   <isNotNull col="CDAT_F">
+	 AND A.CDATE BETWEEN  #CDAT_F# AND #CDAT_T#
+ </isNotNull>
+	
+  <isNotNull col="RDAT_F">
+    AND A.RDATE  BETWEEN  #RDAT_F# AND #RDAT_T#
+  </isNotNull>				 
+ 
+GROUP BY A.MANDT, A.LIFNR ,L.NAME1
+ ) AS T
+ 
+ 
+ ORDER BY T.LIFNR
+FOR FETCH ONLY
+WITH UR		</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

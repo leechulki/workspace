@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.ses.dao.Ses0440D"> 
+
+	<resultMap id="selectListHeaderMap" type="hdel.sd.ses.domain.Ses0440">
+	    <result property="mandt" column="MANDT"/>
+	    <result property="pspid" column="PSPID"/>
+	    <result property="seq" column="SEQ"/>
+	    <result property="status" column="STATUS"/>
+	    <result property="erdat" column="ERDAT"/>
+	    <result property="vkbur" column="VKBUR"/>
+	    <result property="vkburt" column="VKBURT"/>
+	    <result property="vkgrp" column="VKGRP"/>
+	    <result property="vkgrpt" column="VKGRPT"/>
+	    <result property="zkunnr" column="ZKUNNR"/>
+	    <result property="zkunnr_nm" column="ZKUNNR_NM"/>
+	    <result property="bstnk" column="BSTNK"/>
+	    <result property="bigo" column="BIGO"/>
+	    <result property="repl" column="REPL"/>
+	    <result property="findat" column="FINDAT"/>
+	    <result property="reqdat" column="REQDAT"/>
+	    <result property="rqser" column="RQSER"/>
+	    <result property="is_lo" column="IS_LO"/>
+	    <result property="is_dm" column="IS_DM"/>
+	    <result property="kunnr_z3" column="KUNNR_Z3"/>
+	    <result property="kunnr_z3_nm" column="KUNNR_Z3_NM"/>
+	</resultMap>
+	
+	<select id="selectListHeaderProject" parameterType="hdel.sd.ses.domain.Ses0440ParamVO" resultMap="selectListHeaderMap">
+		SELECT    A.MANDT                  -- 클라이언트
+		        , A.PSPID    -- 프로젝트
+	        , A.SEQ     -- 차수      , E.STATUS  -- 상태
+		        , A.ERDAT  -- 입력일
+		        , B.VKBUR
+				, B.VKGRP
+				, C.KUNNR AS ZKUNNR  -- 영업사원
+		        ,(SELECT NAME1 FROM SAPHEE.KNA1 WHERE MANDT = #{mandt} AND KUNNR = C.KUNNR) AS ZKUNNR_NM  -- 영업사원이름
+				, B.BSTNK  -- 공사명
+				, E.STATUS -- 상태 
+		        , E.BIGO01  -- 특기사항
+		        , E.REPL01  -- 회신내용
+		        , E.FINDAT  -- 완료일
+		        , E.REQDAT  -- 요청일
+		        , E.RQSER  -- 요청 차수 
+		        , E.IS_LO  -- 레이아웃 유무
+		        , E.IS_DM  -- 기타서류 유무
+		        , D.KUNNR  -- 기술영업 담당
+		        ,(SELECT NAME1 FROM SAPHEE.KNA1 WHERE MANDT = #{mandt} AND KUNNR = D.KUNNR) AS KUNNR_Z3_NM  -- 기술영업 담당명
+		        ,(SELECT BEZEI FROM SAPHEE.TVKBT WHERE MANDT = #{mandt} AND VKBUR = B.VKBUR AND SPRAS = '3') AS VKBURT  
+		        ,(SELECT BEZEI FROM SAPHEE.TVGRT WHERE MANDT = #{mandt} AND VKGRP = B.VKGRP AND SPRAS = '3') AS VKGRPT
+		        
+		FROM SAPHEE.ZSDT0090 AS A
+			 INNER JOIN SAPHEE.VBAK AS B   ON A.MANDT = B.MANDT AND A.PSPID = B.ZZPJT_ID
+			 INNER JOIN TABLE (SELECT MANDT, VBELN, KUNNR FROM SAPHEE.VBPA
+			 					WHERE MANDT = B.MANDT
+			 					  AND VBELN = B.VBELN
+			 					  AND POSNR = '000000'
+			 					  AND PARVW = 'Z2'
+					<if test="zkunnr !=null and zkunnr !=''"> AND KUNNR = #{zkunnr} </if>
+			 				  ) AS C
+			 	   ON C.MANDT = B.MANDT AND C.VBELN = B.VBELN
+			 INNER JOIN TABLE (SELECT MANDT, VBELN, KUNNR FROM SAPHEE.VBPA
+			 					WHERE MANDT = B.MANDT
+			 					  AND VBELN = B.VBELN
+			 					  AND POSNR = '000000'
+			 					  AND PARVW = 'Z3'
+					<if test="kunnr_z3 !=null and kunnr_z3 !=''"> AND KUNNR = #{kunnr_z3} </if>
+			 				  ) AS D
+			 	   ON D.MANDT = B.MANDT AND D.VBELN = B.VBELN
+			 LEFT OUTER JOIN TABLE (SELECT * FROM SAPHEE.ZSDT1092 AS T92 
+	                                WHERE MANDT = #{mandt}
+									AND RQSER = ( SELECT MAX(RQSER) FROM SAPHEE.ZSDT1092 
+												  WHERE MANDT = #{mandt} 
+												  AND PSPID = T92.PSPID AND SEQ = T92.SEQ ) )  
+	 AS E ON A.MANDT = E.MANDT AND A.PSPID = E.PSPID AND A.SEQ = E.SEQ
+	   WHERE A.MANDT = #{mandt}
+	     AND A.FINL != 'X'
+ 		 AND A.ERDAT BETWEEN #{frerdat} AND #{toerdat}
+		<if test="pspid !=null and pspid !=''"> AND A.PSPID = #{pspid} </if>
+ 		 AND B.AUART IN ('ZS01','ZS02','ZN01')
+	    <if test="frvkbur != '' and tovkbur != ''" >
+	    	AND C.VKBUR BETWEEN #{frvkbur} AND #{tovkbur}
+	    </if>
+	    <if test="frvkbur != '' and tovkbur == ''" >
+	    	AND C.VKBUR = #{frvkbur} 
+	    </if>
+	    <if test="frvkbur == '' and tovkbur != ''" >
+	    	AND C.VKBUR = #{tovkbur} 
+	    </if>
+	    <if test="frvkgrp != '' and tovkgrp != ''" >
+	    	AND C.VKGRP BETWEEN #{frvkgrp} AND #{tovkgrp}
+	    </if>
+	    <if test="frvkgrp != '' and tovkgrp == ''" >
+	    	AND C.VKGRP = #{frvkgrp} 
+	    </if>
+	    <if test="frvkgrp == '' and tovkgrp != ''" >
+	    	AND C.VKGRP = #{tovkgrp} 
+	    </if>
+			AND EXISTS ( SELECT * FROM SAPHEE.ZSDT0091
+	                       WHERE MANDT = #{mandt} 
+						   AND PSPID = A.PSPID 
+ 		 				   AND ERDAT BETWEEN #{frerdat} AND #{toerdat}
+						   AND MATNR IN ('S-1000','W-1000') )
+        ORDER BY A.MANDT, A.PSPID, A.SEQ 
+		WITH UR
+	</select>
+
+	
+</mapper>  

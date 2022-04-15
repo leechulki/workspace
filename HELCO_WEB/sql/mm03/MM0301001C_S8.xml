@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+WITH TMP1 AS (
+
+SELECT TRIM(CESDDPJT)||TRIM(CESDDHNO)||'-P' AS POSID -- 호기
+, CESDDBJD AS CESDBBJD -- 실측일
+, 'J' AS REP
+, MANDT
+ FROM SAPHEE.ZTBESDD 
+WHERE MANDT= '183' 
+--  AND CESDDBJD BETWEEN SUBSTR(SAPHEE.TO_DATETIME(),1,8)-15 AND SUBSTR(SAPHEE.TO_DATETIME(),1,8)
+  AND CESDDBJD BETWEEN '20301116' AND '20301127'
+
+UNION ALL
+
+SELECT TRIM(CESDNPJT)||TRIM(CESDNHNO)||'-P' AS POSID -- 호기
+, CESDNBJD AS CESDBBJD  -- 실측일
+, 'N' AS REP
+, MANDT
+ FROM SAPHEE.ZTBESDN 
+WHERE MANDT= '183' 
+--  AND CESDNBJD BETWEEN SUBSTR(SAPHEE.TO_DATETIME(),1,8)-15 AND SUBSTR(SAPHEE.TO_DATETIME(),1,8)
+  AND CESDNBJD BETWEEN '20301116' AND '20301127'
+
+UNION ALL
+
+SELECT TRIM(CESDFPJT)||TRIM(CESDFHNO)||'-P' AS POSID -- 호기
+, CESDFBJD AS CESDBBJD -- 실측일
+,'S' AS REP
+, MANDT
+ FROM SAPHEE.ZTBESDF 
+WHERE MANDT= '183' 
+--  AND CESDFBJD BETWEEN SUBSTR(SAPHEE.TO_DATETIME(),1,8)-15 AND SUBSTR(SAPHEE.TO_DATETIME(),1,8)
+  AND CESDFBJD BETWEEN '20301116' AND '20301127'
+
+)
+SELECT COUNT(*) AS CNT
+FROM
+(
+SELECT '0' AS CHECK
+     ,'' AS FLAG
+     , A.EBELN AS EBELN                                  -- 발주번호
+     , A.EBELP AS EBELP                                  -- 순번
+     , A.POSID AS POSID                                    -- wbs
+     , A.LIFNR AS LIFNR                                     -- 협력사코드
+     , A.LNAME AS LNAME                                 -- 협력사명
+     , A.MENGE AS MENGE                                 -- 발주수량
+     , A.CESDBBJD AS CESDBBJD       -- 설치실측일
+     , A.REP AS REP                                          -- 실측종류 구분 
+     , VALUE(C.SHIP_SCH,'') AS SHIP_SCH --출하예정일
+FROM
+(
+ SELECT
+       MM.MANDT AS MANDT 
+     , MM.EBELN AS EBELN                                  -- 발주번호
+     , MM.EBELP AS EBELP                                  -- 순번
+     , MM.POSID AS POSID                                    -- wbs
+     , MM.LIFNR AS LIFNR                                     -- 협력사코드
+     , MM.LNAME AS LNAME                                 -- 협력사명
+     , MM.MENGE AS MENGE                                 -- 발주수량
+     , VALUE(MM.CESDBBJD,'') AS CESDBBJD       -- 설치실측일
+     , MM.JAMB_TYPE AS JAMB_TYPE                   -- JAMB TYPE
+     , MM.REP AS REP                                          -- 실측종류 구분 
+     , CASE WHEN SUBSTR(MM.MATKL,1,5) = 'C361A' THEN (SELECT VALUE FROM SAPHEE.ZSDT0005 WHERE MANDT = '183' AND HOGI = MM.POSID AND CHARACTERISTIC = 'EL_CJM1M' ORDER BY SEQ DESC FETCH FIRST 1 ROW ONLY )
+           WHEN SUBSTR(MM.MATKL,1,5) = 'C361B' THEN (SELECT VALUE FROM SAPHEE.ZSDT0005 WHERE MANDT = '183' AND HOGI = MM.POSID AND CHARACTERISTIC = 'EL_CJM2M' ORDER BY SEQ DESC FETCH FIRST 1 ROW ONLY )
+           WHEN SUBSTR(MM.MATKL,1,5) = 'C361C' THEN (SELECT VALUE FROM SAPHEE.ZSDT0005 WHERE MANDT = '183' AND HOGI = MM.POSID AND CHARACTERISTIC = 'EL_CJM3M' ORDER BY SEQ DESC FETCH FIRST 1 ROW ONLY )
+           WHEN SUBSTR(MM.MATKL,1,5) = 'C361D' THEN (SELECT VALUE FROM SAPHEE.ZSDT0005 WHERE MANDT = '183' AND HOGI = MM.POSID AND CHARACTERISTIC = 'EL_CJM4M' ORDER BY SEQ DESC FETCH FIRST 1 ROW ONLY )
+           WHEN SUBSTR(MM.MATKL,1,5) = 'C361E' THEN (SELECT VALUE FROM SAPHEE.ZSDT0005 WHERE MANDT = '183' AND HOGI = MM.POSID AND CHARACTERISTIC = 'EL_CJM5M' ORDER BY SEQ DESC FETCH FIRST 1 ROW ONLY ) 
+           WHEN SUBSTR(MM.MATKL,1,5) = 'C361F' THEN (SELECT VALUE FROM SAPHEE.ZSDT0005 WHERE MANDT = '183' AND HOGI = MM.POSID AND CHARACTERISTIC = 'EL_CJM6M' ORDER BY SEQ DESC FETCH FIRST 1 ROW ONLY )
+           ELSE '' END AS JAMB_MATKL
+FROM
+(
+     SELECT
+           M13.MANDT AS MANDT 
+         , M13.EBELN AS EBELN                              -- 발주번호
+         , M13.EBELP AS EBELP                              -- 순번
+         , M13.POSID AS POSID                                -- wbs
+         , M13.LIFNR AS LIFNR                                 -- 협력사코드
+         , M13.LNAME AS LNAME                             -- 협력사명
+         , ROW_NUMBER() OVER(PARTITION BY P4.MANDT,P4.WOKNUM,P4.MATNR,P4.IDNRK,P4.ITEM_SEQ,P4.MATKL ORDER BY P4.MANDT,P4.WOKNUM,P4.MATNR,P4.IDNRK,P4.ITEM_SEQ,P4.CRDAT DESC,P4.SEQNO DESC) AS ROWNO
+         , M13.MENGE AS MENGE                             -- 발주수량
+         , M13.CESDBBJD AS CESDBBJD                       -- 설치실측일
+         , M13.JAMB_TYPE AS JAMB_TYPE -- JAMB TYPE
+         , P4.MATKL AS MATKL
+         , M13.REP AS REP
+FROM
+      (
+	            SELECT 
+	                   MM013.MANDT
+	                 , MM013.EBELN AS EBELN
+	                 , MM013.EBELP AS EBELP
+	                 , REPLACE(MM013.POSID, '-P','') AS POSID
+	                 ,MM013.MATNR AS MATNR
+	                 ,MM013.LIFNR AS LIFNR
+	                 ,MM013.LNAME AS LNAME
+	                 ,COALESCE(MM013.MENGE, 0) AS MENGE
+	                 , MM011.JAMB_TYPE AS JAMB_TYPE
+	                 , A.CESDBBJD AS CESDBBJD
+                     , A.REP AS REP
+	               FROM TMP1 AS A 
+                   INNER JOIN SAPHEE.ZMMT013 AS MM013
+                                  				     ON A.MANDT = MM013.MANDT 
+                                                     AND A.POSID = MM013.POSID
+                   INNER JOIN SAPHEE.ZMMT011 AS MM011
+				                                     ON MM013.MANDT = MM011.MANDT 
+                                                     AND MM013.MATNR = MM011.MATNR
+	               WHERE MM013.MANDT = '183'
+	                 AND MM013.MATNR LIKE '361%' 
+	                 AND MM013.STATE = '2'
+	      ) AS M13
+        LEFT OUTER JOIN SAPHEE.ZPPT004 AS P4
+		        ON M13.MANDT = P4.MANDT
+                AND M13.POSID = P4.WOKNUM
+                AND M13.MATNR = P4.IDNRK
+       WHERE M13.JAMB_TYPE > '050'
+
+       ) AS MM
+    WHERE ROWNO = 1
+
+  ) AS A 
+  LEFT OUTER JOIN SAPHEE.ZMMT991 AS B
+                                   ON A.MANDT = B.MANDT
+                                   AND A.JAMB_TYPE = B.JAMB_TYPE
+                                   AND A.JAMB_MATKL = B.JAMB_SPEC
+  LEFT OUTER JOIN SAPHEE.ZMMT992 AS C
+                                   ON A.MANDT = C.MANDT
+                                   AND A.EBELN = C.EBELN
+                                   AND A.EBELP = C.EBELP
+                                   AND A.REP = C.REP
+) AS A
+WHERE A.SHIP_SCH = ''
+  AND A.LIFNR = #G_VEND_CODE_M#
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="G_VEND_CODE_M" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_cnt2">
+	</output>
+</query>

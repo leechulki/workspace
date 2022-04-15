@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+       MAX(A.CS301_TEM) || '-' || MAX(A.CS301_RDT) || '-' || MAX(A.CS301_SEQ) ETN,
+       MAX(A.CS301_SIR) SIR,
+       MAX(A.CS301_PST) PST,
+       CASE MAX(A.CS301_PST)
+            WHEN 'A1' THEN '작성'
+            WHEN 'A2' THEN '반송'
+            WHEN 'A3' THEN '전송'
+            WHEN 'A6' THEN '승인'
+       END PST_NM,
+       MAX(A.CS301_MDT) MDT,
+       MAX(A.CS301_MID) MID,
+       (
+        SELECT USERNAME
+          FROM SAPHEE.ZUSERF
+         WHERE MANDT = #G_MANDT# AND USERNUMB = MAX(A.CS301_MID)
+       ) MID_NM,
+       MAX(A.CS301_CDT) CDT,
+       MAX(A.CS301_NAM) NAM,
+       MAX(A.CS301_SPT) SPT,
+       MAX(A.CS301_PJT) PJT,
+       MAX(A.CS301_BSU) BSU,
+       MAX(A.CS301_ADR) ADR,
+       MAX(A.CS301_SPC) SPC,
+       CASE MAX(A.CS301_PRD) WHEN 'A' THEN '매월' WHEN 'B' THEN '격월' WHEN 'C' THEN '분기' ELSE MAX(A.CS301_PRD) END PRD,
+       MAX(A.CS301_CDY) CDY,
+       CASE MAX(A.CS301_CPD) WHEN 'A' THEN 'FM' WHEN 'B' THEN 'POG' ELSE MAX(A.CS301_CPD) END CPD,
+       CASE MAX(A.CS301_CND) WHEN 'A' THEN 'Conversion' WHEN 'B' THEN 'Renewal' WHEN 'C' THEN 'Recapture' ELSE MAX(A.CS301_CND) END CND,
+       CASE MAX(A.CS301_SRG) WHEN 'A' THEN '1:1Roping' WHEN 'B' THEN '2:1Roping' WHEN 'C' THEN '4:1Roping' ELSE MAX(A.CS301_SRG) END SRG,
+       CASE MAX(A.CS301_GBU) WHEN 'A' THEN '직영' WHEN 'B' THEN '협력사' ELSE MAX(A.CS301_GBU) END GBU,
+       CASE MAX(A.CS301_YGB) WHEN 'A' THEN '직영' WHEN 'B' THEN '협력사' WHEN 'C' THEN '직영&협력사' ELSE MAX(A.CS301_YGB) END YGB,
+       CASE MAX(A.CS301_BLD) WHEN 'A' THEN '아파트' WHEN 'B' THEN '근린생활' WHEN 'C' THEN '주상복합' WHEN 'D' THEN '기타' ELSE MAX(A.CS301_BLD) END BLD,
+       CASE MAX(A.CS301_PDT) WHEN 'A' THEN 'EL' WHEN 'B' THEN 'ES' ELSE MAX(A.CS301_PDT) END PDT,
+       MAX(A.CS301_CNT) CNT,
+       MAX(A.CS301_FLR) FLR,
+       CASE MAX(A.CS301_SPD) WHEN 'A' THEN '60m/m' WHEN 'B' THEN '90m/m이상' WHEN 'C' THEN '120m/m이상' WHEN 'D' THEN '180m/m이상' WHEN 'E' THEN '기타기종' ELSE MAX(A.CS301_SPD) END SPD,
+       MAX(A.CS301_SYR) SYR,
+       MAX(A.CS301_HYN) HYN,
+       MAX(A.CS301_DYN) DYN,
+       MAX(A.CS301_CYN) CYN,
+       MAX(A.CS301_RM1||A.CS301_RM2) RMK,
+       MAX(A.CS301_OPN) OPN,
+       MAX(A.CS301_DOC) DOC,
+       MAX(A.CS301_MMN) MMN,
+       MAX(A.CS301_DAT) DAT,
+       (
+        SELECT
+               --종전보수료를 평균이 아닌 호기별 합계금액으로 수정 2015.01.08
+               --CASE WHEN COUNT(*) = 0 THEN 0 ELSE ROUND((SUM(A.AMT) / COUNT(*)),0) END
+               SUM(A.AMT)
+          FROM
+               (
+                SELECT
+                       A.CS126_PJT PJT,
+                       A.CS126_HNO HNO,
+                       A.CS126_AMT AMT,
+                       ROW_NUMBER() OVER(PARTITION BY A.CS126_PJT, A.CS126_HNO ORDER BY A.CS126_USD DESC) RNO
+                  FROM
+                       SAPHEE.ZCST126 A,
+                       SAPHEE.ZCST301 B,
+                       SAPHEE.ZCST302 C
+                 WHERE
+                       A.MANDT = #G_MANDT#
+                   AND B.MANDT = C.MANDT
+                   AND B.CS301_TEM = C.CS302_TEM
+                   AND B.CS301_RDT = C.CS302_RDT
+                   AND B.CS301_SEQ = C.CS302_SEQ
+                   AND B.CS301_SIR = C.CS302_SIR
+                   AND A.MANDT = C.MANDT
+                   AND A.CS126_PJT = C.CS302_PJT
+                   AND A.CS126_HNO = C.CS302_HNO
+                   AND B.CS301_PST = 'A3'
+                   AND A.CS126_DDT = ''
+                   AND A.CS126_PST = 'A6'
+                   AND A.CS126_USD < B.CS301_MDT
+                   AND B.CS301_TEM = #TEM#
+                   AND B.CS301_RDT = #RDT#
+                   AND B.CS301_SEQ = #SEQ#
+                   AND B.CS301_SIR = #SIR#
+               ) A
+         WHERE
+               A.RNO = 1
+       ) LAS,
+       VALUE(MAX(D.ABR_NM),'') BSU_NM,
+       VALUE(MAX(F.ZBEPJEO),'') BDT,
+       VALUE(MAX(F.ZBOSUIN),'') ISD,
+       VALUE(MAX(G.CTEXT2),'') VKGRP_NM,
+       VALUE(MAX(B.APSTAT),'') APSTAT,
+       VALUE(MAX(C.CS311_TEM),'') MASTAT,
+       VALUE(MAX(C.CS311_TOT),0) MATOT,
+       VALUE(MAX(H.CS654_RAT),0) RAT,
+       VALUE(MAX(H.CS654_RA2),0) RAT2,
+       VALUE(MAX(A.CS301_TXT),'') TXT,
+       VALUE(MAX(A.CS301_TOT),0) TOT,
+       CASE 
+            WHEN MAX(A.CS301_GBU) = 'A' THEN
+                 CASE
+                      WHEN MAX(A.CS301_CPD) = 'A' THEN
+                           CASE
+                                WHEN (SUM(E.CS302_FMT) + SUM(E.CS302_HMT) + SUM(E.CS302_DMT)) * (INT(MAX(A.CS301_CDY)) - INT(MAX(A.CS301_MMN))) <= 50000000 THEN
+                                     CASE
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) <= 85.0 THEN '팀장 전결'
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) <= 90.0 THEN '본부장 전결'
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) >  90.0 THEN '본부장 전결'
+                                     END
+                                WHEN (SUM(E.CS302_FMT) + SUM(E.CS302_HMT) + SUM(E.CS302_DMT)) * (INT(MAX(A.CS301_CDY)) - INT(MAX(A.CS301_MMN))) <= 200000000 THEN
+                                     CASE
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) <= 80.0 THEN '팀장 전결'
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) <= 85.0 THEN '본부장 전결'
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) >  85.0 THEN '대표이사 전결'
+                                     END
+                                WHEN (SUM(E.CS302_FMT) + SUM(E.CS302_HMT) + SUM(E.CS302_DMT)) * (INT(MAX(A.CS301_CDY)) - INT(MAX(A.CS301_MMN))) > 200000000 THEN '대표이사 전결'
+                           END
+                      WHEN MAX(A.CS301_CPD) = 'B' THEN
+                           CASE
+                                WHEN (SUM(E.CS302_PMT) + SUM(E.CS302_HMT) + SUM(E.CS302_DMT)) * (INT(MAX(A.CS301_CDY)) - INT(MAX(A.CS301_MMN))) <= 50000000 THEN
+                                     CASE
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) <= 85.0 THEN '팀장 전결'
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) <= 90.0 THEN '본부장 전결'
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) >  90.0 THEN '본부장 전결'
+                                     END
+                                WHEN (SUM(E.CS302_PMT) + SUM(E.CS302_HMT) + SUM(E.CS302_DMT)) * (INT(MAX(A.CS301_CDY)) - INT(MAX(A.CS301_MMN))) <= 200000000 THEN
+                                     CASE
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) <= 80.0 THEN '팀장 전결'
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) <= 85.0 THEN '본부장 전결'
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) >  85.0 THEN '대표이사 전결'
+                                     END
+                                WHEN (SUM(E.CS302_PMT) + SUM(E.CS302_HMT) + SUM(E.CS302_DMT)) * (INT(MAX(A.CS301_CDY)) - INT(MAX(A.CS301_MMN))) > 200000000 THEN '대표이사 전결'
+                           END
+                 END
+            WHEN MAX(A.CS301_GBU) = 'B' THEN
+                 CASE
+                      WHEN MAX(A.CS301_CPD) = 'A' THEN
+                           CASE
+                                WHEN (SUM(E.CS302_FMT) + SUM(E.CS302_HMT) + SUM(E.CS302_DMT)) * (INT(MAX(A.CS301_CDY)) - INT(MAX(A.CS301_MMN))) <= 50000000 THEN
+                                     CASE
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) <= 90.0 THEN '팀장 전결'
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) <= 95.0 THEN '본부장 전결'
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) >  95.0 THEN '본부장 전결'
+                                     END
+                                WHEN (SUM(E.CS302_FMT) + SUM(E.CS302_HMT) + SUM(E.CS302_DMT)) * (INT(MAX(A.CS301_CDY)) - INT(MAX(A.CS301_MMN))) <= 200000000 THEN
+                                     CASE
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) <= 85.0 THEN '팀장 전결'
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) <= 90.0 THEN '본부장 전결'
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) >  90.0 THEN '대표이사 전결'
+                                     END
+                                WHEN (SUM(E.CS302_FMT) + SUM(E.CS302_HMT) + SUM(E.CS302_DMT)) * (INT(MAX(A.CS301_CDY)) - INT(MAX(A.CS301_MMN))) > 200000000 THEN '대표이사 전결'
+                           END
+                      WHEN MAX(A.CS301_CPD) = 'B' THEN
+                           CASE
+                                WHEN (SUM(E.CS302_PMT) + SUM(E.CS302_HMT) + SUM(E.CS302_DMT)) * (INT(MAX(A.CS301_CDY)) - INT(MAX(A.CS301_MMN))) <= 50000000 THEN
+                                     CASE
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) <= 90.0 THEN '팀장 전결'
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) <= 95.0 THEN '본부장 전결'
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) >  95.0 THEN '본부장 전결'
+                                     END
+                                WHEN (SUM(E.CS302_PMT) + SUM(E.CS302_HMT) + SUM(E.CS302_DMT)) * (INT(MAX(A.CS301_CDY)) - INT(MAX(A.CS301_MMN))) <= 200000000 THEN
+                                     CASE
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) <= 85.0 THEN '팀장 전결'
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) <= 90.0 THEN '본부장 전결'
+                                          WHEN VALUE(MAX(H.CS654_RA2),0) >  90.0 THEN '대표이사 전결'
+                                     END
+                                WHEN (SUM(E.CS302_PMT) + SUM(E.CS302_HMT) + SUM(E.CS302_DMT)) * (INT(MAX(A.CS301_CDY)) - INT(MAX(A.CS301_MMN))) > 200000000 THEN '대표이사 전결'
+                           END
+                 END
+       END COF
+  FROM
+       SAPHEE.ZCST301 A
+              LEFT OUTER JOIN SAPHEE.ZWBAP01 B ON B.MANDT = A.MANDT
+                                              AND B.DOCNO = A.CS301_DOC
+                                              AND B.DOCKIND = '21'
+              LEFT OUTER JOIN SAPHEE.ZCST311 C ON C.MANDT = A.MANDT
+                                              AND C.CS311_TEM = A.CS301_TEM
+                                              AND C.CS311_RDT = A.CS301_RDT
+                                              AND C.CS311_SEQ = A.CS301_SEQ
+                                              AND C.CS311_SIR = A.CS301_SIR
+              LEFT OUTER JOIN SAPHEE.ZWBT010 D ON D.MANDT = A.MANDT
+                                              AND D.LGORT = A.CS301_BSU
+                                              AND D.LGORT > '',
+       SAPHEE.ZCST302 E
+              LEFT OUTER JOIN SAPHEE.ZMASTER02 F ON F.MANDT = E.MANDT
+                                                AND F.POSID = E.CS302_PJT
+                                                AND F.POSID_1 = E.CS302_PJT || E.CS302_HNO
+              LEFT OUTER JOIN SAPHEE.ZLCODE G ON G.MANDT = E.MANDT
+                                             AND G.CODE2 = E.CS302_TEM
+                                             AND G.CODE1 = 'VKGRP'
+                                             AND G.LANG = 'ko'
+              LEFT OUTER JOIN SAPHEE.ZCST654 H ON H.MANDT = E.MANDT
+                                              AND H.CS654_GNO = E.CS302_TEM || E.CS302_RDT || E.CS302_SEQ
+                                              AND H.CS654_SIR = E.CS302_SIR
+ WHERE
+       A.MANDT = #G_MANDT#
+   AND A.CS301_TEM = #TEM#
+   AND A.CS301_RDT = #RDT#
+   AND A.CS301_SEQ = #SEQ#
+   AND A.CS301_SIR = #SIR#
+   AND A.CS301_GBN = '2'
+   AND A.MANDT = E.MANDT
+   AND A.CS301_TEM = E.CS302_TEM
+   AND A.CS301_RDT = E.CS302_RDT
+   AND A.CS301_SEQ = E.CS302_SEQ
+   AND A.CS301_SIR = E.CS302_SIR
+
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_headP">
+	</output>
+</query>

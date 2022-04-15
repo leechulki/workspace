@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>insert</type>
+	<description><![CDATA[보수 청구 입력)]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[	
+	INSERT INTO SAPHEE.ZMMT031
+	       (
+	           MANDT,                                                               --클라이언트
+	           REQNO,                                                               --청구번호
+	           REQSN,                                                               --청구ITEM
+	           REQKIND,                                                             --청구종류(1:부품판매, 7:수리공사, 8:재청구)
+	           REQDATE,                                                             --청구생성일(HEX(CURRENT DATE))
+	           BUSSI,                                                               --사업부구분(1:승강기, 2:주차)
+	           POSID,                                                               --원프로젝트번호(ZCST002의 HOGI_ID)
+	           LGORT,                                                               --G_VEND_CODE_R
+	           MATNR,                                                               --자재번호
+	           BWTAR,                                                               --평가유형(반제품,STOCK반제품,원자재 각각 정품,수리품,반납품)
+	           MTART,                                                               --자재유형(HALB:반제품, PALB:STOCK반제품, ROH:원재료)
+	           MENGE,                                                               --수량
+	           NETPR,                                                               --단가(0)
+	           DMBTR,                                                               --금액(0)
+	           WAERS,                                                               --통화키(KRW)
+	           MEINS,                                                               --기본단위
+	           CHAR1,                                                               --자재특성값
+	           RDATE,                                                               --자재견적시 납기일
+	           ACNAM,                                                               --접수자
+	           ACDAT,                                                               --접수일
+	           ACTIM,                                                               --접수시간
+	           APNAM,                                                               --승인자
+	           APDAT,                                                               --승인일
+	           APTIM,                                                               --승인시간
+	           RECE_F,                                                              --보수청구상태(0-미전송,1-작성,2-접수,3-승인,4-작성삭제(취소),5-접수삭제(취소),6-승인삭제(취소))
+	           REQNR,                                                               --청구번호2(보수자재승인SP에서 생성. 초기값'')
+	           REQKIND2,                                                            --청구종류2(초기 CS0101001A에서 생성 시 REQKIND로 설정. CS3101001A_U1에서 MMPR에 대해 UPDATE. MMPR전용)
+	           POSID2,                                                              --재청구시 원 WBS번호
+	           SERNO,                                                               --청구ITEM 순번의 번호 2자리
+	           QTNUM,                                                               --견적번호
+	           SEQNO,                                                               --견적순번
+	           CREID,                                                               --작성자ID
+	           SENDAT,                                                              --전송일(CS0102001A_U6의 보수자재청구 전송 시)
+	           SENTIM,                                                              --전송시간
+	           SENID,                                                               --전송자
+	           ZGUBN,                                                               --직영재고구분(Y or '')
+	           SEQ,                                                                 --견적차수
+	           UPN
+	       )
+	       VALUES
+	       (
+	           #G_MANDT#,                                                           --클라이언트
+	           #ds_key.REQNO#,                                                      --청구번호
+	           (SELECT CASE WHEN MM031.REQSN IS NULL THEN SAPHEE.FILLINZERO('10',5)
+	                        ELSE SAPHEE.FILLINZERO(MM031.REQSN,5)
+	                    END AS REQSN
+	              FROM
+	                   (SELECT CHAR(INTEGER(MAX(MM031C.REQSN)) + 10) AS REQSN
+	                      FROM SAPHEE.ZMMT031 MM031C
+	                     WHERE MM031C.MANDT = #G_MANDT#
+	                       AND MM031C.REQNO = #ds_key.REQNO#
+	                       AND MM031C.SEQ = #SEQ#
+	                   ) AS MM031),                                                 --청구ITEM
+	           #REQKIND#,                                             			      	--청구종류(1:부품판매,  8:재청구)
+	           HEX(CURRENT DATE),                                                   --청구생성일(HEX(CURRENT DATE))
+	           #ds_out_master.BUSSI#,                                               --사업부구분(1:승강기)
+	           #HNO#,                                                               --원프로젝트번호(ZCST002의 HOGI_ID)
+	           #ds_out_master.BSU#,				                                          --LGORT
+	           #MATNR#,                                                             --자재번호
+	           #BWTAR#,                                                             --평가유형(반제품,STOCK반제품,원자재 각각 정품,수리품,반납품)
+	           #MTART#,                                                             --자재유형(HALB:반제품, PALB:STOCK반제품, ROH:원재료)
+	           #MENGE#,                                                             --수량
+	           0,                                                                   --단가(0)
+	           0,                                                                   --금액(0)
+	           'USD',                                                               --통화키(KRW)
+	           #MEINS#,                                                             --기본단위
+	           #CHAR1#,                                                             --자재특성값
+	           #ds_out_master.SHDAT#,                                               --자재견적시 납기일
+	           #G_USER_ID#,                                                         --접수자(수주접수자)
+	           HEX(CURRENT DATE),                                                   --접수일(수주접수일)
+	           HEX(CURRENT TIME),                                                   --접수시간(수주접수시간)
+	           '',                                                                  --승인자(수주승인자)
+	           '',                                                                  --승인일(수주승인일)
+	           '',                                                                  --승인시간(수주승인시간)
+	           '2',                                                                 --보수청구상태(0-미전송,1-작성,2-접수,3-승인,4-작성삭제(취소),5-접수삭제(취소),6-승인삭제(취소))
+	           '',                                                                  --청구번호2(보수자재승인SP에서 생성. 초기값'')
+	           #REQKIND#,		                                                    --청구종류2(초기 CS0101001A에서 생성 시 REQKIND로 설정. CS3101001A_U1에서 MMPR에 대해 UPDATE. MMPR전용)
+	           #ds_out_master.PS_PSPID#,                                            --재청구시 원 WBS번호
+	           SUBSTR(
+	           (SELECT CASE WHEN MM031.REQSN IS NULL THEN SAPHEE.FILLINZERO('10',5)
+	                        ELSE SAPHEE.FILLINZERO(MM031.REQSN,5)
+	                    END AS REQSN
+	              FROM
+	                   (SELECT CHAR(INTEGER(MAX(MM031C.REQSN)) + 10) AS REQSN
+	                      FROM SAPHEE.ZMMT031 MM031C
+	                     WHERE MM031C.MANDT = #G_MANDT#
+	                       AND MM031C.REQNO = #ds_key.REQNO#
+	                       AND MM031C.SEQ = #SEQ#
+	                   ) AS MM031)
+	            , 3, 2),                                                            --청구ITEM 순번의 번호 2자리
+	           #QTNUM#,                                                             --견적번호
+	           #SEQNO#,                                                             --견적순번
+	           #ds_out_master.CRNAM#,                                               --작성자ID
+	           '',                                                                  --전송일(CS0102001A_U6의 보수자재청구 전송 시)
+	           '',                                                                  --전송시간
+	           '',                                                                  --전송자
+	           #ZGUBN#,                                                             --직영재고구분(Y or '')
+	           #SEQ#,                                                               --견적차수 
+	           #ds_out_master.MA_PSPID#                                             --UPN
+	       )
+	]]></statement>
+	<input default-name="ds_list">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

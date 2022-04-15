@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.ses.dao.Ses0151D"> 	
+
+	<resultMap id="selectListDetailMap" type="hdel.sd.ses.domain.Ses0151"> 
+	    <result property="mandt" column="MANDT"/>
+	    <result property="zrqseq" column="ZRQSEQ"/>
+	    <result property="zattseq" column="ZATTSEQ"/>
+	    <result property="zattpath" column="ZATTPATH"/>
+	    <result property="zattfn" column="ZATTFN"/>
+	</resultMap>
+	
+	<select id="selectListDetail" parameterType="hdel.sd.ses.domain.Ses0150ParamVO" resultMap="selectListDetailMap">
+		SELECT              
+				  MANDT              
+				, ZRQSEQ            
+				, ZATTSEQ           
+				, ZATTPATH          
+				, ZATTFN            
+		  FROM SAPHEE.ZSDT1059
+		 WHERE MANDT  = #{mandt}
+		   AND ZRQSEQ = #{zrqseq}
+	</select>	
+	
+	<resultMap id="selectListSeqMap" type="hdel.sd.ses.domain.Ses0151"> 
+	    <result property="zrqseq" column="ZRQSEQ"/>
+	</resultMap>	
+	
+	<select id="selectListSeq" parameterType="hdel.sd.ses.domain.Ses0150ParamVO" resultMap="selectListSeqMap">
+		SELECT MAX(ZRQSEQ)      AS ZRQSEQ
+		  FROM SAPHEE.ZSDT1058
+		 WHERE MANDT = #{mandt}
+	</select>
+
+
+	<!-- 기술검토결과등록 처리  --> 
+
+	<insert id="saveZSDT1058" parameterType="hdel.sd.ses.domain.Ses0151">
+		MERGE INTO SAPHEE.ZSDT1058 AS T1
+		USING (
+			SELECT 
+					  CAST(#{mandt}  AS VARCHAR(9)) AS MANDT 
+					, CAST(#{zrqseq} AS DECIMAL)    AS ZRQSEQ
+			  FROM 
+			        SYSIBM.SYSDUMMY1
+		) AS T2 ON T1.MANDT = T2.MANDT AND T1.ZRQSEQ = T2.ZRQSEQ
+		
+		WHEN MATCHED THEN
+			UPDATE SET 
+		         T1.ZRQCN = #{zrqcn}
+		       , T1.UDATE = HEX(CURRENT DATE)
+		       , T1.UTIME = HEX(CURRENT TIME)
+		       , T1.UUSER =  #{cuser}
+		
+		WHEN NOT MATCHED THEN
+			INSERT (
+					  MANDT      -- 클라이언트
+					, ZRQSEQ     -- 요청일련번호
+					, ZRQFLG     -- 요청구분
+					, ZRQDAT     -- 요청일
+					, ZRQCN      -- 요청내용
+					, ZRQSTAT    -- 요청상태
+					, QTNUM      -- 견적번호
+					, QTSER      -- 견적차수
+					, SONNR      -- 수주계획번호
+					, CDATE    
+					, CTIME  
+					, CUSER  
+			   ) VALUES (
+					   #{mandt}
+					, (
+						SELECT VALUE(MAX(ZRQSEQ)+1, 1)
+						  FROM SAPHEE.ZSDT1058
+						 WHERE MANDT = #{mandt}
+					  )	
+					, '1'
+					   ,HEX(CURRENT DATE)
+					, #{zrqcn}
+					, '03'
+					, #{qtnum}
+					, #{qtser}
+					, #{sonnr}
+					, HEX(CURRENT DATE)
+					, HEX(CURRENT TIME)
+					, #{cuser}	
+			   )
+	</insert>
+	
+
+	<!-- 기술검토첨부등록 처리  --> 
+<insert id="saveZSDT1059" parameterType="hdel.sd.ses.domain.Ses0151">
+		MERGE INTO SAPHEE.ZSDT1059 AS T1
+		USING (
+			SELECT 
+					  CAST(#{mandt}   AS VARCHAR(9)) AS MANDT 
+					, CAST(#{zrqseq}  AS DECIMAL)    AS ZRQSEQ
+					, CAST(#{zattseq} AS DECIMAL)    AS ZATTSEQ
+			  FROM 
+			        SYSIBM.SYSDUMMY1
+		) AS T2 ON T1.MANDT = T2.MANDT AND T1.ZRQSEQ = T2.ZRQSEQ AND T1.ZATTSEQ = T2.ZATTSEQ
+		
+		WHEN MATCHED THEN
+			UPDATE SET 
+		         T1.ZATTPATH = #{zattpath}
+		       , T1.ZATTFN   = #{zattfn}
+		       , T1.UDATE    = HEX(CURRENT DATE)
+		       , T1.UTIME    = HEX(CURRENT TIME)
+		       , T1.UUSER    = #{cuser}
+		
+		WHEN NOT MATCHED THEN
+			INSERT (
+						  MANDT     
+						, ZRQSEQ    
+						, ZATTSEQ   
+						, ZATTPATH  
+						, ZATTFN    
+						, CDATE     
+						, CTIME     
+						, CUSER 
+			   ) VALUES (
+					   #{mandt}
+					<if test="zrqseq !='0'">
+					, #{zrqseq}
+					</if>   
+					<if test="zrqseq =='0'">
+					, (
+						SELECT VALUE(MAX(ZRQSEQ), 1)
+						  FROM SAPHEE.ZSDT1058
+						 WHERE MANDT = #{mandt}
+					  )	
+					</if>
+					, (
+						SELECT VALUE(MAX(ZATTSEQ)+1, 1)
+						  FROM SAPHEE.ZSDT1059
+						 WHERE MANDT  = #{mandt}
+						   AND ZRQSEQ = #{zrqseq}
+					  )	
+					, #{zattpath}
+					, #{zattfn}
+					, HEX(CURRENT DATE)
+					, HEX(CURRENT TIME)
+					, #{cuser}	
+			   )
+	</insert>		
+	
+	
+
+
+	
+
+</mapper>  

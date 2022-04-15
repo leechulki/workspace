@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  '' AS FLAG, LIFNR
+       ,(SELECT NAME1 FROM SAPHEE.ZMMT012 AS M WHERE M.MANDT = T.MANDT AND  M.LIFNR = T.LIFNR) AS NAME1
+       ,SUM(IPQTY)AS IPQTY
+       ,SUM(IPQTY)AS IPORG
+       ,SUM(INQTY ) AS INQTY
+       ,SUM(OUTQTY) AS OUTQTY
+       ,SUM(LOSQTY) AS LOSQTY
+       ,SUM(BANQTY) AS BANQTY
+       ,SUM(OUTQTY) - SUM(BANQTY) AS TASA
+       ,CASE WHEN SUM(IPQTY)+SUM(BANQTY)+SUM(INQTY)-SUM(OUTQTY) = 0 THEN 0 ELSE ROUND(DOUBLE(SUM(LOSQTY))/(DOUBLE(SUM(IPQTY)+SUM(BANQTY)+SUM(INQTY)-SUM(OUTQTY))),2)*100 END AS LOSRATE
+       ,SUM(IPQTY)+SUM(BANQTY)+SUM(INQTY)-SUM(OUTQTY)-SUM(LOSQTY) AS CURQTY
+       ,MAX(PRTDATE) AS PRTDATE
+       ,MAX(ZZACTSS) AS ZZACTSS
+       ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE AS M WHERE M.MANDT = T.MANDT AND M.CODE1 = 'PS003' AND M.LANG = #G_LANG# AND M.CODE2 = MAX(ZZACTSS)) AS ZZACTSS_NM
+       ,0 AS ADDQTY
+FROM (
+        SELECT  MANDT
+               ,LIFNR
+               ,CASE WHEN PSPID='00000Z' THEN IPQTY-BANQTY-INQTY+OUTQTY+LOSQTY ELSE IPQTY END AS IPQTY
+               ,INQTY
+               ,OUTQTY
+               ,LOSQTY
+               ,BANQTY
+               ,PRTDATE
+               ,ZZACTSS
+        FROM SAPHEE.ZPSTW0101 P
+        WHERE MANDT = #G_MANDT#
+		 <isNotNull col="ZZACTSS">
+        AND ZZACTSS = #ZZACTSS#
+        </isNotNull>
+        <isNotNull col="LIFNR">
+        AND LIFNR = #LIFNR#
+        </isNotNull>
+        AND LIFNR IN (SELECT DISTINCT LIFNR
+                        FROM SAPHEE.ZPSTW0101 PS
+                       WHERE PS.MANDT = P.MANDT
+                      <isNotNull col="PSPID">
+                      AND PS.PSPID = #PSPID#
+                      </isNotNull>
+                      <isNotNull col="GUBUN">
+                      AND PS.GUBUN = #GUBUN#
+                      </isNotNull>
+                     )
+    ) AS T
+ GROUP BY MANDT,LIFNR
+ ORDER BY MANDT,ZZACTSS ,LIFNR
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+        MS002.MANDT                                                      AS MANDT     -- 클라이언트
+        ,MS002.POSID_1                                                   AS POSID_1   -- 호기번호
+        ,VALUE(CS101.CS101_HNA,'')                                       AS HNA       -- 호기명
+  		,VALUE(MS002.ZSPEC12,'')                                         AS ZSPEC12   -- 전기기종
+  	   	,VALUE(MS002.ZSPEC2,'')                                          AS ZSPEC2    -- 사양 
+		,(SELECT COUNT(*) FROM SAPHEE.ZCST122 WHERE MANDT = CS111.MANDT AND CS122_UPN = CS111.UPN AND CS122_CST = CS111.CST)  AS CNT -- 대수
+		,VALUE(CS101.CS101_WDT,'')                                       AS WDT       -- 완성검사일
+        ,VALUE(CS101.CS101_FDT,'')                                       AS FDT       -- 보수인수일
+        ,CASE WHEN CS111.MANDT IS NOT NULL THEN
+              SAPHEE.CODE_CONV(CS111.MANDT,'CS138',CS111.HST)
+         ELSE '' END                                                AS HST       -- 호기상태
+        ,CS172.CS172_PJN                                                 AS PJN
+        ,CASE WHEN CS101.MANDT IS NOT NULL THEN
+                   SAPHEE.CODE_CONV(CS101.MANDT,'PS004',CS101.CS101_WNO)
+             ELSE '' END                                                AS WNO       -- 완성검사기관
+        ,VALUE(CS101.CS101_SCT,'')                                       AS SCT       -- 중간검사일
+        ,VALUE(CS101.CS101_RCD,'')                                       AS RCD       -- QE검사일
+        ,VALUE(CS101.CS101_IGD,'')                                       AS IGD       -- 보수인계일
+        ,VALUE(CS101.CS101_IJY,'')                                       AS IJY       -- 입주예정일
+        ,CASE WHEN MS002.ZOIPSU='00000000' THEN '' ELSE MS002.ZOIPSU END AS ZOIPSU    -- 입주일
+        ,VALUE(CS101.CS101_ARA,'')                                       AS ARA       -- 대지역 코드
+        ,CASE WHEN CS101.MANDT IS NOT NULL THEN
+                   SAPHEE.CODE_CONV(CS101.MANDT,'CS115',CS101.CS101_ARA)
+              ELSE '' END                                                AS ARA_NM    -- 대지역명
+        ,VALUE(CS101.CS101_BPM,'')                                       AS BPM       -- 보수PM
+        ,CASE WHEN CS101.MANDT IS NOT NULL THEN
+                  SAPHEE.GET_BOSU_INWON(CS101.MANDT,CS101.CS101_BPM)
+              ELSE '' END                                                AS BPM_NM    -- 보수PM 성명
+        ,VALUE(CS101.CS101_BSU,'')                                       AS BSU       -- 협력사 코드
+        ,CASE WHEN CS101.MANDT IS NOT NULL THEN
+                   SAPHEE.GET_VENDER_NAME(CS101.MANDT,CS101.CS101_BSU)
+              ELSE '' END                                                AS NAME1     -- 협력사명
+		    ,(SELECT MAX(LIFNR) FROM SAPHEE.ZMMT005 WHERE MANDT=MS002.MANDT AND LGORT=CS101.CS101_BSU) LIFNR
+		    ,(SELECT TELF1 FROM SAPHEE.ZMMT012 AS M WHERE M.MANDT = MS002.MANDT AND M.LIFNR = (SELECT MAX(LIFNR) FROM SAPHEE.ZMMT005 WHERE MANDT=MS002.MANDT AND LGORT=CS101.CS101_BSU)) TELF1
+		    ,(SELECT TELFX FROM SAPHEE.ZMMT012 AS M WHERE M.MANDT = MS002.MANDT AND M.LIFNR = (SELECT MAX(LIFNR) FROM SAPHEE.ZMMT005 WHERE MANDT=MS002.MANDT AND LGORT=CS101.CS101_BSU)) TELFX
+        ,CASE WHEN CS111.MANDT IS NOT NULL THEN
+                   SAPHEE.GET_BOSU_INWON(CS111.MANDT,CS111.JUJ)
+              ELSE '' END                                                AS JUJ       -- 주점검자
+        ,CASE WHEN CS111.MANDT IS NOT NULL THEN
+                   SAPHEE.GET_BOSU_INWON(CS111.MANDT,CS111.BUJ)
+              ELSE '' END                                                AS BUJ       -- 부점검자
+        ,VALUE(CS111.UPN,'')                                             AS UPN       -- 통합프로젝트
+        ,VALUE(CS111.ABG,'')                                   AS ABG                 -- 건물구분 코드
+        ,CASE WHEN CS111.MANDT IS NOT NULL THEN
+                   SAPHEE.CODE_CONV(CS111.MANDT,'CS112',CS111.ABG)
+              ELSE '' END                                      AS ABG_NM              -- 건물구분
+        ,VALUE(CS111.AGB,'')                                   AS AGB                 -- 시내/시외 코드
+        ,CASE WHEN CS111.MANDT IS NOT NULL THEN
+                   SAPHEE.CODE_CONV(CS111.MANDT,'CS116',CS111.AGB)
+              ELSE '' END                                      AS AGB_NM              -- 시내/시외
+        ,MS002.ZMUSAOCNT                                       AS ZMUSAOCNT           -- 무상공사 계약개월수
+        ,VALUE((SELECT MIN(CS116_BGT) 
+            FROM SAPHEE.ZCST116 
+           WHERE MANDT = #G_MANDT# AND CS116_PJT = CS111.PJT AND CS116_HNO = CS111.HNO
+             AND CS116_PST = 'A6' AND CS116_GND = 'A'),'')     AS MPS                 --          시작일
+        ,VALUE((SELECT MAX(CS116_BMT) 
+            FROM SAPHEE.ZCST116 
+           WHERE MANDT = #G_MANDT# AND CS116_PJT = CS111.PJT AND CS116_HNO = CS111.HNO
+             AND CS116_PST = 'A6' AND CS116_GND = 'A'),'')     AS MPT                 --          만료일
+        ,MS002.ZMUSAOCNT2                                      AS ZMUSAOCNT2          -- 무상일반 계약개월수
+        ,VALUE((SELECT MIN(CS116_BGT) 
+            FROM SAPHEE.ZCST116 
+           WHERE MANDT = #G_MANDT# AND CS116_PJT = CS111.PJT AND CS116_HNO = CS111.HNO
+             AND CS116_PST = 'A6' AND CS116_GND = 'B'),'')     AS MYS                 --          시작일
+        ,VALUE((SELECT MAX(CS116_BMT) 
+            FROM SAPHEE.ZCST116 
+           WHERE MANDT = #G_MANDT# AND CS116_PJT = CS111.PJT AND CS116_HNO = CS111.HNO
+             AND CS116_PST = 'A6' AND CS116_GND = 'B'),'')     AS MYT                 --          만료일
+        ,VALUE((SELECT MIN(CS126_USD) 
+            FROM SAPHEE.ZCST126 
+           WHERE MANDT = #G_MANDT# AND CS126_PJT = CS111.PJT AND CS126_HNO = CS111.HNO
+            AND CS126_PST = 'A6' AND CS126_DDT = '' AND CS126_GND = 'C'),'') AS SST  -- 유상공사 시작일
+        ,VALUE((SELECT MAX(CS126_UMR) 
+            FROM SAPHEE.ZCST126 
+           WHERE MANDT = #G_MANDT# AND CS126_PJT = CS111.PJT AND CS126_HNO = CS111.HNO
+             AND CS126_PST = 'A6' AND CS126_DDT = '' AND CS126_GND = 'C'),'') AS SMT  --          만료일
+        ,VALUE((SELECT MIN(CS126_USD) 
+            FROM SAPHEE.ZCST126 
+          WHERE MANDT = #G_MANDT# AND CS126_PJT = CS111.PJT AND CS126_HNO = CS111.HNO
+             AND CS126_PST = 'A6' AND CS126_DDT = '' AND CS126_GND = 'D'),'') AS USJ  -- 유상일반 시작일
+        ,VALUE((SELECT MAX(CS126_UMR) 
+            FROM SAPHEE.ZCST126 
+           WHERE MANDT = #G_MANDT# AND CS126_PJT = CS111.PJT AND CS126_HNO = CS111.HNO
+             AND CS126_PST = 'A6' AND CS126_DDT = '' AND CS126_GND = 'D'),'') AS UMD  --          만료일
+  ,VALUE(VBAK.GUAMO,'')																									AS GUAMO -- 하자보증개월수 
+        ,VALUE((SELECT MAX(SAPHEE.CODE_CONV(CS126B.MANDT,'CS123',CS111.BLD)) FROM SAPHEE.ZCST126 CS126B
+        WHERE MANDT = #G_MANDT# AND CS126_PJT = CS111.PJT AND CS126_HNO = CS111.HNO
+        AND CS126_PST = 'A6' AND CS126_DDT = '' AND CS126_GND = 'D'),'') AS BLD_NM					  --건물용도
+	   
+        ,CASE WHEN CS111.MANDT IS NOT NULL THEN
+                   SAPHEE.CODE_CONV(CS111.MANDT,'CS124',CS111.JGD)
+              ELSE '' END                                      AS JGD                 -- 일시중지(유상)-중지(보류)구분
+        ,VALUE(CS111.JJD,'')                                   AS JJD                 -- 일시중지(유상)-중지(보류)일자
+        ,VALUE(CS111.UDT,'')                                   AS UDT                 -- 일시중지(유상)-복구일자
+        ,VALUE(CS111.FSD,'')                                   AS FSD                 -- 실패(승인)일자
+        ,VALUE(CS111.MNO,'')                                   AS MNO                 -- 공사번호(구)
+        ,VALUE(CS111.SID,'')                                   AS SID                 -- 승강기 번호
+        ,VALUE(A.DIPBX,'N') AS DIPBX
+		,VALUE((SELECT ZSITE_NM FROM SAPHEE.ZMASTER01 WHERE MANDT = #G_MANDT# AND POSID = MS002.POSID),'') AS ZSITE_NM	--현장명
+		,VALUE(VBAK.COMPL_DA,'')								AS COMPL_DA -- 건물준공일
+FROM SAPHEE.ZMASTER02 AS MS002
+                                     LEFT OUTER JOIN SAPHEE.ZCST101 AS CS101 
+                                             ON CS101.MANDT     = MS002.MANDT
+                                            AND CS101.CS101_PJT = MS002.POSID
+                                            AND CS101.CS101_HNO = SUBSTR(MS002.POSID_1,7,3)
+                                            
+                                     LEFT OUTER JOIN SAPHEE.ZCST111 AS CS111 
+                                             ON CS111.MANDT     = MS002.MANDT
+                                            AND CS111.PJT       = MS002.POSID
+                                            AND CS111.HNO       = SUBSTR(MS002.POSID_1,7,3)
+                                            
+									LEFT OUTER JOIN SAPHEE.VBAK VBAK
+                                   			ON MS002.MANDT = VBAK.MANDT
+                               			    AND MS002.POSID = VBAK.ZZPJT_ID
+                               					   
+                                     LEFT OUTER JOIN (
+                                                      SELECT
+                                                             A.PJT,
+                                                             A.HNO,
+                                                             MAX(A.DIPBX) DIPBX
+                                                        FROM
+                                                             (
+                                                              SELECT
+                                                                     CS315_PJT PJT,
+                                                                     CS315_HNO HNO,
+                                                                     (CASE WHEN MAX(CS315_SDT) IS NOT NULL THEN 'Y' ELSE 'N' END) DIPBX,
+                                                                     1 RNO
+                                                                FROM 
+                                                                     SAPHEE.ZCST315
+                                                               WHERE 
+                                                                     MANDT = #G_MANDT#
+                                                                 AND CS315_PJT  IN (
+                                                                        SELECT CS126_PJT
+                                                                        FROM SAPHEE.ZCST126
+                                                                        WHERE 
+                                                                              MANDT = #G_MANDT#
+                                                                          AND CS126_UPN = #UPN#
+                                                                          AND CS126_CST = #CST#
+                                                                          AND CS126_DDT = ''
+                                                                          AND CS126_PST = 'A6'
+				       )
+                                                        GROUP BY
+                                                                CS315_PJT,
+                                                                CS315_HNO
+
+                                                 UNION
+
+                                                             SELECT
+                                                                   SUBSTR(B.HOGI,1,6) PJT,
+                                                                   SUBSTR(B.HOGI,7,3) HNO,
+                                                                   (CASE WHEN B.CHARACTERISTIC = 'EL_DEPH' THEN 'Y' ELSE 'N' END) DIPBX,
+                                                                   ROW_NUMBER() OVER(PARTITION BY B.HOGI, B.CHARACTERISTIC ORDER BY B.SEQ DESC) RNO
+                                                              FROM 
+                                                              (
+                                                               SELECT 
+                                                                    CS126_PJT, 
+                                         		            CS126_HNO
+                                    		        FROM SAPHEE.ZCST126 
+                                                                WHERE 
+                                                                MANDT = #G_MANDT#
+                                                                 AND CS126_UPN = #UPN#
+                                                                 AND CS126_CST = #CST#
+                                                                 AND CS126_DDT = ''
+                                                                 AND CS126_PST = 'A6'
+                   			        GROUP BY CS126_PJT, CS126_HNO
+                                                                ) A,
+                                                                     SAPHEE.ZSDT0005 B
+                                                               WHERE 
+                                                                     B.MANDT = #G_MANDT#                                                                     
+                                                                 AND B.HOGI = A.CS126_PJT || A.CS126_HNO
+                                                                 AND B.CHARACTERISTIC = 'EL_DEPH'
+                                                             ) A
+                                                       WHERE
+                                                             A.RNO = 1
+                                                      GROUP BY
+                                                             A.PJT,
+                                                             A.HNO
+                                                     ) A  ON A.PJT = MS002.POSID
+                                                        AND A.PJT || A.HNO = MS002.POSID_1
+                                            
+                                     LEFT OUTER JOIN SAPHEE.ZCST172 CS172
+                                   		       ON MS002.MANDT = CS172.MANDT
+                               			        AND MS002.POSID = CS172.CS172_PJO
+                               			        AND MS002.POSID_1 = CS172.CS172_PJO||CS172.CS172_HNO
+  WHERE MS002.MANDT = #G_MANDT#
+    AND MS002.POSID_1 IN (                        
+                         SELECT CS122_PJT||CS122_HNO POSID_1
+                          FROM SAPHEE.ZCST122 
+                         WHERE MANDT = #G_MANDT#
+                           AND CS122_UPN = #UPN#
+                           AND CS122_CST = #CST#)
+  AND MS002.ZZGUBUN < '90'
+ORDER BY MS002.POSID_1  
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list4">
+	</output>
+</query>

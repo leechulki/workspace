@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[보수자재관리-견적리스트-디테일정보 Retrieve]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<!-- 	2019.04.18 검색기간 최대6개월로 제한. -->	
+	SELECT CS002.QTNUM,                                                             --견적번호
+	       CS002.SEQ,                                                               --차수
+	       CS002.SEQNO,                                                             --순번
+	       CS001.CRDAT,
+	       CS002.MATNR,                                                             --자재코드
+	       CS002.MAKTX,                                                             --자재내역
+	       CS002.MENGE,                                                             --수량
+	       CS002.MEINS,                                                             --기본단위
+	       CASE WHEN CS002.HNA = '' THEN
+	                 CASE WHEN LENGTH(CS002.HOGI_ID) = 9 THEN SUBSTR(CS002.HOGI_ID, 7)
+	                      ELSE CS002.HOGI_ID
+	                 END
+	            ELSE CS002.HNA
+	       END AS HOGI_NM,                                                          --호기명
+	       CS002.HOGI_ID,                                                           --호기ID
+	       SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, '2', CS002.TYPE) AS MBEW_NM,       --자재평가유형
+	       CASE WHEN CS002.CGBN = '1' THEN '재청구신규' 
+	            WHEN CS002.CGBN = '2' THEN '재청구완료'
+	            ELSE '원견적자재' 
+	       END AS BOGBN,                                                            --변동구분
+	       '' AS CRT_DTE,
+<!-- 	       CASE WHEN CS001.BUSSI = '1' THEN COALESCE(PR001.PRLAB, 0)
+	            WHEN CS001.BUSSI = '2' THEN COALESCE(PR002.PRLAB, 0)
+	            ELSE 0
+	       END AS PRLAB,                                                            -보수창고재고
+	        (SELECT VALUE(SUM(MM018C.PRLAB),0) AS PRLAB 
+	         FROM SAPHEE.ZMMT018 AS MM018C 
+	        WHERE MM018C.MANDT = '183' 
+	              AND MM018C.LGORT = SAPHEE.GET_LGORT('183', CS001.LIFNR) 
+	              AND MM018C.MATNR = CS002.MATNR 
+	              AND MM018C.CHARG = CS002.TYPE
+	       ) AS PRLAB1,                                                             -청구업체재고 -->
+	       0 AS PRLAB,
+	       0 AS PRLAB1,
+	       
+	       CS002.ZGUBN AS ZGUBN,                                                    --직영구분
+	       CASE WHEN CS002.CGUBN = '2' THEN '내작자재'
+	            ELSE '보수자재'
+	       END AS CGUBNNM,	                                                        --자재구분
+         	CS002.REQKIND AS REQKIND,                                               --청구종류
+         	DECODE(CS002.REQKIND, '1', '유상청구', '6', '재고소진', '7', '수리공사', '8', '재청구', 'S', '시스템공사', 'G', '실패현장', '', SAPHEE.CODE_CONV(#G_MANDT#, #G_LANG#, '3', CS001.REQKIND)) AS REQKINDNM, --청구종류명
+         	CS002.CHAR1	       
+	    FROM SAPHEE.ZCST001 AS CS001,
+	       (SELECT CS01.QTNUM AS QTNUM,
+	               CS01.SEQ
+	          FROM (SELECT QTNUM,
+	                       MAX(SEQ) AS SEQ
+	                  FROM SAPHEE.ZCST001
+	                  WHERE MANDT = #G_MANDT#
+	                  GROUP BY QTNUM
+	               ) AS MX01,
+	               
+	               --튜닝추가시작
+	               SAPHEE.ZWBT010 AS WB010,
+	               --튜닝추가 끝
+	               SAPHEE.ZCST001 AS CS01
+	               LEFT OUTER JOIN SAPHEE.ZWBAP01 WB01 
+				        ON CS01.DOC1 = WB01.DOCNO 
+				        AND CS01.MANDT = WB01.MANDT 
+				   LEFT OUTER JOIN SAPHEE.ZWBAP01 WB02 
+				        ON CS01.DOC2 = WB02.DOCNO 
+				        AND CS01.MANDT = WB02.MANDT 
+				   LEFT OUTER JOIN SAPHEE.ZWBAP01 WB03 
+				        ON CS01.DOC3 = WB03.DOCNO 
+				        AND CS01.MANDT = WB03.MANDT 
+				   LEFT OUTER JOIN SAPHEE.ZWBAP01 WB04 
+				        ON CS01.DOC4 = WB04.DOCNO 
+				        AND CS01.MANDT = WB04.MANDT 
+				   LEFT OUTER JOIN SAPHEE.ZWBAP01 WB05 
+				        ON CS01.DOC5 = WB05.DOCNO 
+				        AND CS01.MANDT = WB05.MANDT
+	         WHERE CS01.MANDT = '183'
+	               AND CS01.REQKIND IN ('1', '7', 'S')
+	               AND CS01.BUSSI IN ('1', '2', '4')
+	               AND CS01.SEQ = MX01.SEQ
+	               AND CS01.QTNUM = MX01.QTNUM
+	               AND CS01.QTNUM &lt;&gt; ''
+	               
+	               --튜닝추가시작
+	               AND WB010.MANDT = CS01.MANDT
+           		   AND WB010.LIFNR = CS01.LIFNR
+	              <isNotNull col="ARA">
+				   AND WB010.BSU_ARA = #ARA#
+				  </isNotNull>
+				  <isNotNull col="BSU">
+		   		   AND WB010.LGORT = #BSU#
+				  </isNotNull>
+				  <isNotNull col="BPM">
+				   AND WB010.BSU_PM = #BPM#
+				  </isNotNull>
+		          <isNotNull col="TEM">
+				   AND CS01.VKGRP = #TEM#
+			      </isNotNull>
+			      <isNull col="TEM">
+					<isNotNull col="DPT">
+					   AND CS01.VKGRP IN (SELECT CODE2 AS CODE
+		                       		   FROM SAPHEE.ZLCODE
+		                      		  WHERE MANDT = #G_MANDT#
+		                        		AND LANG  = #G_LANG#
+		                        		AND CODE1 = 'VKGRP'
+		                        		AND DTEXT1 = #DPT#)
+			   		</isNotNull>
+			      </isNull>
+	               --튜닝추가 끝
+	               
+			       <isNotNull col="REQKIND">
+			       AND REQKIND = #REQKIND#
+			       </isNotNull>
+			       <isNotNull col="JPGBN">
+			       AND CS01.BUSSI = #JPGBN#
+			       </isNotNull>
+			       <isNotNull col="SONO">
+			       AND CS01.VBELN LIKE #SONO#||'%'
+			       </isNotNull>
+			       <isNotNull col="PSPID">
+			       AND CS01.MA_PSPID LIKE #PSPID#||'%'
+			       </isNotNull>	       
+			       <isNotNull col="QTNO">
+			       AND CS01.QTNUM LIKE #QTNO#||'%'
+			       </isNotNull>
+				   <isNotNull col="CNM">
+				       AND SAPHEE.GET_BOSU_INWON(CS01.MANDT, CS01.CRNAM) LIKE '%' || #CNM# || '%'
+				   </isNotNull>			       
+			       <isEqual col="GBN" value="1">	<!-- 견적일 -->
+			       AND CS01.CRDAT BETWEEN #FROM_DT# AND #TO_DT#	
+			       </isEqual>
+			       <isEqual col="GBN" value="2">	<!-- 수주예정일 --> 
+			       AND CS01.SODAT BETWEEN #FROM_DT# AND #TO_DT#
+			       </isEqual>
+			       <isEqual col="GBN" value="3">	<!-- 수주일(승인일) -->
+			       AND CS01.SOAPDAT BETWEEN #FROM_DT# AND #TO_DT#
+			       </isEqual>
+			       <isEqual col="GBN" value="4">	<!-- 수주변경일(수주변경승인일) -->
+			       AND CS01.SOCHDAT BETWEEN #FROM_DT# AND #TO_DT#
+			       </isEqual>
+			       <isEqual col="GBN" value="5">	<!-- 수주취소일(수주취소승인일) -->
+			       AND CS01.SOCADAT BETWEEN #FROM_DT# AND #TO_DT#
+			       </isEqual>
+				   <isNotNull col="DOC1STAT">
+				       AND CS01.QTNUM LIKE #QTNO#||'%'
+				   </isNotNull>
+ 				   <isNotNull col="PS_PSPID"> <!-- WBS 누락으로 인한 추가 -->
+ 				       AND CS01.PS_PSPID LIKE #PS_PSPID#||'%'
+ 				   </isNotNull>
+				   <isNotNull col="STATUS">
+					   <isEqual col="STATUS" value="1">	<!-- 견적저장완료 -->
+					       AND VALUE(WB01.APSTAT, '') = ''
+					   </isEqual>
+					   <isEqual col="STATUS" value="2">	<!-- 견적결재중 -->
+					       AND VALUE(WB01.APSTAT, '') = '1'
+					   </isEqual>		   
+					   <isEqual col="STATUS" value="3">	<!-- 견적결재반려 -->
+					       AND VALUE(WB01.APSTAT, '') = '2'
+					   </isEqual>		   
+					   <isEqual col="STATUS" value="4">	<!-- 견적결재완료 -->
+					       AND VALUE(WB01.APSTAT, '') = '3'
+					   </isEqual>		   
+					   <isEqual col="STATUS" value="5">	<!-- 수주등록완료 -->
+					       AND VALUE(WB01.APSTAT, '') = '6'
+					   </isEqual>		   
+					   <isEqual col="STATUS" value="6">	<!-- 수주결재중 -->
+					       AND VALUE(WB02.APSTAT, '') IN('1', '3', '4')
+					   </isEqual>		   
+					   <isEqual col="STATUS" value="7">	<!-- 수주결재반려 -->
+					       AND VALUE(WB02.APSTAT, '') IN('2', '5')
+					   </isEqual>		   
+					   <isEqual col="STATUS" value="8">	<!-- 수주결재완료 -->
+					       AND VALUE(WB02.APSTAT, '') = '6'
+					   </isEqual>		   
+					   <isEqual col="STATUS" value="10"><!-- 청구전송완료 -->
+					       AND LENGTH(PS_PSPID) > 0
+					   </isEqual>		   
+					   <isEqual col="STATUS" value="11"><!-- 재청구결재중 -->
+					       AND VALUE(WB03.APSTAT, '') IN ('1', '3', '4')
+					   </isEqual>		   
+					   <isEqual col="STATUS" value="12"><!-- 재청구결재반려 -->
+					       AND VALUE(WB03.APSTAT, '') IN ('2', '5')
+					   </isEqual>		   
+					   <isEqual col="STATUS" value="13"><!-- 재청구결재완료 -->
+					       AND VALUE(WB03.APSTAT, '') = '6'
+					   </isEqual>		   
+					   <isEqual col="STATUS" value="14"><!-- 수주변경결재중 -->
+					       AND VALUE(WB04.APSTAT, '') IN ('1', '3', '4')
+					   </isEqual>		   
+					   <isEqual col="STATUS" value="15"><!-- 수주변경결재반려 -->
+					       AND VALUE(WB04.APSTAT, '') IN ('2', '5')
+					   </isEqual>		   
+					   <isEqual col="STATUS" value="16"><!-- 수주변경결재완료 -->
+					       AND VALUE(WB04.APSTAT, '') = '6'
+					   </isEqual>		   
+					   <isEqual col="STATUS" value="17"><!-- 수주취소결재중 -->
+					       AND VALUE(WB05.APSTAT, '') IN ('1', '3', '4')
+					   </isEqual>		   
+					   <isEqual col="STATUS" value="18"><!-- 수주취소결재반려 -->
+					       AND VALUE(WB05.APSTAT, '') IN ('2', '5')
+					   </isEqual>		   
+					   <isEqual col="STATUS" value="19"><!-- 수주취소결재완료 -->
+					       AND VALUE(WB05.APSTAT, '') = '6'
+					   </isEqual>		   
+				   </isNotNull>	 	
+				   
+				   	<isNotNull col="JKUNNR">
+	       				AND CS01.KUNNR = #JKUNNR#
+	   				</isNotNull>		       		
+	       ) AS CD001,                                                              --견적 검색조건(마스터 RETRIEVE와 동일조건)
+	       SAPHEE.ZCST002 AS CS002
+<!-- 	  LEFT OUTER JOIN -->
+<!-- 	       (SELECT LE037.REQNR, -->
+<!-- 	              LE037.REQITEM, -->
+<!-- 	              MM031.QTNUM, -->
+<!-- 	              MM031.SEQ, -->
+<!-- 	              MM031.SEQNO, -->
+<!-- 	              MAX(CRT_DTE) AS CRT_DTE -->
+<!-- 	         FROM SAPHEE.ZLET037 AS LE037, -->
+<!-- 	              SAPHEE.ZMMT031 AS MM031 -->
+<!-- 	        WHERE LE037.MANDT = #G_MANDT# -->
+<!-- 	              AND LE037.MANDT = MM031.MANDT -->
+<!-- 	              AND LE037.REQNR = MM031.REQNR -->
+<!-- 	              AND LE037.REQITEM = MM031.REQITEM -->
+<!-- 	              AND MM031.QTNUM &lt;&gt; '' -->
+<!-- 	              AND LENGTH(CRT_DTE) > 0 -->
+<!-- 	        GROUP BY LE037.REQNR, -->
+<!-- 	              LE037.REQITEM, -->
+<!-- 	              MM031.QTNUM, -->
+<!-- 	              MM031.SEQ, -->
+<!-- 	              MM031.SEQNO -->
+<!-- 	       ) AS DT001                                                               배송일자 -->
+<!-- 	       ON CS002.QTNUM = DT001.QTNUM -->
+<!-- 	       AND CS002.SEQ = DT001.SEQ -->
+<!-- 	       AND CS002.SEQNO = DT001.SEQNO  -->
+
+<!-- 
+	  LEFT OUTER JOIN
+	       (SELECT MATNR,
+	              CHARG,
+	              VALUE(SUM(MM018A.PRLAB),0) AS PRLAB
+	         FROM SAPHEE.ZMMT018 MM018A
+	        WHERE MM018A.MANDT = #G_MANDT#
+	              AND MM018A.WERKS = '2000'
+	              AND MM018A.LGORT = '9000'
+	        GROUP BY MATNR,
+	              CHARG
+	       ) AS PR001                                                               -보수창고재고1
+	       ON CS002.MATNR = PR001.MATNR
+	       AND CS002.TYPE = PR001.CHARG
+	  LEFT OUTER JOIN
+	       (SELECT MATNR,
+	              CHARG,
+	              VALUE(SUM(MM018A.PRLAB),0) AS PRLAB
+	         FROM SAPHEE.ZMMT018 MM018A
+	        WHERE MM018A.MANDT = #G_MANDT#
+	              AND MM018A.WERKS = '2000'
+	              AND MM018A.LGORT = '9039'
+	        GROUP BY MATNR,
+	              CHARG
+	       ) AS PR002                                                               -보수창고재고2
+	       ON CS002.MATNR = PR002.MATNR
+	       AND CS002.TYPE = PR002.CHARG
+ -->
+ 	       
+<!-- 	  LEFT OUTER JOIN -->
+<!-- 	       (SELECT MATNR, -->
+<!-- 	              CHARG, -->
+<!-- 	              VALUE(SUM(MM018C.PRLAB),0) AS PRLAB -->
+<!-- 	         FROM SAPHEE.ZMMT018 AS MM018C -->
+<!-- 	        WHERE MM018C.MANDT = #G_MANDT# -->
+<!-- 	              AND MM018C.LGORT = SAPHEE.GET_LGORT(#G_MANDT#, #ds_list_master.LIFNR#) -->
+<!-- 	        GROUP BY MATNR, -->
+<!-- 	              CHARG -->
+<!-- 	       ) AS PR003                                                                      청구업체재고 -->
+<!-- 	       ON CS002.MATNR = PR003.MATNR -->
+<!-- 	       AND CS002.TYPE = PR003.CHARG -->
+	 WHERE CS001.MANDT = CS002.MANDT
+	       AND CS001.QTNUM = CS002.QTNUM
+	       AND CS001.SEQ = CS002.SEQ
+	       AND CS001.MANDT = #G_MANDT#
+	       AND CS001.QTNUM = CD001.QTNUM
+	       AND CS001.SEQ = CD001.SEQ
+	       AND CS001.QTNUM &lt;&gt; ''
+	       
+		<isNotNull col="JKUNNR">
+	       AND CS001.KUNNR = #JKUNNR#
+	   	</isNotNull>	       
+	       
+	       
+	       
+	ORDER BY QTNUM, SEQ, SEQNO 
+	FOR FETCH ONLY
+	WITH UR	
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list_detail">
+	</output>
+</query>

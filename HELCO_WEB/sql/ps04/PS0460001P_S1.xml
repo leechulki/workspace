@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT A.MAKE_MM,
+             A.PSPID,
+             (SELECT B.BSTNK  FROM SAPHEE.VBAK AS B   WHERE  A.MANDT = B.MANDT  AND A.PSPID   = B.ZZPJT_ID) AS BSTNK,
+             A.TYPE,
+	--(SELECT B.SAYU  FROM SAPHEE.ZSDTW007 AS B   WHERE  A.MANDT = B.MANDT  AND A.PSPID   = B.PSPID  fetch --first 1 rows only) AS CONTENT  ,
+    	(SELECT Y.SAYU
+                    FROM SAPHEE.ZPSTW0402  AS Y
+                   WHERE Y.MANDT = A.MANDT
+                       AND Y.PSPID = A.PSPID
+	fetch first 1 rows only) AS  CONTENT,
+	CAST(A. MR_NETWR * VALUE(E.ACCOUNTS,1)  AS DECIMAL(13, 2) )  AS  NETWR, 
+	CASE WHEN A.PSPID = C.PSPID THEN '사전계획' ELSE '미계획' END AS PLAN,
+	 VALUE((SELECT ST.USERNAME FROM SAPHEE.ZUSERF AS ST 
+                             WHERE ST.MANDT = A.MANDT AND ST.USERNUMB = A.ERNAM), '') AS ERNAMNM,
+         A.ACTION,
+		 (SELECT ST.BEZEI FROM SAPHEE.TVKBT AS ST 
+           WHERE ST.MANDT = B.MANDT AND ST.SPRAS = '3' AND ST.VKBUR = B.VKBUR) AS VKBURNM,
+		    A.DEPT, A.TEAM
+      , (SELECT X.NAMET
+             FROM SAPHEE.ZPST0011 AS X
+            WHERE X.MANDT = A.MANDT
+                AND X.TEMNO = A.PERSON_NM) AS PERSON_NM
+           ,substr(#MAKF_DTT#,1,6) as  MAKF_DTT
+			 
+
+			 
+FROM SAPHEE.ZPSTW0401  AS A
+INNER JOIN SAPHEE.VBAK AS B
+        ON A.MANDT = B.MANDT
+      AND A.PSPID   = B.ZZPJT_ID
+
+						  
+LEFT OUTER JOIN SAPHEE.ZPSTW0403 AS C
+        ON A.MANDT  =C.MANDT
+         AND A.PSPID   = C.PSPID
+						  
+LEFT OUTER JOIN SAPHEE.ZCURRCHG AS E
+        ON E.MANDT  = B.MANDT
+      AND E.WAERK  = B.WAERK    
+
+
+  WHERE A.MANDT = #G_MANDT#
+   AND A.MAKE_MM = SUBSTR(#MAKF_DTT#,1,6)     
+   
+    <isNotNull col="VKBUR">
+       --AND B.VKBUR = #VKBUR#
+       AND A.DEPT =  #VKBUR#
+    </isNotNull>
+
+    <isNotNull col="VKGRP">
+       --AND B.VKGRP = #VKGRP#
+       AND A.TEAM = #VKGRP#
+    </isNotNull>
+
+  --  <isNotEqual col="EXAM" value="A">
+   --    AND A.EXAM = #EXAM#
+  --  </isNotEqual>
+
+    <isNotEqual col="GUBUN" value="">
+       AND A.GUBUN = #GUBUN#
+    </isNotEqual>	</statement>
+	<input default-name="ds_cond_p">
+	</input>
+	<output default-name="ds_list_p2">
+	</output>
+</query>

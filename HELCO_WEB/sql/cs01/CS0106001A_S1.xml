@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.PSPID,
+       A.NAM,
+       A.SPT,
+       A.PLT,
+       A.USD,
+       A.UHJ,
+       A.POG,
+       A.FM,
+       A.HJDATE,
+       A.UYS,
+       HEX(CURRENT DATE) CRD,
+       VALUE(B.RCNT,0) RCNT,
+       VALUE(B.NB,0) NB,
+       VALUE(B.NS,0) NS,
+       '' TDATE, -- 최종 종합점검일
+       A.AMT_PY,
+       A.AMT1,
+       A.AMT2,
+       A.AMT3,
+       A.AMT4,
+       A.AMT_NY1,
+       A.AMT_NY2,
+       A.AMT_NY3,
+       A.AMT_NY4,
+       A.AMT_NNY,
+       A.AMT1+A.AMT2+A.AMT3+A.AMT4+A.AMT_NY1+A.AMT_NY2+A.AMT_NY3+A.AMT_NY4+A.AMT_NNY HAMT
+  FROM (
+        SELECT
+               CS121B.MANDT,                                                          -- 클라이언트
+               CS121B.CS121_UPN PSPID,                                                -- 통합PJT
+               CS121B.CS121_CST CST,                                                  -- 거래선
+               MAX(CS121B.CS121_NAM) NAM,                                             -- 고객명
+               MAX(CS121B.CS121_SPT) SPT,                                             -- 현장명
+               VALUE(X.GNO,'') GNO,                                                   -- 유상계약번호
+               VALUE(MAX(X.ARA_NM),'') ARA_NM,                                        -- 지역
+               VALUE(MAX(X.BSU_NM),'') BSU_NM,                                        -- 협력사
+               VALUE(MAX(X.GKD_NM),'') GKD_NM,                                        -- 계약구분
+               VALUE(MAX(X.CNT),0) PLT,                                               -- PLT수
+               VALUE((X.USD),'') USD,                                                 -- 계약개시일
+               VALUE((X.UGS),'') UGS,                                                 -- 유상개시일
+               VALUE((X.UHJ),'') UHJ,                                                 -- 계약만기일
+               VALUE(MAX(X.AMT_P),0)+VALUE(MAX(X.HMT_P),0)+VALUE(MAX(X.DMT_P),0) POG, -- POG금액
+               VALUE(MAX(X.AMT_K),0)+VALUE(MAX(X.HMT_K),0)+VALUE(MAX(X.DMT_K),0) FM,  -- FM금액
+               VALUE(MAX(X.HJDATE),'') HJDATE,                                        -- 하자종료일
+               VALUE(MAX(X.UYS),'') UYS,                                              -- 사용연수
+               VALUE(MAX(X.AMT_PY),0) AMT_PY,                                         -- 전년 이전 소진예상금액
+               VALUE(MAX(X.AMT1),0) AMT1,                                             -- 당년 1/4분기 소진예상금액
+               VALUE(MAX(X.AMT2),0) AMT2,                                             -- 당년 2/4분기 소진예상금액
+               VALUE(MAX(X.AMT3),0) AMT3,                                             -- 당년 3/4분기 소진예상금액
+               VALUE(MAX(X.AMT4),0) AMT4,                                             -- 당년 4/4분기 소진예상금액
+               VALUE(MAX(X.AMT_NY1),0) AMT_NY1,  
+               VALUE(MAX(X.AMT_NY2),0) AMT_NY2,  
+               VALUE(MAX(X.AMT_NY3),0) AMT_NY3,  
+               VALUE(MAX(X.AMT_NY4),0) AMT_NY4,  
+               VALUE(MAX(X.AMT_NNY),0) AMT_NNY
+          FROM
+               SAPHEE.ZCST121 CS121B
+                      LEFT OUTER JOIN (
+                                       SELECT
+                                              A.MANDT,
+                                              A.UPN UPN,
+                                              A.CST CST,
+                                              A.GNO GNO,
+                                              (CASE MIN(A.GKD) WHEN '0' THEN '갱신계약' WHEN '1' THEN '전환계약' WHEN '4' THEN '실패회수' WHEN '5' THEN '타사신규' ELSE MIN(A.GKD) END) GKD_NM,
+                                              MAX(A.ARA_NM) ARA_NM,
+                                              MAX(A.BSU_NM) BSU_NM,
+                                              MAX(A.USD) USD,
+                                              MAX(A.UGS) UGS,
+                                              MAX(A.UHJ) UHJ,
+                                              SUM(A.AMT_P) AMT_P,
+                                              SUM(A.HMT_P) HMT_P,
+                                              SUM(A.DMT_P) DMT_P,
+                                              SUM(A.AMT_K) AMT_K,
+                                              SUM(A.HMT_K) HMT_K,
+                                              SUM(A.DMT_K) DMT_K,
+                                              SUM(A.CNT) CNT,
+                                              MAX(A.KND) KND,
+                                              CASE 
+                                                   WHEN MAX(A.HJDATE) = '' OR INT(MAX(A.HJDATE)) = 0 THEN '0000.00.00'
+                                                   WHEN SAPHEE.MONTH_BETWEEN(MAX(A.HJDATE),HEX(CURRENT DATE),'2') &gt;= 36 THEN '만료'
+                                                   ELSE CAST(CHAR(INT(SUBSTR(MAX(A.HJDATE),1,4)) + 3) AS VARCHAR(4)) || '.' || SUBSTR(MAX(A.HJDATE),5,2) || '.' || SUBSTR(MAX(A.HJDATE),7,2)
+                                              END HJDATE,
+                                              CASE 
+                                                   WHEN MAX(A.UYS) = '' OR INT(MAX(A.UYS)) = 0 THEN '0년'
+                                                   ELSE TRIM(CHAR(YEAR(CURRENT DATE - DATE(INSERT(INSERT(MAX(A.UYS),5,0,'-'),8,0,'-'))) + 1)) || '년'
+                                              END UYS,
+                                              SUM(A.AMT_PY) AMT_PY,
+                                              SUM(A.AMT1) AMT1,
+                                              SUM(A.AMT2) AMT2,
+                                              SUM(A.AMT3) AMT3,
+                                              SUM(A.AMT4) AMT4,
+                                              SUM(A.AMT_NY1) AMT_NY1,
+                                              SUM(A.AMT_NY2) AMT_NY2,
+                                              SUM(A.AMT_NY3) AMT_NY3,
+                                              SUM(A.AMT_NY4) AMT_NY4,
+                                              SUM(A.AMT_NNY) AMT_NNY
+                                         FROM
+                                              (
+                                               SELECT
+                                                      CS126B.MANDT,
+                                                      CS126B.CS126_UPN UPN,
+                                                      CS126B.CS126_CST CST,
+                                                      CS126B.CS126_GNO GNO,
+                                                      (CASE CS126B.CS126_GKD WHEN '2' THEN '0' ELSE CS126B.CS126_GKD END) GKD,
+                                                      MAX(SAPHEE.CODE_CONV(CS126B.MANDT,'CS115',CS126B.CS126_ARA)) ARA_NM,
+                                                      MAX(SAPHEE.GET_VENDER_N_NAME(CS126B.MANDT,CS126B.CS126_BSU)) BSU_NM,
+                                                      MAX(CS126B.CS126_USD) USD,
+                                                      MAX(CS126B.CS126_UGS) UGS,
+                                                      MAX(CS126B.CS126_UHJ) UHJ,
+                                                      CASE WHEN (CASE WHEN CS126B.CS126_KND > '' THEN 'FM' ELSE 'POG' END) = 'POG' THEN SUM(CS126B.CS126_AMT) ELSE 0 END AMT_P,
+                                                      CASE WHEN (CASE WHEN CS126B.CS126_KND > '' THEN 'FM' ELSE 'POG' END) = 'POG' THEN SUM(CS126B.CS126_HMT) ELSE 0 END HMT_P,
+                                                      CASE WHEN (CASE WHEN CS126B.CS126_KND > '' THEN 'FM' ELSE 'POG' END) = 'POG' THEN SUM(CS126B.CS126_DMT) ELSE 0 END DMT_P,
+                                                      CASE WHEN (CASE WHEN CS126B.CS126_KND > '' THEN 'FM' ELSE 'POG' END) = 'FM' THEN SUM(CS126B.CS126_AMT) ELSE 0 END AMT_K,
+                                                      CASE WHEN (CASE WHEN CS126B.CS126_KND > '' THEN 'FM' ELSE 'POG' END) = 'FM' THEN SUM(CS126B.CS126_HMT) ELSE 0 END HMT_K,
+                                                      CASE WHEN (CASE WHEN CS126B.CS126_KND > '' THEN 'FM' ELSE 'POG' END) = 'FM' THEN SUM(CS126B.CS126_DMT) ELSE 0 END DMT_K,
+                                                      SUM(INT(A.ZSPEC9)) CNT,
+                                                      (CASE WHEN CS126B.CS126_KND > '' THEN 'FM' ELSE 'POG' END) KND,
+                                                      MAX(A.ZBOSUOUT) HJDATE,
+                                                      MAX(A.ZZJUNGD) UYS,
+                                                      SUM(VALUE(B.AMT_PY,0)) AMT_PY,
+                                                      SUM(VALUE(B.AMT1,0)) AMT1,
+                                                      SUM(VALUE(B.AMT2,0)) AMT2,
+                                                      SUM(VALUE(B.AMT3,0)) AMT3,
+                                                      SUM(VALUE(B.AMT4,0)) AMT4,
+                                                      SUM(VALUE(B.AMT_NY1,0)) AMT_NY1,
+                                                      SUM(VALUE(B.AMT_NY2,0)) AMT_NY2,
+                                                      SUM(VALUE(B.AMT_NY3,0)) AMT_NY3,
+                                                      SUM(VALUE(B.AMT_NY4,0)) AMT_NY4,
+                                                      SUM(VALUE(B.AMT_NNY,0)) AMT_NNY
+                                                 FROM
+                                                      SAPHEE.ZCST126 CS126B,
+                                                      (
+                                                       SELECT
+                                                              CS126E.MANDT,
+                                                              CS126E.CS126_UPN,
+                                                              CS126E.CS126_CST,
+                                                              CS126E.CS126_PJT,
+                                                              CS126E.CS126_HNO,
+                                                              CS126E.CS126_USD,
+                                                              CS126E.CS126_UHJ,
+                                                              MAX(CS126E.CS126_SEQ) CS126_SEQ
+                                                         FROM
+                                                              SAPHEE.ZCST126 CS126E LEFT OUTER JOIN SAPHEE.ZWBT010 ZWBT
+                                                                                                 ON CS126E.MANDT = ZWBT.MANDT
+                                                                                                AND CS126E.CS126_BSU = ZWBT.LGORT
+                                                        WHERE
+                                                              CS126E.MANDT = #G_MANDT#
+                                                          AND CS126E.CS126_DDT = ''
+                                                          AND CS126E.CS126_PST = 'A6'
+                                                          AND HEX(CURRENT DATE) BETWEEN CS126E.CS126_USD AND CS126E.CS126_UMR
+                                                          AND SUBSTR(CS126E.CS126_HNO,1,1) = 'J'
+                                                        <isNotNull col="PROJ">
+                                                          AND CS126E.CS126_UPN = #PROJ#
+                                                        </isNotNull>
+                                                        <isNotNull col="AREA">
+                                                          AND CS126E.CS126_ARA = #AREA#
+                                                        </isNotNull>
+                                                        <isNotNull col="LGORT">
+                                                          AND CS126E.CS126_BSU = #LGORT#
+                                                        </isNotNull>
+                                                        <isNotNull col="PM">
+                                                          AND CS126E.CS126_BPM = #PM#
+                                                        </isNotNull>
+                                                        <isNotNull col="VKGRP">
+                                                          AND ZWBT.VKGRP = #VKGRP#
+                                                        </isNotNull>
+                                                       GROUP BY
+                                                              CS126E.MANDT,
+                                                              CS126E.CS126_UPN,
+                                                              CS126E.CS126_CST,
+                                                              CS126E.CS126_PJT,
+                                                              CS126E.CS126_HNO,
+                                                              CS126E.CS126_USD,
+                                                              CS126E.CS126_UHJ
+                                                      ) CS126F,
+                                                      SAPHEE.ZMASTER02 A
+                                                             LEFT OUTER JOIN (
+                                                                              SELECT 
+                                                                                     A.POSID,
+                                                                                     SUM(CASE WHEN SUBSTR(CYYMM,1,4) &lt; SUBSTR(HEX(CURRENT DATE),1,4) THEN AMT ELSE 0 END) AMT_PY,
+                                                                                     SUM(CASE WHEN SUBSTR(CYYMM,1,4) = SUBSTR(HEX(CURRENT DATE),1,4) AND SUBSTR(CYYMM,5,2) BETWEEN '01' AND '03' THEN AMT ELSE 0 END) AMT1,
+                                                                                     SUM(CASE WHEN SUBSTR(CYYMM,1,4) = SUBSTR(HEX(CURRENT DATE),1,4) AND SUBSTR(CYYMM,5,2) BETWEEN '04' AND '06' THEN AMT ELSE 0 END) AMT2,
+                                                                                     SUM(CASE WHEN SUBSTR(CYYMM,1,4) = SUBSTR(HEX(CURRENT DATE),1,4) AND SUBSTR(CYYMM,5,2) BETWEEN '07' AND '09' THEN AMT ELSE 0 END) AMT3,
+                                                                                     SUM(CASE WHEN SUBSTR(CYYMM,1,4) = SUBSTR(HEX(CURRENT DATE),1,4) AND SUBSTR(CYYMM,5,2) BETWEEN '10' AND '12' THEN AMT ELSE 0 END) AMT4,
+                                                                                     SUM(CASE WHEN SUBSTR(CYYMM,1,4) = CHAR(INT(SUBSTR(HEX(CURRENT DATE),1,4))+1) AND SUBSTR(CYYMM,5,2) BETWEEN '01' AND '03' THEN AMT ELSE 0 END) AMT_NY1,
+                                                                                     SUM(CASE WHEN SUBSTR(CYYMM,1,4) = CHAR(INT(SUBSTR(HEX(CURRENT DATE),1,4))+1) AND SUBSTR(CYYMM,5,2) BETWEEN '04' AND '06' THEN AMT ELSE 0 END) AMT_NY2,
+                                                                                     SUM(CASE WHEN SUBSTR(CYYMM,1,4) = CHAR(INT(SUBSTR(HEX(CURRENT DATE),1,4))+1) AND SUBSTR(CYYMM,5,2) BETWEEN '07' AND '09' THEN AMT ELSE 0 END) AMT_NY3,
+                                                                                     SUM(CASE WHEN SUBSTR(CYYMM,1,4) = CHAR(INT(SUBSTR(HEX(CURRENT DATE),1,4))+1) AND SUBSTR(CYYMM,5,2) BETWEEN '10' AND '12' THEN AMT ELSE 0 END) AMT_NY4,
+                                                                                     SUM(CASE WHEN SUBSTR(CYYMM,1,4) > CHAR(INT(SUBSTR(HEX(CURRENT DATE),1,4))+1) THEN AMT ELSE 0 END) AMT_NNY
+                                                                                FROM 
+                                                                                     (
+                                                                                      SELECT A.POSID,
+                                                                                             A.MATNR,
+                                                                                             A.SAMT1*(CASE WHEN A.MENGE > 0 THEN A.MENGE
+                                                                                                           ELSE (SELECT SUM(Z.MENGE)
+																							                                                                     FROM SAPHEE.ZPPT004 Z
+     									                                                                                            WHERE Z.MANDT = '183'
+										                                                                                                AND Z.WOKNUM = A.POSID
+										                                                                                                AND Z.IDNRK = A.MATNR
+										                                                                                            )
+										                                                                                  END
+										                                                                                 ) AMT,
+										                                                                         A.CYYMM
+										                                                                    FROM (        
+                                                                                              SELECT 
+                                                                                                     A.POSID,
+                                                                                                     A.MATNR,
+                                                                                                     VALUE(C.SAMT1,0)*100 SAMT1,
+                                                                                                     VALUE(E.MENGE,0) MENGE,
+                                                                                                     REPLACE(CHAR(DATE(SAPHEE.GET_DATE_FORMAT(A.CHDATE))+INT(B.CYCLE) MONTH),'-','') AS CYYMM,
+                                                                                                     ROW_NUMBER() OVER(PARTITION BY A.POSID, A.MATNR ORDER BY A.POSID, A.MATNR, VALUE(E.BUDAT3,'00000000') DESC) ROWN
+                                                                                                FROM 
+                                                                                                     SAPHEE.ZMMT095 A INNER JOIN SAPHEE.ZMMT077 B
+                                                                                                                              ON A.MANDT = B.MANDT
+                                                                                                                             AND A.MAT_CODE = B.MAT_CODE
+                                                                                                                      LEFT OUTER JOIN SAPHEE.ZMMT011 C
+                                                                                                                                   ON A.MANDT = C.MANDT
+                                                                                                                                  AND A.MATNR = C.MATNR
+                                                                                                                      LEFT OUTER JOIN SAPHEE.ZMMT031 D			      							                        
+                                                                                                                                   ON A.MANDT = D.MANDT
+                                                                                                                                  AND A.POSID = D.POSID
+                                                                                                                                  AND A.MATNR = D.MATNR
+                                                                                                                      LEFT OUTER JOIN SAPHEE.ZMMT001 E
+                                                                                                                                   ON D.MANDT = E.MANDT
+                                                                                                                                  AND D.REQNR = E.REQNR
+                                                                                                                                  AND D.REQITEM = E.REQITEM
+                                                                                                                                  AND A.CHDATE = E.BUDAT3
+                                                                                                                                  AND E.DEL_DATE = '00000000'
+                                                                                               WHERE 
+                                                                                                     SUBSTR(A.POSID,7,1) = 'J'
+                                                                                                  <isNotNull col="PROJ">
+                                                                                                    AND SUBSTR(A.POSID,1,6) = #PROJ#
+                                                                                                  </isNotNull>
+                                                                                             ) A
+                                                                                       WHERE (A.ROWN = 1 OR A.MENGE > 0)
+                                                                                     ) A
+                                                                              GROUP BY 
+                                                                                     A.POSID
+                                                                             ) B ON B.POSID = A.POSID_1
+                                                WHERE
+                                                      CS126B.MANDT = #G_MANDT#
+                                                  AND CS126B.MANDT = CS126F.MANDT
+                                                  AND CS126B.CS126_UPN = CS126F.CS126_UPN
+                                                  AND CS126B.CS126_CST = CS126F.CS126_CST
+                                                  AND CS126B.CS126_PJT = CS126F.CS126_PJT
+                                                  AND CS126B.CS126_HNO = CS126F.CS126_HNO
+                                                  AND CS126B.CS126_SEQ = CS126F.CS126_SEQ
+                                                  AND CS126B.MANDT = A.MANDT
+                                                  AND CS126B.CS126_PJT = A.POSID
+                                                  AND CS126B.CS126_PJT || CS126B.CS126_HNO = A.POSID_1
+                                                  AND CS126B.CS126_GND IN ('C','D')
+                                                  AND CS126B.CS126_DDT = ''
+                                                  AND CS126B.CS126_PST = 'A6'
+                                                  AND HEX(CURRENT DATE) BETWEEN CS126B.CS126_USD AND CS126B.CS126_UMR
+                                                  AND SUBSTR(CS126B.CS126_HNO,1,1) = 'J'
+                                               GROUP BY
+                                                      CS126B.MANDT,
+                                                      CS126B.CS126_UPN,
+                                                      CS126B.CS126_CST,
+                                                      CS126B.CS126_GNO,
+                                                      (CASE CS126B.CS126_GKD WHEN '2' THEN '0' ELSE CS126B.CS126_GKD END),
+                                                      CASE WHEN CS126B.CS126_KND > '' THEN 'FM' ELSE 'POG' END
+                                              ) A
+                                       GROUP BY
+                                              A.MANDT,
+                                              A.UPN,
+                                              A.CST,
+                                              A.GNO
+                                      ) X ON CS121B.MANDT = X.MANDT
+                                         AND CS121B.CS121_UPN = X.UPN
+                                         AND CS121B.CS121_CST = X.CST
+         WHERE
+               CS121B.MANDT = #G_MANDT#
+           AND CS121B.CS121_CST > ''
+           AND VALUE(X.GNO,'') > ''
+        GROUP BY
+               CS121B.MANDT,
+               CS121B.CS121_UPN,
+               CS121B.CS121_CST,
+               X.USD,
+               X.UGS,
+               X.UHJ,
+               X.GNO
+        ) A LEFT OUTER JOIN (
+                             SELECT SUBSTR(A.ZZPJT_ID,1,6) UPN,
+                                    SUM(A.RCNT) RCNT,
+                                    SUM(CASE WHEN A.AUART = 'ZR12' THEN A.NETWR ELSE 0 END) NB,
+                                    SUM(CASE WHEN A.AUART = 'ZR13' AND A.NETWR &lt; 100000000 THEN A.NETWR ELSE 0 END) NS
+                               FROM (
+                                     SELECT ZZPJT_ID,
+                                            AUART,
+                                            MAX(NETWR)*100 NETWR,
+                                            SUM(CASE WHEN AUART = 'ZR13' AND NETWR &gt;= 1000000 THEN 1 ELSE 0 END) RCNT
+                                       FROM SAPHEE.VBAK
+                                      WHERE MANDT = #G_MANDT#
+                                        AND NETWR > 0
+                                        AND AUART IN ('ZR12','ZR13')
+                                        AND SPART = '20'
+                                     GROUP BY 
+                                            ZZPJT_ID,
+                                            AUART
+                                    ) A
+                             GROUP BY 
+                                    SUBSTR(ZZPJT_ID,1,6)
+                            ) B
+                         ON A.PSPID = B.UPN
+ORDER BY
+       A.PSPID
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

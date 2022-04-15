@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[자재 청구별 승인 조회-sum]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+* FROM (
+SELECT 
+                '' AS CHECK
+	, MAX(BUSSI) AS BUSSI
+	, SAPHEE.GET_ZERODATE(MAX(DEL_DATE)) AS DEL_DATE
+	, SAPHEE.GET_ZERODATE(MAX(DEL_TIME)) AS DEL_TIME
+	, SAPHEE.GET_ZERODATE(MAX(RECE_DATE)) AS RECE_DATE
+	, MIN(RECE_F) AS RECE_F
+	, SAPHEE.GET_ZERODATE(MAX(RECE_TIME)) AS RECE_TIME
+	, SAPHEE.GET_ZERODATE(MAX(REQDATE)) AS REQDATE
+	, REQKIND AS REQKIND
+	, REQNR AS REQNR
+	, MIN(STATE) AS STATE
+              , CASE WHEN ( 
+                   SELECT MM004A.MATNR FROM SAPHEE.ZMMT004 AS MM004A
+                         WHERE MM004A.MANDT = MM001.MANDT 
+                         AND MM004A.MATNR = MAX(MM001.MATNR)) IS NULL THEN '0' ELSE '1' END AS BANNAB
+ FROM SAPHEE.ZMMT001 AS MM001
+ LEFT OUTER JOIN SAPHEE.EBAN AS EA ON MM001.MANDT = EA.MANDT
+                AND MM001.BANFN = EA.BANFN
+                AND MM001.BNFPO = EA.BNFPO
+WHERE MM001.MANDT = #G_MANDT#
+
+<isEqual col="USER_GROUP" value="10">
+  AND MM001.LGORT = #G_VEND_CODE_R#
+</isEqual>
+
+<isEqual col="USER_GROUP" value="20">
+  AND MM001.LGORT IN  (
+      SELECT LGORT 
+      FROM SAPHEE.ZMMT005 AS MM005
+      WHERE MM005.MANDT= #G_MANDT# AND MM005.PERNR = #G_USER_ID#  )
+</isEqual>
+
+ <isNotNull col="REQNO">
+    AND MM001.REQNR = ( SELECT MAX(REQNR) FROM SAPHEE.ZMMT031 
+                 WHERE MANDT = #G_MANDT# 
+                  AND REQNO = #REQNO# GROUP BY REQNR )
+ </isNotNull>
+
+<isNull col="REQNO">
+    AND MM001.REQNR LIKE '_%'
+</isNull>
+
+ <isNotNull col="MATNR">
+    AND MM001.MATNR BETWEEN  #MATNR_FM# AND #MATNR_TO#
+ </isNotNull>
+
+ <isNotNull col="APDAT_TO">
+    AND MM001.RECE_DATE BETWEEN  #APDAT_FM# AND #APDAT_TO#
+ </isNotNull>
+
+ <isNotNull col="BWTAR">
+    AND MM001.BWTAR =  #BWTAR#
+ </isNotNull>
+
+ <isNotNull col="REQDATE_TO">
+    AND MM001.REQDATE BETWEEN  #REQDATE_FM# AND #REQDATE_TO#
+ </isNotNull>
+
+ <isNotNull col="RDATE_TO">
+    AND MM001.RDATE BETWEEN  #RDATE_FM# AND #RDATE_TO#
+ </isNotNull>
+
+ <isNotNull col="REQKIND">
+    AND MM001.REQKIND =  #REQKIND#
+ </isNotNull>
+
+ <isNotNull col="POSID">
+    AND MM001.POSID LIKE '%'||#POSID#||'%'
+ </isNotNull>
+
+ <isNotNull col="STATE">
+    AND MM001.STATE = #STATE#
+ </isNotNull>
+
+<isEqual col="STPO" value="1">
+    AND EA.LOEKZ = 'X'   AND EA.EBELN = ''
+</isEqual>
+<isEqual col="STPO" value="2">
+    AND EA.LOEKZ &lt;&gt; 'X'   AND EA.EBELN = ''
+</isEqual>
+<isEqual col="STPO" value="3">
+    AND EA.LOEKZ &lt;&gt; 'X'   AND EA.EBELN &lt;&gt; ''
+</isEqual>
+<isEqual col="STPO" value="4">
+    AND MM001.MBLNR &lt;&gt; ''
+</isEqual>
+
+
+GROUP BY MM001.MANDT,MM001.REQKIND, MM001.REQNR
+) AS T
+ WHERE 1=1 
+
+ <isNotNull col="BANNAB">
+    AND T.BANNAB =  #BANNAB#
+ </isNotNull>
+
+  FOR FETCH ONLY
+  WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="G_VEND_CODE" size="255" type="VARCHAR" description="" /> 
+		<col name="G_USER_ID" size="255" type="VARCHAR" description="" /> 
+		<col name="REQNO" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="APDAT_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="APDAT_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="BWTAR" size="255" type="VARCHAR" description="" /> 
+		<col name="REQDATE_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="REQDATE_TO" size="255" type="VARCHAR" description="" /> 
+		<col name="REQKIND" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="BANNAB" size="255" type="VARCHAR" description="" /> 
+		<col name="USER_GROUP" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="255" type="VARCHAR" description="" /> 
+		<col name="STPO" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_sum">
+		<col name="BUSSI" size="3" type="VARCHAR" description="" /> 
+		<col name="CHECK" size="0" type="VARCHAR" description="" /> 
+		<col name="DEL_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="DEL_TIME" size="8" type="VARCHAR" description="" /> 
+		<col name="RECE_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="RECE_F" size="3" type="VARCHAR" description="" /> 
+		<col name="RECE_TIME" size="8" type="VARCHAR" description="" /> 
+		<col name="REQDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="REQKIND" size="3" type="VARCHAR" description="" /> 
+		<col name="REQNR" size="30" type="VARCHAR" description="" /> 
+		<col name="STATE" size="3" type="VARCHAR" description="" /> 
+	</output>
+</query>

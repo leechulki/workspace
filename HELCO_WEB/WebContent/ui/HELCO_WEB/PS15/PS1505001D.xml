@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="365" Id="PS1505001D" Left="8" OnLoadCompleted="fn_OnLoadCompleted" OnUnloadCompleted="fn_OnUnloadCompleted" PidAttrib="7" Title="호기선택" Top="8" Ver="1.0" Width="218" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_list">
+				<Contents>
+					<colinfo id="CHK" size="256" summ="default" type="STRING"/>
+					<colinfo id="PSPID" size="256" summ="default" type="STRING"/>
+					<colinfo id="POSID" size="256" summ="default" type="STRING"/>
+					<colinfo id="DONG" size="256" summ="default" type="STRING"/>
+					<colinfo id="MAIN" size="256" summ="default" type="STRING"/>
+					<colinfo id="REQ_DATE" size="256" summ="default" type="STRING"/>
+					<colinfo id="EXP_DATE" size="256" summ="default" type="STRING"/>
+					<colinfo id="START_DATE" size="256" summ="default" type="STRING"/>
+					<colinfo id="COM_DATE" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_cond">
+				<Contents>
+					<colinfo id="LIFNR" size="256" summ="default" type="STRING"/>
+					<colinfo id="JOB_CODE" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_list_tmp"></Dataset>
+		</Datasets>
+		<Div Height="36" Id="div_btn" TabOrder="1" TabStop="FALSE" Text="Div0" Url="WB01::CommBtnForm.xml" Width="218">
+			<Contents></Contents>
+		</Div>
+		<Grid AutoEnter="TRUE" AutoFitEndLine="Hide" BindDataset="ds_list" BkColor2="default" BoldHead="true" Border="Flat" Bottom="359" ColSizing="TRUE" Editable="TRUE" Enable="true" EndLineColor="default" HeadBorder="Flat" HeadHeight="20" Height="296" Id="grd_list" InputPanel="FALSE" Left="5" LineColor="user20" LineType="ExHORZ" OnHeadClick="grd_list_OnHeadClick" Right="213" RowHeight="20" Style="sty_grid" TabOrder="2" TabStop="true" Top="63" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="208">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col width="24"/>
+						<col width="71"/>
+						<col width="93"/>
+					</columns>
+					<head>
+						<cell col="0" color="user21" display="checkbox" edit="checkbox" font="굴림,9"/>
+						<cell col="1" color="user21" display="text" font="굴림,9" text="호기"/>
+						<cell col="2" color="user21" display="text" font="굴림,9" text="동"/>
+					</head>
+					<body>
+						<cell align="center" col="0" colid="CHK" display="checkbox" edit="expr:iif(MAIN&#32;=&#32;&apos;1&apos;,&#32;&apos;none&apos;,&#32;&apos;checkbox&apos;)"/>
+						<cell align="center" col="1" colid="POSID" display="text"/>
+						<cell align="left" col="2" colid="DONG" display="text"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Button ButtonStyle="TRUE" Cursor="HAND" DragImageID="tab_form_05" Font="굴림,9" Height="20" Id="btn_select" ImageID="btn_user_02" Left="173" OnClick="btn_select_OnClick" Style="sty_btn" TabOrder="3" Text="선택" Top="40" Width="40"></Button>
+	</Form>
+	<Script><![CDATA[﻿﻿﻿﻿﻿﻿﻿﻿/*
+ ******************************************************************************************
+ * 기      능   : 호기선택 팝업
+ * 작  성  자   : 강민석K
+ * 작성  일자   : 2019.07.16
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+#include "LIB::commons.js";	// 공통 스크립트 
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+var F_PSPID = "";//프로젝트번호
+var F_MAIN_ROW_POS = -1;//부모창에서 작업중인 메인 호기
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) {
+	//Form 로드 이벤트 맨 첫줄에 기술 
+	gfn_initForm();
+	
+	var filter  = "PSPID == " + quote(ds_cond1.GetColumn(ds_cond1.row, "POSID"));//프로젝트번호
+	    filter += " && LIFNR_OUT == " + quote(ds_cond1.GetColumn(ds_cond1.row, "LIFNR"));//외주업체코드
+	    filter += " && JOB_CODE == " + quote(ds_cond1.GetColumn(ds_cond1.row, "JOB_CODE"));//외주작업구분코드
+	
+	//다음 프로세스의 일자가 입력되지 않은 호기만 표시
+	var filterColName = "";//필터할 컬럼
+	var etcFilter = "";//예외 필터 조건
+	
+	//다음 프로세스가 저장되지 않았는지 체크
+	if(parent.ID == "PS1505001B"){
+		//작업요청 화면에서 호기선택 버튼을 클릭한 경우 작업예정일이 저장되어 있지 않아야 함
+		filterColName = "EXP_DATE";
+	}else if(parent.ID == "PS1505001F"){
+		//투입일정 화면에서 호기선택 버튼을 클릭한 경우 작업시작일이 저장되어 있지 않아야 함
+		filterColName = "START_DATE";
+	}
+	
+	//설치/구매 외주에 따른 기타 필터 조건 처리
+	if(parent.parent.ds_list.GetColumn(0, "GBN") == "A"){
+		//설치외주일 경우 계약이 취소된 호기는 제외한다. - 2019.07.31 강민석K (설치외주 계약테이블이 ZPSTW1404일 경우만 해당)
+		//etcFilter = " && CONTRCT != '91'";
+	}else{//구매외주인 경우 필터 조건 추가 - 2019.09.09. 강민석K
+		if(parent.ID == "PS1505001F"){
+			//구매외주는 부모창이 투입일정 화면인 경우 작업요청일이 저장된 호기만 선택 가능
+			etcFilter = " && (REQ_DATE != null && REQ_DATE != '' && REQ_DATE != '00000000')";
+		}
+	}
+	
+	filter += " && (" + filterColName + " == null || " + filterColName + " == '' || " + filterColName + " == '00000000')" + etcFilter;
+	//trace("filter : " + filter);
+	ds_list_tmp.CopyF(parent.parent.ds_list);
+	ds_list_tmp.Filter(filter);
+	
+	for(var i = 0; i < ds_list_tmp.rowcount; i++){
+		ds_list.AddRow();
+		ds_list.SetColumn(i, "CHK", "");
+		ds_list.SetColumn(i, "PSPID", ds_list_tmp.GetColumn(i, "PSPID"));
+		ds_list.SetColumn(i, "POSID", substr(ds_list_tmp.GetColumn(i, "POSID"), 6, 9));//그리드에 표시할 호기(3자리)
+		ds_list.SetColumn(i, "DONG", ds_list_tmp.GetColumn(i, "DONG"));
+		
+		//메인으로 작업중인 호기는 선택해제가 불가하도록 값 세팅(선택해제 불가 기능은 그리드의 Edit 속성으로 처리)
+		if(ds_list_tmp.GetColumn(i, "POSID") == MAIN){
+			ds_list.SetColumn(i, "MAIN", "1");
+			F_MAIN_ROW_POS = i;
+		}
+	}
+	
+	//이전에 선택한 호기는 체크상태로 표시
+	var arrPOSID = split(POSID, ",");
+	var rowIndex = -1;
+	for(var j = 0; j < length(arrPOSID); j++){
+		rowIndex = ds_list.FindRow("POSID", trim(arrPOSID[j]));
+		
+		if(rowIndex != -1){
+			ds_list.SetColumn(rowIndex, "CHK", "1");
+		}
+	}
+	
+	if(F_MAIN_ROW_POS != -1){
+		grd_list.VScrollPos = F_MAIN_ROW_POS;
+	}
+}
+/********************************************************************************
+* 기      능   : 공통코드가 조회된 후의 Callback 함수 
+********************************************************************************/
+function fn_completeInit(sCode, sDsObj, sCodeType) {
+
+}
+/********************************************************************************
+* 기      능   : form UnloadCompleted 
+********************************************************************************/
+function fn_OnUnloadCompleted(obj) {
+	return gfn_isFormUnload(obj);
+}
+//=========================================================================================
+// [ PART 3 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,form닫기)
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 닫기  
+********************************************************************************/
+function fn_close() {
+	close();
+}
+//=========================================================================================
+// [ PART 4]
+// Callback 함수 정의 : callback 함수명은 메인 함수의 fn_xxxx() 에서 xxxx 부분은 fn_afterXXXX()
+// 형태가 되도록 작성 
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+// 사용자 정의 함수는 ufn_xxxx() 형태로 작성 
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 사용자 정의 함수  
+********************************************************************************/
+function ufn_userfunction() {
+
+}
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 : 각 Component 별 이벤트 
+//=========================================================================================
+/********************************************************************************
+* 기      능   : 그리드 헤더 클릭시 정렬 처리 
+********************************************************************************/
+function grd_list_OnHeadClick(obj,nCell,nX,nY,nPivotIndex)
+{
+	if ( nCell == 0 ) {
+		// 전체 체크/해제
+		gfn_selectAllGrid(obj,nCell,nCell,true);
+		
+		ds_list.SetColumn(F_MAIN_ROW_POS, "CHK", "1");//메인 호기는 전체 체크 해제가 되더라도 체크 상태로 표시되도록 처리
+	}
+}
+/********************************************************************************
+* 기      능   : 데이터셋 값 변경 시 - Flag 처리 
+********************************************************************************/
+function ds_list_OnColumnChanged(obj,nRow,strColumnID,varOldValue,varNewValue,nPivotIndex)
+{
+	gfn_changeFlag( obj, strColumnID, nRow, "FLAG" );
+}
+/********************************************************************************
+* 기      능   : 선택 버튼 클릭 시 - 부모창에 선택한 호기 목록 전달
+********************************************************************************/
+function btn_select_OnClick(obj)
+{
+	//항목 선택 여부 체크
+	if(ds_list.FindRow("CHK", "1") == -1){
+		gfn_showMsg("CW00046");
+		return;
+	}
+	
+	var selectedPosid = "";//선택한 호기들
+	for(var i = 0; i < ds_list.rowcount; i++){
+		if(ds_list.GetColumn(i, "CHK") == "1"){
+			selectedPosid += ds_list.GetColumn(i, "PSPID") + ds_list.GetColumn(i, "POSID") + ", ";
+		}
+	}
+	selectedPosid = substr(selectedPosid, 0, length(selectedPosid) - 2);
+	
+	parent.fn_afterSelect(selectedPosid);
+	close();
+}]]></Script>
+</Window>

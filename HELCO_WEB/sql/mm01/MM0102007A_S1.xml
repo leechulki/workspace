@@ -1,0 +1,399 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[품목표 List 발주별]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+WITH PM AS (
+ SELECT
+ PP004.MANDT AS MANDT
+,PP004.WOKNUM AS HOGIN
+,PP004.MATNR  AS MATNR
+,PP004.IDNRK  AS IDNRK
+,MS001.ZSITE_NM AS SITE_NM
+,MS001.KUNNR_NM
+,MS002.ZSPEC1 AS SPEC1
+,MS002.ZSPEC2 AS SPEC2
+,MM011.MAKTX  AS MAKTX
+,CASE WHEN MM011.MATNR_NM='' THEN MM011.MAKTX ELSE  MM011.MATNR_NM END AS MATNR_NM
+,MM011.MTART   AS MTART
+,MM011.SPEC   AS SPEC
+,MM011.ZSIZE  AS SIZE
+,MM011.EXTWG  AS EXTWG
+,PP004.MENGE  AS MENGE
+,PP004.MEINS  AS MEINS
+,PP004.DZEINR AS DZEINR
+,PP004.MATKL  AS MATKL
+,PP004.UPMATKL  AS UPMATKL
+,PP004.VERSION AS VERSION
+,PP004.BOM_LEVEL AS BOM_LEVEL
+,PP004.CRUSER AS CRUSER
+,PP004.CRDAT  AS CRDAT
+,PP004.CRTIM  AS CRTIM
+,PP004.PART   AS PART
+,CASE WHEN PP004.PART=11 THEN '기계-구조물'
+      WHEN PP004.PART=12 THEN '기계-의장'
+      WHEN PP004.PART=21 THEN '전기-CP'
+      WHEN PP004.PART=22 THEN '전기-의장'
+      WHEN PP004.PART=23 THEN '전기-CABLE'
+      WHEN PP004.PART=50 THEN '주차'
+      WHEN PP004.PART=60 THEN 'E/S,M/W'
+      WHEN PP004.PART=70 THEN '물류' ELSE '' END AS PART_NM
+,PP008.TEXT AS TEXT
+,'0' AS NUM
+,PP004.ITEM_SEQ  AS ITEM_SEQ
+,CASE PP004.PRCTYP WHEN 'C' THEN '변경' WHEN 'D' THEN '삭제' WHEN 'N' THEN '추가' ELSE '' END AS PRCTYP
+,PP008.SPEC_TYP AS SPEC_TYP
+,PP008.SERIAL AS SERIAL
+
+FROM (
+
+      SELECT
+       MANDT
+      ,CRDAT
+      ,SEQNO
+      ,WOKNUM
+      ,MATNR
+      ,IDNRK
+      ,ITEM_SEQ
+      ,MENGE
+      ,MEINS
+      ,MATKL
+      ,UPMATKL
+      ,DZEINR
+      ,PRCTYP
+      ,VERSION
+      ,BOM_LEVEL
+      ,CRUSER
+      ,CRTIM
+      ,ROW_NUMBER() OVER(PARTITION BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,MATKL ORDER BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,CRDAT DESC,SEQNO DESC) AS ROWNO
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,6)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,6) ELSE SUBSTR(WOKNUM,1,6) END AS POSID
+      ,CASE WHEN SUBSTR(WOKNUM,1,2)='QM' THEN SUBSTR(WOKNUM,3,9)
+            WHEN SUBSTR(WOKNUM,1,1)='Q'  THEN SUBSTR(WOKNUM,2,9) ELSE SUBSTR(WOKNUM,1,9) END AS POSID_1
+      ,CASE WHEN ZPART='M'             THEN 11
+            WHEN ZPART='C'             THEN 12
+            WHEN ZPART='1'             THEN 21
+            WHEN ZPART='2'             THEN 22
+            WHEN ZPART='3'             THEN 23
+            WHEN SUBSTR(MATKL,2,1)='5' THEN 50
+            WHEN SUBSTR(MATKL,2,1)='6' THEN 60
+            WHEN SUBSTR(MATKL,2,1)='7' THEN 70
+            WHEN SUBSTR(MATKL,2,1)='1' THEN 11
+            WHEN SUBSTR(MATKL,2,1)='2' THEN 21
+            WHEN SUBSTR(MATKL,2,1)='3' THEN 12 ELSE 90 END AS PART
+      FROM SAPHEE.ZPPT004
+      WHERE MANDT = #G_MANDT#
+        AND WOKNUM LIKE #HOGIN#||'%' 
+<isNotNull col="BLOCK">
+     --  AND MATKL LIKE #BLOCK#||'%' 
+</isNotNull>
+<isNotNull col="MATNR">
+      -- AND IDNRK LIKE #MATNR#||'%' 
+</isNotNull>
+     ) AS PP004
+    LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MS002 ON  MS002.MANDT   = PP004.MANDT 
+                                              AND MS002.POSID   = PP004.POSID 
+                                              AND MS002.POSID_1 = PP004.POSID_1
+    LEFT OUTER JOIN SAPHEE.ZMMT011   AS MM011 ON  MM011.MANDT   = PP004.MANDT 
+                                              AND MM011.MATNR   = PP004.IDNRK
+    LEFT OUTER JOIN SAPHEE.ZPPT008   AS PP008 ON  PP008.MANDT   = PP004.MANDT
+                                              AND PP004.CRDAT   = PP008.CRDAT 
+                                              AND PP004.SEQNO   = PP008.SEQNO 
+                                              AND PP004.WOKNUM  = PP008.WOKNUM
+                                              AND PP004.MATNR   = PP008.MATNR 
+                                              AND PP004.IDNRK   = PP008.IDNRK
+                                              AND PP004.ITEM_SEQ= PP008.ITEM_SEQ
+                                              AND PP004.MATKL= PP008.MATKL                                             
+                                              AND PP008.SPEC_TYP &lt;&gt; '3'
+    LEFT OUTER JOIN SAPHEE.ZMASTER01 AS MS001 ON  PP004.MANDT   = MS001.MANDT 
+                                              AND PP004.POSID   = MS001.POSID 
+WHERE ROWNO = 1
+  AND PRCTYP &lt;&gt; 'D'    -- 최종상태가 삭제(D)는 제외
+<isNotNull col="PART">
+      #PART+#
+</isNotNull>
+<isNotNull col="BOXNO">
+  AND MM011.EXTWG LIKE #BOXNO# || '%'
+</isNotNull>
+--ORDER BY PP004.WOKNUM,PP004.PART,SUBSTR(PP004.MATKL,2),PP004.BOM_LEVEL,PP004.IDNRK,PP004.ITEM_SEQ,PP004.MATKL,PP008.SPEC_TYP,PP008.SERIAL
+),
+
+ZMT13 AS (
+	SELECT 
+		MANDT
+	 ,SUBSTR(POSID,1,9) AS POSID
+	 ,MATNR
+  FROM SAPHEE.ZMMT013
+  WHERE MANDT= #G_MANDT#
+     AND LIFNR = #G_VEND_CODE_M#
+     AND POSID LIKE #HOGIN#||'%' 
+     AND POTYPE =''
+     AND STATE= '2'
+  ORDER BY MANDT,POSID,MATNR
+)
+
+		  
+SELECT 
+ DISTINCT
+ MM.HOGIN AS HOGIN
+,MM.MATNR  AS MATNR
+,MM.IDNRK  AS IDNRK
+,MM.SITE_NM AS SITE_NM
+,MM.KUNNR_NM
+,MM.SPEC1 AS SPEC1
+,MM.SPEC2 AS SPEC2
+,MM.MAKTX  AS MAKTX
+,MM.MATNR_NM AS MATNR_NM
+,MM.SPEC   AS SPEC
+,MM.SIZE  AS SIZE
+,MM.EXTWG  AS EXTWG
+,MM.MENGE  AS MENGE
+,MM.MEINS  AS MEINS
+,MM.DZEINR AS DZEINR
+,MM.MATKL  AS MATKL
+,MM.UPMATKL  AS UPMATKL
+,MM.VERSION AS VERSION
+,MM.BOM_LEVEL AS BOM_LEVEL
+,MM.CRUSER AS CRUSER
+,MM.CRDAT  AS CRDAT
+,MM.CRTIM  AS CRTIM
+,MM.PART   AS PART
+,MM.PART_NM AS PART_NM
+,MM.TEXT AS TEXT
+,MM.NUM  AS NUM
+,MM.ITEM_SEQ  AS ITEM_SEQ
+,MM.PRCTYP AS PRCTYP
+,MM.SPEC_TYP AS SPEC_TYP
+,MM.SERIAL AS SERIAL		
+FROM (
+		  
+		SELECT 
+		 PM.HOGIN AS HOGIN
+		,PM.MATNR  AS MATNR
+		,PM.IDNRK  AS IDNRK
+		,PM.SITE_NM AS SITE_NM
+		,PM.KUNNR_NM
+		,PM.SPEC1 AS SPEC1
+		,PM.SPEC2 AS SPEC2
+		,PM.MAKTX  AS MAKTX
+		,PM.MATNR_NM AS MATNR_NM
+		,PM.SPEC   AS SPEC
+		,PM.SIZE  AS SIZE
+		,PM.EXTWG  AS EXTWG
+		,PM.MENGE  AS MENGE
+		,PM.MEINS  AS MEINS
+		,PM.DZEINR AS DZEINR
+		,PM.MATKL  AS MATKL
+		,PM.UPMATKL  AS UPMATKL
+		,PM.VERSION AS VERSION
+		,PM.BOM_LEVEL AS BOM_LEVEL
+		,PM.CRUSER AS CRUSER
+		,PM.CRDAT  AS CRDAT
+		,PM.CRTIM  AS CRTIM
+		,PM.PART   AS PART
+		,PM.PART_NM AS PART_NM
+		,PM.TEXT AS TEXT
+		,PM.NUM  AS NUM
+		,PM.ITEM_SEQ  AS ITEM_SEQ
+		,PM.PRCTYP AS PRCTYP
+		,PM.SPEC_TYP AS SPEC_TYP
+		,PM.SERIAL AS SERIAL
+		FROM  ZMT13  AS M13
+			  LEFT OUTER JOIN PM ON M13.MANDT = PM.MANDT
+			  	 AND M13.POSID = PM.HOGIN
+				 AND M13.MATNR  = PM.IDNRK
+		WHERE M13.MANDT=#G_MANDT#
+<isNotNull col="MATNR">
+			AND M13.MATNR LIKE #MATNR#||'%' 
+</isNotNull>
+		
+		UNION ALL
+		
+		SELECT 
+		 PM.HOGIN AS HOGIN
+		,PM.MATNR  AS MATNR
+		,PM.IDNRK  AS IDNRK
+		,PM.SITE_NM AS SITE_NM
+		,PM.KUNNR_NM
+		,PM.SPEC1 AS SPEC1
+		,PM.SPEC2 AS SPEC2
+		,PM.MAKTX  AS MAKTX
+		,PM.MATNR_NM AS MATNR_NM
+		,PM.SPEC   AS SPEC
+		,PM.SIZE  AS SIZE
+		,PM.EXTWG  AS EXTWG
+		,PM.MENGE  AS MENGE
+		,PM.MEINS  AS MEINS
+		,PM.DZEINR AS DZEINR
+		,PM.MATKL  AS MATKL
+		,PM.UPMATKL  AS UPMATKL
+		,PM.VERSION AS VERSION
+		,PM.BOM_LEVEL AS BOM_LEVEL
+		,PM.CRUSER AS CRUSER
+		,PM.CRDAT  AS CRDAT
+		,PM.CRTIM  AS CRTIM
+		,PM.PART   AS PART
+		,PM.PART_NM AS PART_NM
+		,PM.TEXT AS TEXT
+		,PM.NUM  AS NUM
+		,PM.ITEM_SEQ  AS ITEM_SEQ
+		,PM.PRCTYP AS PRCTYP
+		,PM.SPEC_TYP AS SPEC_TYP
+		,PM.SERIAL AS SERIAL
+		FROM  PM
+		WHERE PM.MANDT=#G_MANDT#
+
+			  AND PM.MATKL IN ( SELECT PM.UPMATKL FROM ZMT13  AS M13
+			                        LEFT OUTER JOIN PM ON M13.MANDT = PM.MANDT
+						AND M13.POSID = PM.HOGIN
+						AND M13.MATNR  = PM.IDNRK
+				WHERE M13.MANDT=#G_MANDT#
+		                                          
+<isNotNull col="MATNR">
+			AND M13.MATNR LIKE #MATNR#||'%' 
+</isNotNull>                                                   ) 
+		
+		UNION ALL
+		
+		SELECT 
+		 PM.HOGIN AS HOGIN
+		,PM.MATNR  AS MATNR
+		,PM.IDNRK  AS IDNRK
+		,PM.SITE_NM AS SITE_NM
+		,PM.KUNNR_NM
+		,PM.SPEC1 AS SPEC1
+		,PM.SPEC2 AS SPEC2
+		,PM.MAKTX  AS MAKTX
+		,PM.MATNR_NM AS MATNR_NM
+		,PM.SPEC   AS SPEC
+		,PM.SIZE  AS SIZE
+		,PM.EXTWG  AS EXTWG
+		,PM.MENGE  AS MENGE
+		,PM.MEINS  AS MEINS
+		,PM.DZEINR AS DZEINR
+		,PM.MATKL  AS MATKL
+		,PM.UPMATKL  AS UPMATKL
+		,PM.VERSION AS VERSION
+		,PM.BOM_LEVEL AS BOM_LEVEL
+		,PM.CRUSER AS CRUSER
+		,PM.CRDAT  AS CRDAT
+		,PM.CRTIM  AS CRTIM
+		,PM.PART   AS PART
+		,PM.PART_NM AS PART_NM
+		,PM.TEXT AS TEXT
+		,PM.NUM  AS NUM
+		,PM.ITEM_SEQ  AS ITEM_SEQ
+		,PM.PRCTYP AS PRCTYP
+		,PM.SPEC_TYP AS SPEC_TYP
+		,PM.SERIAL AS SERIAL
+		FROM  PM
+		WHERE PM.MANDT= #G_MANDT#
+			  AND PM.MATNR IN ( SELECT PM.MATNR
+			                                   FROM ZMT13 AS M13
+			                      	       LEFT OUTER JOIN PM ON M13.MANDT = PM.MANDT
+					                     AND M13.POSID = PM.HOGIN
+						       AND M13.MATNR  = PM.IDNRK
+					     WHERE M13.MANDT=#G_MANDT#
+		                                                        AND PM.BOM_LEVEL ='02'
+
+<isNotNull col="MATNR">
+			                                         AND M13.MATNR LIKE #MATNR#||'%' 
+</isNotNull>                                                         ) 
+		
+		UNION ALL
+		
+		SELECT 
+		 PM.HOGIN AS HOGIN
+		,PM.MATNR  AS MATNR
+		,PM.IDNRK  AS IDNRK
+		,PM.SITE_NM AS SITE_NM
+		,PM.KUNNR_NM
+		,PM.SPEC1 AS SPEC1
+		,PM.SPEC2 AS SPEC2
+		,PM.MAKTX  AS MAKTX
+		,PM.MATNR_NM AS MATNR_NM
+		,PM.SPEC   AS SPEC
+		,PM.SIZE  AS SIZE
+		,PM.EXTWG  AS EXTWG
+		,PM.MENGE  AS MENGE
+		,PM.MEINS  AS MEINS
+		,PM.DZEINR AS DZEINR
+		,PM.MATKL  AS MATKL
+		,PM.UPMATKL  AS UPMATKL
+		,PM.VERSION AS VERSION
+		,PM.BOM_LEVEL AS BOM_LEVEL
+		,PM.CRUSER AS CRUSER
+		,PM.CRDAT  AS CRDAT
+		,PM.CRTIM  AS CRTIM
+		,PM.PART   AS PART
+		,PM.PART_NM AS PART_NM
+		,PM.TEXT AS TEXT
+		,PM.NUM  AS NUM
+		,PM.ITEM_SEQ  AS ITEM_SEQ
+		,PM.PRCTYP AS PRCTYP
+		,PM.SPEC_TYP AS SPEC_TYP
+		,PM.SERIAL AS SERIAL
+		FROM  PM
+		WHERE PM.MANDT=#G_MANDT#
+			  AND 1 = ( SELECT DISTINCT CASE WHEN PM.MATKL ='A600A' THEN 1 ELSE 0 END  
+			  		FROM ZMT13 AS M13
+			              LEFT OUTER JOIN PM ON M13.MANDT = PM.MANDT
+			 		AND M13.POSID = PM.HOGIN
+					AND M13.MATNR  = PM.IDNRK
+				WHERE M13.MANDT=#G_MANDT#
+		                                  AND PM.MATKL = 'A600A'
+<isNotNull col="MATNR">
+                                                     AND M13.MATNR LIKE #MATNR#||'%' 
+</isNotNull>                                  ) 
+
+) AS MM
+WHERE 1= 1
+
+ ORDER BY MM.HOGIN,MM.PART,MM.MAKTX,MM.BOM_LEVEL,MM.IDNRK,MM.ITEM_SEQ,MM.MATKL,MM.SPEC_TYP,MM.SERIAL
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="HOGIN" size="255" type="VARCHAR" description="" /> 
+		<col name="BLOCK" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="255" type="VARCHAR" description="" /> 
+		<col name="PART" size="255" type="VARCHAR" description="" /> 
+		<col name="BOXNO" size="255" type="VARCHAR" description="" /> 
+		<col name="G_VEND_CODE_M" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="BOM_LEVEL" size="6" type="VARCHAR" description="" /> 
+		<col name="CRDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="CRTIM" size="18" type="VARCHAR" description="" /> 
+		<col name="CRUSER" size="60" type="VARCHAR" description="" /> 
+		<col name="DZEINR" size="120" type="VARCHAR" description="" /> 
+		<col name="EXTWG" size="54" type="VARCHAR" description="" /> 
+		<col name="HOGIN" size="72" type="VARCHAR" description="" /> 
+		<col name="IDNRK" size="54" type="VARCHAR" description="" /> 
+		<col name="ITEM_SEQ" size="12" type="VARCHAR" description="" /> 
+		<col name="KUNNR_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="MAKTX" size="120" type="VARCHAR" description="" /> 
+		<col name="MATKL" size="27" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MATNR_NM" size="120" type="VARCHAR" description="" /> 
+		<col name="MEINS" size="9" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="15" type="NUMERIC" description="" /> 
+		<col name="NUM" size="1" type="VARCHAR" description="" /> 
+		<col name="PART" size="11" type="NUMERIC" description="" /> 
+		<col name="PART_NM" size="16" type="VARCHAR" description="" /> 
+		<col name="PRCTYP" size="6" type="VARCHAR" description="" /> 
+		<col name="SERIAL" size="12" type="VARCHAR" description="" /> 
+		<col name="SITE_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="SIZE" size="180" type="VARCHAR" description="" /> 
+		<col name="SPEC" size="180" type="VARCHAR" description="" /> 
+		<col name="SPEC1" size="15" type="VARCHAR" description="" /> 
+		<col name="SPEC2" size="75" type="VARCHAR" description="" /> 
+		<col name="SPEC_TYP" size="3" type="VARCHAR" description="" /> 
+		<col name="TEXT" size="300" type="VARCHAR" description="" /> 
+		<col name="UPMATKL" size="27" type="VARCHAR" description="" /> 
+		<col name="VERSION" size="6" type="VARCHAR" description="" /> 
+	</output>
+</query>

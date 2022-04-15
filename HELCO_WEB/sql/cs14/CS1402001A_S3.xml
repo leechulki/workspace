@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+       GROUP_ID1,
+       GROUP_NM1,
+       GROUP_ID2,
+       GROUP_NM2,
+       SUM(CNT) AS CNT
+  FROM 
+       (
+        SELECT
+               CASE 
+                    WHEN UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD) IS NULL OR UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD) = '' 
+                    THEN 'ETC' ELSE UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD) 
+               END AS GROUP_ID1,
+               CASE 
+                    WHEN UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD) IS NULL OR UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD) = '' 
+                    THEN '지역없음' ELSE FN_CODEBOOK('CST115', UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD)) 
+               END AS GROUP_NM1,
+               CASE 
+                    WHEN BKDN_CAU_CD IS NULL OR BKDN_CAU_CD = '' THEN 'ETC' 
+                    ELSE BKDN_CAU_CD 
+               END AS GROUP_ID2,
+               CASE 
+                    WHEN BKDN_CAU_CD IS NULL OR BKDN_CAU_CD = '' THEN '미완료' 
+                    ELSE
+                         CASE 
+                              WHEN 'BKDN_CAU_CD' = 'SUBSTR(BKDN_LOC_CD,1,4)' THEN FN_CODEBOOK('020000',BKDN_CAU_CD || '00')
+                              ELSE  FN_CODEBOOK('020000',BKDN_CAU_CD) 
+                         END
+               END AS GROUP_NM2,
+               COUNT(*) AS CNT
+          FROM 
+               HCSADM.UC_ASS_BASE AS A
+                      LEFT OUTER JOIN HCSADM.SAP_PTNR AS G ON A.PTNR_CD = G.PTNR_CD,
+               HCSADM.UC_ASS_PROC_HIST AS B,
+               HCSADM.UC_ASS_FIN_RPT AS C,
+               HCSADM.UC_SYS_USER AS D
+         WHERE 
+               A.ACPT_NO = B.ACPT_NO
+           AND B.ACPT_NO = C.ACPT_NO
+           AND B.PROC_EGNR_USER_ID = C.PROC_USER_ID
+           AND C.PROC_USER_ID = D.USER_ID
+           AND A.PROC_TC NOT IN ('07006','07007')
+           AND SUBSTR(A.ACPT_DATE,1,6) BETWEEN '201008' AND '201008'
+           AND G.PTNR_TC = '1'
+        GROUP BY 
+               UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD), 
+               BKDN_CAU_CD
+       ) AS TMP
+GROUP BY 
+       GROUP_ID1, 
+       GROUP_NM1, 
+       GROUP_ID2, 
+       GROUP_NM2
+
+UNION ALL
+
+SELECT
+       CASE 
+            WHEN UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD) IS NULL OR UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD) = '' THEN 'ETC' 
+            ELSE UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD) 
+       END AS GROUP_ID1,
+       CASE 
+            WHEN UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD) IS NULL OR UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD) = '' THEN '지역없음' 
+            ELSE FN_CODEBOOK('CST115',UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD)) 
+       END AS GROUP_NM1,
+       'ETC2' AS GROUP_ID2,
+       '자체처리취소' AS GROUP_NM2,
+       COUNT(*) AS CNT
+  FROM 
+       HCSADM.UC_ASS_BASE AS A
+              LEFT OUTER JOIN HCSADM.SAP_PTNR AS G ON A.PTNR_CD = G.PTNR_CD,
+       HCSADM.UC_ASS_PROC_HIST AS B,
+       HCSADM.UC_ASS_FIN_RPT AS C,
+       HCSADM.UC_SYS_USER AS D
+ WHERE 
+       A.ACPT_NO = B.ACPT_NO
+   AND B.ACPT_NO = C.ACPT_NO
+   AND B.PROC_EGNR_USER_ID = C.PROC_USER_ID
+   AND C.PROC_USER_ID = D.USER_ID
+   AND A.PROC_TC = '07007'
+   AND SUBSTR(A.ACPT_DATE,1,6) BETWEEN '201008' AND '201008'
+   AND G.PTNR_TC = '1'
+GROUP BY 
+       UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD)
+
+UNION ALL
+
+SELECT
+       CASE 
+            WHEN UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD) IS NULL OR UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD) = '' THEN 'ETC' 
+            ELSE UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD) 
+       END AS GROUP_ID1,
+       CASE 
+            WHEN UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD) IS NULL OR UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD) = '' THEN '지역없음' 
+            ELSE FN_CODEBOOK('CST115',UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD)) 
+       END AS GROUP_NM1,
+       'ETC3' AS GROUP_ID2,
+       '오신고' AS GROUP_NM2,
+       COUNT(*) AS CNT
+  FROM 
+       HCSADM.UC_ASS_BASE AS A
+              LEFT OUTER JOIN HCSADM.SAP_PTNR AS G ON A.PTNR_CD = G.PTNR_CD,
+       HCSADM.UC_ASS_PROC_HIST AS B,
+       HCSADM.UC_ASS_FIN_RPT AS C,
+       HCSADM.UC_SYS_USER AS D
+ WHERE 
+       A.ACPT_NO = B.ACPT_NO
+   AND B.ACPT_NO = C.ACPT_NO
+   AND B.PROC_EGNR_USER_ID = C.PROC_USER_ID
+   AND C.PROC_USER_ID = D.USER_ID
+   AND A.PROC_TC = '07006'
+   AND SUBSTR(A.ACPT_DATE,1,6) BETWEEN '201008' AND '201008'
+   AND G.PTNR_TC = '1'
+GROUP BY 
+       UF_DECODE(SUBSTR(A.AREA_CD,1,2),'02','01' || SUBSTR(A.AREA_CD,3,4),A.AREA_CD)
+ORDER BY 
+       GROUP_ID1, 
+       GROUP_ID2
+FOR FETCH ONLY 
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="CS170_ARA" size="255" type="VARCHAR" description="" /> 
+		<col name="CS170_BSU" size="255" type="VARCHAR" description="" /> 
+		<col name="CS170_YYM" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

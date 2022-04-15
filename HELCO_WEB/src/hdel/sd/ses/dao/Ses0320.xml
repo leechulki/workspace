@@ -1,0 +1,487 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.ses.dao.Ses0320D"> 
+  
+	<resultMap id="selectListSpecMap" type="hdel.sd.ses.domain.Ses0320"> 
+		<result property="mclass"   column="mclass"   />
+		<result property="atkla"   column="atkla"  />
+		<result property="prh"   column="prh" />
+		<result property="prd"   column="prd"  />
+		<result property="prhname"   column="PRHNAME"  />
+		<result property="ztplgbn"   column="ztplgbn"  />
+		<result property="zprdgbn"   column="zprdgbn"  />
+		<result property="zrmk"   column="zrmk"  />
+		<result property="cnt"   column="cnt"  />
+		<result property="atfor" column="ATFOR" />
+		<result property="pcncd" column="PCNCD" />
+		<result property="brndcd" column="BRNDCD" />
+		<result property="brndseq" column="BRNDSEQ" />
+		<result property="disptp" column="DISPTP" />
+		<result property="moditp" column="MODITP" />
+	</resultMap>
+	
+	<select id="selectListTemp" parameterType="hdel.sd.ses.domain.Ses0320ParamVO" resultMap="selectListSpecMap">
+SELECT  'I' AS FLAG
+         , T.ZPRDGBN AS MCLASS
+         , T.ATKLA
+         , T.ATFOR
+         , T.PRH
+         , T.PRHNAME
+         , '' AS PRD
+         , T.CNT
+         , CASE WHEN LOCATE('\', T.PRHNAME) > 0 THEN 'C' ELSE 'N' END AS PCNCD
+         , T.BRNDCD
+         , T.BRNDSEQ
+         , T.DISPTP
+         , T.MODITP
+FROM     (
+         SELECT A.MANDT
+              , A.BRNDSEQ
+              , A.ZPRDGBN
+              , A.PRH
+              , B.ATKLA
+              , B.ATFOR
+              , (SELECT ATBEZ FROM SAPHEE.CABNT WHERE MANDT = B.MANDT AND ATINN = B.ATINN AND SPRAS = #{spras}) AS PRHNAME
+              , ( SELECT COUNT(*)
+                  FROM SAPHEE.CAWN
+                 WHERE MANDT = A.MANDT
+                   AND ATINN = B.ATINN  ) AS CNT
+              , A.BRNDCD
+              , A.DISPTP
+              , A.MODITP
+         FROM   SAPHEE.ZSDT1141 AS A
+                INNER JOIN SAPHEE.CABN AS B ON A.MANDT = B.MANDT AND A.PRH = B.ATNAM
+     	         LEFT OUTER JOIN SAPHEE.ZSDT1073 AS C ON C.MANDT = A.MANDT AND C.CLASS = A.ZPRDGBN  AND C.ATNAM = A.PRH
+          WHERE  A.MANDT = #{mandt}
+           AND  A.BRNDSEQ = (SELECT MAX(BRNDSEQ) FROM SAPHEE.ZSDT1140 WHERE MANDT = #{mandt} AND ZPRDGBN = #{zprdgbn} AND BRNDCD = #{brndcd} AND HEX(CURRENT DATE) BETWEEN FRDAT AND TODAT) 
+           AND  A.ZPRDGBN = #{zprdgbn}
+           AND  A.BRNDCD  = #{brndcd}
+           AND  A.DISPTP = 'X'
+           AND  A.MODITP = 'X' 
+           AND  A.DIPSDAT > HEX(CURRENT DATE)
+           AND  C.ATNAM IS NULL
+         ) T
+ORDER BY CASE WHEN T.ATKLA = ' ' THEN '2' || T.ATKLA ELSE '1' || T.ATKLA END, T.PRHNAME
+WITH UR
+	</select>
+
+	<select id="selectListQt" parameterType="hdel.sd.ses.domain.Ses0320ParamVO" resultMap="selectListSpecMap">
+SELECT X.PRH
+      ,NVL(Y.PRD, '') AS PRD
+FROM  (
+	    SELECT A.MANDT
+              ,C.QTNUM
+              ,C.QTSER
+              ,C.QTSEQ
+              ,ROW_NUMBER() over(partition by C.QTSEQ) AS PRSEQ
+	          ,A.PRH
+	          ,(SELECT ATBEZ FROM SAPHEE.CABNT WHERE MANDT = B.MANDT AND ATINN = B.ATINN AND SPRAS = '3') AS PRHNAME
+	          ,(SELECT COUNT(MANDT) FROM SAPHEE.CAWN WHERE MANDT = A.MANDT AND ATINN = B.ATINN ) AS CNT
+              ,B.ATINN
+	          ,B.ATKLA
+	          ,B.ATFOR
+	          ,A.BRNDSEQ
+	          ,A.ZPRDGBN
+	          ,A.BRNDCD
+	          ,A.DISPTP
+	          ,A.MODITP
+	    FROM  SAPHEE.ZSDT1141 AS A
+	          INNER JOIN SAPHEE.CABN AS B ON A.MANDT = B.MANDT AND A.PRH = B.ATNAM
+	          INNER JOIN TABLE (
+			              SELECT MANDT
+			                 , QTNUM
+			                 , QTSER
+			                 , QTSEQ
+			                 , BRNDSEQ
+			                 , NVL(ZPRDGBN, 'ELV_01') AS ZPRDGBN
+			                 , CASE WHEN TRIM(BRNDCD) = '' THEN
+			                       'NOBRND'
+			                       WHEN BRNDCD = NULL THEN 
+			                       'NOBRND'
+			                       ELSE
+			                        BRNDCD
+			                    END AS BRNDCD	                 
+			              FROM   SAPHEE.ZSDT1047 
+			              WHERE  MANDT = #{mandt}
+				           AND  QTNUM = #{qtnum}
+				           AND  QTSER = #{qtser}
+				           AND  QTSEQ = #{qtseq}
+		        ) AS C ON A.MANDT = C.MANDT AND A.BRNDSEQ = C.BRNDSEQ AND A.ZPRDGBN = C.ZPRDGBN AND A.BRNDCD = C.BRNDCD
+		        LEFT OUTER JOIN SAPHEE.ZSDT1073 AS D ON D.MANDT = A.MANDT AND D.CLASS = A.ZPRDGBN  AND D.ATNAM = A.PRH
+		   WHERE A.DIPSDAT > HEX(CURRENT DATE)
+		    AND  A.DISPTP = 'X'
+		    AND  A.MODITP = 'X' 
+		    AND  D.ATNAM IS NULL
+     )  X
+     LEFT OUTER JOIN (
+                  SELECT R.MANDT
+                       , R.QTNUM
+                       , R.QTSER
+                       , R.QTSEQ
+                       , R.PRH
+                       , R.PRD
+                   FROM  SAPHEE.ZSDT1048 R
+                   WHERE R.MANDT = #{mandt}
+                    AND R.QTNUM = #{qtnum}
+                    AND R.QTSER = #{qtser}
+                    AND R.QTSEQ = #{qtseq}
+     ) Y ON X.MANDT = Y.MANDT AND X.QTNUM = Y.QTNUM AND X.QTSER = Y.QTSER AND X.QTSEQ = Y.QTSEQ AND X.PRH = Y.PRH
+ORDER BY X.QTSER, X.QTSEQ, CASE WHEN X.ATKLA = ' ' THEN '2' || X.ATKLA ELSE '1' || X.ATKLA END, X.PRHNAME
+WITH UR
+	</select>
+	
+	<resultMap id="selectMinTemplateMap" type="hdel.sd.ses.domain.Ses0320"> 
+		<result property="ztplno"   column="ZTPLNO"  />
+	</resultMap>
+
+	<select id="selectMinTemplate" parameterType="hdel.sd.ses.domain.Ses0031ParamVO" resultMap="selectMinTemplateMap">
+		SELECT VALUE(MIN(ZTPLNO), '') AS ZTPLNO
+		 FROM SAPHEE.ZSDT1060
+		WHERE MANDT  = #{mandt}
+		   AND ZPRDGBN = #{mclass}
+	</select>
+
+	<select id="selectList" parameterType="hdel.sd.ses.domain.Ses0320ParamVO" resultMap="selectListSpecMap">
+SELECT     S.MANDT
+         , S.ZTPLNO
+         , S.ZTPLSEQ
+         , T.PRH
+         , S.PRD
+         , S.ZRMK
+		 , S.CDATE 
+		 , S.CTIME
+		 , S.CUSER
+		 , S.UDATE
+		 , S.UTIME
+		 , S.UUSER
+         , T.ATKLA
+         , T.PRHNAME
+         , T.CNT
+         , T.ATFOR
+         , CASE WHEN LOCATE('\', T.PRHNAME) > 0 THEN 'C' ELSE 'N' END AS PCNCD
+         , T.ZPRDGBN AS MCLASS
+         , T.BRNDCD
+         , T.BRNDSEQ
+         , T.DISPTP
+         , T.MODITP
+FROM     (
+         SELECT A.MANDT
+              , A.BRNDSEQ
+              , A.ZPRDGBN
+              , A.PRH
+              , B.ATKLA
+              , B.ATFOR
+              , (SELECT ATBEZ FROM SAPHEE.CABNT WHERE MANDT = B.MANDT AND ATINN = B.ATINN AND SPRAS = #{spras}) AS PRHNAME
+              , ( SELECT COUNT(*)
+                  FROM SAPHEE.CAWN
+                 WHERE MANDT = A.MANDT
+                   AND ATINN = B.ATINN  ) AS CNT
+              , A.BRNDCD
+              , A.DISPTP
+              , A.MODITP
+         FROM   SAPHEE.ZSDT1141 AS A
+                INNER JOIN SAPHEE.CABN AS B ON A.MANDT = B.MANDT AND A.PRH = B.ATNAM
+     	        LEFT OUTER JOIN SAPHEE.ZSDT1073 AS C ON C.MANDT = A.MANDT AND C.CLASS = A.ZPRDGBN  AND C.ATNAM = A.PRH
+          WHERE  A.MANDT = #{mandt}
+           AND  A.BRNDSEQ = (
+                            SELECT  NVL(MAX(BRNDSEQ),'000') 
+                              FROM  SAPHEE.ZSDT1140 
+                             WHERE  MANDT = #{mandt}
+                               AND  ZPRDGBN = #{zprdgbn} 
+                               AND  BRNDCD  = #{brndcd} 
+                               AND  (SELECT DECODE(CDATE, '00000000', HEX(CURRENT DATE), CDATE) FROM SAPHEE.ZSDT1060 WHERE MANDT = #{mandt} AND ZTPLNO = #{ztplno}) BETWEEN FRDAT AND TODAT)
+           AND  A.ZPRDGBN = #{zprdgbn}  
+           AND  A.BRNDCD  = #{brndcd}
+           AND  A.DISPTP = 'X'
+           AND  A.MODITP = 'X'   
+           AND  A.DIPSDAT > HEX(CURRENT DATE)
+           AND  C.ATNAM IS NULL
+         ) T
+         INNER JOIN TABLE (
+                          SELECT  MANDT
+                                , ZTPLNO
+                                , ZTPLSEQ
+                                , PRH
+                                , PRD
+                                , ZRMK
+                        		, CDATE 
+                      		    , CTIME
+                        		, CUSER
+		                        , UDATE
+		                        , UTIME
+		                        , UUSER
+                            FROM  SAPHEE.ZSDT1061
+                            WHERE MANDT = #{mandt}
+                              AND ZTPLNO = #{ztplno}) AS S ON T.MANDT = S.MANDT AND T.PRH = S.PRH
+ORDER BY CASE WHEN T.ATKLA = ' ' THEN '2' || T.ATKLA ELSE '1' || T.ATKLA END, T.PRHNAME
+WITH UR
+	</select>
+
+	<select id="selectListOld" parameterType="hdel.sd.ses.domain.Ses0320ParamVO" resultMap="selectListSpecMap">
+		SELECT A.MANDT
+				, A.ZTPLNO
+				, A.ZTPLSEQ
+				, A.PRH
+				, A.PRD
+				, A.ZRMK
+				, A.CDATE 
+				, A.CTIME
+				, A.CUSER
+				, A.UDATE
+				, A.UTIME
+				, A.UUSER
+				, B.ZTPLGBN AS MCLASS
+				, B.ZTPLNM  
+				, T.ATKLA
+				, T.PRHNAME
+				, T.CNT
+		  FROM SAPHEE.ZSDT1061 AS A
+					INNER JOIN	SAPHEE.ZSDT1060 AS B ON A.MANDT = B.MANDT	AND A.ZTPLNO = B.ZTPLNO	
+					INNER JOIN
+					( SELECT	'I'         AS FLAG
+							 , D.CLASS   AS MCLASS
+							 , B.ATKLA
+							 , B.ATNAM AS PRH
+							 , C.ATBEZ  AS PRHNAME
+							 ,  ''          AS PRD
+							 , A.CLINT
+							 , A.POSNR
+							 , (
+								SELECT	COUNT(*)
+		  			  			  FROM	SAPHEE.CAWN
+		 						 WHERE	MANDT	= B.MANDT
+		   			   			   AND	ATINN	= B.ATINN
+	   							) AS CNT
+					   FROM SAPHEE.KSML AS A
+								INNER JOIN	SAPHEE.CABN AS B	ON A.MANDT = B.MANDT AND A.IMERK = B.ATINN
+								INNER JOIN	SAPHEE.KLAH AS D	ON A.MANDT = D.MANDT AND A.CLINT = D.CLINT
+								INNER JOIN	SAPHEE.CABNT AS C
+						  ON A.MANDT	=  #{mandt}
+						AND A.KLART	= '300'
+						AND B.MANDT  = C.MANDT
+						AND B.ATINN   = C.ATINN
+						AND C.SPRAS = #{spras}
+					) AS T  ON T.MCLASS = B.ZPRDGBN	AND T.PRH = A.PRH
+		 WHERE A.MANDT = #{mandt}
+			AND A.ZTPLNO = #{ztplno}
+			AND B.ZTPLGBN IN ('01','02')
+			AND B.ZTPLGBN LIKE '%'||#{ztplgbn}||'%'
+			AND A.ZRMK LIKE '%'||#{zrmk}||'%'
+	 ORDER BY T.MCLASS
+				 , T.ATKLA
+				 , T.CLINT
+				 , T.POSNR
+	</select>
+	
+	<select id="findHeaderSeq" parameterType="hdel.sd.ses.domain.Ses0320ParamVO" resultMap="selectListSpecMap">
+        SELECT VALUE(MAX(CAST(ZTPLNO AS DECIMAL))+1, 1) AS ZTPLNO 
+          FROM SAPHEE.ZSDT1060 
+         WHERE MANDT = #{mandt}
+	</select>
+	
+	<insert id="mergeHeader" parameterType="hdel.sd.ses.domain.Ses0320ParamVO">
+		MERGE INTO SAPHEE.ZSDT1060 AS T1
+		USING ( SELECT  CAST(#{mandt}     AS VARCHAR(9))  AS MANDT
+						, CAST(#{ztplno}  AS VARCHAR(30)) AS ZTPLNO
+						, CAST(#{ztplgbn} AS VARCHAR(6))  AS ZTPLGBN
+						, CAST(#{ztplnm}  AS VARCHAR(150))AS ZTPLNM
+						, CAST(#{zprdgbn} AS VARCHAR(60)) AS ZPRDGBN
+			      FROM SYSIBM.SYSDUMMY1
+			  ) AS T2 ON T1.MANDT  = T2.MANDT
+					 AND T1.ZTPLNO = T2.ZTPLNO
+	
+		WHEN MATCHED THEN
+				UPDATE SET T1.MANDT      = #{mandt}
+						    , T1.ZTPLNO  = #{ztplno}
+						    , T1.ZTPLGBN = #{ztplgbn}
+							, T1.ZTPLNM  = #{ztplnm}
+							, T1.ZPRDGBN = #{zprdgbn}
+							, T1.ZRMK = #{zrmk}
+							, T1.BRNDCD = #{brndcd}
+							, T1.UDATE = HEX(CURRENT DATE)
+	
+		WHEN NOT MATCHED THEN
+				INSERT (  MANDT
+						  , ZTPLNO
+						  , ZTPLGBN
+						  , ZTPLNM	
+						  , ZPRDGBN			
+						  , ZWRITER	
+						  , ZRMK
+						  , BRNDCD
+						  , CDATE
+						  , UDATE
+						  ) VALUES (
+						    #{mandt}
+						  , #{ztplno}
+						  , #{ztplgbn} 
+						  , #{ztplnm}  
+						  , #{zprdgbn}
+						  , #{zwriter}
+						  , #{zrmk}					
+						  , #{brndcd}
+						  , HEX(CURRENT DATE)
+						  , HEX(CURRENT DATE)					
+					   )
+	</insert>	
+	
+	
+	<insert id="mergeDetail" parameterType="hdel.sd.ses.domain.Ses0320ParamVO">
+		MERGE INTO SAPHEE.ZSDT1061 AS T1
+		USING ( SELECT  CAST(#{mandt}     AS VARCHAR(9))   AS MANDT
+						, CAST(#{ztplno}  AS VARCHAR(30))  AS ZTPLNO
+						, CAST(#{ztplseq} AS SMALLINT)     AS ZTPLSEQ
+						, CAST(#{prh}     AS VARCHAR(45))  AS PRH
+						, CAST(#{prd}     AS VARCHAR(45))  AS PRD						
+			      FROM SYSIBM.SYSDUMMY1
+			  ) AS T2 ON T1.MANDT   = T2.MANDT
+					 AND T1.ZTPLNO  = T2.ZTPLNO
+					 AND T1.ZTPLSEQ = T2.ZTPLSEQ
+	
+		WHEN MATCHED THEN
+				UPDATE SET T1.MANDT      = #{mandt}
+						    , T1.ZTPLNO  = #{ztplno}
+							, T1.ZTPLSEQ = #{ztplseq}
+							, T1.PRH     = #{prh}
+							, T1.PRD     = #{prd}						
+							, T1.UDATE = HEX(CURRENT DATE)
+	
+		WHEN NOT MATCHED THEN
+				INSERT (  
+				          MANDT
+						  , ZTPLNO
+						  , ZTPLSEQ
+						  , PRH
+						  , PRD						
+						  , CDATE
+						  , UDATE
+						  ) VALUES (
+						   #{mandt}
+						  , #{ztplno}
+						  , ( SELECT VALUE(MAX(ZTPLSEQ)+1, 1)
+							   FROM SAPHEE.ZSDT1061
+							 WHERE MANDT    = #{mandt}
+								AND ZTPLNO  = #{ztplno}
+							)
+						  , #{prh}
+						  , #{prd}						
+						  , HEX(CURRENT DATE)
+						  , HEX(CURRENT DATE)					
+					   )
+	</insert>
+	
+	<delete id="deleteHeader" parameterType="hdel.sd.ses.domain.Ses0320ParamVO">
+		DELETE FROM SAPHEE.ZSDT1060
+         WHERE MANDT  = #{mandt}
+           AND ZTPLNO = #{ztplno}
+	</delete>
+	
+	<delete id="deleteDetail" parameterType="hdel.sd.ses.domain.Ses0320ParamVO">
+		DELETE FROM SAPHEE.ZSDT1061
+         WHERE MANDT   = #{mandt}
+           AND ZTPLNO  = #{ztplno}
+	</delete>
+
+
+	<select id="selectListPt" parameterType="hdel.sd.ses.domain.Ses0320ParamVO" resultMap="selectListSpecMap">
+SELECT  X.PRH
+       ,NVL(Y.CHAR_VALUE, '') AS PRD
+FROM  (
+	    SELECT A.MANDT
+              ,C.PSPID
+              ,C.POSNR
+              ,C.MATNR
+              ,C.HOGI
+	          ,A.PRH
+              ,B.ATINN
+	          ,B.ATKLA
+	          ,B.ATFOR
+	          ,A.BRNDSEQ
+	          ,A.ZPRDGBN
+	          ,A.BRNDCD
+	          ,A.DISPTP
+	          ,A.MODITP
+	     FROM   SAPHEE.ZSDT1141 AS A
+	           INNER JOIN SAPHEE.CABN AS B ON A.MANDT = B.MANDT AND A.PRH = B.ATNAM
+	           INNER JOIN TABLE (
+                              SELECT X.MANDT
+                                    ,X.PSPID
+                                    ,X.POSNR
+                                    ,X.MATNR
+                                    ,X.HOGI
+                                    ,X.BRNDSEQ
+                                    ,X.ZPRDGBN
+                                    ,X.BRNDCD
+                                    ,X.MAX_QTNUM
+                              FROM  (
+                              		  SELECT A.MANDT
+                              		        ,A.ZZPJT_ID AS PSPID
+                              		        ,B.POSNR
+                              		        ,B.MATNR
+                              		        ,CASE B.MATNR WHEN 'L-1000' THEN 'ELV_01'
+                              		                      WHEN 'L-1100' THEN 'WL_01'
+                              		                      WHEN 'L-1200' THEN 'DW_01'
+                              		                      WHEN 'L-2000' THEN 'ELV_02'
+                              		                      WHEN 'S-1000' THEN 'ESC_01'
+                              		                      WHEN 'W-1000' THEN 'MW_01'
+                              		                      WHEN 'J-1000' THEN 'AP_01'
+                              		                      WHEN 'T-1000' THEN 'SV_01'
+                              		                      WHEN 'Y-1000' THEN 'SP_01'
+                              		         END AS ZPRDGBN
+                              		        ,B.HOGI AS HOGI
+                              		        ,MAX(C.QTNUM) OVER(PARTITION BY A.MANDT, A.ZZPJT_ID) AS MAX_QTNUM
+                              		        ,NVL(C.QTNUM, '') AS QTNUM
+                              		        ,C.QTSER
+                              		        ,C.QTSEQ
+                                            ,CASE WHEN B.BRNDCD IS NULL THEN
+                                                   'NOBRND'
+                                                  WHEN TRIM(B.BRNDCD) = '' THEN
+                                                   'NOBRND'
+                                             ELSE
+                                                 B.BRNDCD
+                                             END AS BRNDCD
+                              		        ,B.BRNDSEQ AS BRNDSEQ
+                              		  FROM   SAPHEE.VBAK AS A
+                              		         INNER JOIN SAPHEE.VBAP AS B ON A.MANDT = B.MANDT AND A.VBELN = B.VBELN
+                              		         LEFT OUTER JOIN SAPHEE.ZSDT1047 AS C ON B.MANDT = B.MANDT AND B.QTNUM = C.QTNUM AND B.QTSER = C.QTSER AND B.QTSEQ = C.QTSEQ
+                              		  WHERE  A.MANDT = #{mandt}
+                              		    AND  A.ZZPJT_ID = SUBSTR(#{hogi},1,6)
+                              		    AND  B.HOGI = #{hogi}
+                              		  ) AS X  
+		        ) AS C ON A.MANDT = C.MANDT AND A.BRNDSEQ = C.BRNDSEQ AND A.ZPRDGBN = C.ZPRDGBN AND A.BRNDCD = C.BRNDCD
+		        LEFT OUTER JOIN SAPHEE.ZSDT1073 AS D ON D.MANDT = A.MANDT AND D.CLASS = A.ZPRDGBN  AND D.ATNAM = A.PRH
+		 WHERE  A.DIPSDAT > HEX(CURRENT DATE)
+		   AND  A.DISPTP = 'X'
+		   AND  A.MODITP = 'X' 
+		   AND  D.ATNAM IS NULL
+     )  AS X
+     LEFT OUTER JOIN (SELECT A.MANDT
+                             , A.ZZPJT_ID AS PSPID
+                             , B.POSNR
+                             , B.HOGI
+                             , B.MATNR
+                             , CASE F.ATWRT WHEN '' THEN TRIM(CHAR(BIGINT(VALUE(F.ATFLV,0)))) ELSE TRIM(F.ATWRT) END AS CHAR_VALUE
+                             , '' AS CHAR_VALUEMD
+                             , H.ATWTB
+                             , F.ATINN
+                        FROM SAPHEE.VBAK AS A
+                             INNER JOIN SAPHEE.VBAP AS B ON A.MANDT = B.MANDT AND A.VBELN = B.VBELN  
+                             INNER JOIN SAPHEE.IBINOWN AS C ON B.MANDT = C.MANDT AND B.CUOBJ = C.INSTANCE 
+                             INNER JOIN SAPHEE.IBIN AS D ON C.MANDT = D.MANDT AND C.INSTANCE = D.INSTANCE
+                             INNER JOIN SAPHEE.IBINVALUES AS E ON D.MANDT = E.MANDT AND D.IN_RECNO = E.IN_RECNO
+                             INNER JOIN SAPHEE.IBSYMBOL AS F  ON E.MANDT = F.MANDT AND E.SYMBOL_ID = F.SYMBOL_ID
+                             LEFT OUTER JOIN (SELECT T1.ATWTB, T2.ATINN, T2.ATWRT  
+                                                      FROM SAPHEE.CAWNT AS T1 
+                                                           INNER JOIN SAPHEE.CAWN AS T2 ON T1.MANDT = T2.MANDT AND T1.ATINN = T2.ATINN AND T1.ATZHL = T2.ATZHL AND T1.SPRAS = '3'
+                                                     WHERE T1.MANDT = #{mandt}
+                                                       AND T1.SPRAS = '3') AS H ON F.ATINN = H.ATINN AND F.ATWRT = H.ATWRT
+                       WHERE A.MANDT = #{mandt}
+                         AND A.ZZPJT_ID = SUBSTR(#{hogi},1,6)
+                         AND B.HOGI = #{hogi}
+     ) AS Y ON X.MANDT = X.MANDT AND X.PSPID = Y.PSPID AND X.POSNR = Y.POSNR AND X.HOGI = Y.HOGI AND X.MATNR = Y.MATNR AND X.ATINN = Y.ATINN
+WITH UR
+	</select>
+	
+</mapper>  

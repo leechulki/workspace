@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[불출현황 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT AA.*, 
+ 		  ROUND( DECIMAL((AA.CSC * 100)) / (AA.CSC+AA.FMC+AA.MMPRC+AA.NCC),0) AS CSR ,
+ 		  ROUND( DECIMAL((AA.FMC * 100)) / (AA.CSC+AA.FMC+AA.MMPRC+AA.NCC),0) AS FMR ,
+ 		  ROUND( DECIMAL((AA.MMPRC * 100)) / (AA.CSC+AA.FMC+AA.MMPRC+AA.NCC),0) AS MMPRR ,
+ 		  ROUND( DECIMAL((AA.NCC * 100)) / (AA.CSC+AA.FMC+AA.MMPRC+AA.NCC),0) AS NCR ,
+		   (AA.CSC+AA.FMC+AA.MMPRC+AA.NCC) AS SUMC,
+		   '100' AS SUMR
+
+  FROM 
+       (SELECT CAST(#YEAR# AS VARCHAR(4)) AS YEAR, 
+              CAST(#MONTH# AS VARCHAR(2))||' 월' AS MONTH, 
+              VKGRPNM AS BSU, 
+              SUM(DECODE(GBN,'1', DMBTR,0))/10 AS CSC, 
+              SUM(DECODE(GBN,'2', DMBTR,0))/10 AS FMC, 
+              SUM(DECODE(GBN,'3', DMBTR,0))/10 AS MMPRC, 
+              SUM(DECODE(GBN,'4', DMBTR,0))/10 AS NCC   
+         FROM 
+              (SELECT MM108.MANDT, 
+                     MM108.BUDAT, 
+                     WB010.VKGRP, 
+                     SAPHEE.CODE_CONV('183', 'VKBUR', ZC.DTEXT1) AS VKGRPNM, 
+                     MM108.DMBTR, 
+                     CASE 
+                         WHEN 
+                             ( 
+                                 REQKIND_TXT IN ('유상청구', '재청구','수리공사', '시스템공사', '업체재고소진청구', '보수실패현장자재청구', '공사용청구') 
+                                 OR 
+                                 (
+                                     REQKIND_TXT='' 
+                                     AND 
+                                     (
+                                         SUBSTR(POSID,7,2) IN ('NS','NB','NC') 
+                                     ) 
+                                 ) 
+                             ) 
+                         THEN 1 
+                         WHEN 
+                             ( 
+                                 REQKIND_TXT IN ('FM청구', 'FM재고소진청구') 
+                             ) 
+                         THEN 2 
+                         WHEN 
+                             ( 
+                                 REQKIND_TXT IN ('MMPR 수리청구', 'MMPR 업체재고 소진', 'MMPR 청구') 
+                             ) 
+                         THEN 3 
+                         WHEN 
+                             ( 
+                                 REQKIND_TXT IN ('무상청구') 
+                             ) 
+                         THEN 4 
+                     END AS GBN  
+                FROM SAPHEE.ZMMT108 AS MM108, 
+                     SAPHEE.ZWBT010 WB010,
+                     SAPHEE.ZLCODE ZC 
+               WHERE 1=1 
+                     AND MM108.LGORT = WB010.LGORT --	AND WB010.USED = '' 
+                     AND WB010.LGORT != '' 
+                     AND MM108.MANDT = WB010.MANDT
+                     AND MM108.MANDT = #G_MANDT#
+                     AND SUBSTR(MM108.BUDAT,1,6) = #YEAR#||#MONTH# 
+					 AND ZC.MANDT= #G_MANDT#
+					 AND ZC.LANG= #G_LANG#
+					 AND ZC.CODE1 = 'VKGRP'
+					 AND ZC.CODE2 = WB010.VKGRP
+--					 AND ZC.DTEXT1 IN ('EA00','EB00','EC00','ED00','EE00','EF00','EI00','EK00')
+			<isNotNull col="ARA">
+					AND WB010.BSU_ARA = #ARA#
+			</isNotNull>
+			<isNotNull col="BSU">
+					AND WB010.LGORT = #BSU#
+			</isNotNull>
+			<isNotNull col="BPM">
+					AND WB010.BSU_PM = #BPM#
+			</isNotNull>
+			<isNotNull col="TEM">
+					AND WB010.VKGRP = #TEM#
+			</isNotNull>
+			<isNull col="TEM">
+				<isNotNull col="DPT">
+					AND ZC.DTEXT1 = #DPT#
+				</isNotNull>	
+			</isNull>
+
+
+
+              ) 
+        GROUP BY VKGRPNM  
+           UNION ALL 
+       SELECT CAST(#YEAR# AS VARCHAR(4)) AS YEAR, 
+              '누계' AS MONTH, 
+              VKGRPNM AS BSU, 
+              SUM(DECODE(GBN,'1', DMBTR,0))/10 AS CSC, 
+              SUM(DECODE(GBN,'2', DMBTR,0))/10 AS FMC, 
+              SUM(DECODE(GBN,'3', DMBTR,0))/10 AS MMPRC, 
+              SUM(DECODE(GBN,'4', DMBTR,0))/10 AS NCC   
+         FROM 
+              (SELECT MM108.MANDT, 
+                     MM108.BUDAT, 
+                     WB010.VKGRP, 
+                     SAPHEE.CODE_CONV('183', 'VKBUR', ZC.DTEXT1) AS VKGRPNM, 
+                     MM108.DMBTR, 
+                     CASE 
+                         WHEN 
+                             ( 
+                                 REQKIND_TXT IN ('유상청구', '재청구','수리공사','시스템공사','업체재고소진청구', '보수실패현장자재청', '공사용청구') 
+                                 OR 
+                                 (
+                                     REQKIND_TXT='' 
+                                     AND 
+                                     (
+                                         SUBSTR(POSID,7,2) IN ('NS','NB','NC') 
+                                     ) 
+                                 ) 
+                             ) 
+                         THEN 1 
+                         WHEN 
+                             ( 
+                                 REQKIND_TXT IN ('FM청구', 'FM재고소진청구') 
+                             ) 
+                         THEN 2 
+                         WHEN 
+                             ( 
+                                 REQKIND_TXT IN ('MMPR 수리청구', 'MMPR 업체재고 소진', 'MMPR 청구') 
+                             ) 
+                         THEN 3 
+                         WHEN 
+                             ( 
+                                 REQKIND_TXT IN ('무상청구') 
+                             ) 
+                         THEN 4 
+                     END AS GBN  
+                FROM SAPHEE.ZMMT108 AS MM108, 
+                     SAPHEE.ZWBT010 WB010,
+                     SAPHEE.ZLCODE ZC 
+               WHERE 1=1 
+                     AND MM108.LGORT = WB010.LGORT --	AND WB010.USED = '' 
+                     AND WB010.LGORT != '' 
+                     AND MM108.MANDT = WB010.MANDT
+                     AND MM108.MANDT = #G_MANDT#
+                     AND MM108.BUDAT &gt; (REPLACE(CHAR(DATE(SAPHEE.GET_DATE_FORMAT(#YEAR#||'1231')) -1 YEAR),'-','')) 
+                     AND MM108.BUDAT &lt; (REPLACE(CHAR(DATE(SAPHEE.GET_DATE_FORMAT(#YEAR#||#MONTH#||'01')) +1 MONTH),'-','')) 
+					 AND ZC.MANDT= #G_MANDT#
+					 AND ZC.LANG= #G_LANG#
+					 AND ZC.CODE1 = 'VKGRP'
+					 AND ZC.CODE2 = WB010.VKGRP
+--					 AND ZC.DTEXT1 IN ('EA00','EB00','EC00','ED00','EE00','EF00','EI00','EK00')
+			<isNotNull col="ARA">
+					AND WB010.BSU_ARA = #ARA#
+			</isNotNull>
+			<isNotNull col="BSU">
+					AND WB010.VKGRP = #BSU#
+			</isNotNull>
+			<isNotNull col="BPM">
+					AND WB010.BSU_PM = #BPM#
+			</isNotNull>
+			<isNotNull col="TEM">
+					AND WB010.VKGRP = #TEM#
+			</isNotNull>
+			<isNull col="TEM">
+				<isNotNull col="DPT">
+					AND ZC.DTEXT1 = #DPT#
+				</isNotNull>	
+			</isNull>
+              ) 
+        GROUP BY VKGRPNM 
+       ) AA
+ORDER BY BSU , 
+       MONTH  
+
+ FOR FETCH ONLY
+  WITH UR	
+
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list_t0">
+	</output>
+</query>

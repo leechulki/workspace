@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT   T.PSPID,T.POSID, T.GUBUN, T.PRONR , T.PROWRK ,T.PRO_R , P.SAFE, P.VER 
+        , P2.SAFE_CK
+        , '' AS APPR1_YN
+        , '' AS APPR2_YN
+        , '' AS APPR3_YN
+    FROM
+  ( 
+      SELECT Z.MANDT, Z.PSPID, Z.POSID, Z.PRONR ,Z.PRO_R, Z.PROWRK ,  
+             (SELECT X.ZZGUBUN FROM SAPHEE.ZMASTER02 AS X WHERE X.MANDT = #G_MANDT#  AND X.POSID = #PSPID# AND X.POSID_1 = #POSID#) AS GUBUN,
+             (SELECT X.TYPE FROM SAPHEE.ZMASTER02 AS X WHERE X.MANDT = #G_MANDT#  AND X.POSID = #PSPID# AND X.POSID_1 = #POSID#) AS TYPE,
+             (SELECT X.VER FROM SAPHEE.ZMASTER02 AS X WHERE X.MANDT = #G_MANDT#  AND X.POSID = #PSPID# AND X.POSID_1 = #POSID#) AS VER
+               
+            FROM SAPHEE.ZPSTW0304 AS Z
+                 WHERE Z.MANDT =  #G_MANDT#
+                     AND Z.PSPID = #PSPID#
+				     AND Z.POSID = #POSID#
+  				     AND Z.INP_DT  &lt;=  #INP_DTF#
+  				     AND Z.COM_CHK = '1'
+                  GROUP BY Z.MANDT, Z.PSPID, Z.POSID, Z.PRONR ,Z.PRO_R ,Z.PROWRK
+				  ) AS T
+				  
+	  LEFT OUTER JOIN SAPHEE.ZPST0111 AS P
+     ON T.MANDT = P.MANDT
+	  AND T.GUBUN = P.GUBUN 
+	  AND T.TYPE = P.TYPE
+	  AND T.VER  = P.VER
+	  AND T.PRONR = P.PRONR 
+	 LEFT OUTER JOIN (
+   			SELECT T1.MANDT
+			     , T1.GUBUN
+			     , T1.TYPE
+			     , T1.VER
+			     , T2.GNO
+			     , T3.PRONR
+			     , T2.SAFE_CK
+			  FROM SAPHEE.ZPST0111M AS T1
+			  LEFT OUTER JOIN SAPHEE.ZPST1106 AS T2
+			               ON T1.MANDT     = T2.MANDT
+			              AND T1.STEP3_GBN = T2.TYPE
+			  LEFT OUTER JOIN SAPHEE.ZPST0111T AS T3
+			               ON T3.MANDT = T1.MANDT
+			              AND T3.GUBUN = T1.GUBUN
+			              AND T3.TYPE = T1.TYPE
+			              AND T3.VER = T1.VER
+			              AND T3.GNO = T2.GNO
+			 WHERE T1.MANDT = #G_MANDT#
+               AND T1.TYPE <![CDATA[<>]]> ''
+       ) AS P2
+        ON P2.MANDT = P.MANDT
+       AND P2.GUBUN = P.GUBUN
+       AND P2.TYPE  = P.TYPE
+       AND P2.VER   = P.VER
+       AND P2.PRONR = P.PRONR			  
+   WHERE T.MANDT  = #G_MANDT#
+     AND P.VER    = #VER#
+        AND NOT EXISTS ( SELECT *
+                           FROM SAPHEE.ZPST0112 AS ST2
+										      WHERE ST2.MANDT = T.MANDT
+										        AND ST2.PSPID = T.PSPID
+											      AND ST2.POSID = T.POSID
+											      AND ST2.GUBUN = T.GUBUN
+											      AND ST2.PRONR  = T.PRONR)
+						 
+						 
+			
+ <isEqual col="SAFE" value="N">
+    AND P.SAFE = 'N'
+ </isEqual>
+  <isEqual col="SAFE" value="A">
+    AND P.SAFE IN ('A' , 'N')
+ </isEqual>
+  <isEqual col="SAFE" value="B">
+    AND P.SAFE IN ('N', 'A','B')
+ </isEqual>
+  <isEqual col="SAFE" value="C">
+    AND P.SAFE IN ('N', 'A','B', 'C')
+ </isEqual>
+ 			 			 			 
+ 			  			 
+	ORDER BY  T.PSPID, T.POSID, T.PRONR
+	
+	FOR FETCH ONLY
+   WITH UR</statement>
+	<input default-name="ds_cond1">
+	</input>
+	<output default-name="ds_list3">
+	</output>
+</query>

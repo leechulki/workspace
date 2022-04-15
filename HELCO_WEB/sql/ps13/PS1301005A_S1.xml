@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  '0' AS CHK,'' AS FLAG,P1.MANDT    ,P1.LIFNR      ,P1.PERNO      ,P1.NAME1     ,TYPE       ,P1.TELNO_O
+              ,P1.FAX_O     ,P1.GUBUN     ,P1.ACTSS       ,P1.NAMEE     ,P1.TEMNO     ,P1.NAMET       ,P1.NAMEC
+              ,CASE WHEN POSIC = 'X' THEN '대표 ' ELSE '' END || 
+               CASE WHEN POSIT = 'X' THEN '팀장' ELSE '' END || 
+               CASE WHEN POSIE = 'X' THEN '사원' ELSE '' END AS POSIT_NM
+              ,POSIT
+             -- ,SUBSTR(saphee.decrypt(JUMIN),1,6)||'-'||SUBSTR(saphee.decrypt(JUMIN),7) AS JUMIN
+              ,P1.PERKEY,  P1.BIRTH,   P1.PSPID
+              ,ADDRE   ,CELLP    ,MAJOR     ,DIRECT     ,INDIRECT
+             ,TRIM(CHAR(INT(CAREY)))||'년'||TRIM(CHAR(INT(CAREM)))||'월' AS CAREYM
+              ,INSU1     ,INSU2     ,INSU3     ,INSU4
+              ,CASE WHEN RETIF = 'X' THEN RETID ELSE ENTER END AS ENTER
+              ,CASE WHEN RETIF = 'X' THEN '삭제' ELSE '등록' END AS RETIF
+              ,ZLCD109.CTEXT2 AS RSN1   ,ZLCD110.CTEXT2 AS RSN2      ,ZLCD111.CTEXT2 AS RSN3
+              ,ZPST0147.BIGO  AS RSN4
+              ,DELEF     ,P1.CNAME     ,P1.ENAME     ,P1.CDATE     ,P1.EDATE     ,PICTU
+              ,INSUNM||'/'||INSUNO AS INSUNO        ,PICINSU      ,STATS
+
+              ,(SELECT CASE WHEN COUNT(*) = 0 THEN '' ELSE TRIM(CHAR(COUNT(*)))||'차' END 
+                   FROM SAPHEE.ZPST0001 AS P2 
+                 WHERE P2.MANDT = P1.MANDT 
+                     --AND REPLACE(saphee.decrypt(P2.JUMIN),'-','') = REPLACE(saphee.decrypt(P1.JUMIN),'-','') 
+                     AND P2.PERKEY  = P1.PERKEY
+                     AND P2.RETIF = 'X') AS CHASU
+
+              --,(SELECT CELLP
+              --     FROM  SAPHEE.ZPST0001 AS P
+              --               ,SAPHEE.ZUSERF AS U
+              --    WHERE P.MANDT = P1.MANDT          AND P.LIFNR = P1.LIFNR                      
+              --        AND P.RETIF = ''                          AND P.CELLP > ''
+              --        AND P.MANDT = U.MANDT           AND P.LIFNR = U.USERCODE
+              --        AND REPLACE(saphee.decrypt(P.JUMIN),'-','') = REPLACE(U.USERJUNO,'-','')
+              --        FETCH FIRST 1 ROWS ONLY
+              --   ) AS PICTUNM
+                
+
+             ,LAST      ,NEXT       ,'' AS BIGO
+              ,P1.LOCALMAN , P1.NATION
+              ,P1.DUTY
+   FROM SAPHEE.ZPST0138 AS P1
+   INNER JOIN (
+                       SELECT MANDT, LIFNR, PERNO, LAST, VALUE(NEXT,'') AS NEXT
+                          FROM (
+                                      SELECT  MANDT ,LIFNR ,PERNO ,SEQ ,GID
+                                                   ,CASE WHEN GID = CAST(#G_USER_ID# AS CHAR(10)) AND SEQ = '001' THEN 'Y' 
+                                                              ELSE VALUE((SELECT SIGN 
+                                                                                      FROM SAPHEE.ZPST0143 AS P1 
+                                                                                    WHERE P1.MANDT = P.MANDT 
+                                                                                        AND P1.LIFNR = P.LIFNR AND P1.PERNO = P.PERNO 
+                                                                                        AND P1.SEQ = SAPHEE.FILLINZERO(CHAR(INT(P.SEQ)-1),3)),'')                                                      END AS SIGN   
+                                                    ,CASE WHEN SEQ = (SELECT MAX(SEQ) 
+                                                                                      FROM SAPHEE.ZPST0143 AS P3 WHERE P3.MANDT = P.MANDT                                                                                          AND P3.LIFNR = P.LIFNR AND P3.PERNO = P.PERNO) THEN 'LAST' ELSE '' END LAST
+                                                    ,(SELECT  GID  
+                                                         FROM  SAPHEE.ZPST0143 AS P3 
+                                                        WHERE  P3.MANDT = P.MANDT AND P3.LIFNR = P.LIFNR AND P3.PERNO = P.PERNO                                                             AND  P3.SEQ = SAPHEE.FILLINZERO(CHAR(INT(P.SEQ)+1),3)) AS NEXT
+                                         FROM SAPHEE.ZPST0143 AS P
+                                       WHERE MANDT = #G_MANDT#
+                                           AND TRIM(LIFNR)||TRIM(PERNO) IN (SELECT  TRIM(LIFNR)||TRIM(PERNO) 
+                                                                                                      FROM SAPHEE.ZPST0143 
+                                                                                                     WHERE MANDT = #G_MANDT# 
+                                                                                                         AND GID = #G_USER_ID# AND SIGN = '') 
+                                        ) T
+                           WHERE SIGN > ''
+                               AND GID = #G_USER_ID#
+                     ) AS PP 
+       ON P1.MANDT = PP.MANDT AND P1.LIFNR = PP.LIFNR 
+     AND P1.PERNO = PP.PERNO
+   LEFT OUTER JOIN SAPHEE.ZPST0147 AS ZPST0147 ON P1.MANDT=ZPST0147.MANDT AND P1.LIFNR=ZPST0147.LIFNR AND P1.PERNO=ZPST0147.PERNO
+   LEFT OUTER JOIN SAPHEE.ZLCODE AS ZLCD109 ON ZPST0147.MANDT=ZLCD109.MANDT AND ZLCD109.LANG=#G_LANG# AND ZLCD109.CODE1='PS109' AND ZPST0147.PS109=ZLCD109.CODE2
+   LEFT OUTER JOIN SAPHEE.ZLCODE AS ZLCD110 ON ZPST0147.MANDT=ZLCD110.MANDT AND ZLCD110.LANG=#G_LANG# AND ZLCD110.CODE1='PS110' AND ZPST0147.PS110=ZLCD110.CODE2
+   LEFT OUTER JOIN SAPHEE.ZLCODE AS ZLCD111 ON ZPST0147.MANDT=ZLCD111.MANDT AND ZLCD111.LANG=#G_LANG# AND ZLCD111.CODE1='PS111' AND ZPST0147.PS111=ZLCD111.CODE2
+WHERE P1.MANDT = #G_MANDT#
+  AND P1.STATS = 'B'
+<isNotNull col="LIFNR">
+  AND P1.LIFNR = #LIFNR#
+</isNotNull>
+<isEqual col="GUBUN" value="1">
+  AND RETIF = ''
+  <isNotNull col="DATEF">
+    --AND ENTER BETWEEN #DATEF# AND #DATET#
+    AND CDATE BETWEEN #DATEF# AND #DATET#
+  </isNotNull>
+</isEqual>
+<isEqual col="GUBUN" value="2">
+  AND RETIF = 'X'
+  <isNotNull col="DATEF">
+    AND RETID BETWEEN #DATEF# AND #DATET#
+  </isNotNull>
+</isEqual>
+<isNull col="GUBUN">
+  --AND (RETID BETWEEN #DATEF# AND #DATET# OR ENTER BETWEEN #DATEF# AND #DATET#)
+  AND CDATE BETWEEN #DATEF# AND #DATET# 
+</isNull>
+
+<isEqual col="STATS" value="Y">
+
+UNION ALL
+
+SELECT  '0' AS CHK,'' AS FLAG,P1.MANDT       ,P1.LIFNR       ,P1.PERNO       ,P1.NAME1       ,TYPE       ,P1.TELNO_O
+              ,P1.FAX_O       ,P1.GUBUN       ,P1.ACTSS       ,P1.NAMEE       ,P1.TEMNO       ,P1.NAMET       ,P1.NAMEC
+              ,CASE WHEN POSIC = 'X' THEN '대표 ' ELSE '' END || 
+               CASE WHEN POSIT = 'X' THEN '팀장' ELSE '' END || 
+               CASE WHEN POSIE = 'X' THEN '사원' ELSE '' END AS POSIT_NM
+              ,POSIT
+              --,SUBSTR(saphee.decrypt(JUMIN),1,6)||'-'||SUBSTR(saphee.decrypt(JUMIN),7) AS JUMIN
+              ,P1.PERKEY,  P1.BIRTH,   P1.PSPID
+              ,ADDRE       ,CELLP       ,MAJOR       ,DIRECT      ,INDIRECT
+              ,TRIM(CHAR(INT(CAREY)))||'년'||TRIM(CHAR(INT(CAREM)))||'월' AS CAREYM
+              ,INSU1       ,INSU2       ,INSU3       ,INSU4
+              ,CASE WHEN RETIF = 'X' THEN RETID ELSE ENTER END AS ENTER
+              ,CASE WHEN RETIF = 'X' THEN '삭제' ELSE '등록' END AS RETIF
+              ,ZLCD109.CTEXT2 AS RSN1   ,ZLCD110.CTEXT2 AS RSN2   ,ZLCD111.CTEXT2 AS RSN3  ,ZPST0147.BIGO  AS RSN4
+              ,DELEF   ,P1.CNAME    ,P1.ENAME     ,P1.CDATE    ,P1.EDATE     ,PICTU
+              ,INSUNM||'/'||INSUNO AS INSUNO
+              ,PICINSU
+              ,STATS
+            
+
+              ,(SELECT CASE WHEN COUNT(*) = 0 THEN '' ELSE TRIM(CHAR(COUNT(*)))||'차' END 
+                   FROM SAPHEE.ZPST0001 AS P2 
+                 WHERE P2.MANDT = P1.MANDT 
+                     --AND REPLACE(saphee.decrypt(P2.JUMIN),'-','') = REPLACE(saphee.decrypt(P1.JUMIN),'-','') 
+                     AND P2.PERKEY  = P1.PERKEY
+                     AND P2.RETIF = 'X') AS CHASU
+
+       --,(SELECT CELLP
+       --  FROM  SAPHEE.ZPST0001 AS P
+       --       ,SAPHEE.ZUSERF AS U
+       --  WHERE P.MANDT = P1.MANDT
+       --  AND P.LIFNR = P1.LIFNR
+       --  AND P.RETIF = ''
+       --  AND P.CELLP > ''
+       --  AND P.MANDT = U.MANDT
+       --  AND P.LIFNR = U.USERCODE
+       --  AND REPLACE(saphee.decrypt(P.JUMIN),'-','') = REPLACE(U.USERJUNO,'-','')
+       --  FETCH FIRST 1 ROWS ONLY
+       -- ) AS PICTUNM
+
+       ,'' LAST
+       ,'' NEXT
+       ,P1.BIGO
+       ,P1.LOCALMAN , P1.NATION ,P1. DUTY
+FROM SAPHEE.ZPST0138 AS P1
+    LEFT OUTER JOIN SAPHEE.ZPST0147 AS ZPST0147 ON P1.MANDT=ZPST0147.MANDT AND P1.LIFNR=ZPST0147.LIFNR AND P1.PERNO=ZPST0147.PERNO
+    LEFT OUTER JOIN SAPHEE.ZLCODE AS ZLCD109 ON ZPST0147.MANDT=ZLCD109.MANDT AND ZLCD109.LANG=#G_LANG# AND ZLCD109.CODE1='PS109' AND ZPST0147.PS109=ZLCD109.CODE2
+    LEFT OUTER JOIN SAPHEE.ZLCODE AS ZLCD110 ON ZPST0147.MANDT=ZLCD110.MANDT AND ZLCD110.LANG=#G_LANG# AND ZLCD110.CODE1='PS110' AND ZPST0147.PS110=ZLCD110.CODE2
+    LEFT OUTER JOIN SAPHEE.ZLCODE AS ZLCD111 ON ZPST0147.MANDT=ZLCD111.MANDT AND ZLCD111.LANG=#G_LANG# AND ZLCD111.CODE1='PS111' AND ZPST0147.PS111=ZLCD111.CODE2
+WHERE P1.MANDT = #G_MANDT#
+<isNotNull col="LIFNR">
+  AND P1.LIFNR = #LIFNR#
+</isNotNull>
+<isNotEqual col="LIFYN" value="Y">
+  AND P1.STATS = 'C'
+</isNotEqual>
+<isEqual col="LIFYN" value="Y">
+  AND P1.STATS IN ('A','C')
+</isEqual>
+
+<isEqual col="GUBUN" value="1">
+  AND RETIF = ''
+  <isNotNull col="DATEF">
+    --AND ENTER BETWEEN #DATEF# AND #DATET#
+    AND CDATE BETWEEN #DATEF# AND #DATET#
+  </isNotNull>
+</isEqual>
+<isEqual col="GUBUN" value="2">
+  AND RETIF = 'X'
+  <isNotNull col="DATEF">
+    --AND RETID BETWEEN #DATEF# AND #DATET#
+    AND CDATE BETWEEN #DATEF# AND #DATET#
+  </isNotNull>
+</isEqual>
+<isNull col="GUBUN">
+  --AND (RETID BETWEEN #DATEF# AND #DATET# OR ENTER BETWEEN #DATEF# AND #DATET#)
+  AND CDATE BETWEEN #DATEF# AND #DATET#
+</isNull>
+
+</isEqual>
+
+ORDER BY RETIF,STATS DESC
+FOR FETCH ONLY WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

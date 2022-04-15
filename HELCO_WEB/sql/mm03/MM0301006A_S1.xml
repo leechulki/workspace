@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[HG 입고 요청서 출력]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT
+                '0' AS CHECK
+              , '' AS FLAG
+	, P50.MANDT AS MANDT
+	, P50.WERKS AS WERKS
+	, P50.POSID AS POSID
+	, MA.ZSITE_NM AS ZSITE_NM
+	, P50.ITEMNO AS ITEMNO
+	, P50.MATNR AS MATNR
+	, P50.BCDAT AS BCDAT
+	, P50.AUFNR AS AUFNR
+	, P50.LIFNR AS LIFNR
+	, P50.MENGE1 AS MENGE1
+	, P50.BMENGE AS BMENGE
+	, P50.MEINS AS MEINS
+	, P50.SEQNO AS SEQNO
+	, P50.PRINO AS PRINO
+	, SAPHEE.GET_ZERODATE(P50.PRDAT) AS PRDAT
+	, SAPHEE.GET_ZERODATE(P50.PRTIM) AS PRTIM
+	, P50.BIGO AS BIGO
+	, P50.NAME1 AS NAME1
+	, VALUE(P50B.DOCNO,'') AS DOCNO
+	, VALUE(P50B.HGTAG,'') AS HGTAG
+	, (VALUE(P50.GMENGE,0) +VALUE(P50B.GMENGE,0)) AS GMENGE
+	, (P50.BMENGE - VALUE(P50B.GMENGE,0) - VALUE(P50.GMENGE,0)) AS CHA
+              ,CASE WHEN VALUE(P50B.DOCNO,'') > '' THEN '1' ELSE '2' END AS ORD
+              , P50.SHIPDAT AS  SHIPDAT
+
+FROM (
+      SELECT 
+      	  ZP50.MANDT AS MANDT
+      	, ZP50.WERKS AS WERKS
+      	, ZP50.POSID AS POSID
+      	, ZP50.ITEMNO AS ITEMNO
+      	, ZP50.MATNR AS MATNR
+      	, ZP50.BCDAT AS BCDAT
+      	, ZP50.AUFNR AS AUFNR
+      	, ZP50.LIFNR AS LIFNR
+      	, ZP50.MENGE1 AS MENGE1
+      	, ZP50.BMENGE AS BMENGE
+      	, ZP50.MEINS AS MEINS
+      	, ZP50.SEQNO AS SEQNO
+      	, ZP50.PRINO AS PRINO
+      	, SAPHEE.GET_ZERODATE(ZP50.PRDAT) AS PRDAT
+      	, SAPHEE.GET_ZERODATE(ZP50.PRTIM) AS PRTIM
+      	, ZP50.BIGO AS BIGO
+      	, ZP50.NAME1 AS NAME1
+              , VALUE(P51.GMENGE,0) AS GMENGE
+              , CASE WHEN ZP50.ITEMNO LIKE 'A%'  THEN M25.SHIPDAT1
+                         WHEN ZP50.ITEMNO LIKE 'B%'  THEN M25.SHIPDAT2
+                         WHEN ZP50.ITEMNO LIKE 'C%'  THEN M25.SHIPDAT3 
+                         WHEN ZP50.ITEMNO LIKE 'D%'  THEN M25.SHIPDAT4 
+                         WHEN ZP50.ITEMNO LIKE 'E%'  THEN M25.SHIPDAT5 ELSE ZP50.BCDAT END AS SHIPDAT
+       FROM SAPHEE.ZPPT050 AS ZP50
+      	LEFT OUTER JOIN (
+                       SELECT 
+                             P51.MANDT
+                           , P51.WERKS
+                           , P51.POSID
+                           , P51.ITEMNO
+                           , P51.MATNR
+                           , SUM(VALUE(P51.GMENGE,0)) AS GMENGE
+                       FROM SAPHEE.ZPPT051 AS P51
+                      WHERE P51.MANDT = #G_MANDT#
+                         	 AND P51.WERKS = '1000'
+                             AND P51.LIFNR = #LIFNR#
+<isNotNull col="POSID">
+               	 AND P51.POSID = #POSID#
+</isNotNull>
+<isNotNull col="ITEMNO">
+              	 AND P51.ITEMNO = #ITEMNO#
+</isNotNull>
+<isNotNull col="MATNR">
+      	               AND P51.MATNR = #MATNR#
+</isNotNull>
+
+                       GROUP BY P51.MANDT,P51.WERKS,P51.POSID,P51.ITEMNO,P51.MATNR
+                        ) AS P51 ON ZP50.MANDT= P51.MANDT
+      	     AND ZP50.WERKS = P51.WERKS
+      	     AND ZP50.POSID = P51.POSID
+      	     AND ZP50.ITEMNO = P51.ITEMNO
+         	     AND ZP50.MATNR = P51.MATNR
+              LEFT OUTER JOIN SAPHEE.ZMMT025 AS M25 ON M25.MANDT = ZP50.MANDT
+                  AND M25.POSID = SUBSTR(ZP50.POSID,1,9) 
+                  AND M25.PSTYPE = '02'
+             
+       WHERE ZP50.MANDT = #G_MANDT#
+      	 AND ZP50.WERKS = '1000'
+              AND ZP50.LIFNR = #LIFNR#
+<isNotNull col="POSID">
+      	 AND ZP50.POSID = #POSID#
+</isNotNull>
+<isNotNull col="ITEMNO">
+      	 AND ZP50.ITEMNO = #ITEMNO#
+</isNotNull>
+<isNotNull col="MATNR">
+      	 AND ZP50.MATNR = #MATNR#
+</isNotNull>
+	 AND  (ZP50.BMENGE - VALUE(P51.GMENGE,0)) > 0
+     ) AS P50
+     
+     LEFT OUTER JOIN SAPHEE.ZMASTER01 AS MA ON MA.MANDT = P50.MANDT
+       AND MA.POSID = SUBSTR(P50.POSID,1,6)
+     LEFT OUTER JOIN (
+       SELECT 
+             PP50.MANDT  AS MANDT 
+           , PP50.DOCNO AS DOCNO
+           , PP50.HGTAG  AS HGTAG 
+           , PP50.WERKS  AS WERKS 
+           , PP50.POSID  AS POSID 
+           , PP50.ITEMNO AS ITEMNO
+           , PP50.MATNR  AS MATNR 
+           , PP50.BCDAT  AS BCDAT 
+           , SUM(VALUE(PP50.GMENGE,0)) AS GMENGE
+        FROM SAPHEE.ZPPT050B AS PP50
+      WHERE PP50.MANDT= #G_MANDT#
+<isNotNull col="POSID">
+      	 AND PP50.POSID = #POSID#
+</isNotNull>
+<isNotNull col="ITEMNO">
+      	 AND PP50.ITEMNO = #ITEMNO#
+</isNotNull>
+<isNotNull col="MATNR">
+      	 AND PP50.MATNR = #MATNR#
+</isNotNull>
+--      AND BCDAT BETWEEN #BCDAT_FM# AND #BCDAT_TO#
+	  GROUP BY PP50.MANDT,PP50.DOCNO, PP50.HGTAG, PP50.WERKS, PP50.POSID, PP50.ITEMNO, PP50.MATNR, PP50.BCDAT ) AS P50B ON P50.MANDT = P50B.MANDT
+              AND P50.WERKS = P50B.WERKS 
+	AND P50.POSID = P50B.POSID 
+	AND P50.ITEMNO = P50B.ITEMNO
+	AND P50.MATNR = P50B.MATNR
+	AND P50.BCDAT = P50B.BCDAT
+
+WHERE 1=1
+      AND P50.SHIPDAT BETWEEN #BCDAT_FM# AND #BCDAT_TO#
+ 	 --AND (P50.BMENGE - VALUE(P50B.GMENGE,0)) > 0
+
+ORDER BY ORD, DOCNO,HGTAG,SHIPDAT,POSID,BCDAT
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="ITEMNO" size="255" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="255" type="VARCHAR" description="" /> 
+		<col name="BCDAT_FM" size="255" type="VARCHAR" description="" /> 
+		<col name="BCDAT_TO" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="AUFNR" size="36" type="VARCHAR" description="" /> 
+		<col name="BCDAT" size="24" type="VARCHAR" description="" /> 
+		<col name="BIGO" size="150" type="VARCHAR" description="" /> 
+		<col name="BMENGE" size="15" type="NUMERIC" description="" /> 
+		<col name="CHA" size="33" type="NUMERIC" description="" /> 
+		<col name="CHECK" size="1" type="VARCHAR" description="" /> 
+		<col name="DOCNO" size="30" type="VARCHAR" description="" /> 
+		<col name="FLAG" size="0" type="VARCHAR" description="" /> 
+		<col name="GMENGE" size="33" type="NUMERIC" description="" /> 
+		<col name="HGTAG" size="42" type="VARCHAR" description="" /> 
+		<col name="ITEMNO" size="27" type="VARCHAR" description="" /> 
+		<col name="LIFNR" size="30" type="VARCHAR" description="" /> 
+		<col name="MANDT" size="9" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MEINS" size="9" type="VARCHAR" description="" /> 
+		<col name="MENGE1" size="15" type="NUMERIC" description="" /> 
+		<col name="NAME1" size="105" type="VARCHAR" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="PRDAT" size="8" type="VARCHAR" description="" /> 
+		<col name="PRINO" size="54" type="VARCHAR" description="" /> 
+		<col name="PRTIM" size="8" type="VARCHAR" description="" /> 
+		<col name="SEQNO" size="12" type="VARCHAR" description="" /> 
+		<col name="WERKS" size="12" type="VARCHAR" description="" /> 
+		<col name="ZSITE_NM" size="105" type="VARCHAR" description="" /> 
+	</output>
+</query>

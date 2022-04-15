@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+       A.SPC,
+     --  A.TYP,
+       A.CPD,
+       A.RNO,
+       A.CNT,
+       A.HCNT,
+       A.DCNT,
+       A.FMT,
+       A.HMT,
+       A.DMT,
+       A.FMT + A.HMT + A.DMT AMT,
+       A.TOT
+      ,A.SPC_P
+      ,A.AMT_P
+      ,A.HMT_P
+      ,A.DMT_P
+      ,A.TOT_P
+
+  FROM
+       (
+        SELECT
+               X.SPC,
+             --  X.TYP,
+               X.CPD,
+               X.RNO,
+               X.CNT,
+               X.HCNT,
+               X.DCNT,
+               CASE WHEN X.CNT = 0 THEN 0 ELSE (CASE WHEN X.CPD = 'A' THEN X.FMT WHEN X.CPD = 'B' THEN X.PMT ELSE X.FMT END) END FMT,
+               CASE WHEN X.CNT = 0 THEN 0 ELSE (CASE WHEN X.CPD = 'A' THEN X.FMBT WHEN X.CPD = 'B' THEN X.PMBT ELSE X.FMBT END) END FMBT,
+               CASE WHEN X.CNT = 0 THEN 0 ELSE (CASE WHEN X.CPD = 'A' THEN X.FMTT WHEN X.CPD = 'B' THEN X.PMTT ELSE X.FMTT END) END FMTT,
+               --CASE WHEN X.CNT = 0 THEN 0 ELSE ROUND((CASE WHEN X.CPD = 'A' THEN X.FMT WHEN X.CPD = 'B' THEN X.PMT ELSE X.FMT END) / X.CNT,0) END FMT,
+               X.HMT,
+               X.DMT,
+               --CASE WHEN X.HCNT = 0 THEN 0 ELSE ROUND(X.HMT / X.HCNT,0) END HMT,
+               --CASE WHEN X.DCNT = 0 THEN 0 ELSE ROUND(X.DMT / X.DCNT,0) END DMT,
+               CASE WHEN X.CPD = 'A' THEN X.FTOT WHEN X.CPD = 'B' THEN X.PTOT ELSE X.FTOT END TOT
+              ,CASE WHEN X.CPD = 'A' THEN X.FTOBT WHEN X.CPD = 'B' THEN X.PTOBT ELSE X.FTOBT END TOBT
+              ,CASE WHEN X.CPD = 'A' THEN X.FTOTT WHEN X.CPD = 'B' THEN X.PTOTT ELSE X.FTOTT END TOTT
+              ,PREDATA.SPC_P
+              ,PREDATA.AMT_P
+              ,PREDATA.AMBT_P
+              ,PREDATA.AMTT_P
+              ,PREDATA.HMT_P
+              ,PREDATA.DMT_P
+              ,PREDATA.TOT_P
+              ,PREDATA.TOBT_P
+              ,PREDATA.TOTT_P
+
+          FROM
+               (
+                SELECT
+                       B.ZSPEC12 SPC,
+                 --      B.ZSPEC2 TYP,
+                       MAX(C.CS301_CPD) CPD,
+                       ROW_NUMBER() OVER() RNO,
+                       COUNT(*) CNT,
+                       (SELECT COUNT(*) FROM SAPHEE.ZCST302 WHERE MANDT = #G_MANDT# AND CS302_TEM = #TEM# AND CS302_RDT = #RDT# AND CS302_SEQ = #SEQ# AND CS302_SIR = #SIR# AND CS302_HMT > 0) HCNT,
+                       (SELECT COUNT(*) FROM SAPHEE.ZCST302 WHERE MANDT = #G_MANDT# AND CS302_TEM = #TEM# AND CS302_RDT = #RDT# AND CS302_SEQ = #SEQ# AND CS302_SIR = #SIR# AND CS302_DMT > 0) DCNT,
+                       AVG(A.CS302_FMT) FMT,
+                       AVG(A.CS302_FMBT) FMBT,
+                       AVG(A.CS302_FMT) + AVG(A.CS302_FMBT) FMTT,
+                       AVG(A.CS302_PMT) PMT,
+                       AVG(A.CS302_PMBT) PMBT,
+                       AVG(A.CS302_PMT) + AVG(A.CS302_PMBT) PMTT,
+                       AVG(A.CS302_HMT) HMT,
+                       AVG(A.CS302_DMT) DMT,
+                       AVG(A.CS302_FMT) + SUM(A.CS302_HMT) + SUM(A.CS302_DMT) FTOT,
+                       AVG(A.CS302_PMT) + SUM(A.CS302_HMT) + SUM(A.CS302_DMT) PTOT,
+                       AVG(A.CS302_FMBT)  FTOBT,
+                       AVG(A.CS302_PMBT)  PTOBT,
+                       AVG(A.CS302_FMT) + AVG(A.CS302_FMBT) + SUM(A.CS302_HMT) + SUM(A.CS302_DMT) FTOTT,
+                       AVG(A.CS302_PMT) + AVG(A.CS302_PMBT) + SUM(A.CS302_HMT) + SUM(A.CS302_DMT) PTOTT
+                  FROM
+                       SAPHEE.ZCST302 A,
+                       SAPHEE.ZMASTER02 B,
+                       SAPHEE.ZCST301 C
+                 WHERE
+                       A.MANDT = #G_MANDT#
+                   AND A.MANDT = B.MANDT
+                   AND A.CS302_PJT = B.POSID
+                   AND A.CS302_HNO = SUBSTR(B.POSID_1,7,3)
+                   AND A.MANDT = C.MANDT
+                   AND A.CS302_TEM = C.CS301_TEM
+                   AND A.CS302_RDT = C.CS301_RDT
+                   AND A.CS302_SEQ = C.CS301_SEQ
+                   AND A.CS302_SIR = C.CS301_SIR
+                   AND A.CS302_TEM = #TEM#
+                   AND A.CS302_RDT = #RDT#
+                   AND A.CS302_SEQ = #SEQ#
+                   AND A.CS302_SIR = #SIR#
+                GROUP BY
+                       B.ZSPEC12 
+                    --,B.ZSPEC2
+               ) X        
+                           LEFT OUTER JOIN (   
+                                              SELECT A.SPC            AS SPC_P
+                                                    ,AVG(AMT)         AS AMT_P
+                                                    ,AVG(AMBT)        AS AMBT_P
+                                                    ,AVG(AMTT)        AS AMTT_P
+                                                    ,AVG(HMT)         AS HMT_P
+                                                    ,AVG(DMT)         AS DMT_P
+                                                    ,AVG(AMT+HMT+DMT) AS TOT_P
+                                                    ,AVG(AMBT)        AS TOBT_P
+                                                    ,AVG(AMT+AMBT+HMT+DMT) AS TOTT_P
+                                                FROM
+                                              
+                                                  ( SELECT
+                                                           A.PJT,A.HNO,A.AMT,A.AMBT, A.AMT + VALUE(A.AMBT,0) AS AMTT,A.HMT,A.DMT,A.SPC
+                                                      FROM
+                                                           (
+                                                            SELECT
+                                                                   A.CS126_PJT PJT,
+                                                                   A.CS126_HNO HNO,
+                                                                   A.CS126_AMT AMT,                                                                   
+                                                                   A.CS126_AMBT AMBT,                                                                   
+                                                                   VALUE(A.CS126_AMT,0) + VALUE(A.CS126_AMBT,0) AS AMTT,                                                                   
+                                                                   A.CS126_HMT HMT,                                                                       
+                                                                   A.CS126_DMT DMT,                                                                      
+                                                                   D.ZSPEC12   SPC,                   
+                                                                   ROW_NUMBER() OVER(PARTITION BY A.CS126_PJT, A.CS126_HNO ORDER BY A.CS126_USD DESC) RNO
+                                                              FROM
+                                                                   SAPHEE.ZCST126 A,
+                                                                   SAPHEE.ZCST301 B,
+                                                                   SAPHEE.ZCST302 C,
+                                                                   SAPHEE.ZMASTER02 D
+                                                             WHERE
+                                                                   A.MANDT = #G_MANDT#
+                                                               AND B.MANDT = C.MANDT
+                                                               AND B.CS301_TEM = C.CS302_TEM
+                                                               AND B.CS301_RDT = C.CS302_RDT
+                                                               AND B.CS301_SEQ = C.CS302_SEQ
+                                                               AND B.CS301_SIR = C.CS302_SIR
+                                                               AND A.MANDT = C.MANDT
+                                                               AND A.CS126_PJT = C.CS302_PJT
+                                                               AND A.CS126_HNO = C.CS302_HNO
+                                                               AND A.MANDT = D.MANDT                           
+                                                               AND A.CS126_PJT = D.POSID                       
+                                                               AND A.CS126_HNO = SUBSTR(D.POSID_1,7,3)         
+                                                               AND A.CS126_DDT = ''
+                                                               AND A.CS126_PST = 'A6'
+                                                               AND A.CS126_USD < B.CS301_CDT
+                                                               AND A.CS126_USD < B.CS301_MDT
+                                                               AND B.CS301_TEM = #TEM#
+                                                               AND B.CS301_RDT = #RDT#
+                                                               AND B.CS301_SEQ = #SEQ#
+                                                               AND B.CS301_SIR = #SIR#
+                                                           ) A
+                                                     WHERE
+                                                           A.RNO = 1
+                                                   ) A
+                                                   
+                                                   GROUP BY SPC
+                                            
+                                            )
+                                               AS PREDATA
+                                           ON PREDATA.SPC_P = X.SPC
+                                                 
+       ) A
+ WHERE
+       A.RNO < 5
+       	
+ ORDER BY CNT DESC
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_listR">
+	</output>
+</query>

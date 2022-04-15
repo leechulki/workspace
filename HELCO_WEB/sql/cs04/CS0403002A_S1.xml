@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+SELECT 
+       A.VBELN 
+     , A.ZZPJT_ID
+     , A.AUART 
+     , A.SPART
+     , A.SPART_NM
+     , A.VKBUR 
+     , A.VKGRP
+     , A.LIFNR
+     , A.VKGRP_NM
+     , A.ABR_NM
+     , A.BSTDK 
+     , A.BSTNK 
+     , A.NETWR
+     , A.DOC2 
+--     , A.FNAM
+	   , A.FNAM
+     , A.DOCNO
+     , A.CRDATE
+     , A.CRIRUM
+     , A.FSIZE  
+     , A.APIRUM 
+     , A.APIRUMS
+     ,A.QTNUM
+     , A.FNAM_Q
+     , A.DOCNO_Q
+     , A.CRDATE_Q
+     , A.CRIRUM_Q
+     , A.FSIZE_Q
+     , A.APIRUMS_Q
+	 , CASE 
+	   		WHEN A.GKD = '1' THEN '전환계약'
+	 		WHEN A.GKD = '2' THEN '갱신계약'
+			WHEN A.GKD = '4' THEN '회수계약'
+		END AS GKD_NM -- 계약구분. 2020.09.02 최선경 요청으로 추가.
+	, A.GBN1 -- 계약상품. 2020.09.02 최선경 요청으로 추가.
+	, COALESCE(A.CNT,0) AS CNT     
+	--전결규정 추가(최선경  20201124)
+    ,A.DISCRULE_Q			
+    ,A.DISCRULE			
+FROM (
+
+
+
+SELECT A.VBELN 
+     , A.ZZPJT_ID
+     , A.AUART 
+     , A.SPART
+     , A.SPART_NM
+     , A.VKBUR 
+     , A.VKGRP
+     , A.LIFNR
+     , A.VKGRP_NM
+     , A.ABR_NM
+     , A.BSTDK 
+     , A.BSTNK 
+     , A.NETWR
+     , A.DOC2 
+--     , A.FNAM
+	 , A.FNAM AS FNAM
+     , A.DOCNO
+     , A.CRDATE
+     , A.CRIRUM
+     , A.FSIZE  
+     , A.APIRUMS  AS APIRUMS
+     , AP02R.APIRUM
+     --,CASE WHEN AP02R.MANDT IS NULL THEN '1'  ELSE  ROW_NUMBER() OVER(PARTITION BY AP02R.DOCNO  ORDER BY AP02R.APDATE DESC,AP02R.APTIM DESC  ) END AS SEQNS
+     ,CASE WHEN AP02R.MANDT IS NULL THEN A.SEQN  ELSE  ROW_NUMBER() OVER(PARTITION BY AP02R.DOCNO  ORDER BY AP02R.APDATE DESC,AP02R.APTIM DESC  ) END AS SEQNS
+     , A.cs126_sir AS QTNUM 
+     , A.FNAM_Q
+     , A.DOCNO_Q
+     , A.CRDATE_Q
+     , A.CRIRUM_Q
+     , A.FSIZE_Q
+     , A.APIRUMS_Q
+	 , A.GKD
+	 , A.GBN1
+     , (SELECT COUNT(*) FROM SAPHEE.ZCST126 X WHERE X.MANDT = '183' AND X.CS126_UPN = A.UPN AND X.CS126_CST = A.CST AND X.CS126_GNO = A.ZZPJT_ID AND X.CS126_DDT = '' WITH UR) AS CNT     
+	 --전결규정 추가(최선경  20201124)
+     ,A.DISCRULE_Q			
+     ,A.DISCRULE     
+ FROM (
+
+           SELECT VB.VBELN 
+                , VB.ZZPJT_ID
+                , VB.AUART 
+                , VB.SPART
+                , CASE WHEN VB.SPART = '10' THEN '승강기'  
+                       WHEN VB.SPART = '20' THEN '주차'
+                       ELSE  VB.SPART END
+                   
+                      AS SPART_NM
+                , VB.VKBUR 
+                , VB.VKGRP
+                , VP.LIFNR
+                , ZC01.CTEXT2 AS VKGRP_NM
+                , W010.ABR_NM
+                , VB.BSTDK 
+                , VB.BSTNK 
+                , VB.NETWR * 100 AS NETWR
+                , CS126.CS126_DNO  AS DOC2
+                , AP01.FNAM
+                , AP01.DOCNO
+                , AP01.CRDATE
+                , AP01.CRIRUM
+                , AP01.FSIZE
+                , AP02.APIRUM AS APIRUMS
+                , ROW_NUMBER() OVER(PARTITION BY AP02.DOCNO  ORDER BY AP02.APDATE DESC,AP02.APTIM DESC  ) AS SEQN
+                , cs126.cs126_sir
+				        , cs301.cs301_doc
+                , AP01_Q.FNAM   AS FNAM_Q
+                , AP01_Q.DOCNO  AS DOCNO_Q
+                , AP01_Q.CRDATE AS CRDATE_Q
+                , AP01_Q.CRIRUM AS CRIRUM_Q
+                , AP01_Q.FSIZE  AS FSIZE_Q
+                , AP02_Q.APIRUM AS APIRUMS_Q
+                , ROW_NUMBER() OVER(PARTITION BY AP02_Q.DOCNO  ORDER BY AP02_Q.APDATE DESC,AP02_Q.APTIM DESC  ) AS SEQN_Q
+				, CS126.CS126_GKD AS GKD
+                , CASE WHEN CS126.CS126_SLA = 'Y' THEN '기술용역'
+                            ELSE (
+                			             CASE WHEN CS126.CS126_GND = 'C' THEN '유상공사'
+                                         ELSE (
+                                                        CASE WHEN CS126.CS126_KND = '' AND CS126.CS126_HYN &lt;&gt; 'Y' THEN 'POG'
+                                                                  WHEN CS126.CS126_KND = '' AND CS126.CS126_HYN  = 'Y' THEN 'PRTS'
+                                                                  WHEN CS126.CS126_KND &gt; '' AND CS126.CS126_HYN &lt;&gt; 'Y' THEN 'FM'
+                                                                  WHEN CS126.CS126_KND &gt; '' AND CS126.CS126_HYN  = 'Y' THEN 'FRTS'
+                                                                  ELSE ''
+                                                         END
+                                                   )
+                            END
+                          )
+                   END GBN1
+				, CS126.CS126_UPN AS UPN
+				, CS126.CS126_CST AS CST				
+				--전결규정 추가(최선경  20201124)
+				,AP01_Q.DISCRULE as DISCRULE_Q			
+				,AP01.DISCRULE		
+				
+            FROM SAPHEE.VBAK AS VB LEFT OUTER JOIN SAPHEE.ZCST126 AS CS126 
+                                                ON CS126.MANDT = VB.MANDT 
+                                               AND CS126.CS126_GNO = VB.ZZPJT_ID
+                                               AND CS126.CS126_DDT = ''
+                                               AND CS126.CS126_PST = 'A6'
+											   
+                                   LEFT OUTER JOIN SAPHEE.ZCST301 AS CS301
+                                                ON CS301.MANDT = VB.MANDT 
+                                               AND CS301.CS301_tem =substr(replace(cs126.cs126_sir,'-',''),1,3)
+                                               AND CS301.CS301_rdt =substr(replace(cs126.cs126_sir,'-',''),4,4)
+                                               AND CS301.CS301_seq =substr(replace(cs126.cs126_sir,'-',''),8,4)
+                                               AND CS301.CS301_sir =substr(replace(cs126.cs126_sir,'-',''),12,2)
+              
+                                   LEFT OUTER JOIN SAPHEE.ZWBAP01 AS AP01 
+                                                ON AP01.MANDT = VB.MANDT 
+                                               AND AP01.DOCNO = CS126.CS126_DNO
+                                               
+                                   LEFT OUTER JOIN SAPHEE.ZWBAP02 AS AP02 
+                                                ON AP02.MANDT = VB.MANDT 
+                                               AND AP02.DOCNO = CS126.CS126_DNO
+                                               AND AP02.APPGUBN = 'S' -- 기안 부서
+              
+                                   LEFT OUTER JOIN SAPHEE.ZWBAP01 AS AP01_Q 
+                                                ON AP01_Q.MANDT = VB.MANDT 
+                                               AND AP01_Q.DOCNO = cs301.cs301_doc
+                                               
+                                   LEFT OUTER JOIN SAPHEE.ZWBAP02 AS AP02_Q 
+                                                ON AP02_Q.MANDT = VB.MANDT 
+                                               AND AP02_Q.DOCNO = cs301.cs301_doc
+                                               AND AP02_Q.APPGUBN = 'S' -- 기안 부서
+                                                                      
+                                   LEFT OUTER JOIN SAPHEE.ZLCODE AS ZC01 
+                                                ON ZC01.MANDT = VB.MANDT 
+                                               AND ZC01.CODE2 = VB.VKGRP 
+                                               AND ZC01.CODE1 = 'VKGRP'
+                                   
+                                   LEFT OUTER JOIN SAPHEE.VBPA AS VP 
+                                                ON VP.MANDT = VB.MANDT 
+                                               AND VP.PARVW = 'Z1' 
+                                               AND VP.VBELN = VB.VBELN
+                                   
+                                   LEFT OUTER JOIN SAPHEE.ZWBT010 AS W010 
+                                                ON W010.MANDT = VB.MANDT
+                                               AND W010.LIFNR = VP.LIFNR
+                                               
+             
+           WHERE VB.MANDT = #G_MANDT#
+           <isNotNull col="DAT1">
+             AND VB.BSTDK BETWEEN #DAT1# AND #DAT2#
+           </isNotNull>  
+             AND VB.AUART = 'ZR11'
+             AND VB.VKBUR IN ('EA00','EB00','EC00','ED00','EE00','EF00','EI00','EK00')
+             --AND VB.NETWR > 100000      
+         <isNotNull col="UPN">
+             AND VB.ZZPJT_ID LIKE #UPN#||'%'
+         </isNotNull>   
+         <isNotNull col="AUART">
+             AND VB.AUART = #AUART#
+         </isNotNull>    
+         <isNotNull col="SPART">
+             AND VB.SPART = #SPART#
+         </isNotNull>   
+         <isNotNull col="ARA">
+             AND W010.BSU_ARA = #ARA#
+         </isNotNull>   
+         <isNotNull col="BSU">
+             AND W010.LGORT = #BSU#
+         </isNotNull>   
+         <isNotNull col="BPM">
+             AND W010.BSU_PM = #BPM#
+         </isNotNull>   
+         <isNotNull col="TEM">
+             AND VB.VKGRP = #TEM#
+         </isNotNull>     
+         <isNotNull col="DPT">
+             AND VB.VKBUR = #DPT#
+         </isNotNull> 
+         <isNotNull col="GKD">
+ 			 AND CS126.CS126_GKD = #GKD#
+         </isNotNull>
+		 <isNotNull col="CRDAT_FM">
+ 			 AND AP01.CRDATE BETWEEN #CRDAT_FM# AND #CRDAT_TO#
+         </isNotNull>         	 
+) AS A                          
+                                   LEFT OUTER JOIN SAPHEE.ZWBAP02 AS AP02R 
+                                                ON AP02R.MANDT = #G_MANDT#
+                                               AND AP02R.DOCNO = A.DOC2
+                                               AND AP02R.APPGUBN = 'R' -- 수신 부서
+              
+
+
+WHERE ( A.SEQN = '1' OR A.SEQN_Q='1')
+
+) AS A 
+WHERE A.SEQNS = '1'
+
+ORDER BY A.FNAM DESC
+
+WITH UR	
+
+  </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

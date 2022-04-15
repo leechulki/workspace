@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+SELECT TBL.FLAG
+     , TBL.PM_CNFM
+     , TBL.GBN
+     , TBL.GJAHR
+     , TBL.SWEEK
+     , TBL.WWEEK
+     , TBL.PSPID
+     , TBL.POSID
+     , TBL.DGUBUN
+     , TBL.ZSITE_NM
+     , TBL.ZZSHIP1 -- 기계실
+     , TBL.ZZSHIP2 -- 구조물
+     , TBL.ZZSHIP3 -- 출입구
+     , TBL.ZZSHIP4 -- 도어
+     , TBL.ZZSHIP5 -- 케이지
+     , TBL.ZZSHIP6 -- 마감재
+     , TBL.ZSPEC1
+     , TBL.ZSPEC2
+     , TBL.TEXT30
+     , TBL.NAMET
+     , TBL.BIGO
+     , TBL.STND_DATE
+     , (CASE WHEN TBL.ZZBEFOR = 'X' 
+     		 THEN 'Y'  
+     		 ELSE   (CASE WHEN TBL.NETWR > 0  
+     		 			  THEN  rtrim(CHAR(INT(ROUND(DEC(  FLOAT(TBL.HWBAS)  /  FLOAT(TBL.NETWR) , 10 ,3),  2) * 100))) || '%'  
+     		 			  ELSE '' 
+     		 			  END)    
+     		 END) AS COLLECT_BILL
+     , TBL.EXPLO
+  FROM
+  (
+  
+		SELECT '' AS FLAG
+			 , DECODE(VALUE(T3.PM_CNFM,'0'),'X','1','0') AS PM_CNFM
+		     , CASE WHEN T1.WWEEK = #W2#
+		            THEN 'W2'
+		            WHEN T1.WWEEK = #W3#
+		            THEN 'W3'
+		            WHEN T1.WWEEK = #W4#
+		            THEN 'W4'
+		            WHEN T1.WWEEK = #W6#
+		            THEN 'W6'
+		            END AS GBN
+		     , T1.GJAHR
+		     , T1.SWEEK
+		     , T1.WWEEK
+		     , T1.PSPID
+		     , T1.POSID
+		     , T1.DGUBUN
+		     , T4.ZSITE_NM
+		     --, -- 영업 현황  SPEC
+		     --, -- 영업 현황 L/O
+		     --, -- 영업 현황 계약금
+		     , T5.ZZSHIP1 -- 기계실
+		     , T5.ZZSHIP2 -- 구조물
+		     , T5.ZZSHIP3 -- 출입구
+		     , T5.ZZSHIP4 -- 도어
+		     , T5.ZZSHIP5 -- 케이지
+		     , T5.ZZSHIP6 -- 마감재
+		     , T2.ZSPEC1
+		     , T2.ZSPEC2
+		     , T2.TEXT30
+		     , T2.NAMET
+		     , T3.BIGO
+		     , DATE(TIMESTAMP_FORMAT(#STND_DATE#,'YYYYMMDD')) AS STND_DATE
+		     ,VALUE((SELECT SUM(X.HWBAS)
+			           FROM SAPHEE.ZSDT0029 AS X
+			   	      WHERE X.MANDT = T1.MANDT    
+			   	        AND X.KIDNO = T1.PSPID   
+			   	        AND X.ZCANYM = '000000'), 0) AS HWBAS
+		     , T5.ZZBEFOR
+		     , T6.NETWR
+		     , VALUE((
+		     		SELECT MAX(EXPLO)
+		     		  FROM SAPHEE.ZPST0019 AS X
+		     		 WHERE X.MANDT = T1.MANDT
+		     		   AND X.PSPID = T1.PSPID
+		     		 FETCH FIRST 1 ROW ONLY WITH UR
+		        ),'') AS EXPLO
+		  FROM SAPHEE.ZPPT190 AS T1
+		  LEFT OUTER JOIN SAPHEE.ZMASTER02 AS T2
+		               ON T1.MANDT = T2.MANDT
+		              AND T1.PSPID = T2.POSID
+		              AND T1.POSID = T2.POSID_1
+		  LEFT OUTER JOIN SAPHEE.ZPST0190 AS T3
+		               ON T1.MANDT = T3.MANDT
+		              AND T1.GJAHR = T3.GJAHR
+		              AND T1.SWEEK = T3.SWEEK
+		              AND T1.WWEEK = T3.WWEEK
+		              AND T1.DGUBUN = T3.DGUBUN
+		              AND T1.PSPID  = T3.PSPID
+		              AND T1.POSID  = T3.POSID
+		  LEFT OUTER JOIN SAPHEE.ZMASTER01 AS T4
+		               ON T1.MANDT = T4.MANDT
+		              AND T1.PSPID = T4.POSID
+		  LEFT OUTER JOIN SAPHEE.PRPS AS T5
+		               ON T1.MANDT = T5.MANDT
+		              AND T1.POSID = T5.POSID
+		  LEFT OUTER JOIN SAPHEE.VBAK AS T6
+		               ON T1.MANDT = T6.MANDT
+		              AND T1.PSPID = T6.ZZPJT_ID
+		  LEFT OUTER JOIN SAPHEE.ZLCODE T7
+		               ON T2.MANDT = T7.MANDT
+		              AND T2.ZZACTSS = T7.CODE2
+		              AND T7.LANG    = 'ko'
+		              AND T7.CODE1   = 'PS003'        
+		 WHERE T1.MANDT = #G_MANDT#
+		   AND T1.DGUBUN = '1'
+		   AND T1.SWEEK = #STND_WEEK# -- 저장 WEEK
+		   
+		   <isEqual col="GUBUN" value="W0">
+		   AND (
+			  		(T1.GJAHR = SUBSTR(#STND_DATE#,1,4) AND T1.WWEEK = #W3#) 
+			  			OR 
+			   		(T1.GJAHR = SUBSTR(#STND_DATE#,1,4) AND T1.WWEEK = #W6#)
+			    )
+		   --AND (
+		   --		((CASE WHEN INTEGER(REPLACE(#STND_WEEK#,'W','')) > INTEGER(REPLACE(#W2#,'W',''))
+		   --          THEN INTEGER(T1.GJAHR) + 1
+		   --          ELSE T1.GJAHR
+		   --          END) = #GJAHR_W2# AND T1.WWEEK = #W2#) 
+		   --			OR 
+		   --		((CASE WHEN INTEGER(REPLACE(#STND_WEEK#,'W','')) > INTEGER(REPLACE(#W4#,'W',''))
+		   --         THEN INTEGER(T1.GJAHR) + 1
+		   --          ELSE T1.GJAHR
+		   --          END) = #GJAHR_W4# AND T1.WWEEK = #W4#) 
+		   --			OR 
+		   --		((CASE WHEN INTEGER(REPLACE(#STND_WEEK#,'W','')) > INTEGER(REPLACE(#W6#,'W',''))
+		   --          THEN INTEGER(T1.GJAHR) + 1
+		   --          ELSE T1.GJAHR
+		   --          END) = #GJAHR_W6# AND T1.WWEEK = #W6#)
+		   --	   )
+		  
+		   </isEqual>
+		   <isEqual col="GUBUN" value="W2">
+		   --AND (CASE WHEN INTEGER(REPLACE(#STND_WEEK#,'W','')) > INTEGER(REPLACE(#W2#,'W',''))
+		   --          THEN INTEGER(T1.GJAHR) + 1
+		   --          ELSE T1.GJAHR
+		   --          END) = #GJAHR_W2# AND T1.WWEEK = #W2# -- 대상 WEEK2
+		   
+		  	AND T1.GJAHR = SUBSTR(#STND_DATE#,1,4) AND T1.WWEEK = #W2#
+		   </isEqual>
+		   <isEqual col="GUBUN" value="W3">
+		  	AND T1.GJAHR = SUBSTR(#STND_DATE#,1,4) AND T1.WWEEK = #W3#
+		   </isEqual>
+		   <isEqual col="GUBUN" value="W4">
+		   --AND (CASE WHEN INTEGER(REPLACE(#STND_WEEK#,'W','')) > INTEGER(REPLACE(#W4#,'W',''))
+		   --          THEN INTEGER(T1.GJAHR) + 1
+		   --          ELSE T1.GJAHR
+		   --          END) = #GJAHR_W4# AND T1.WWEEK = #W4# -- 대상 WEEK4
+		 	AND T1.GJAHR = SUBSTR(#STND_DATE#,1,4) AND T1.WWEEK = #W4#
+		   </isEqual>
+		   <isEqual col="GUBUN" value="W6">
+		   --AND (CASE WHEN INTEGER(REPLACE(#STND_WEEK#,'W','')) > INTEGER(REPLACE(#W6#,'W',''))
+		   --          THEN INTEGER(T1.GJAHR) + 1
+		   --          ELSE T1.GJAHR
+		   --          END) = #GJAHR_W6# AND T1.WWEEK = #W6# -- 대상 WEEK6
+		    AND T1.GJAHR = SUBSTR(#STND_DATE#,1,4) AND T1.WWEEK = #W6#
+		   </isEqual>
+		   
+		   <isNotEqual col="PSPID" value="">
+		   AND T1.PSPID = #PSPID#
+		   </isNotEqual>
+		   <isEqual col="PSPID" value="">
+			   <isNotEqual col="ZZACTSS" value="">
+			   AND T2.ZZACTSS = #ZZACTSS#
+			   </isNotEqual>
+			   
+			   <isNotEqual col="ZZLIFNR" value="">
+			   AND T2.LIFNR = #ZZLIFNR#
+			   </isNotEqual>
+			   <isNotEqual col="ZZTEMNO" value="">
+			   AND T2.TEMNO2 = #ZZTEMNO#
+			   </isNotEqual>
+			   <isNotEqual col="ZZPMNUM" value="">
+			   AND T2.TEMNO = #ZZPMNUM#
+			   </isNotEqual>
+			   <isNotEqual col="TEAM" value="">
+			   AND T7.DTEXT3 = #TEAM#
+			   </isNotEqual>
+			   
+		   </isEqual>
+		   <isEqual col="PM_CNFM" value="B">
+		   AND (T3.PM_CNFM != 'X' OR T3.PM_CNFM IS NULL)
+		   </isEqual>
+		   <isEqual col="PM_CNFM" value="C">
+		   AND T3.PM_CNFM = 'X'
+		   </isEqual>
+		   
+		   <isEqual col="BLOCK" value="1">
+				  <isEqual col="GUBUN" value="W0">
+				  AND ((T1.DATE1 BETWEEN #WEEK_W3_ST_DT# AND #WEEK_W3_FI_DT# AND T1.WWEEK = #W3#)
+				  	   		OR
+				  	   (T1.DATE1 BETWEEN #WEEK_W6_ST_DT# AND #WEEK_W6_FI_DT# AND T1.WWEEK = #W6#)
+				      )
+				  </isEqual>
+				  <isEqual col="GUBUN" value="W2">
+				  AND T1.DATE1 BETWEEN #WEEK_W2_ST_DT# AND #WEEK_W2_FI_DT#
+				  AND T1.WWEEK = #W2#
+				  </isEqual>
+				  <isEqual col="GUBUN" value="W3">
+				  AND T1.DATE1 BETWEEN #WEEK_W3_ST_DT# AND #WEEK_W3_FI_DT#
+				  AND T1.WWEEK = #W3#
+				  </isEqual>
+				  <isEqual col="GUBUN" value="W4">
+				  AND T1.DATE1 BETWEEN #WEEK_W4_ST_DT# AND #WEEK_W4_FI_DT#
+				  AND T1.WWEEK = #W4#
+				  </isEqual>
+				  <isEqual col="GUBUN" value="W6">
+				  AND T1.DATE1 BETWEEN #WEEK_W6_ST_DT# AND #WEEK_W6_FI_DT#
+				  AND T1.WWEEK = #W6#
+				  </isEqual>
+		   </isEqual>
+		   <isEqual col="BLOCK" value="A">
+				  <isEqual col="GUBUN" value="W0">
+				  AND (
+				  	   (T1.DATE1 BETWEEN #WEEK_W3_ST_DT# AND #WEEK_W3_FI_DT# AND T1.WWEEK = #W3#)
+				  			OR
+				  	   (T1.DATE1 BETWEEN #WEEK_W6_ST_DT# AND #WEEK_W6_FI_DT# AND T1.WWEEK = #W6#)
+				  	   		OR
+				  	   (T1.DATE2 BETWEEN #WEEK_W3_ST_DT# AND #WEEK_W3_FI_DT# AND T1.WWEEK = #W3#)
+				  			OR
+				  	   (T1.DATE2 BETWEEN #WEEK_W6_ST_DT# AND #WEEK_W6_FI_DT# AND T1.WWEEK = #W6#)
+				  	   		OR
+				  	   (T1.DATE3 BETWEEN #WEEK_W3_ST_DT# AND #WEEK_W3_FI_DT# AND T1.WWEEK = #W3#)
+				  			OR
+				  	   (T1.DATE3 BETWEEN #WEEK_W6_ST_DT# AND #WEEK_W6_FI_DT# AND T1.WWEEK = #W6#)
+				  	   		OR
+				  	   (T1.DATE4 BETWEEN #WEEK_W3_ST_DT# AND #WEEK_W3_FI_DT# AND T1.WWEEK = #W3#)
+				  			OR
+				  	   (T1.DATE4 BETWEEN #WEEK_W6_ST_DT# AND #WEEK_W6_FI_DT# AND T1.WWEEK = #W6#)
+				  	   
+				      )
+				  </isEqual>
+				  <isEqual col="GUBUN" value="W2">
+				  AND (
+				  		  (T1.DATE1 BETWEEN #WEEK_W2_ST_DT# AND #WEEK_W2_FI_DT# AND T1.WWEEK = #W2#)
+						  OR (T1.DATE2 BETWEEN #WEEK_W2_ST_DT# AND #WEEK_W2_FI_DT# AND T1.WWEEK = #W2#)
+						  OR (T1.DATE3 BETWEEN #WEEK_W2_ST_DT# AND #WEEK_W2_FI_DT# AND T1.WWEEK = #W2#)
+						  OR (T1.DATE4 BETWEEN #WEEK_W2_ST_DT# AND #WEEK_W2_FI_DT# AND T1.WWEEK = #W2#)
+					  )
+				  </isEqual>
+				  <isEqual col="GUBUN" value="W3">
+				  AND (
+				  		  (T1.DATE1 BETWEEN #WEEK_W3_ST_DT# AND #WEEK_W3_FI_DT# AND T1.WWEEK = #W3#)
+						  OR (T1.DATE2 BETWEEN #WEEK_W3_ST_DT# AND #WEEK_W3_FI_DT# AND T1.WWEEK = #W3#)
+						  OR (T1.DATE3 BETWEEN #WEEK_W3_ST_DT# AND #WEEK_W3_FI_DT# AND T1.WWEEK = #W3#)
+						  OR (T1.DATE4 BETWEEN #WEEK_W3_ST_DT# AND #WEEK_W3_FI_DT# AND T1.WWEEK = #W3#)
+					  )
+				  </isEqual>
+				  <isEqual col="GUBUN" value="W4">
+				  AND (
+				  		  (T1.DATE1 BETWEEN #WEEK_W4_ST_DT# AND #WEEK_W4_FI_DT# AND T1.WWEEK = #W4#)
+						  OR (T1.DATE2 BETWEEN #WEEK_W4_ST_DT# AND #WEEK_W4_FI_DT# AND T1.WWEEK = #W4#)
+						  OR (T1.DATE3 BETWEEN #WEEK_W4_ST_DT# AND #WEEK_W4_FI_DT# AND T1.WWEEK = #W4#)
+						  OR (T1.DATE4 BETWEEN #WEEK_W4_ST_DT# AND #WEEK_W4_FI_DT# AND T1.WWEEK = #W4#)
+					  )
+				  </isEqual>
+				  <isEqual col="GUBUN" value="W6">
+				  AND (
+				  		  (T1.DATE1 BETWEEN #WEEK_W6_ST_DT# AND #WEEK_W6_FI_DT# AND T1.WWEEK = #W6#)
+						  OR (T1.DATE2 BETWEEN #WEEK_W6_ST_DT# AND #WEEK_W6_FI_DT# AND T1.WWEEK = #W6#)
+						  OR (T1.DATE3 BETWEEN #WEEK_W6_ST_DT# AND #WEEK_W6_FI_DT# AND T1.WWEEK = #W6#)
+						  OR (T1.DATE4 BETWEEN #WEEK_W6_ST_DT# AND #WEEK_W6_FI_DT# AND T1.WWEEK = #W6#)
+					  )
+				  </isEqual>
+		   </isEqual>
+  ) AS TBL
+ WHERE 1=1
+ ORDER BY CASE WHEN TBL.WWEEK = #W2#
+            THEN 'W2'
+            WHEN TBL.WWEEK = #W3#
+            THEN 'W3'
+            WHEN TBL.WWEEK = #W4#
+            THEN 'W4'
+            WHEN TBL.WWEEK = #W6#
+            THEN 'W6'
+            END, TBL.SWEEK, TBL.POSID  
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

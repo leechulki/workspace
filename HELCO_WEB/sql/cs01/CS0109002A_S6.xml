@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[FM 현장별 불출현황 ]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT GBN, 
+       YYYY, 
+       COALESCE(SUM(M01),0) AS M01, 
+       COALESCE(SUM(M02),0) AS M02, 
+       COALESCE(SUM(M03),0) AS M03, 
+       COALESCE(SUM(M04),0) AS M04, 
+       COALESCE(SUM(M05),0) AS M05, 
+       COALESCE(SUM(M06),0) AS M06, 
+       COALESCE(SUM(M07),0) AS M07, 
+       COALESCE(SUM(M08),0) AS M08, 
+       COALESCE(SUM(M09),0) AS M09, 
+       COALESCE(SUM(M10),0) AS M10, 
+       COALESCE(SUM(M11),0) AS M11, 
+       COALESCE(SUM(M12),0) AS M12 
+  FROM 
+       (SELECT '출고금액' AS GBN, 
+              SUBSTR(Z8.BUDAT,1,4) AS YYYY, 
+              DECODE(SUBSTR(Z8.BUDAT,5,2),'01', SUM(Z8.DMBTR)/10) AS M01, 
+              DECODE(SUBSTR(Z8.BUDAT,5,2),'02', SUM(Z8.DMBTR)/10) AS M02, 
+              DECODE(SUBSTR(Z8.BUDAT,5,2),'03', SUM(Z8.DMBTR)/10) AS M03, 
+              DECODE(SUBSTR(Z8.BUDAT,5,2),'04', SUM(Z8.DMBTR)/10) AS M04, 
+              DECODE(SUBSTR(Z8.BUDAT,5,2),'05', SUM(Z8.DMBTR)/10) AS M05, 
+              DECODE(SUBSTR(Z8.BUDAT,5,2),'06', SUM(Z8.DMBTR)/10) AS M06, 
+              DECODE(SUBSTR(Z8.BUDAT,5,2),'07', SUM(Z8.DMBTR)/10) AS M07, 
+              DECODE(SUBSTR(Z8.BUDAT,5,2),'08', SUM(Z8.DMBTR)/10) AS M08, 
+              DECODE(SUBSTR(Z8.BUDAT,5,2),'09', SUM(Z8.DMBTR)/10) AS M09, 
+              DECODE(SUBSTR(Z8.BUDAT,5,2),'10', SUM(Z8.DMBTR)/10) AS M10, 
+              DECODE(SUBSTR(Z8.BUDAT,5,2),'11', SUM(Z8.DMBTR)/10) AS M11, 
+              DECODE(SUBSTR(Z8.BUDAT,5,2),'12', SUM(Z8.DMBTR)/10) AS M12 
+         FROM SAPHEE.ZMMT108 Z8,
+              SAPHEE.ZWBT010 Z0 
+        WHERE Z8.MANDT=#G_MANDT# 
+              AND Z8.REQKIND_TXT IN ('FM재고소진청구' , 'FM청구') 
+              AND Z8.BUDAT BETWEEN (REPLACE(CHAR(DATE(SAPHEE.GET_DATE_FORMAT(#YEAR#||'01'||'01')) - 1 YEAR),'-','')) AND 
+              					(REPLACE(CHAR(DATE(SAPHEE.GET_DATE_FORMAT(#YEAR#||#MONTH#||'01')) + 1 MONTH - 1 DAY),'-','')) 
+              AND Z8.MANDT = Z0.MANDT
+              AND Z8.LGORT = Z0.LGORT 					
+
+              <isNotNull col="ARA">
+				 AND Z0.BSU_ARA = #ARA#
+              </isNotNull>    
+              <isNotNull col="BPM">
+				 AND Z0.BSU_PM = #BPM#
+              </isNotNull>
+              <isNotNull col="BSU">
+				 AND Z0.LGORT= #BSU#
+              </isNotNull>
+              <isNotNull col="TEM">
+				 AND Z0.VKGRP = #TEM#
+              </isNotNull>
+			<isNull col="TEM">
+		 		<isNotNull col="DPT">
+				 AND Z0.VKGRP IN (SELECT CODE2 AS CODE
+		 						   FROM SAPHEE.ZLCODE
+		 						  WHERE MANDT=#G_MANDT#
+		 						    AND LANG =#G_LAMG#
+		 						    AND CODE1 = 'VKGRP'
+		 						    AND DTEXT1 = #DPT#)
+		 		</isNotNull>
+		 	</isNull>                     
+
+        GROUP BY SUBSTR(Z8.BUDAT,1,4) , 
+              SUBSTR(Z8.BUDAT,5,2) 
+           UNION ALL 
+       SELECT '보수대수' AS GBN, 
+              SUBSTR(ZN.YYYYMM,1,4) AS YYYY, 
+              DECODE(SUBSTR(ZN.YYYYMM,5,2),'01', SUM(ZN.TCQ_FM)) AS M01, 
+              DECODE(SUBSTR(ZN.YYYYMM,5,2),'02', SUM(ZN.TCQ_FM)) AS M02, 
+              DECODE(SUBSTR(ZN.YYYYMM,5,2),'03', SUM(ZN.TCQ_FM)) AS M03, 
+              DECODE(SUBSTR(ZN.YYYYMM,5,2),'04', SUM(ZN.TCQ_FM)) AS M04, 
+              DECODE(SUBSTR(ZN.YYYYMM,5,2),'05', SUM(ZN.TCQ_FM)) AS M05, 
+              DECODE(SUBSTR(ZN.YYYYMM,5,2),'06', SUM(ZN.TCQ_FM)) AS M06, 
+              DECODE(SUBSTR(ZN.YYYYMM,5,2),'07', SUM(ZN.TCQ_FM)) AS M07, 
+              DECODE(SUBSTR(ZN.YYYYMM,5,2),'08', SUM(ZN.TCQ_FM)) AS M08, 
+              DECODE(SUBSTR(ZN.YYYYMM,5,2),'09', SUM(ZN.TCQ_FM)) AS M09, 
+              DECODE(SUBSTR(ZN.YYYYMM,5,2),'10', SUM(ZN.TCQ_FM)) AS M10, 
+              DECODE(SUBSTR(ZN.YYYYMM,5,2),'11', SUM(ZN.TCQ_FM)) AS M11, 
+              DECODE(SUBSTR(ZN.YYYYMM,5,2),'12', SUM(ZN.TCQ_FM)) AS M12 
+         FROM SAPHEE.ZCST186N ZN, 
+              SAPHEE.ZWBT010 Z0 
+        WHERE ZN.MANDT = #G_MANDT# 
+              AND ZN.YYYYMM BETWEEN SUBSTR(REPLACE(CHAR(DATE(SAPHEE.GET_DATE_FORMAT(#YEAR#||'01'||'01')) - 1 YEAR),'-',''),1,6) AND #YEAR#||#MONTH# 
+              AND ZN.VKGRP &lt;&gt; '' 
+              AND ZN.VKGRP NOT LIKE 'E5%' 
+              AND ZN.VKGRP &lt;&gt; 'EB7' 
+              AND ZN.MANDT = Z0.MANDT 
+              AND ZN.VKGRP = Z0.VKGRP 
+              AND ZN.BSU = Z0.LGORT 
+              <isNotNull col="ARA">
+				 AND Z0.BSU_ARA = #ARA#
+              </isNotNull>    
+              <isNotNull col="BPM">
+				 AND Z0.BSU_PM = #BPM#
+              </isNotNull>
+              <isNotNull col="BSU">
+				 AND ZN.BSU= #BSU#
+              </isNotNull>
+              <isNotNull col="TEM">
+				 AND ZN.VKGRP = #TEM#
+              </isNotNull>
+			<isNull col="TEM">
+		 		<isNotNull col="DPT">
+				 AND ZN.VKGRP IN (SELECT CODE2 AS CODE
+		 						   FROM SAPHEE.ZLCODE
+		 						  WHERE MANDT=#G_MANDT#
+		 						    AND LANG =#G_LAMG#
+		 						    AND CODE1 = 'VKGRP'
+		 						    AND DTEXT1 = #DPT#)
+		 		</isNotNull>
+		 	</isNull>                     
+        GROUP BY ZN.YYYYMM 
+       ) 
+ GROUP BY GBN, 
+       YYYY 
+ORDER BY GBN, 
+       YYYY  
+ FOR FETCH ONLY
+  WITH UR	
+
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list_t2">
+	</output>
+</query>

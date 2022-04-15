@@ -1,0 +1,433 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+       A.ARA,
+       A.ARA_NM,
+       A.BSU,
+       A.BSU_NM,
+       VALUE(B.CNT_A,0) CNT1,
+       VALUE(B.CNT_B,0) CNT20,
+       VALUE(C.CNT_A,0) CNT2,
+       VALUE(D.CNT,0) CNT3,
+       VALUE(E.CNT,0) CNT4,
+       VALUE(C.CNT_B,0) CNT5,
+       VALUE(C.CNT_C,0) CNT6,
+       VALUE(F.CNT,0) CNT7,
+       VALUE(G.CNT,0) CNT8,
+       VALUE(H.CNT_B,0) CNT9,
+       VALUE(H.CNT_A,0) CNT10,
+       VALUE(I.CNT,0) CNT11,
+       VALUE(J.CNT,0) CNT12,
+       VALUE(H.CNT_B,0) + VALUE(H.CNT_A,0) + VALUE(J.CNT,0) CNT19,
+       VALUE(K.CNT,0) CNT33
+  FROM
+       (
+        SELECT 
+               A.CODE2 ARA,
+               A.CTEXT2 ARA_NM,
+               B.LGORT BSU,
+               B.ABR_NM BSU_NM
+          FROM 
+               SAPHEE.ZLCODE A,
+               SAPHEE.ZWBT010 B
+         WHERE 
+               A.MANDT = #G_MANDT#
+           AND A.CODE1 = 'CS115'
+           AND A.CODE2 &lt;&gt; 'E1'
+		   AND A.LANG = #G_LANG#
+           AND A.MANDT = B.MANDT
+           AND A.CODE2 = B.BSU_ARA
+           AND B.LGORT > ''
+<isNotNull col="ARA">
+           AND B.BSU_ARA = #ARA#
+</isNotNull>
+       ) A LEFT OUTER JOIN 
+                           (
+                            SELECT
+                                   A.ARA,
+                                   A.BSU,
+                                   SUM(CASE 
+                                            WHEN A.MYS = '' AND A.ST2 = '' AND A.MPS > '' AND A.MPT BETWEEN #YYMM2# || '01' AND #YYMM2# || '31' THEN 1 
+                                            WHEN A.MYS > '' AND A.MYT BETWEEN #YYMM2# || '01' AND #YYMM2# || '31' THEN 1 
+                                            ELSE 0 
+                                       END) CNT_A,
+                                   SUM(CASE 
+                                            WHEN A.MYS = '' AND A.ST2 = '' AND A.MPS > '' AND A.MPS &lt;= #YYMM1# || '31' AND A.MPT &gt;= #YYMM1# || '01' THEN 1 
+                                            WHEN A.MYS > '' AND A.MYS &lt;= #YYMM1# || '31' AND A.MYT &gt;= #YYMM1# || '01' THEN 1 
+                                            ELSE 0 
+                                       END) CNT_B
+                              FROM
+                                   SAPHEE.ZCST111 A
+                             WHERE
+                                   A.MANDT = #G_MANDT#
+                               AND A.ARA > ''
+                               AND A.BSU > ''
+                               AND A.HST &lt;&gt; 'D'
+                               AND A.HST &lt;&gt; 'F'
+                               AND A.HST &lt;&gt; 'S'
+                               AND A.IT2 = ''
+                               AND SUBSTR(A.HNO,1,1) NOT IN ('J','G')
+                               AND A.EXC = ''
+                            GROUP BY
+                                   A.ARA,
+                                   A.BSU
+                           ) B ON A.ARA = B.ARA
+                              AND A.BSU = B.BSU
+           LEFT OUTER JOIN 
+                           (
+                            SELECT
+                                   A.CS126_ARA ARA,
+                                   A.CS126_BSU BSU,
+                                   SUM(CASE WHEN A.CS126_GKD = '1' THEN 1 ELSE 0 END) CNT_A,
+                                   SUM(CASE WHEN A.CS126_GKD = '2' OR (A.CS126_GKD = '5' AND SUBSTR(A.CS126_PJT,1,1) &lt;&gt; 'M') THEN 1 ELSE 0 END) CNT_B,
+                                   SUM(CASE WHEN A.CS126_GKD = '4' OR (A.CS126_GKD = '5' AND SUBSTR(A.CS126_PJT,1,1) = 'M') THEN 1 ELSE 0 END) CNT_C
+                              FROM
+                                   SAPHEE.ZCST126 A,
+                                   SAPHEE.ZCST111 B
+                             WHERE
+                                   A.MANDT = #G_MANDT#
+                               AND A.MANDT = B.MANDT
+                               AND A.CS126_PJT = B.PJT
+                               AND A.CS126_HNO = B.HNO
+                               AND B.ARA > ''
+                               AND B.BSU > ''
+                               AND B.HST &lt;&gt; 'D'
+                               AND B.HST &lt;&gt; 'F'
+                               AND A.CS126_ARA > ''
+                               AND A.CS126_BSU > ''
+                               AND A.CS126_DDT = ''
+                               AND A.CS126_PST = 'A6'
+                               AND SUBSTR(A.CS126_HNO,1,1) NOT IN ('J','G')
+                               AND B.EXC = ''
+                               AND A.CS126_USD BETWEEN #YYMM1# || '01' AND #YYMM1# || '31'
+                            GROUP BY
+                                   A.CS126_ARA,
+                                   A.CS126_BSU
+                           ) C ON A.ARA = C.ARA
+                              AND A.BSU = C.BSU
+           LEFT OUTER JOIN 
+                           (
+                            SELECT
+                                   A.ARA,
+                                   A.BSU,
+                                   COUNT(*) CNT
+                              FROM
+                                   SAPHEE.ZCST111 A
+                             WHERE
+                                   A.MANDT = #G_MANDT#
+                               AND A.ARA > ''
+                               AND A.BSU > ''
+                               AND A.HST &lt;&gt; 'D'
+                               AND A.HST &lt;&gt; 'F'
+                               AND A.HST IN ('S','B')
+                               AND SUBSTR(A.HNO,1,1) NOT IN ('J','G')
+                               AND A.EXC = ''
+                               AND ((A.JJD > '' AND A.UDT = '') OR (A.JJD > '' AND A.UDT > '' AND A.JJD > A.UDT))
+                               AND A.JJD BETWEEN #YYMM1# || '01' AND #YYMM1# || '31'
+                            GROUP BY
+                                   A.ARA,
+                                   A.BSU
+                           ) D ON A.ARA = D.ARA
+                              AND A.BSU = D.BSU
+           LEFT OUTER JOIN 
+                           (
+                            SELECT
+                                   A.CS126_ARA ARA,
+                                   A.CS126_BSU BSU,
+                                   COUNT(*) CNT
+                              FROM
+                                   SAPHEE.ZCST126 A,
+                                   (
+                                    SELECT
+                                           CS126C.MANDT,
+                                           CS126C.CS126_UPN,
+                                           CS126C.CS126_CST,
+                                           CS126C.CS126_PJT,
+                                           CS126C.CS126_HNO,
+                                           CS126C.CS126_USD,
+                                           CS126C.CS126_UHJ,
+                                           MAX(CS126C.CS126_SEQ) CS126_SEQ
+                                      FROM
+                                           SAPHEE.ZCST126 CS126C
+                                     WHERE
+                                           CS126C.MANDT = #G_MANDT#
+                                        AND CS126C.CS126_DDT = ''
+                                    GROUP BY
+                                           CS126C.MANDT,
+                                           CS126C.CS126_UPN,
+                                           CS126C.CS126_CST,
+                                           CS126C.CS126_PJT,
+                                           CS126C.CS126_HNO,
+                                           CS126C.CS126_USD,
+                                           CS126C.CS126_UHJ
+                                   ) B,
+                                   (
+                                    SELECT 
+                                           CS126_UPN, 
+                                           CS126_PJT,
+                                           CS126_HNO
+                                      FROM 
+                                           SAPHEE.ZCST126 
+                                     WHERE 
+                                           MANDT = #G_MANDT#
+                                       AND CS126_DDT = '' 
+                                       AND CS126_PST = 'A6' 
+                                       AND CS126_UMR BETWEEN #YYMM2# || '01' AND #YYMM2# || '31'
+                                    GROUP BY 
+                                           CS126_UPN, 
+                                           CS126_PJT,
+                                           CS126_HNO
+                            
+                                    EXCEPT ALL
+                            
+                                    SELECT 
+                                           CS126_UPN, 
+                                           CS126_PJT,
+                                           CS126_HNO
+                                      FROM 
+                                           SAPHEE.ZCST126 
+                                     WHERE 
+                                           MANDT = #G_MANDT#
+                                       AND CS126_DDT = '' 
+                                       AND CS126_PST = 'A6' 
+                                       AND CS126_USD BETWEEN #YYMM2# || '02' AND #YYMM1# || '01'
+                                    GROUP BY 
+                                           CS126_UPN, 
+                                           CS126_PJT,
+                                           CS126_HNO
+                                   ) C,
+                                   SAPHEE.ZCST111 D
+                             WHERE
+                                   A.CS126_UPN = C.CS126_UPN
+                               AND A.CS126_PJT = C.CS126_PJT
+                               AND A.CS126_HNO = C.CS126_HNO
+                               AND A.MANDT = B.MANDT
+                               AND A.CS126_UPN = B.CS126_UPN
+                               AND A.CS126_CST = B.CS126_CST
+                               AND A.CS126_PJT = B.CS126_PJT
+                               AND A.CS126_HNO = B.CS126_HNO
+                               AND A.CS126_SEQ = B.CS126_SEQ
+                               AND A.MANDT = #G_MANDT#
+                               AND A.MANDT = D.MANDT
+                               AND A.CS126_PJT = D.PJT
+                               AND A.CS126_HNO = D.HNO
+                               AND D.HST NOT IN ('D','F','S')
+                               AND A.CS126_ARA > ''
+                               AND A.CS126_BSU > ''
+                               AND A.CS126_DDT = ''
+                               AND A.CS126_PST = 'A6'
+                               AND A.CS126_GND = 'D'
+                               AND SUBSTR(A.CS126_HNO,1,1) NOT IN ('J','G')
+                               AND D.EXC = ''
+                               AND A.CS126_UMR BETWEEN #YYMM2# || '02' AND #YYMM1# || '01'
+                            GROUP BY
+                                   A.CS126_ARA,
+                                   A.CS126_BSU
+                           ) E ON A.ARA = E.ARA
+                              AND A.BSU = E.BSU
+           LEFT OUTER JOIN 
+                           (
+                            SELECT
+                                   A.ARA,
+                                   A.BSU,
+                                   COUNT(*) CNT
+                              FROM
+                                   SAPHEE.ZCST111 A
+                             WHERE
+                                   A.MANDT = #G_MANDT#
+                               AND A.ARA > ''
+                               AND A.BSU > ''
+                               AND A.HST &lt;&gt; 'D'
+                               AND A.HST = 'F'
+                               AND A.FSD > ''
+                               AND SUBSTR(A.HNO,1,1) NOT IN ('J','G')
+                               AND A.EXC = ''
+                               AND A.FSD BETWEEN #YYMM1# || '01' AND #YYMM1# || '31'
+                            GROUP BY
+                                   A.ARA,
+                                   A.BSU
+                           ) F ON A.ARA = F.ARA
+                              AND A.BSU = F.BSU
+           LEFT OUTER JOIN 
+                           (
+                            SELECT
+                                   A.ARA,
+                                   A.BSU,
+                                   COUNT(*) CNT
+                              FROM
+                                   SAPHEE.ZCST111 A
+                                          LEFT OUTER JOIN SAPHEE.ZCST101 B ON A.MANDT = B.MANDT
+                                                                          AND A.PJT = B.CS101_PJT
+                                                                          AND A.HNO = B.CS101_HNO
+                             WHERE
+                                   A.MANDT = #G_MANDT#
+                               AND A.ARA > ''
+                               AND A.BSU > ''
+                               AND A.HST &lt;&gt; 'D'
+                               AND SUBSTR(A.HNO,1,1) NOT IN ('J','G')
+                               AND A.EXC = ''
+                               AND SUBSTR(A.PJT,1,1) &lt;&gt; 'M'
+                               AND VALUE(B.CS101_ISD,'') BETWEEN #YYMM1# || '01' AND #YYMM1# || '31'
+                            GROUP BY
+                                   A.ARA,
+                                   A.BSU
+                           ) G ON A.ARA = G.ARA
+                              AND A.BSU = G.BSU
+           LEFT OUTER JOIN 
+                           (
+                            SELECT
+                                   A.ARA,
+                                   A.BSU,
+                                   SUM(CASE WHEN A.HST IN ('S','M') THEN 1 ELSE 0 END) CNT_A,
+                                   SUM(CASE WHEN A.HST IN ('B','H','U') THEN 1 ELSE 0 END) CNT_B
+                              FROM
+                                   SAPHEE.ZCST111 A
+                             WHERE
+                                   A.MANDT = #G_MANDT#
+                               AND A.ARA > ''
+                               AND A.BSU > ''
+                               AND A.HST &lt;&gt; 'D'
+                               AND A.HST &lt;&gt; 'F'
+                               AND SUBSTR(A.HNO,1,1) NOT IN ('J','G')
+                               AND A.EXC = ''
+                               AND A.HST IN ('B','S','H','M','U')
+                            GROUP BY
+                                   A.ARA,
+                                   A.BSU
+                           ) H ON A.ARA = H.ARA
+                              AND A.BSU = H.BSU
+           LEFT OUTER JOIN 
+                           (
+                            SELECT
+                                   A.CS101_ARA ARA,
+                                   A.CS101_BSU BSU,
+                                   COUNT(*) CNT
+                              FROM
+                                   SAPHEE.ZCST101 A
+                             WHERE
+                                   A.MANDT = #G_MANDT#
+                               AND SUBSTR(A.CS101_HNO,1,1) NOT IN ('J','G')
+                               AND A.CS101_IGD BETWEEN #YYMM1# || '01' AND #YYMM1# || '31'
+                            GROUP BY
+                                   A.CS101_ARA,
+                                   A.CS101_BSU
+                           ) I ON A.ARA = I.ARA
+                              AND A.BSU = I.BSU
+           LEFT OUTER JOIN 
+                           (
+                            SELECT
+                                   X.ARA,
+                                   X.BSU,
+                                   SUM(CNT_C) CNT
+                              FROM
+                                   (
+                                    SELECT
+                                           A.ARA,
+                                           A.BSU,
+                                           SUM(
+                                               CASE 
+                                                    WHEN A.GBU = '1' THEN 1
+                                                    WHEN A.GBU = '3' THEN 1 
+                                                    ELSE 0
+                                               END
+                                           ) CNT_C
+                                      FROM
+                                           SAPHEE.ZCST111 A
+                                                  LEFT OUTER JOIN SAPHEE.ZCST101 B ON A.MANDT = B.MANDT
+                                                                                  AND A.PJT = B.CS101_PJT
+                                                                                  AND A.HNO = B.CS101_HNO
+                                     WHERE
+                                           A.MANDT = #G_MANDT#
+                                       AND A.ARA > ''
+                                       AND SUBSTR(A.HNO,1,1) NOT IN ('J','G')
+                                       AND A.EXC = ''
+                                       AND A.HST IN ('','K')
+                                    GROUP BY
+                                           A.ARA,
+                                           A.BSU
+                                    
+                                    UNION ALL
+                                    
+                                    SELECT
+                                           CS101_ARA ARA,
+                                           CS101_BSU BSU,
+                                           COUNT(*) CNT_C
+                                      FROM
+                                           SAPHEE.ZCST101
+                                     WHERE 
+                                           MANDT = #G_MANDT#
+                                       AND CS101_ARA > ''
+                                       AND SUBSTR(CS101_HNO,1,1) NOT IN ('J','G')
+                                       AND CS101_PST = 'A1'
+                                    GROUP BY
+                                           CS101_ARA,
+                                           CS101_BSU
+                                   ) X
+                            GROUP BY
+                                   X.ARA,
+                                   X.BSU
+                           ) J ON A.ARA = J.ARA
+                              AND A.BSU = J.BSU
+           LEFT OUTER JOIN 
+                           (
+                            SELECT
+                                   A.ARA,
+                                   A.BSU,
+                                   COUNT(*) CNT
+                              FROM
+                                   SAPHEE.ZCST111 A
+                                          LEFT OUTER JOIN SAPHEE.ZCST157 B ON A.MANDT = B.MANDT
+                                                                          AND A.PJT = B.CS157_PJT
+                                                                          AND A.HNO = B.CS157_HNO
+                                                                          AND B.CS157_RLT = 'Y'
+                             WHERE
+                                   A.MANDT = #G_MANDT#
+                               AND A.ARA > ''
+                               AND A.BSU > ''
+                               AND A.HST &lt;&gt; 'D'
+                               AND SUBSTR(A.HNO,1,1) NOT IN ('J','G')
+                               AND A.EXC = ''
+                               AND VALUE(B.CS157_IGM,'') = #YYMM1#
+                            GROUP BY
+                                   A.ARA,
+                                   A.BSU
+                           ) K ON A.ARA = K.ARA
+                              AND A.BSU = K.BSU
+ORDER BY
+       A.ARA,
+       A.BSU
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="ARA" size="255" type="VARCHAR" description="" /> 
+		<col name="YYMM2" size="255" type="VARCHAR" description="" /> 
+		<col name="YYMM1" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="ARA" size="15" type="VARCHAR" description="" /> 
+		<col name="ARA_NM" size="60" type="VARCHAR" description="" /> 
+		<col name="BSU" size="12" type="VARCHAR" description="" /> 
+		<col name="BSU_NM" size="60" type="VARCHAR" description="" /> 
+		<col name="CNT1" size="11" type="NUMERIC" description="" /> 
+		<col name="CNT10" size="11" type="NUMERIC" description="" /> 
+		<col name="CNT11" size="11" type="NUMERIC" description="" /> 
+		<col name="CNT12" size="11" type="NUMERIC" description="" /> 
+		<col name="CNT19" size="11" type="NUMERIC" description="" /> 
+		<col name="CNT2" size="11" type="NUMERIC" description="" /> 
+		<col name="CNT20" size="11" type="NUMERIC" description="" /> 
+		<col name="CNT3" size="11" type="NUMERIC" description="" /> 
+		<col name="CNT33" size="11" type="NUMERIC" description="" /> 
+		<col name="CNT4" size="11" type="NUMERIC" description="" /> 
+		<col name="CNT5" size="11" type="NUMERIC" description="" /> 
+		<col name="CNT6" size="11" type="NUMERIC" description="" /> 
+		<col name="CNT7" size="11" type="NUMERIC" description="" /> 
+		<col name="CNT8" size="11" type="NUMERIC" description="" /> 
+		<col name="CNT9" size="11" type="NUMERIC" description="" /> 
+	</output>
+</query>

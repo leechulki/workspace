@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  A.POSID AS PSPID
+             ,B.POSID_1 AS POSID
+             ,A.ZQNTY                            -- 대수
+             ,A.ZZACTSS AS P_ACTSS    -- 프로젝트 사무소
+             ,A.VDATU                            -- 납기일
+             ,A.ZSITE_NM                       -- 프로젝트명
+             ,A.ADDR1 || ' ' || A.ADDR2   AS ADDR    --설치지역
+             ,A.ZSITE_TEL AS SITE_TEL   -- 현장 전화
+             ,B.TXT30   -- 호기상태
+             ,(CASE WHEN C.LIFNRCHK = '1' THEN '직발주'  WHEN C.LIFNRCHK = '2' THEN '공동수급'   ELSE '' END) AS LIFNRCHK  -- 계약형태
+             ,VALUE( (SELECT X.STEXT  FROM SAPHEE.ZSDT0008 AS X
+                                                      WHERE X.MANDT = C.MANDT  AND X.BUILDUSE = C.WWBLD), '') AS BUUSE --건물용도
+             ,CASE  WHEN VALUE(D.GUBUN1,'') = '' AND C.LIFNRCHK = '1' THEN '미입력'
+	           WHEN VALUE(D.GUBUN1,'') = '0' THEN '미입력'
+	           WHEN VALUE(D.GUBUN1,'') = '1' THEN '완료'
+	           WHEN VALUE(D.GUBUN1,'') = '2' THEN '미완료'
+	           WHEN VALUE(D.GUBUN1,'') = '3' THEN '거부'
+	            ELSE ''   END AS G_STAT                                          -- 계약상태
+             ,A.KUNNR_NM    -- 계약업체
+             ,C.ENFOR           -- 시행사
+             ,A.ZMAN_NM  AS S_MAN      -- 영업담당
+             ,A.ZTEL AS S_TEL                -- 영업담당전화
+             ,'' AS P_MAN
+             ,'' AS P_TEL
+             --,E.PRDUSERNAME AS P_MAN  -- 생산관리
+             --,VALUE( (SELECT X.TELC FROM SAPHEE.ZHRT001 AS X
+             --                                     WHERE X.MANDT = E.MANDT
+             --                                         AND X.PSNO = 'H'||E.PRDUSERID), '') AS P_TEL --생산관리전화
+             ,VALUE( G.NAME1, '') AS T_MAN   -- 기술영업
+             ,VALUE( G.STRAS, '') AS T_TEL     --기술영업전화
+
+   FROM SAPHEE.ZMASTER01 AS A
+   INNER JOIN SAPHEE.ZMASTER02 AS B
+        ON A.MANDT = B.MANDT
+      AND A.POSID = B.POSID
+   INNER JOIN SAPHEE.VBAK AS C
+        ON A.MANDT = C.MANDT
+      AND A.POSID = C.ZZPJT_ID
+    LEFT OUTER JOIN SAPHEE.ZPST0033 AS D   
+       ON A.MANDT = D.MANDT
+     AND A.POSID = D.PSPID
+    LEFT OUTER JOIN SAPHEE.ZPPT150 AS E
+       ON A.MANDT = E.MANDT
+     AND A.ZZACTSS = E.J_1AACT
+    LEFT OUTER JOIN SAPHEE.VBPA AS F
+       ON C.MANDT = F.MANDT
+     AND C.VBELN = F.VBELN
+     AND F.POSNR = '000000'   AND F.PARVW = 'Z3'
+    LEFT OUTER JOIN SAPHEE.KNA1 AS G
+       ON F.MANDT = G.MANDT
+     AND F.KUNNR = G.KUNNR
+
+
+  WHERE A.MANDT = #G_MANDT#
+      AND A.POSID = #POSID#
+      AND B.POSID_1 = #POSID_1#
+
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_head">
+	</output>
+</query>

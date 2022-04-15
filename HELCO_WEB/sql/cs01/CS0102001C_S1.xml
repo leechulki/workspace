@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[FM 청구 현황 HEAD조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT DISTINCT
+	  CS126.CS126_UPN AS UPN
+	, CS126.CS126_CST AS CST
+	, CS126.CS126_USD AS USD  -- 유상 보수 계약 시작일
+	, CS126.CS126_UMR AS UMR-- 유상보수 만료일
+--	, CS126.CS126_UHJ  AS UHJ-- 유상보수 해지일
+	, CS126.CS126_KND AS KND -- FM 상품종류
+	, CS121.CS121_SPT  AS SPT -- 현장명
+	, CS121.CS121_NAM  AS NAM -- 고객명
+	, SUBSTR(SAPHEE.TO_DATETIME(),1,8)   AS CUDAT -- 현재일
+	, CS126.CS126_GNO AS GNO
+	, '' AS YEAR
+	, CAST(#REQNR# AS CHAR(15)) AS REQNR
+	, CAST(#REQNO# AS CHAR(15)) AS REQNO
+	, CS126.CS126_ADT AS ADT
+	, CS126.CS126_FMY AS FMY
+	, MA02.ZBEPJEO AS UHJ
+	, MA02.ZBOSUIN AS ZBOSUIN
+	, VALUE(AP01.DOCNO,'') AS DOCNO
+	, VALUE(AP01.APSTAT,'0') AS APSTAT
+	, VALUE(AP01.CRDPT1,'') AS CRDPT1
+	, VALUE(AP01.REDPT1,'') AS REDPT1
+	, VALUE(M31.LGORT1, '') AS LGORT1
+	, VALUE(M31.VKGRP,'') AS VKGRP
+	, VALUE(M31.QTNUM,'') AS QTNUM
+	, 0 CNT_S
+	, (SELECT COUNT(CS126_UPN)  FROM  SAPHEE.ZCST126 AS C 
+          WHERE C.MANDT = CS126.MANDT 
+           AND C.CS126_DDT = ''
+           AND C.CS126_PST = 'A6'
+           AND C.CS126_GNO = CS126.CS126_GNO ) AS F_CNT
+	, ( SELECT  VALUE(MAX(ACPT_NUM),'')
+           FROM SAPHEE.ZMMT031 
+        WHERE  MANDT= CAST(#G_MANDT# AS CHAR(15))
+            AND REQNO = CAST(#REQNO# AS CHAR(15))
+        GROUP BY MANDT, REQNO ) AS ACPT_NUM
+FROM SAPHEE.ZCST126 CS126
+	LEFT OUTER JOIN SAPHEE.ZCST121 AS CS121 ON  CS126.MANDT = CS121.MANDT
+	 	AND CS126.CS126_UPN = CS121.CS121_UPN
+	 	AND CS126.CS126_CST = CS121.CS121_CST
+              LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MA02 ON MA02.MANDT = CS126.MANDT
+                                                     AND MA02.POSID_1 = CS126.CS126_PJT || CS126.CS126_HNO
+              LEFT OUTER JOIN SAPHEE.ZWBAP01 AS AP01 ON CS126.MANDT= AP01.MANDT
+                                                     AND AP01.DOCNO = CAST(#REQNO# AS CHAR(15))
+                                                     AND AP01.DOCKIND = '2'
+              LEFT OUTER JOIN ( SELECT 
+                                                 M31.MANDT
+                                               , MAX(M31.REQNO) AS REQNO
+                                               , MAX(M31.QTNUM) AS QTNUM
+                                               , SAPHEE.GET_VENDER_NAME(M31.MANDT, MAX(M31.LGORT))  AS LGORT1
+                                               , MAX(CD.CTEXT2) AS VKGRP
+                                               , MAX(CS1.MA_PSPID) AS MA_PSPID
+                                               , MAX(M31.POSID) AS POSID
+                                            FROM SAPHEE.ZMMT031 AS M31
+                                                LEFT OUTER JOIN SAPHEE.ZCST001 AS CS1 ON M31.MANDT= CS1.MANDT
+                                                                                                                 AND M31.QTNUM = CS1.QTNUM
+                                                LEFT OUTER JOIN SAPHEE.ZLCODE AS CD ON CD.MANDT = M31.MANDT
+	                                                                  AND CD.CODE1 = 'VKGRP'
+ 			                                      AND CD.CODE2 = CS1.VKGRP
+                                            WHERE  M31.MANDT= CAST(#G_MANDT# AS CHAR(15))
+                                                 AND M31.REQNO = CAST(#REQNO# AS CHAR(15))
+                                            GROUP BY M31.MANDT, M31.REQNO ) AS M31 ON AP01.MANDT= M31.MANDT
+                                                                                                               AND AP01.DOCNO = M31.REQNO
+
+WHERE CS126.MANDT= #G_MANDT#
+	AND CS126.CS126_UPN = #UPN#
+	AND CS126.CS126_CST = #CST#
+	AND CS126.CS126_PJT = #PJT#
+	AND #CUDAT# BETWEEN CS126.CS126_USD AND CS126.CS126_UMR
+	AND CS126_KND > ''
+             --AND CS126.CS126_UPN || CS126.CS126_CST = M31.MA_PSPID
+             -- AND CS126.CS126_PJT || CS126.CS126_HNO = M31.POSID
+
+ORDER BY UPN,CST,USD
+FOR FETCH ONLY
+WITH UR
+-- CS0102001C_S1	]]></statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="PJT" size="255" type="VARCHAR" description="" /> 
+		<col name="CUDAT" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_head">
+		<col name="UPN" size="18" type="VARCHAR" description="" /> 
+		<col name="CST" size="9" type="VARCHAR" description="" /> 
+		<col name="USD" size="24" type="VARCHAR" description="" /> 
+		<col name="UMR" size="24" type="VARCHAR" description="" /> 
+		<col name="UHJ" size="24" type="VARCHAR" description="" /> 
+		<col name="KND" size="3" type="VARCHAR" description="" /> 
+		<col name="SPT" size="150" type="VARCHAR" description="" /> 
+		<col name="NAM" size="150" type="VARCHAR" description="" /> 
+	</output>
+</query>

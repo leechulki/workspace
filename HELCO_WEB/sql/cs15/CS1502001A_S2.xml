@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+/* 1.ON-HAND  */
+SELECT 
+       CS126_GNO
+      ,MAX(CS126_CYN) CS126_CYN
+      ,MAX(CS126_HEP_NM) CS126_HEP
+      ,MAX(CS126_JKH) CS126_JKH
+      ,SUM(CASE WHEN CS126_KND > ''  THEN 1 ELSE 0 END ) CNT_FM
+      ,SUM(CASE WHEN CS126_KND = ''  THEN 1 ELSE 0 END ) CNT_POG
+      ,SUM(CASE WHEN CS126_SLA = 'Y' THEN 1 ELSE 0 END ) CNT_SLA
+      ,SUM(CASE WHEN CS126_HYN = 'Y' THEN 1 ELSE 0 END ) CNT_H
+      ,'0' CNT_PEN
+      ,SUM(CASE WHEN CS126_DYN = 'Y' THEN 1 ELSE 0 END ) CNT_D
+      ,MAX(CS126_BSU_NM) CS126_BSU
+      ,MAX(CS126_ARA_NM) CS126_ARA
+      ,MAX(CS126_USD) CS126_USD
+      ,MAX(CS126_UMR) CS126_UMR
+      ,MAX(VKGRP_NM) TEM_NM
+      ,MAX(CS121_SLA) CS121_SLA
+      ,MAX(SANGJU) SANGJU
+      ,MAX(JUJ_NM) JUJ_NM
+      ,MAX(BUJ_NM) BUJ_NM
+      ,0 CNT_MUSANG
+      ,0 CNT_MIBALJU
+      ,'1' SEQ
+      ,COUNT(*) CNT_A
+      ,MAX(TOTAL_DIPBX) TOTAL_DIPBX
+ FROM (
+          SELECT 
+                A.CS126_GNO
+               ,A.CS126_KND
+               ,A.CS126_SLA
+               ,A.CS126_HYN
+               ,A.CS126_DYN
+               ,A.CS126_BSU
+               ,A.CS126_USD
+               ,A.CS126_UMR
+               ,SAPHEE.GET_VENDER_N_NAME(A.MANDT, A.CS126_BSU) CS126_BSU_NM
+               ,A.CS126_ARA
+               ,SAPHEE.CODE_CONV(A.MANDT,'CS115',A.CS126_ARA) CS126_ARA_NM
+               ,A.CS126_HEP
+               ,SAPHEE.CODE_CONV(A.MANDT,'CS179',A.CS126_HEP) CS126_HEP_NM
+               ,A.CS126_JKH --점검횟수
+               ,A.CS126_CYN
+               ,B.VKGRP
+               ,SAPHEE.CODE_CONV(A.MANDT,'VKGRP',B.VKGRP) VKGRP_NM
+               ,CASE WHEN C.CS121_SLA = 'Y' THEN '하도급' ELSE '공동수급' END  CS121_SLA 
+               ,CASE WHEN D.CS127_GNO > '' THEN 'Y' ELSE 'N' END SANGJU
+               ,SAPHEE.GET_BOSU_INWON(A.MANDT,A.CS126_JUJ) JUJ_NM
+               ,SAPHEE.GET_BOSU_INWON(A.MANDT,A.CS126_BUJ) BUJ_NM
+               ,VALUE(Z.TOTAL_DIPBX,0) TOTAL_DIPBX
+           FROM SAPHEE.ZCST126 A    LEFT OUTER JOIN SAPHEE.ZWBT010 B
+                                            ON A.MANDT = B.MANDT
+                                           AND A.CS126_BSU = B.LGORT      
+                                           
+                                    LEFT OUTER JOIN SAPHEE.ZCST121 C
+                                            ON A.MANDT = C.MANDT
+                                           AND A.CS126_UPN = C.CS121_UPN
+                                           AND A.CS126_CST = C.CS121_CST    
+                                           
+                                    LEFT OUTER JOIN (
+                                                      SELECT A.MANDT, A.CS127_UPN ,A.CS127_CST ,A.CS127_GNO
+                                                        FROM SAPHEE.ZCST127 A
+                                                       WHERE A.MANDT = #G_MANDT#
+                                                         AND CS127_DDT = ''
+                                                         AND CS127_PST = 'A6'
+                                                       GROUP BY A.MANDT, A.CS127_UPN ,A.CS127_CST ,A.CS127_GNO
+                                                     ) D
+                                            ON A.MANDT = D.MANDT
+                                           AND A.CS126_UPN = D.CS127_UPN
+                                           AND A.CS126_CST = D.CS127_CST
+                                           AND A.CS126_GNO = D.CS127_GNO
+		       LEFT OUTER JOIN (
+                      		SELECT 
+                      		     SUM(X.CNT)TOTAL_DIPBX
+                      		FROM
+                      		(
+                      		     SELECT
+                      		         COUNT(*) CNT
+                      	                   FROM SAPHEE.ZCST315
+                      		     WHERE
+                      		          MANDT = #G_MANDT#
+                      		     AND CS315_PJT IN 
+                                                (
+                      			SELECT CS126_PJT 
+                      			FROM SAPHEE.ZCST126
+                      			WHERE CS126_UPN = #UPN#
+                      			AND CS126_CST = #CST#
+                      			AND CS126_DDT = ''
+                                                        AND CS126_PST = 'A6'
+                      			GROUP BY CS126_PJT
+                      		      )
+                                         AND CS315_SDT > ''
+
+                              UNION
+
+		              SELECT
+                                              COUNT(*) CNT
+                                          FROM
+                                         (
+                                             SELECT 
+                                                 CS126_PJT, 
+                                                 CS126_HNO
+                                             FROM SAPHEE.ZCST126 
+                                         WHERE 
+                                                MANDT = #G_MANDT#
+                                           AND CS126_UPN = #UPN#
+                                           AND CS126_CST = #CST#
+                                           AND CS126_DDT = ''
+                                           AND CS126_PST = 'A6'
+                                        GROUP BY 
+                                            CS126_PJT,
+                                            CS126_HNO
+                                        ) A,
+                                      SAPHEE.ZSDT0005 B
+                                       WHERE
+                                            B.MANDT = #G_MANDT#
+                                        AND B.HOGI = A.CS126_PJT || A.CS126_HNO
+                                       AND B.CHARACTERISTIC = 'EL_DEPH'
+                                        ) X
+                                ) Z ON 1=1
+
+            WHERE A.MANDT = #G_MANDT#
+            AND A.CS126_UPN = #UPN#
+            AND A.CS126_CST = #CST#
+            AND A.CS126_DDT = ''
+            AND A.CS126_PST = 'A6'
+            AND HEX(CURRENT DATE) BETWEEN A.CS126_USD AND A.CS126_UMR
+ 
+       ) A
+ GROUP BY CS126_GNO
+
+UNION ALL 
+
+/* 2.만료  */
+SELECT 
+       CS126_GNO
+      ,MAX(CS126_CYN) CS126_CYN
+      ,MAX(CS126_HEP_NM) CS126_HEP
+      ,MAX(CS126_JKH) CS126_JKH
+      ,SUM(CASE WHEN CS126_KND > ''  THEN 1 ELSE 0 END ) CNT_FM
+      ,SUM(CASE WHEN CS126_KND = ''  THEN 1 ELSE 0 END ) CNT_POG
+      ,SUM(CASE WHEN CS126_SLA = 'Y' THEN 1 ELSE 0 END ) CNT_SLA
+      ,SUM(CASE WHEN CS126_HYN = 'Y' THEN 1 ELSE 0 END ) CNT_H
+      ,SUM(CASE WHEN CS126_DYN = 'Y' THEN 1 ELSE 0 END ) CNT_D
+      ,'0' CNT_US
+      ,MAX(CS126_BSU_NM) CS126_BSU
+      ,MAX(CS126_ARA_NM) CS126_ARA
+      ,MAX(CS126_USD) CS126_USD
+      ,MAX(CS126_UMR) CS126_UMR
+      ,MAX(VKGRP_NM) TEM_NM
+      ,MAX(CS121_SLA) CS121_SLA
+      ,MAX(SANGJU) SANGJU
+      ,MAX(JUJ_NM) JUJ_NM
+      ,MAX(BUJ_NM) BUJ_NM
+      ,0 CNT_MUSANG
+      ,0 CNT_MIBALJU
+      ,'2' SEQ
+      ,COUNT(*) CNT_A
+      ,MAX(TOTAL_DIPBX) TOTAL_DIPBX
+ FROM (
+          SELECT 
+                A.CS126_GNO
+               ,A.CS126_KND
+               ,A.CS126_SLA
+               ,A.CS126_HYN
+               ,A.CS126_DYN
+               ,A.CS126_BSU
+               ,A.CS126_USD
+               ,A.CS126_UMR
+               ,SAPHEE.GET_VENDER_N_NAME(A.MANDT, A.CS126_BSU) CS126_BSU_NM
+               ,A.CS126_ARA
+               ,SAPHEE.CODE_CONV(A.MANDT,'CS115',A.CS126_ARA) CS126_ARA_NM
+               ,A.CS126_HEP
+               ,SAPHEE.CODE_CONV(A.MANDT,'CS179',A.CS126_HEP) CS126_HEP_NM
+               ,A.CS126_JKH --점검횟수
+               ,A.CS126_CYN
+               ,B.VKGRP
+               ,SAPHEE.CODE_CONV(A.MANDT,'VKGRP',B.VKGRP) VKGRP_NM
+               ,CASE WHEN C.CS121_SLA = 'Y' THEN '하도급' ELSE '공동수급' END  CS121_SLA 
+               ,CASE WHEN D.CS127_GNO > '' THEN 'Y' ELSE 'N' END SANGJU
+               ,SAPHEE.GET_BOSU_INWON(A.MANDT,A.CS126_JUJ) JUJ_NM
+               ,SAPHEE.GET_BOSU_INWON(A.MANDT,A.CS126_BUJ) BUJ_NM
+               ,VALUE(Z.TOTAL_DIPBX,0) TOTAL_DIPBX
+           FROM SAPHEE.ZCST126 A    LEFT OUTER JOIN SAPHEE.ZWBT010 B
+                                            ON A.MANDT = B.MANDT
+                                           AND A.CS126_BSU = B.LGORT      
+                                           
+                                    LEFT OUTER JOIN SAPHEE.ZCST121 C
+                                            ON A.MANDT = C.MANDT
+                                           AND A.CS126_UPN = C.CS121_UPN
+                                           AND A.CS126_CST = C.CS121_CST    
+                                           
+                                    LEFT OUTER JOIN (
+                                                      SELECT A.MANDT, A.CS127_UPN ,A.CS127_CST ,A.CS127_GNO
+                                                        FROM SAPHEE.ZCST127 A
+                                                       WHERE A.MANDT = #G_MANDT#
+                                                         AND CS127_DDT = ''
+                                                         AND CS127_PST = 'A6'
+                                                       GROUP BY A.MANDT, A.CS127_UPN ,A.CS127_CST ,A.CS127_GNO
+                                                     ) D
+                                            ON A.MANDT = D.MANDT
+                                           AND A.CS126_UPN = D.CS127_UPN
+                                           AND A.CS126_CST = D.CS127_CST
+                                           AND A.CS126_GNO = D.CS127_GNO
+      
+                                        LEFT OUTER JOIN (
+                      		SELECT 
+                      		     SUM(X.CNT)TOTAL_DIPBX
+                      		FROM
+                      		(
+                      		     SELECT
+                      		         COUNT(*) CNT
+                      	                   FROM SAPHEE.ZCST315
+                      		     WHERE
+                      		          MANDT = #G_MANDT#
+                      		     AND CS315_PJT IN 
+                                                (
+                      			SELECT CS126_PJT 
+                      			FROM SAPHEE.ZCST126
+                      			WHERE CS126_UPN = #UPN#
+                      			AND CS126_CST = #CST#
+                      			AND CS126_DDT = ''
+                                                       AND CS126_PST = 'A6'
+                      			GROUP BY CS126_PJT
+                      			)
+                                         AND CS315_SDT > ''
+
+                              UNION
+
+		              SELECT
+                                              COUNT(*) CNT
+                                          FROM
+                                         (
+                                             SELECT 
+                                                 CS126_PJT, 
+                                                 CS126_HNO
+                                             FROM SAPHEE.ZCST126 
+                                         WHERE 
+                                                MANDT = #G_MANDT#
+                                           AND CS126_UPN = #UPN#
+                                           AND CS126_CST = #CST#
+                                           AND CS126_DDT = ''
+                                           AND CS126_PST = 'A6'
+                                        GROUP BY 
+                                            CS126_PJT,
+                                            CS126_HNO
+                                        ) A,
+                                      SAPHEE.ZSDT0005 B
+                                       WHERE
+                                            B.MANDT = #G_MANDT#
+                                        AND B.HOGI = A.CS126_PJT || A.CS126_HNO
+                                       AND B.CHARACTERISTIC = 'EL_DEPH'
+                                        ) X
+                                ) Z ON 1=1
+					WHERE A.MANDT = #G_MANDT#
+						AND A.CS126_UPN = #UPN#
+						AND A.CS126_CST = #CST#
+						AND A.CS126_DDT = ''
+						AND A.CS126_PST = 'A6'
+            AND A.CS126_UMR <= HEX(CURRENT DATE) 
+ 
+       ) A
+ GROUP BY CS126_GNO
+ ORDER BY CS126_GNO DESC
+ FETCH FIRST 1 ROW ONLY	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_head2">
+	</output>
+</query>

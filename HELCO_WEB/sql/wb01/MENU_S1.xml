@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[메뉴명 조회
+( 대, 중, 소 조회 )]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+ PGM_ID
+,GRP_ID
+,PGM_NAME
+,REMARK
+FROM (
+
+         SELECT DISTINCT
+          MENU.PGCD1 AS PGM_ID
+         ,'00'       AS GRP_ID
+         ,LANG.PNAME AS PGM_NAME
+         ,SUBSTR(MENU.REMARK,1,2) AS REMARK
+         FROM SAPHEE.ZWBMENU AS MENU
+             ,SAPHEE.ZWBLANG AS LANG
+         WHERE MENU.MANDT = LANG.MANDT
+           AND MENU.PGCD1 = LANG.PCODE
+           AND MENU.MANDT = #MANDT#
+           AND LANG.PLANG = #LANG#
+
+         UNION ALL
+
+         SELECT DISTINCT
+          MENU.PGCD2 AS PGM_ID
+         ,MENU.PGCD1 AS GRP_ID
+         ,LANG.PNAME AS PGM_NAME
+         ,SUBSTR(MENU.REMARK,1,4) AS REMARK
+         FROM SAPHEE.ZWBMENU AS MENU
+             ,SAPHEE.ZWBLANG AS LANG
+             ,(
+
+                  SELECT
+                   MENU.MANDT AS MANDT
+                  ,MENU.PGCD1 AS PGCD1
+                  ,MENU.PGCD2 AS PGCD2
+                  ,MENU.PGCD3 AS PGCD3
+                  ,MENU.PGCD  AS PGCD
+                  ,PGCD.PCODE AS PGM_ID
+                  FROM SAPHEE.ZWBMENU AS MENU
+                      ,SAPHEE.ZWBPGCD AS PGCD
+                      ,SAPHEE.ZWBLANG AS LANG
+                      ,(
+
+                           SELECT
+                            MANDT
+                           ,PGCD
+                           ,AUTH
+                           FROM (
+
+                                 SELECT
+                                  MANDT
+                                 ,PGCD
+                                 ,AUTH
+                                 ,ROW_NUMBER() OVER(PARTITION BY MANDT,PGCD ORDER BY MANDT,PGCD,NUMB) AS ROWN
+                                 FROM SAPHEE.ZWBAUTH
+                                 WHERE MANDT = #MANDT#
+                                   AND NUMB IN (
+                                                   SELECT
+                                                   GGRUP
+                                                   FROM SAPHEE.ZWBGRUP
+                                                   WHERE MANDT = #MANDT#
+                                                   AND GNUMB IN (SELECT USERNUMB FROM SAPHEE.ZUSERF WHERE MANDT = #MANDT# AND USERMAIL = (SELECT USERMAIL FROM SAPHEE.ZUSERF WHERE MANDT = #MANDT# AND USERNUMB = #USER_ID#))
+                                                )
+                           ) AS AUTH
+                           WHERE ROWN=1
+
+                       ) AS AUTH
+                  WHERE AUTH.MANDT = PGCD.MANDT
+                    AND AUTH.PGCD  = PGCD.PCODE
+                    AND AUTH.MANDT = MENU.MANDT
+                    AND AUTH.PGCD  = MENU.PGCD
+                    AND AUTH.MANDT = LANG.MANDT
+                    AND AUTH.PGCD  = LANG.PCODE
+                    AND (AUTH.AUTH <= PGCD.PAUTH OR AUTH.AUTH = '1')
+                    AND LANG.PLANG = #LANG#
+
+             ) AS PGCD
+         WHERE MENU.MANDT = LANG.MANDT
+           AND MENU.PGCD2 = LANG.PCODE
+           AND MENU.MANDT = PGCD.MANDT
+           AND MENU.PGCD2 = PGCD.PGCD2
+           AND MENU.MANDT = #MANDT#
+           AND LANG.PLANG = #LANG#
+
+         UNION ALL
+
+         SELECT DISTINCT
+          MENU.PGCD3 AS PGM_ID
+         ,MENU.PGCD2 AS GRP_ID
+         ,LANG.PNAME AS PGM_NAME
+         ,SUBSTR(MENU.REMARK,1,6) AS REMARK
+         FROM SAPHEE.ZWBMENU AS MENU
+             ,SAPHEE.ZWBLANG AS LANG
+             ,(
+
+                  SELECT
+                   MENU.MANDT AS MANDT
+                  ,MENU.PGCD1 AS PGCD1
+                  ,MENU.PGCD2 AS PGCD2
+                  ,MENU.PGCD3 AS PGCD3
+                  ,MENU.PGCD  AS PGCD
+                  ,PGCD.PCODE AS PGM_ID
+                  FROM SAPHEE.ZWBMENU AS MENU
+                      ,SAPHEE.ZWBPGCD AS PGCD
+                      ,SAPHEE.ZWBLANG AS LANG
+                      ,(
+
+                           SELECT
+                            MANDT
+                           ,PGCD
+                           ,AUTH
+                           FROM (
+
+                                 SELECT
+                                  MANDT
+                                 ,PGCD
+                                 ,AUTH
+                                ,ROW_NUMBER() OVER(PARTITION BY MANDT,PGCD ORDER BY MANDT,PGCD,NUMB) AS ROWN
+                                 FROM SAPHEE.ZWBAUTH
+                                 WHERE MANDT = #MANDT#
+                                   AND NUMB IN (
+                                                   SELECT
+                                                   GGRUP
+                                                   FROM SAPHEE.ZWBGRUP
+                                                   WHERE MANDT = #MANDT#
+                                                     AND GNUMB IN (SELECT USERNUMB FROM SAPHEE.ZUSERF WHERE MANDT = #MANDT# AND USERMAIL = (SELECT USERMAIL FROM SAPHEE.ZUSERF WHERE MANDT = #MANDT# AND USERNUMB = #USER_ID#))
+                                                )
+                           ) AS AUTH
+                           WHERE ROWN=1
+
+                       ) AS AUTH
+                  WHERE AUTH.MANDT = PGCD.MANDT
+                    AND AUTH.PGCD  = PGCD.PCODE
+                    AND AUTH.MANDT = MENU.MANDT
+                    AND AUTH.PGCD  = MENU.PGCD
+                    AND AUTH.MANDT = LANG.MANDT
+                    AND AUTH.PGCD  = LANG.PCODE
+                    AND (AUTH.AUTH <= PGCD.PAUTH OR AUTH.AUTH = '1')
+                    AND LANG.PLANG = #LANG#
+
+             ) AS PGCD
+         WHERE MENU.MANDT = LANG.MANDT
+           AND MENU.PGCD3 = LANG.PCODE
+           AND MENU.MANDT = PGCD.MANDT
+           AND MENU.PGCD3 = PGCD.PGCD3
+           AND MENU.MANDT = #MANDT#
+           AND LANG.PLANG = #LANG#
+
+      ) AS MENU
+ORDER BY REMARK, PGM_ID
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="MANDT" size="3" type="VARCHAR" description="클라이언트" />
+		<col name="LANG" size="2" type="VARCHAR" description="언어" />
+		<col name="USER_ID" size="10" type="VARCHAR" description="사용자ID" />
+	</input>
+	<output default-name="ds_menu">
+		<col name="PGM_ID" size="18" type="VARCHAR" description="" />
+		<col name="GRP_ID" size="12" type="VARCHAR" description="" />
+		<col name="PGM_NAME" size="150" type="VARCHAR" description="" />
+	</output>
+</query>

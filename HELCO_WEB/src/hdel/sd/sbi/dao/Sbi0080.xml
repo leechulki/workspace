@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.sbi.dao.Sbi0080D"> 
+
+	<resultMap id="sbi0080Map" type="hdel.sd.sbi.domain.Sbi0080" />
+	
+	<select id="find" parameterType="hdel.sd.sbi.domain.Sbi0080" resultMap="sbi0080Map">
+		   SELECT  A.MANDT
+					,A.RATIOTP
+					,A.LAND1
+					, B.LANDX
+					,A.FRDAT
+					,A.TODAT
+					,A.RATIO
+		   FROM SAPHEE.ZSDT1131 A
+		   LEFT JOIN SAPHEE.T005T B
+		   ON 1=1
+		   AND A.MANDT = B.MANDT
+		   AND A.LAND1 = B.LAND1
+		   AND B.SPRAS = #{LANG}
+		   WHERE 1=1
+ 	   	    AND A.MANDT = #{MANDT}
+		    <if test="RATIOTP !=null and RATIOTP != ''">
+			    AND A.RATIOTP = #{RATIOTP}
+			</if>
+		    <if test="LAND1 !=null and LAND1 != ''">
+		    	AND A.LAND1   = #{LAND1}
+			</if>
+		    <if test="FRDAT !=null and FRDAT != ''">
+			    AND A.FRDAT   &gt;= #{FRDAT}
+			</if>
+		    <if test="TODAT !=null and TODAT != ''">
+			    AND A.TODAT   &lt;= #{TODAT}				
+			</if>
+		WITH UR
+	</select>
+	
+	<update id="save" parameterType="hdel.sd.sbi.domain.Sbi0080">
+		MERGE INTO SAPHEE.ZSDT1131 AS Z1131
+		USING (
+			SELECT * FROM TABLE(
+				VALUES (#{MANDT}, #{RATIOTP}, #{LAND1}, #{FRDAT})
+			) AS Z1131SET(MANDT, RATIOTP,LAND1,FRDAT)
+		) AS Z1131SET ON Z1131.MANDT=Z1131SET.MANDT AND Z1131.RATIOTP=Z1131SET.RATIOTP AND Z1131.LAND1=Z1131SET.LAND1 AND Z1131.FRDAT=Z1131SET.FRDAT
+		WHEN MATCHED THEN 
+		     UPDATE
+		     SET Z1131.MANDT   = #{MANDT}
+<!-- 				,Z1131.RATIO   = #{RATIO}
+ -->                ,Z1131.RATIO   = CAST(COALESCE( NULLIF( TRIM( #{RATIO} ||'' ) , '' ) , '0') AS DECIMAL(5, 2)) -- 송장 처리될 금액의 백분율
+				,Z1131.AEDAT   = HEX(CURRENT DATE)
+				,Z1131.AEZET   = HEX(CURRENT TIME)
+				,Z1131.AENAM   = #{tstmp.aenam}
+		WHEN NOT MATCHED THEN 
+			INSERT (MANDT
+			       ,RATIOTP			        
+			       ,LAND1
+			       ,FRDAT
+			       ,TODAT
+			       ,RATIO
+			       ,ERDAT
+			       ,ERZET
+			       ,ERNAM
+			       ,AEDAT
+			       ,AEZET
+			       ,AENAM )
+				VALUES 
+					(#{MANDT}
+					,#{RATIOTP}
+					,#{LAND1}
+					,#{FRDAT}
+					,#{TODAT}
+					,CAST(COALESCE( NULLIF( TRIM( #{RATIO} ||'' ) , '' ) , '0') AS DECIMAL(5, 2))
+					,HEX(CURRENT DATE)
+					,HEX(CURRENT TIME)
+					,#{tstmp.ernam}
+					,HEX(CURRENT DATE)
+					,HEX(CURRENT TIME)
+					, #{tstmp.aenam}
+					)
+	</update>
+	
+	<delete id="delete" parameterType="hdel.sd.sbi.domain.Sbi0080">
+		DELETE FROM SAPHEE.ZSDT1131
+         WHERE MANDT   = #{MANDT}
+     	   AND RATIOTP = #{RATIOTP}
+           AND LAND1   = #{LAND1}
+ 		   AND FRDAT   = #{FRDAT}
+	</delete>
+</mapper>

@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT MASTER01A.ZSITE_NM,
+       MASTER01A.KUNNR_NM,
+       CS101A.CS101_RCD, -- QE 검사일
+       CS101A.CS101_IGD, -- 인계일
+       CS107A.CS107_QJD, --  보수접수일 
+       CS101A.CS101_PJT,
+	     CS101A.CS101_HNO,
+	     CS101A.CS101_HNA,
+	     CS107A.CS107_VSD,
+	     (SELECT CTEXT2
+	        FROM SAPHEE.ZLCODE MM028A
+		     WHERE MM028A.CODE1 = 'CS115'
+		       AND MM028A.MANDT = CS101A.MANDT
+		       AND MM028A.CODE2 = CS101A.CS101_ARA
+		       AND MM028A.LANG = #G_LANG#
+	       ) MM028_CTEXT2,
+	     (SELECT MM012A.NAME1
+	        FROM SAPHEE.ZMMT005 MM005A,
+		           SAPHEE.ZMMT012 MM012A
+		     WHERE MM005A.MANDT = CS101A.MANDT
+		       AND MM005A.LGORT = CS101A.CS101_BSU
+		       AND MM005A.MANDT = MM012A.MANDT
+		       AND MM005A.LIFNR = MM012A.LIFNR
+	       ) NAME1,
+	       
+	     MASTER02A.TEXT30 AS MM028_CTEXT6,	     
+	     (SELECT MM012A.NAME1
+	        FROM SAPHEE.ZMASTER02 ZMA02A,
+		           SAPHEE.ZMMT012 MM012A
+		     WHERE ZMA02A.MANDT = CS101A.MANDT
+		       AND ZMA02A.POSID_1 = CS101A.CS101_PJT||CS101A.CS101_HNO
+		       AND ZMA02A.MANDT = MM012A.MANDT
+		       AND ZMA02A.LIFNR = MM012A.LIFNR
+	       ) NAME6,
+	     CS107A.CS107_VSM,
+	     CASE WHEN CS107A.CS107_JSD IS NULL OR CS107A.CS107_JSD = '' THEN '' 
+	          ELSE CS107A.CS107_JSD 
+	      END CS107_JSD,
+	     CS107A.CS107_PST CS107_PST,
+       CS107_BGO,
+	     (SELECT CTEXT2
+	        FROM SAPHEE.ZLCODE MM028B
+		     WHERE MM028B.CODE1 = 'CS183'
+		       AND MM028B.CODE2 = CS107A.CS107_PST
+		       AND MM028B.MANDT = CS101A.MANDT
+		       AND MM028B.LANG = #G_LANG#
+		    ) CS107_PST_NM,
+       CS107A.CS107_PST PST_GBN,
+       CS107A.CS107_NTC_QC,
+       CS107A.CS107_VSD_QC,
+       CS107A.CS107_VSM_QC,
+	     CASE WHEN CS107A.CS107_JSD_QC IS NULL OR CS107A.CS107_JSD_QC = '' THEN '' 
+	          ELSE CS107A.CS107_JSD_QC 
+	      END CS107_JSD_QC, 
+       CS107A.CS107_VSD_PS,
+       CS107A.CS107_VSM_PS,
+	     CASE WHEN CS107A.CS107_JSD_PS IS NULL OR CS107A.CS107_JSD_PS = '' THEN '' 
+	          ELSE CS107A.CS107_JSD_PS 
+	      END CS107_JSD_PS,
+	     CS111A.GBU,
+	     CS111A.JUJ,
+	     VALUE(ZF.USERNAME,'') JUJ_NM,
+	     CASE 
+	          WHEN REPLACE(VALUE(ZF.USERMSPN,''),'-','') = '' THEN REPLACE(VALUE(ZF.USERMBPN,''),'-','') 
+	          ELSE REPLACE(VALUE(ZF.USERMSPN,''),'-','') 
+	     END JUJ_TEL,
+	     CS107A.CS107_CON_QC,
+	     CS107A.CS107_RMK_PS,
+	     CS107A.CS107_ESD_PS,
+	     CS107A.CS107_CYN,
+	     CS107A.CS107_PJT||CS107A.CS107_HNO PSPID,
+	     CS107A.CS107_RSN_QC,
+	     A.PAPRID, -- 설치검사원 
+	     A.PAPRIDTX, -- 설치검사원 
+	     ''     AS CS107_RSN_QC_NM,
+         ''     AS CS107_NTC_QC_NM,
+       (SELECT CELLP
+	         FROM SAPHEE.ZQMT031 QM031
+	        WHERE QM031.MANDT = #G_MANDT#
+	          AND QM031.PARTEM = 'E'
+	          AND QM031.PARTID = 'H' || A.PAPRID
+       ) CELLP,
+       (SELECT A.USERMBPN
+	         FROM SAPHEE.ZUSERF A
+	        WHERE A.MANDT = #G_MANDT#
+	          AND CS101A.CS101_BPM = A.USERNUMB
+       ) CELLP2, -- 보수PMP
+       (SELECT D.NAMET
+          FROM  SAPHEE.ZMASTER02 AS A INNER JOIN  SAPHEE.ZPST0011 AS D  
+                                         ON A.MANDT = D.MANDT                  
+                                        AND A.TEMNO = D.TEMNO                   
+                              
+	       WHERE A.MANDT = #G_MANDT#
+           AND A.POSID_1 = CS101A.CS101_PJT||CS101A.CS101_HNO
+       ) PS_NAMET, -- 설치PM
+       (SELECT D.CELLP
+          FROM  SAPHEE.ZMASTER02 AS A INNER JOIN  SAPHEE.ZPST0011 AS D  
+                                         ON A.MANDT = D.MANDT                  
+                                        AND A.TEMNO = D.TEMNO                   
+                              
+	       WHERE A.MANDT = #G_MANDT#
+           AND A.POSID_1 = CS101A.CS101_PJT||CS101A.CS101_HNO
+       ) CELLP3, -- 설치PM
+       (SELECT C.TELF2
+          FROM  SAPHEE.ZMASTER02 AS A INNER JOIN SAPHEE.LFA1 AS C      
+                                 ON A.MANDT = C.MANDT                  
+                                AND A.LIFNR  = C.LIFNR                                               
+	       WHERE A.MANDT = #G_MANDT#
+           AND A.POSID_1 = CS101A.CS101_PJT||CS101A.CS101_HNO
+       ) CELLP4, -- 설치업체 대표
+       	(SELECT A.CELLP
+				   FROM SAPHEE.ZPST0001 AS A
+				   INNER JOIN SAPHEE.ZMASTER02 AS B
+				        ON A.MANDT = B.MANDT
+					  AND A.LIFNR = B.LIFNR
+					  AND A.TEMNO = B.TEMNO2
+ 			     WHERE A.MANDT = #G_MANDT#
+				      AND A.POSIT = 'X'
+					  AND A.RETID <> 'X'
+					  AND A.DELEF <> 'X'  
+					  AND B.POSID_1 = CS101A.CS101_PJT||CS101A.CS101_HNO
+					  FETCH FIRST 1 ROWS ONLY
+       ) CELLP5 -- 작업팀장
+       , MASTER02A.NAMET2 --작업팀장  
+FROM   SAPHEE.ZCST101 CS101A   LEFT OUTER JOIN SAPHEE.ZCST107 CS107A
+	                                     ON CS101A.MANDT = CS107A.MANDT
+	                                    AND CS101A.CS101_PJT = CS107A.CS107_PJT
+	                                    AND CS101A.CS101_HNO = CS107A.CS107_HNO
+	                                    AND CS101A.MANDT = #G_MANDT#
+	                                    AND CS101A.CS101_PJT = #POSID#
+	                                    AND CS101A.CS101_HNO = #HNO#
+
+		                           INNER JOIN SAPHEE.ZMASTER01 MASTER01A  
+		                                   ON CS101A.MANDT = MASTER01A.MANDT
+		                                  AND CS101A.CS101_PJT = MASTER01A.POSID
+		                                  
+                               INNER JOIN SAPHEE.ZCST111 CS111A  
+		                                   ON CS101A.MANDT = CS111A.MANDT
+                                      AND CS101A.CS101_PJT = CS111A.PJT
+                                      AND CS101A.CS101_HNO = CS111A.HNO
+                                      
+                               INNER JOIN SAPHEE.ZMASTER02 MASTER02A  
+		                                   ON CS101A.MANDT = MASTER02A.MANDT
+		                                  AND CS101A.CS101_PJT = MASTER02A.POSID
+		                                  AND CS101A.CS101_PJT||CS101A.CS101_HNO = MASTER02A.POSID_1
+		                                   
+                               LEFT OUTER JOIN SAPHEE.ZUSERF ZF 
+                                       ON ZF.MANDT = CS111A.MANDT
+                                      AND ZF.USERNUMB = CS111A.JUJ
+                                      
+                               LEFT OUTER JOIN (
+                                                SELECT
+                                                       A.PSPID,
+                                                       A.HOGI,
+                                                       A.PAPRID,
+                                                       A.PAPRIDTX,
+                                                       A.SEQ
+                                                  FROM
+                                                       (
+                                                        SELECT
+                                                               PSPID,
+                                                               HOGI,
+                                                               SUBSTR(PAPRID,2) PAPRID,
+                                                               PAPRIDTX,
+                                                               SEQ,
+                                                               ROW_NUMBER() OVER(PARTITION BY PSPID, HOGI ORDER BY PSPID, HOGI, SEQ DESC) RNO
+                                                          FROM 
+                                                               SAPHEE.ZQMT019
+                                                         WHERE 
+                                                               MANDT = #G_MANDT#
+                                                           AND WERKS = '1000'
+                                                           AND ART = '8960'
+                                                           AND PAPRID > ''
+                                                           AND SEQ = '01'
+                                                       ) A
+                                                 WHERE
+                                                       A.RNO = 1
+                                               ) A 
+                                       ON A.PSPID = CS111A.PJT
+                                      AND A.HOGI = CS111A.PJT || CS111A.HNO
+
+WHERE  CS101A.MANDT = #G_MANDT#
+  AND  CS101A.CS101_PJT = #POSID#
+  AND  CS101A.CS101_HNO = #HNO#
+
+
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="POSID" size="255" type="VARCHAR" description="" /> 
+		<col name="HNO" size="9" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list_h">
+		<col name="ZSITE_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="KUNNR_NM" size="105" type="VARCHAR" description="" /> 
+		<col name="CS101_PJT" size="18" type="VARCHAR" description="" /> 
+		<col name="CS101_HNO" size="9" type="VARCHAR" description="" /> 
+		<col name="CS107_VSD" size="24" type="VARCHAR" description="" /> 
+		<col name="MM028_CTEXT2" size="60" type="VARCHAR" description="" /> 
+		<col name="NAME1" size="105" type="VARCHAR" description="" /> 
+		<col name="CS107_VSM" size="60" type="VARCHAR" description="" /> 
+		<col name="CS107_JSD" size="24" type="VARCHAR" description="" /> 
+		<col name="CS107_PST" size="6" type="VARCHAR" description="" /> 
+		<col name="CS107_BGO" size="300" type="VARCHAR" description="" /> 
+		<col name="CS107_PST_NM" size="60" type="VARCHAR" description="" /> 
+		<col name="PST_GBN" size="6" type="VARCHAR" description="" /> 
+	</output>
+</query>

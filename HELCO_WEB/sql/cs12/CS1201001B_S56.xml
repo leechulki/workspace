@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+SELECT
+        '' CHK,
+        'I' FLAG,
+        A.MANDT,
+        A.UPN, 
+        A.CST,
+        A.ISR,
+        A.SFR,
+        A.STO,
+        A.CDY, -- 실계약기간(개월수)
+        A.BSU,
+        CEIL(A.AMTT * A.BDGBN_RATE / 100) AS AMT,
+        CEIL(A.VATT * A.BDGBN_RATE / 100) AS VAT,
+        CEIL(A.TOTT * A.BDGBN_RATE / 100) AS TOT,
+        A.AMTT - CEIL(A.AMTT * A.BDGBN_RATE / 100) AS AMBT,
+        A.VATT - CEIL(A.VATT * A.BDGBN_RATE / 100) AS VABT,
+        A.TOTT - CEIL(A.TOTT * A.BDGBN_RATE / 100) AS TOBT,
+        A.AMTT,
+        A.VATT,
+        A.TOTT,
+        0 CQT,
+        A.RTO,
+        (SELECT SAPHEE.FILLINZERO(INT(COALESCE(MAX(CS127_SEQ),'0')+1),4) 
+           FROM SAPHEE.ZCST127  
+          WHERE MANDT = A.MANDT
+            AND CS127_UPN = A.UPN 
+            AND CS127_CST = A.CST ) AS SEQ,
+        'D' GND,
+        ''  PST,
+        'Y' DBYN,
+        A.SYO,
+        A.UYO,
+        A.TMP,
+        A.HUR,
+        A.TGB,
+        0 CNT,
+        0 G_CNT,
+        A.M_AMT,
+        A.CS604_US,
+        A.BDGBN
+FROM    (
+        SELECT
+                A.MANDT,
+                A.UPN, 
+                A.CST,
+                A.ISR,
+                A.STD SFR,
+                A.ETD STO,
+                A.CDY CDY, -- 실계약기간(개월수)
+                A.BSU,
+                ROUND(A.AMT/(1.1)) AMTT,
+                (A.AMT-ROUND(A.AMT/(1.1))) VATT,
+                A.AMT TOTT,
+                0 CQT,
+                A.RAT RTO,
+                SAPHEE.MONTH_BETWEEN(A.STD,A.ETD,2) SYO,
+                SAPHEE.MONTH_BETWEEN(A.STD,A.ETD,2) UYO,
+                A.TMP,
+                A.HUR,
+                A.TGB,
+                A.M_AMT,
+                A.CS604_US,
+                A.BDGBN,
+                DECODE(A.BDGBN,'1',100 - VALUE(A.RAT,0), 100) AS BDGBN_RATE
+          FROM  ( --견적정보
+                SELECT  CS301.MANDT MANDT
+                      , CS121.CS121_UPN UPN
+                      , CS121.CS121_CST CST
+                      , CS301.CS301_PST --견적상태
+                      , VALUE(H.APSTAT,'') APSTAT --결재상태
+                      , CS301.CS301_TEM || '-' || CS301.CS301_RDT || '-' || CS301.CS301_SEQ ETN --견적번호
+                      , CS301.CS301_SIR SIR --견적차수
+                      , CS301.CS301_TEM TEM --팀코드
+                      , CS301.CS301_CPD CPD --계약상품(A:FM B:POG)
+                      , CS301.CS301_PRD PRD --점검주기(A:매월, B:격월, C:분기) => HRTS 점검주기 01, 02, 03
+                      , CS301.CS301_CDT CDT --계약예정일 => 계약개시일
+                      , CS301.CS301_CDY CDY --계약예정일 => 계약개시일
+                      , CS624.CS624_STD STD --계약시작일 => 유상계약개시일
+                      , CS624.CS624_ETD ETD --계약종료일 => 계약개시일
+                      , CS313.CS313_ISR ISR
+                      , CS313.CS313_BSU BSU
+                      , CS313.CS313_TGB TGB
+                      , CS313.CS313_TMP TMP
+                      , CS313.CS313_HUR HUR
+                      , CS313.CS313_RAT RAT
+                      , CS313.CS313_AMT AMT
+                      , CS500.M_AMT     M_AMT
+                      , CS604.CS604_US  CS604_US
+                      , DECODE(CS313.CS313_BDGBN,'X','1','') AS BDGBN
+                      , CS301.CS301_BLD BLD
+                
+                   FROM SAPHEE.ZCST301 CS301 --정기보수견적헤더
+                               INNER JOIN SAPHEE.ZCST313 CS313 -- 기간별견적금액
+                                       ON CS313.MANDT = CS301.MANDT
+                                      AND CS313.CS313_TEM = CS301.CS301_TEM
+                                      AND CS313.CS313_RDT = CS301.CS301_RDT
+                                      AND CS313.CS313_SEQ = CS301.CS301_SEQ
+                                      AND CS313.CS313_SIR = CS301.CS301_SIR
+                
+                               INNER JOIN SAPHEE.ZCST624 CS624 -- 기간별견적금액
+                                       ON CS624.MANDT = CS301.MANDT
+                                      AND CS624.CS624_TEM = CS301.CS301_TEM
+                                      AND CS624.CS624_RDT = CS301.CS301_RDT
+                                      AND CS624.CS624_SEQ = CS301.CS301_SEQ
+                                      AND CS624.CS624_SIR = CS301.CS301_SIR
+                                      AND CS624.CS624_SEQ2 = 1 --계약년차     
+                
+                               LEFT OUTER JOIN SAPHEE.ZWBAP01 H
+                                       ON H.MANDT = CS301.MANDT
+                                      AND H.DOCNO = CS301.CS301_DOC
+                                      AND H.DOCKIND IN ('3','21')
+                               
+                               INNER JOIN SAPHEE.ZCST121 CS121 --통합프로젝트 호기정보
+                                       ON CS121.MANDT = CS301.MANDT
+                                      AND CS121.CS121_UPN = #UPN#
+                                      AND CS121.CS121_CST = #CST#
+                               
+                               LEFT OUTER JOIN SAPHEE.ZCST500 CS500 
+                                       ON CS500.MANDT = CS301.MANDT 
+                                      AND CS500.ZYEAR = SUBSTR(CS624.CS624_STD,1,4)
+                                      AND CS500.VKGRP = #TEM#
+                               
+                               LEFT OUTER JOIN SAPHEE.ZCST604 CS604 
+                                       ON CS604.MANDT = CS301.MANDT 
+                                      AND CS604.CS604_YEAR = SUBSTR(CS624.CS624_STD,1,4)
+                
+                  WHERE CS301.MANDT = #G_MANDT#
+                    AND CS301.CS301_TEM = #TEM# --견적번호(팀코드)
+                    AND CS301.CS301_RDT = #RDT# --견적번호(견적작성일)
+                    AND CS301.CS301_SEQ = #SEQ# --견적번호(순번)
+                    AND CS301.CS301_SIR = #SIR# --견적차수(차수)
+                    AND CS301.CS301_DEL = 'N'   --삭제여부
+        --          AND CS301.CS301_PST = 'A6'  --승인
+        --          AND H.APSTAT = '6' --수신결재완료               
+                ) AS A --견적정보
+        ) AS A
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_lists">
+	</output>
+</query>

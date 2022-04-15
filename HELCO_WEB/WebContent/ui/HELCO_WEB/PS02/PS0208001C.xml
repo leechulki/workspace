@@ -1,0 +1,599 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="880" Id="PS0208001C" Left="8" OnKeyDown="gfn_EnterInForm" OnLoadCompleted="fn_OnLoadCompleted" PidAttrib="7" Title="이미지&#32;뷰어" ToolTipFont="Default,0" Top="8" Ver="1.0" Width="448" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_ara">
+				<Contents>
+					<colinfo id="CODE" size="256" type="STRING"/>
+					<colinfo id="CODE_NAME" size="256" type="STRING"/>
+					<record>
+						<CODE>00</CODE>
+						<CODE_NAME></CODE_NAME>
+					</record>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_cond">
+				<Contents>
+					<colinfo id="POSID" size="256" summ="default" type="STRING"/>
+					<colinfo id="ZSITE_NM" size="256" summ="default" type="STRING"/>
+					<colinfo id="ADDR" size="256" summ="default" type="STRING"/>
+					<record>
+						<ADDR></ADDR>
+						<POSID></POSID>
+						<ZSITE_NM></ZSITE_NM>
+					</record>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_list">
+				<Contents>
+					<colinfo id="POSID" size="256" summ="default" type="STRING"/>
+					<colinfo id="ZMAN_NM" size="256" summ="default" type="STRING"/>
+					<colinfo id="ZQNTY" size="256" summ="default" type="STRING"/>
+					<colinfo id="VALUE" size="256" summ="default" type="STRING"/>
+					<colinfo id="ZSITE_NM" size="256" summ="default" type="STRING"/>
+					<colinfo id="ADDR" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_file"></Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_file2"></Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_cond_day">
+				<Contents>
+					<colinfo id="POSID" size="256" summ="default" type="STRING"/>
+					<record>
+						<POSID></POSID>
+					</record>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_dayChk">
+				<Contents>
+					<colinfo id="CHK_DATE" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Div Height="40" Id="div_btn" Left="2" TabOrder="1" ToolTipFont="Default,0" Url="WB01::CommBtnForm.xml" Width="446">
+			<Contents></Contents>
+		</Div>
+		<Image FillType="STRETCH" Height="778" Id="Image0" Left="-1" TabOrder="2" Top="97" Width="450"></Image>
+		<Static Height="24" Id="st_title" Left="736" TabOrder="3" Text="이미지&#32;뷰어" Top="272" Visible="FALSE" Width="152"></Static>
+		<Shape BKColor="user12" Bottom="92" Height="26" Id="Shape1" Left="-1" LineColor="user13" Right="448" TabOrder="3" Top="66" Type="Rectangle" Visible="FALSE" Width="449"></Shape>
+		<Static Align="Right" Height="24" Id="Static4" Style="sty_lb_form_basic" TabOrder="3" Text="File&#32;" Top="67" VAlign="Middle" Visible="FALSE" Width="60"></Static>
+		<Edit Border="Flat" Height="20" Id="ed_fileName" Left="62" LeftMargin="4" Readonly="TRUE" RightMargin="4" Style="sty_ipt_form" TabOrder="4" Top="69" Visible="FALSE" Width="338"></Edit>
+		<Button Cursor="HAND" Height="18" Id="btn_openFile" ImageID="btn_icon_polder" Left="404" OnClick="btn_openFile_OnClick" TabOrder="5" Text="Button0" Top="70" Visible="FALSE" Width="18"></Button>
+		<Button Cursor="HAND" Height="21" Id="btn_deleteFile" ImageID="btn_icon_trash" Left="424" OnClick="btn_deleteFile_OnClick" TabOrder="5" Text="btn_delete" Top="70" Visible="FALSE" Width="18"></Button>
+		<FileDialog Bottom="64" Filter="All(*.*)|*.*|jpg&#32;File(*.jpg)|*.jpg|jpeg&#32;File(*.jpeg)|*.jpeg|bmp&#32;File(*.bmp)|*.jpeg|gif&#32;File(*.gif)|*.gif|png&#32;File(*.png)|*.png|pdf&#32;File(*.pdf)|*.pdf|" Height="24" Id="fileDialog" Left="640" MultiSelect="TRUE" Right="664" TabOrder="10" Top="40" Width="24"></FileDialog>
+		<File Bottom="96" Height="24" Id="f_tmp" Left="640" Right="664" TabOrder="11" Top="72" Width="24"></File>
+		<FileDialog Bottom="64" Filter="All(*.*)|*.*|jpg&#32;File(*.jpg)|*.jpg|jpeg&#32;File(*.jpeg)|*.jpeg|bmp&#32;File(*.bmp)|*.jpeg|gif&#32;File(*.gif)|*.gif|png&#32;File(*.png)|*.png|pdf&#32;File(*.pdf)|*.pdf|" Height="24" Id="saveDialog" Left="688" Right="712" TabOrder="9" Top="40" Type="Save" Width="24"></FileDialog>
+		<CyHttpFile Height="24" Id="httpFile" Left="688" Top="72" Width="24"></CyHttpFile>
+		<Static Color="user8" Font="Default,9,Bold" Height="15" Id="Static0" Left="143" TabOrder="9" Text="이미지&#32;등록&#32;시,&#32;한글&#32;파일명은&#32;등록이&#32;불가합니다." Top="47" Width="300"></Static>
+	</Form>
+	<Script><![CDATA[﻿﻿﻿﻿﻿﻿﻿﻿/*
+ ******************************************************************************************
+ * 기      능   :
+ * 작  성  자   :
+ * 작성  일자   :
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+#include "LIB::commons.js";	// 공통 스크립트
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다.
+//=========================================================================================
+var _F_FILE_DIR = "";	// 로컬에서 현재 선택한 파일 디렉토리
+var _F_FILE_NAME = "";	// 로컬에서 현재 선택한 파일  명
+var _F_FILE_SIZE = 0;	// 파일 사이즈
+var _F_FILE_DELETE = false;
+var _MAX_DAY = 7;
+var _add_file = false;   //파일선택 여부
+var _del_file = false;   //파일삭제 여부 (2019.03.10 lhl 추가)
+var _cursel_file = false; //현재 선택한 파일 여부
+var F_SELECTABLE = 'N';
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) {
+
+	if (GUBUN == "D") {// GUBUN == "D" 당일 업로드전 : 이미지 뷰어팝업창에서 임시저장한 파일을 보이게하고, 파일선택바를 보이게  함.
+		//trace("GUBUN : " + GUBUN + "- 당일 업로드전 선택파일");
+
+		//화면 타이틀 수정 - 2019.03.18 강민석K
+     	gfn_initFormNotAuth("PS0208001C", "선택사진", "80");
+
+		//선택파일명 및 이미지  보기
+		ed_fileName.value = _P_FPATH + "\\" +  _P_FNAME; // 사용자 로컬pc 경로 + 파일명
+
+		//trace("ed_fileName : " + ed_fileName.value);
+
+		Image0.ImageID = ed_fileName.value ; //선택 이미지 보여주기
+
+		 //ds_cond3- 이미지 뷰어팝업창에서 에서 담은 파일 데이터셋
+		var findRow = parent.ds_cond3.FindRow("PRONR", PRONR); //PRONR : 공정표 화면에서 넘겨온 공정번호
+
+		if(parseInt(findRow) >= 0){
+			//trace("FPATH : " + parent.ds_cond3.GetColumn(findRow, 'FPATH'));
+			//trace("ORGFNAME : " + parent.ds_cond3.GetColumn(findRow, 'ORGFNAME'));
+			//trace("FNAME : " + parent.ds_cond3.GetColumn(findRow, 'FNAME'));
+			//trace("FSIZE : " + parent.ds_cond3.GetColumn(findRow, 'FSIZE'));
+			//trace("FDATR : " + parent.ds_cond3.GetColumn(findRow, 'FDATR'));
+			//trace("PRONR : " + parent.ds_cond3.GetColumn(findRow, 'PRONR'));
+			//trace("OLDGUBUN : " + parent.ds_cond3.GetColumn(findRow, 'OLDGUBUN'));
+		}
+	} else {
+
+		//화면 타이블 변경 및 조건에 따른 이미지처리 되도록 수정 - 2019.03.12 nwtns lhl
+		if ( GUBUN == "N") {// 서버&당일 임시 저장에도 없다면 : 샘플 이미지를 보이고, 파일선택 바를 보이게 함.
+			//trace("GUBUN : " + GUBUN + "- 서버&당일 임시 저장에도 없음");
+
+			//화면 타이틀 수정 - 2019.03.18 강민석K
+			gfn_initFormNotAuth("PS0208001C", "완료사진 샘플", "80");
+
+			ufn_showImageUrls(); // 서버의 파일을 보여줌.
+
+		} else if ( GUBUN == "S" ) {// 당일 업로드한 파일: 업로드한 이미지를 보여주고, 파일을 선택 바를 보이게 함.
+			//trace("GUBUN : " + GUBUN + "- 완료사진(당일)");
+
+			//화면 타이틀 수정 - 2019.03.18 강민석K
+			//gfn_initFormNotAuth("PS0208001C", st_title.value + "- 서버 완료사진(당일)", "80");
+			gfn_initFormNotAuth("PS0208001C", "완료사진(당일)", "80");
+
+			//선택파일명 및 이미지  보기
+			ed_fileName.value = _P_FPATH + "\\" +  _P_FNAME; // 파일경로 + 파일명
+
+			//trace("ed_fileName : " + ed_fileName.value);
+
+			ufn_showImageUrls(); // 서버의 파일을 보여줌.
+
+		} else if ( GUBUN == "") {// 이전(당일)에 올린거이면 : 업로드한 이미지를 보여주고, 파일을 선택 바를 숨김.
+			//trace("GUBUN : " + GUBUN + "- 이전(당일)에 올린 파일");
+
+			//화면 타이틀 수정 - 2019.03.18 강민석K
+			gfn_initFormNotAuth("PS0208001C", "완료사진", "80");
+
+			//선택파일명 및 이미지  보기
+			ed_fileName.value = _P_FPATH + "\\" +  _P_FNAME; // 파일경로 + 파일명
+
+			//trace("ed_fileName : " + ed_fileName.value);
+
+			ufn_showImageUrls(); // 서버의 파일을 보여줌.
+
+		} else if (GUBUN = "Q") {//품질사진
+			gfn_initFormNotAuth("PS0208001C", "품질사진", "80");//화면 타이블 변경 되도록 수정 - 2019.03.06 강민석K
+		} else { // GUBUN == "B") // 완료공정이 아닌데 눌렀을 경우 : 샘플 이미지를 보이고, 파일선택 바를  안보이게 함.
+			//trace("GUBUN : " + GUBUN + "- 완료공정이 아닌데 눌렀음");
+
+			//화면 타이틀 수정 - 2019.03.18 강민석K
+			gfn_initFormNotAuth("PS0208001C", "완료사진 샘플", "");
+		}
+	}
+
+	gfn_initForm();
+	ufn_init();
+
+    //사진 팝업 화면 top 위치 조정
+	if (Global.AppStatus == "normal" || Global.AppStatus == "Max"){// 2019.03.09 nwtns LHL - 현재화면이 normal 상태면 즉 최대화(Max),최소화(Min)  가 아니면
+		this.window.top = 100;  //사진 팝업화면인 화면 다 보이도록 현재 화면의 TOP 을 20 으로 조정한다.
+	}
+
+	if(GUBUN != "D") ufn_showImageUrls(); // 서버의 파일을 보여줌.
+
+	if (F_SELECTABLE == 'Y') {
+		Static0.Visible = false;
+		Shape1.Visible = false;
+		Static4.Visible = false;
+		ed_fileName.Visible = false;
+		btn_openFile.Visible = false;
+		btn_deleteFile.Visible = false;
+		Image0.Top = 47;
+	}
+}
+
+/********************************************************************************
+* 기      능   : init
+********************************************************************************/
+function ufn_init()
+{
+    //trace("GUBUN : " + GUBUN);
+
+    //서버 와 당일 임시 저장에도 없다면 || 당일 업로드한 파일 || 당일 업로드전
+	if ( GUBUN == "") {
+		//gfn_initFormNotAuth("PS0208001C", "완료사진 샘플", "80");//화면 타이블 변경 되도록 수정 - 2019.03.06 강민석K
+		div_btn.btn_confirm.visible = false;
+
+	} else if (GUBUN = "Q") {//품질사진
+		div_btn.btn_confirm.visible = false;
+	    Static4.Visible        = false;
+		ed_fileName.Visible    = false;
+		btn_openFile.Visible   = false;
+		btn_deleteFile.Visible = false;
+		Shape1.Visible = false;
+	} else if (GUBUN == "B"){
+	   Shape1.Visible = false;
+	} else {//서버 와 당일 임시 저장에도 없다면(N) || 당일 업로드한 파일(S) || 당일 업로드전(D)
+	    Static4.Visible        = true;
+		ed_fileName.Visible    = true;
+		btn_openFile.Visible   = true;
+		btn_deleteFile.Visible = true;
+		//btn_saveFile.Visible   = true;
+		Shape1.Visible = true;
+	}
+	
+	// Working Day 3일 초과시 block처리 되도록.
+	ds_cond_day.SetColumn(0, "POSID", "");	// Dummy
+		
+		
+	 tit_clearActionInfo();		
+	 tit_addSearchActionInfo("ps02:PS0208001C_S3");
+	 tit_callService(
+	 ""
+	 , ""
+	 , "ds_cond_day=ds_cond_day"
+	 , "ds_dayChk=ds_dayChk" 
+	 , ""
+	 , "fn_afterDayChk"   //"fn_afterQueryC"
+	 , ""
+	 , ""
+	 , true);
+	
+}
+
+/********************************************************************************
+* 기      능   : 확인
+********************************************************************************/
+function fn_confirm()
+{
+	if(!_add_file && !_del_file) // 파일선택 또는 파일삭제를 하지 않았을때
+	{
+	    if(ed_fileName.value == "")
+			gfn_showAlert("파일이 선택되지않았습니다. \n창을 닫으실려면 닫기를 눌러주세요.");
+		else
+			close();
+
+		return;
+	} else {
+		//부모창에 완료체크 되야됨. ds_pop PRONR
+		var findRow = parent.ds_pop.FindRow("PRONR", PRONR);
+		parent.ds_pop.SetColumn(findRow, "COM_CHK_DIFF", "1");
+		if (!_del_file) //파일삭제가 아니면
+		{
+			parent.ds_pop.SetColumn(findRow, "COM_CHK", "1");
+		} else { //삭제버튼을 눌렀다면
+
+			if ( GUBUN == "S" || GUBUN == "D" ) {// 당일 업로드한 파일 또는 선택만 한 상태면
+			    //서버의 파일은 그대로 두고 정보만 업데이트 한다.
+				//trace("delete start");
+				parent.ds_pop.SetColumn(findRow, "COM_CHK", "0");   //삭제
+				parent.ds_pop.SetColumn(findRow, "EDATE", "00000000");   //삭제
+
+				//ds_cond3- 이미지 뷰어팝업창에서 에서 담은 파일 데이터셋
+				var delFindRow = parent.ds_cond3.FindRow("PRONR", ds_pop.GetColumn(findRow,"PRONR")); //PRONR 공정번호
+
+				if (parseInt(delFindRow) >= 0) {
+
+				//	parent.ds_pop.SetColumn(delFindRow, "FIX_COM_CHK", "0");   //삭제
+
+					parent.ds_cond3.setColumn(delFindRow, "FPATH", "");
+					parent.ds_cond3.setColumn(delFindRow, "FNAME", "");
+					parent.ds_cond3.setColumn(delFindRow, "FSIZE", 0);
+					parent.ds_cond3.SetColumn(delFindRow, "FDATR", "");
+
+					//trace("delete data");
+				}
+
+				//trace("delete end");
+			}
+		}
+	}
+
+	close();
+}
+
+/********************************************************************************
+* 기      능   : 창닫기
+********************************************************************************/
+function fn_close()
+{
+   //파일선택 후 확인버튼을 누르지 않고 닫기 버튼을 눌렀을 때
+   //trace ("닫기버튼");
+   if (parent.ds_cond3.rowcount > 0) {
+
+		if (_add_file) {// 파일선택을 하고 , 닫기 버튼 눌렀다면
+			var selFindRow = parent.ds_cond3.FindRow("PRONR", PRONR); //PRONR : 공정표 화면에서 넘겨온 공정번호
+
+			if (selFindRow != -1) { //찾았다면
+				parent.ds_cond3.deleteRow(selFindRow);
+			}
+		}
+	}
+
+	close(null);
+}
+
+/********************************************************************************
+* 기      능   : 파일열기
+********************************************************************************/
+function btn_openFile_OnClick(obj)
+{
+    fileDialog.open();
+	var fa_maxFileSize = 1024 * 1024;
+
+	if ( length(fileDialog.FilePath) == 0
+		|| length( fileDialog.FileName ) == 0 ) {
+		return;
+	}
+
+	var fileSize = f_tmp.GetLength(fileDialog.FilePath + "\\" + fileDialog.FileName );
+	if ( fileSize <= 0 ) {
+		gfn_showAlert("CW00048");
+		return;
+	}
+
+	if ( toNumber(fa_maxFileSize) > 0 ) {
+		if ( fileSize > toNumber(fa_maxFileSize)) {
+			gfn_showAlert("CW00047", fa_maxFileSize/1024 + "K bytes" );
+			return;
+		}
+	}
+
+	var file = fileDialog.GetFileList(ds_file, fileDialog.FilePath);
+
+	// CRETAE_DATE 보다 UPDATE_DATE 가 메타데이터에 근접한것 같음
+	var createDate = ds_file.GetColumn(ds_file.FindRow('FILE_NAME', fileDialog.FileName), "CREATE_DATE");
+
+	for (var i = 0 ; i < ds_pop.GetRowCount(); i ++)
+    {
+		if( ds_pop.GetColumn(i, "FDATR") == createDate )
+		{
+			//trace("같은일시에 생성된 사진이 이미 존재합니다.");
+			gfn_showAlert("같은일시에 생성된 사진이 이미 존재합니다.");
+			return;
+		}
+    }
+	
+	//Trace(Substr(createDate,0,8));
+	//Trace(ds_dayChk.GetColumn(0, "CHK_DATE"));
+	
+	if(toNumber(Substr(createDate,0,8)) < toNumber(ds_dayChk.GetColumn(0, "CHK_DATE")))	// Working Day -3일 이전 생성된 사진은 등록불가처리.(2021-07-11 정시용 부장님 요청)
+	{
+		gfn_showAlert("근무일 기준 3일 이전 생성된 사진은\n등록이 불가합니다.");
+		return;
+	}
+	
+	
+	
+     _cursel_file = false;
+
+    //-------------------------------------- 파일 중복 체크 로직 end--------------------------------//
+
+	// 파일정보
+	if(length(fileDialog.FileName) > 0 )
+	{
+		var rtn = "";
+		var thumbext = fileDialog.FileName; //파일을 추가한 input 값
+		thumbext = substr(thumbext, ufn_lastIndexOf(thumbext)); //확정자값 가져오기
+		thumbext = ToLower(thumbext); //소문자로 변경
+
+	    if(thumbext != "jpg" && thumbext != "jpeg" &&  thumbext != "gif" &&  thumbext != "bmp")
+	    { // 확장자를 확인
+			global.FRM_BOTTOM.img_msgType.imageId = "bottom_icon_caution";
+		    global.FRM_BOTTOM.st_msg.color = "yellow";
+			global.FRM_BOTTOM.st_msg.value = "이미지 파일(jpg, jpeg, gif, bmp)만 등록 가능합니다.";
+			return false;
+		}
+
+		_F_FILE_DIR =  fileDialog.FilePath;
+		_F_FILE_NAME = fileDialog.FileName;
+		_F_FILE_SIZE = fileSize;
+
+		for(var i=0;i<length(_F_FILE_NAME);i++)
+		{
+			rtn = ufn_IsKor(charAt(_F_FILE_NAME,i));
+
+			if(rtn == 'Y')
+			{
+				gfn_OpenMsgWin("파일명에 한글 또는 공백이 포함된 경우,\n등록이 불가합니다.","W");
+				return;
+			}
+		}
+
+		if(length(_F_FILE_NAME) != 0 && length(_F_FILE_DIR) != 0)
+		{
+			var sFnameTmp = left(GetDate(),8) +"_"+ right(GetDate(),6) +"_"+ G_USER_ID +"."+thumbext;
+
+			//2019.03.12 nwtns lhl 데이터셋에 임시 저장 하고, 서버전송은 앞화면(공정표)에서 확인버튼을 누를때 처리한다.
+		    _add_file = true;
+
+		    if(_del_file)
+		     _del_file = false;
+
+		    ed_fileName.value = _F_FILE_DIR + "\\" + fileDialog.FileName;
+
+			if (parent.ds_cond3.rowcount > 0) {
+				//ds_cond3- 이미지 뷰어팝업창에서 에서 담은 파일 데이터셋
+				var selFindRow = parent.ds_cond3.FindRow("PRONR", PRONR); //PRONR : 공정표 화면에서 넘겨온 공정번호
+
+				if(selFindRow == -1) {
+					var j = parent.ds_cond3.AddRow();
+				        parent.ds_cond3.setColumn(j , "FPATH", _F_FILE_DIR); //arr[1]);
+						parent.ds_cond3.setColumn(j , "ORGFNAME", _F_FILE_NAME);
+						parent.ds_cond3.setColumn(j , "FNAME", _F_FILE_NAME); //arr[2]);
+						parent.ds_cond3.setColumn(j , "FNAME", _F_FILE_NAME); //arr[2]);
+						//parent.ds_cond3.setColumn(j , "FNAME_TMP", sFnameTmp); //arr[2]);
+
+						parent.ds_cond3.setColumn(j , "FSIZE", _F_FILE_SIZE); //ToNumber(arr[3]));
+						parent.ds_cond3.SetColumn(j , "FDATR", createDate);
+						parent.ds_cond3.SetColumn(j , "PRONR", PRONR);
+
+						if(GUBUN == "S") //당일 서버저장 된 것, 삭제시 서버파일을 삭제하기 위해
+							parent.ds_cond3.SetColumn(j , "OLDGUBUN", GUBUN);
+				} else {
+
+					parent.ds_cond3.setColumn(selFindRow, "FPATH", _F_FILE_DIR); //arr[1]);
+					parent.ds_cond3.setColumn(selFindRow, "ORGFNAME", _F_FILE_NAME);
+					parent.ds_cond3.setColumn(selFindRow, "FNAME", _F_FILE_NAME); //arr[2]);
+					parent.ds_cond3.setColumn(selFindRow, "FSIZE", _F_FILE_SIZE); //ToNumber(arr[3]));
+					parent.ds_cond3.SetColumn(selFindRow, "FDATR", createDate);
+					parent.ds_cond3.SetColumn(selFindRow, "PRONR", PRONR);
+				}
+			} else {
+				var i = parent.ds_cond3.AddRow();
+
+				parent.ds_cond3.setColumn(i, "FPATH", _F_FILE_DIR); //arr[1]);
+				parent.ds_cond3.setColumn(i, "ORGFNAME", _F_FILE_NAME);
+				parent.ds_cond3.setColumn(i, "FNAME", _F_FILE_NAME); //arr[2]);
+				parent.ds_cond3.setColumn(i, "FSIZE", _F_FILE_SIZE); //ToNumber(arr[3]));
+				parent.ds_cond3.SetColumn(i, "FDATR", createDate);
+				parent.ds_cond3.SetColumn(i, "PRONR", PRONR);
+
+				if(GUBUN == "S") //당일 서버저장 된 것
+					parent.ds_cond3.SetColumn(i, "OLDGUBUN", GUBUN);
+				//
+			}//	여기까지
+
+		    //선택파일 보기
+		    Image0.ImageID = ed_fileName.value;
+		}
+	}
+}
+
+/********************************************************************************
+* 기      능   : 이미지 파일일 경우 열어줌
+********************************************************************************/
+function ufn_isImage(fileNm) {
+	var s = toUpperCase(right( fileNm, 4));
+	if ( s == ".JPG" || s == ".GIF" ||  s == ".BMP") {
+		return true;
+	} else if ( toUpperCase(right( fileNm, 5)) == ".JPEG") {
+		return true;
+	}
+
+	return false;
+}
+
+/********************************************************************************
+* 기      능   : 이미지 출력
+********************************************************************************/
+function ufn_showImageUrls()
+{
+	var fa_serverFileName = "";
+
+	var i = 0;
+
+	//trace("ufn_showImageUrls : " + length(_P_FNAME));
+
+	if ( GUBUN == "N" || length(_P_FNAME) == 0 ) //업로드한 파일이 없을
+	{
+	    //trace("FNAME_APP : " + ds_files.GetColumn(i, "FNAME_APP") );
+	    //trace("FNAME_APP : " + length(ds_files.GetColumn(i, "FNAME_APP")));
+
+		if(length(ds_files.GetColumn(i, "FNAME_APP") ) > 0 ) //ds_files.GetColumn(i, "FNAME_APP") != null)
+		{
+			fa_serverFileName = ds_files.GetColumn(i, "FNAME_APP");
+			//trace("FNAME_APP > 0 : " + ds_files.GetColumn(i, "FNAME_APP"));
+		} else {
+		    //trace("FNAME_APP < 0 : " + ds_files.GetColumn(i, "FNAME_APP"));
+			fa_serverFileName =  "FF_6_1.jpg";
+		}
+	} else {
+		fa_serverFileName = _P_FNAME;
+	}
+
+	if(IndexOf(tit_getServerDir("PS", fa_serverFileName),'localhost') > 0)
+	{
+		ufn_getLocalImage(eval("Image"+i), fa_serverFileName);
+	}
+	else{
+		var idx = IndexOf(tit_getServerDir("PS", fa_serverFileName),'/',10);
+		ufn_getImage(eval("Image"+i), fa_serverFileName, idx);
+	}
+}
+
+/********************************************************************************
+* 기      능   : 이미지 출력
+********************************************************************************/
+function ufn_getLocalImage(obj, fa_serverFileName)
+{
+    obj.ImageID = tit_getServerDir("PS", fa_serverFileName);
+    //alert(tit_getServerDir("PS", fa_serverFileName));
+}
+
+/********************************************************************************
+* 기      능   : 이미지 출력
+********************************************************************************/
+function ufn_getImage(obj, fileName, idx)
+{
+	obj.ImageID = substr(tit_getServerDir("PS", fileName),0,idx)+substr(tit_getServerDir("PS", fileName),idx);
+	//alert(substr(tit_getServerDir("PS", fileName),0,idx)+substr(tit_getServerDir("PS", fileName),idx));
+}
+
+/********************************************************************************
+* 기      능   : 이미지 삭제
+********************************************************************************/
+function btn_deleteFile_OnClick(obj)
+{
+	if(length(ed_fileName.value) > 0){
+		_del_file = true;  //파일삭제 여부 : true
+
+		ed_fileName.value = "";
+		_P_FNAME = "";
+
+		ufn_showImageUrls(); // 샘플이미지를 보여준다.
+	}
+	else {
+		ufn_showImageUrls(); // 샘플이미지를 보여준다.
+	}
+}
+
+function ufn_lastIndexOf(sParmString)
+{
+	var j = 0;//.위치
+	var k = 0;// 결과위치
+	var k = 0;//.위치 -1
+
+	while(true)
+	{
+		r = pos(sParmString,".",j);
+
+		if (r == -1)
+		{
+			break;
+		}
+
+		j=r+1;
+	}
+	k = j;
+
+	return k;
+}
+
+function ufn_IsKor(sValue)
+{
+	var sReturnValue = "Y";
+	var iLen = "";
+	var i, iBit;
+	iLen = length(sValue);
+
+	for ( i = 0 ; i < iLen ; i++ )
+	{
+		iBit = substr(sValue, i, 1);
+		if ((asc(iBit) >= asc("가") && asc(iBit) <= asc("힣")) || asc(iBit) == asc(" "))
+		{
+			sReturnValue = "Y";
+		}
+		else
+		{
+			sReturnValue = "N";
+			break;
+		}
+	}
+
+	return sReturnValue;
+}
+
+function fn_afterDayChk()
+{
+	
+}]]></Script>
+</Window>

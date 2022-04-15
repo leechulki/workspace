@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+       A.HST,
+       A.UPN,
+       A.PJT,
+       A.CST,
+       A.HNO,
+       A.ARA,
+       VALUE(MAX(D.CTEXT2),'') ARA_NM,
+       A.BSU,
+       VALUE(MAX(E.ABR_NM),'') BSU_NM,
+       VALUE(MAX(C.KUNNR_NM),'') KNM,
+       VALUE(MAX(C.ZSITE_NM),'') SPT,
+       VALUE(MAX(F.CS101_IGD),'') IGD,
+       VALUE(MAX(F.CS101_ISD),'') FDT,
+       CASE VALUE(MAX(B.CS116_GND),'') WHEN 'A' THEN '무상공사' WHEN 'B' THEN '무상일반' ELSE VALUE(MAX(B.CS116_GND),'') END MGND_NM,
+       VALUE(MAX(B.CS116_BGT),'') BGT,
+       VALUE(MAX(B.CS116_BMT),'') BMT,
+       CASE VALUE(MAX(G.CS126_GND),'') WHEN 'C' THEN '유상공사' WHEN 'D' THEN '유상일반' ELSE VALUE(MAX(G.CS126_GND),'') END UGND_NM,
+       VALUE(MAX(G.CS126_AMT),0) AMT,
+       VALUE(MAX(G.CS126_USD),'') USD,
+       VALUE(MAX(G.CS126_UMR),'') UMR,
+       A.FSD,
+       A.JJD,
+       '' RMK
+  FROM
+       SAPHEE.ZCST111 A
+              LEFT OUTER JOIN SAPHEE.ZCST116 B ON A.MANDT = B.MANDT
+                                              AND A.PJT = B.CS116_PJT
+                                              AND A.HNO = B.CS116_HNO
+                                              AND B.CS116_PST = 'A6'
+              LEFT OUTER JOIN SAPHEE.ZCST157 J ON A.MANDT = J.MANDT
+                                              AND A.PJT = J.CS157_PJT
+                                              AND A.HNO = J.CS157_HNO
+                                              AND J.CS157_RLT = 'Y'
+              LEFT OUTER JOIN (
+                               SELECT
+                                      H.MANDT,
+                                      H.CS126_UPN,
+                                      H.CS126_CST,
+                                      H.CS126_PJT,
+                                      H.CS126_HNO,
+                                      H.CS126_GND,
+                                      H.CS126_USD,
+                                      H.CS126_UMR,
+                                      H.CS126_AMT,
+                                      H.CS126_ARA,
+                                      H.CS126_BSU,
+                                      H.CS126_DDT,
+                                      H.CS126_PST
+                                 FROM
+                                      SAPHEE.ZCST126 H,
+                                      (
+                                       SELECT
+                                              CS126C.MANDT,
+                                              CS126C.CS126_UPN,
+                                              CS126C.CS126_CST,
+                                              CS126C.CS126_PJT,
+                                              CS126C.CS126_HNO,
+                                              MAX(CS126C.CS126_SEQ) CS126_SEQ
+                                         FROM
+                                              SAPHEE.ZCST126 CS126C
+                                        WHERE
+                                              CS126C.MANDT = '183'
+                                          AND CS126C.CS126_DDT = ''
+                                          AND CS126C.CS126_PST = 'A6'
+                                       GROUP BY
+                                              CS126C.MANDT,
+                                              CS126C.CS126_UPN,
+                                              CS126C.CS126_CST,
+                                              CS126C.CS126_PJT,
+                                              CS126C.CS126_HNO
+                                      ) I
+                                WHERE
+                                      H.MANDT = I.MANDT
+                                  AND H.CS126_UPN = I.CS126_UPN
+                                  AND H.CS126_CST = I.CS126_CST
+                                  AND H.CS126_PJT = I.CS126_PJT
+                                  AND H.CS126_HNO = I.CS126_HNO
+                                  AND H.CS126_SEQ = I.CS126_SEQ
+                              ) G ON A.MANDT = G.MANDT
+                                 AND A.UPN = G.CS126_UPN
+                                 AND A.CST = G.CS126_CST
+                                 AND A.PJT = G.CS126_PJT
+                                 AND A.HNO = G.CS126_HNO
+              LEFT OUTER JOIN SAPHEE.ZCST101 F ON A.MANDT = F.MANDT
+                                              AND A.PJT = F.CS101_PJT
+                                              AND A.HNO = F.CS101_HNO
+              LEFT OUTER JOIN SAPHEE.ZMASTER01 C ON A.MANDT = C.MANDT
+                                                AND A.PJT = C.POSID
+              LEFT OUTER JOIN SAPHEE.ZLCODE D ON A.MANDT = D.MANDT
+                                              AND A.ARA = D.CODE2
+                                              AND D.CODE1 = 'CS115'
+                                              AND D.CODE2 &lt;&gt; 'E1'
+											  AND D.LANG = #G_LANG#
+              LEFT OUTER JOIN SAPHEE.ZWBT010 E ON A.MANDT = E.MANDT
+                                              AND A.BSU = E.LGORT
+                                              AND E.BSU_ARA > ''
+                                              AND E.LGORT > ''
+ WHERE
+       1=1
+   AND A.MANDT = '183'
+   AND A.ARA > ''
+   AND A.BSU > ''
+   AND A.HST &lt;&gt; 'D'
+<isNotNull col="ARA">
+   AND A.ARA = #ARA#
+</isNotNull>
+<isNotNull col="BSU">
+   AND A.BSU = #BSU#
+</isNotNull>
+   AND SUBSTR(A.HNO,1,1) NOT IN ('J','G')
+   AND A.EXC = ''
+   AND VALUE(J.CS157_IGM,'') = #YYMM1#
+GROUP BY
+       A.HST,
+       A.UPN,
+       A.CST,
+       A.PJT,
+       A.HNO,
+       A.ARA,
+       A.BSU,
+       A.FSD,
+       A.JJD
+ORDER BY
+       A.ARA,
+       A.BSU,
+       A.UPN,
+       A.CST,
+       A.PJT,
+       A.HNO
+WITH UR	</statement>
+	<input default-name="ds_cond">
+		<col name="ARA" size="255" type="VARCHAR" description="" /> 
+		<col name="BSU" size="255" type="VARCHAR" description="" /> 
+		<col name="YYMM1" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="AMT" size="13" type="NUMERIC" description="" /> 
+		<col name="ARA" size="6" type="VARCHAR" description="" /> 
+		<col name="ARA_NM" size="60" type="VARCHAR" description="" /> 
+		<col name="BGT" size="24" type="VARCHAR" description="" /> 
+		<col name="BMT" size="24" type="VARCHAR" description="" /> 
+		<col name="BSU" size="12" type="VARCHAR" description="" /> 
+		<col name="BSU_NM" size="60" type="VARCHAR" description="" /> 
+		<col name="CST" size="9" type="VARCHAR" description="" /> 
+		<col name="FDT" size="24" type="VARCHAR" description="" /> 
+		<col name="FSD" size="24" type="VARCHAR" description="" /> 
+		<col name="HNO" size="9" type="VARCHAR" description="" /> 
+		<col name="HST" size="9" type="VARCHAR" description="" /> 
+		<col name="IGD" size="24" type="VARCHAR" description="" /> 
+		<col name="JJD" size="24" type="VARCHAR" description="" /> 
+		<col name="KNM" size="105" type="VARCHAR" description="" /> 
+		<col name="MGND_NM" size="12" type="VARCHAR" description="" /> 
+		<col name="PJT" size="18" type="VARCHAR" description="" /> 
+		<col name="RMK" size="0" type="VARCHAR" description="" /> 
+		<col name="SPT" size="105" type="VARCHAR" description="" /> 
+		<col name="UGND_NM" size="12" type="VARCHAR" description="" /> 
+		<col name="UMR" size="24" type="VARCHAR" description="" /> 
+		<col name="UPN" size="18" type="VARCHAR" description="" /> 
+		<col name="USD" size="24" type="VARCHAR" description="" /> 
+	</output>
+</query>

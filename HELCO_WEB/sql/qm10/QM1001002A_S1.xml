@@ -1,0 +1,237 @@
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[	
+SELECT
+		M.REQSEQ
+		, DECODE( M.DEG, '', '' ,  M.DEG || '차' ) AS DEGREE
+		, M.TITLE 			
+		, M.FORMGBN			
+		, DECODE(M.STATCD,'22','20', M.STATCD) AS STATCD 
+		, M.GOODSGBN
+		--, TO_NUMBER(SUBSTR(M.REQSEQ , 17, 2)) || '차' AS DEGREE
+		, M.TESTREV
+		, I.TESTCNT
+		, M.REQDT			
+		, M.REQGBN
+		, M.REQVENDNM		
+		, M.REQID		
+		, M.REQNM		
+		, M.REQCELL			
+		, M.BFMATNR			
+		, M.FTREPORTCD			
+		, M.REQATTDCD		
+		, M.TECHATTDCD		
+		, M.TESTGBN			
+		, M.TESTGBN_ETCTXT	
+		, M.SMPCNT			
+		, M.CPNCD
+		, M.CPNNM			
+		, M.SMPQLT			
+		, DECODE( TRIM(M.GOODSNM), '' , R.GOODSNM , M.GOODSNM  ) AS GOODSNM
+		, DECODE( TRIM(M.MODELNM), '' , R.MODELNM , M.MODELNM  ) AS MODELNM
+        , NVL(G.POSITIONNM, G2.POSITIONNM ) AS POSITIONNM
+        , NVL(G.BLOCKENM, G2.BLOCKENM ) AS BLOCKENM
+        , NVL(G.BLOCKCD, G2.BLOCKCD ) AS BLOCKCD		
+		, M.LAWRQ_CODE      
+		, M.LAWRQ_CHKLSTYN	
+		, M.LAWRQ_CONTYN	
+		, M.LAWRQ_NAYN		
+		, M.ATT_CNFRMYN		
+		, M.ATT_SPECYN		
+		, M.ATT_BPYN		
+		, M.ATT_CHKLSTYN	
+		, M.ATT_PAXYN		
+		, M.ATT_KCSYN		
+		, M.ATT_FTFLOWYN	
+		, M.ATT_STRPTYN		
+		, M.ATT_IMPRPTYN	
+		, M.ATT_NAYN		
+		, M.HOGI			
+		, M.SPEC			
+		, M.CTESTYMD		
+		, M.BOSUCONTACT		
+		, M.ETC				
+		, M.THOGI			
+		, M.ATYPE			
+		, M.AUSE			
+		, M.PCNT			
+		, M.CAPA			
+		, M.STCNT			
+		, M.DOMETER			
+		, M.ABYN			
+		, M.TMSPEC			
+		, M.CONSOLE			
+		, M.INVERTER		
+		, M.ROPE_MG			
+		, M.ROPING			
+		, M.COMPENCHAIN		
+		, M.RAIL_CC			
+		, M.GUIDESHOE_CAR	
+		, M.GUIDESHOE_CWT	
+		, M.BRAKESPEC		
+		, M.REGULATOR		
+		, M.STOPEQP		
+		, M.USEYN
+		, M.CREID			
+		, M.CREDT			
+		, M.MODID
+		, M.MODDT
+	    , M.TESTERNM -- 시험자
+	    , M.TESTERID 
+		, M.TESTERCELL -- 시험자 연락처
+		, M.RST -- 결과
+		, DECODE(M.IMP_FILENM , NULL , '', '', '' , 'O' ) AS IMPFILEYN
+		, SUBSTR(M.REQDT, 1,8) AS REQYMD -- 의뢰일
+		, SUBSTR(M.RCTDT, 1,8) AS RCTDT -- 접수일
+		, I.TESTSYMD -- 시험 시작일 
+		, CASE WHEN SUBSTR(M.REQDT, 1,8) < '20210121' THEN M.TESTEYMD ELSE  I.TESTPYMD END AS TESTPYMD -- 시험 완료 예정일
+		, DECODE(M.STATCD, '22' , '' , '20', '',  CASE WHEN SUBSTR(M.REQDT, 1,8) < '20210121' THEN SUBSTR(M.ENDDT, 1,8) ELSE  M.TESTEYMD END  ) AS  TESTEYMD-- 시험 완료일   
+		, VARCHAR(DAYS(   TO_DATE( DECODE(TRIM(DECODE(M.STATCD, '22' , '' , '20', '',  CASE WHEN SUBSTR(M.REQDT, 1,8) < '20210121' THEN SUBSTR(M.ENDDT, 1,8) ELSE  M.TESTEYMD END )), '' , NULL , CASE WHEN SUBSTR(M.REQDT, 1,8) < '20210121' THEN SUBSTR(M.ENDDT, 1,8) ELSE  M.TESTEYMD END) , 'YYYYMMDD')) 
+		        - DAYS( TO_DATE( DECODE(TRIM(M.RCTDT), '' , NULL , SUBSTR(M.RCTDT, 1,8   )) , 'YYYYMMDD'))) 
+		       || '일'  AS PERIOD -- 접수부터 완료까지
+		, CASE WHEN   M.STATCD = '20' 
+		       THEN ''
+		       WHEN   M.STATCD = '22'
+		       THEN ''                
+		       WHEN   ( DAYS(   TO_DATE( DECODE(TRIM(CASE WHEN SUBSTR(M.REQDT, 1,8) < '20210121' THEN M.TESTEYMD ELSE  I.TESTPYMD END), '' , NULL , CASE WHEN SUBSTR(M.REQDT, 1,8) < '20210121' THEN M.TESTEYMD ELSE  I.TESTPYMD END) , 'YYYYMMDD') ) - DAYS( TO_DATE( DECODE(TRIM(CASE WHEN SUBSTR(M.REQDT, 1,8) < '20210121' THEN SUBSTR(M.ENDDT, 1,8) ELSE  M.TESTEYMD END), '' , NULL , CASE WHEN SUBSTR(M.REQDT, 1,8) < '20210121' THEN SUBSTR(M.ENDDT, 1,8) ELSE  M.TESTEYMD END) , 'YYYYMMDD')) >= 0 ) 
+		       THEN '납기내 완료'
+		       WHEN   ( DAYS(   TO_DATE( DECODE(TRIM(CASE WHEN SUBSTR(M.REQDT, 1,8) < '20210121' THEN M.TESTEYMD ELSE  I.TESTPYMD END), '' , NULL , CASE WHEN SUBSTR(M.REQDT, 1,8) < '20210121' THEN M.TESTEYMD ELSE  I.TESTPYMD END) , 'YYYYMMDD') ) - DAYS( TO_DATE( DECODE(TRIM(CASE WHEN SUBSTR(M.REQDT, 1,8) < '20210121' THEN SUBSTR(M.ENDDT, 1,8) ELSE  M.TESTEYMD END), '' , NULL , CASE WHEN SUBSTR(M.REQDT, 1,8) < '20210121' THEN SUBSTR(M.ENDDT, 1,8) ELSE  M.TESTEYMD END) , 'YYYYMMDD')) < 0 ) 
+		       THEN '납기내 미완료'
+		       WHEN   ( DAYS(   TO_DATE( DECODE(TRIM(CASE WHEN SUBSTR(M.REQDT, 1,8) < '20210121' THEN M.TESTEYMD ELSE  I.TESTPYMD END), '' , NULL , CASE WHEN SUBSTR(M.REQDT, 1,8) < '20210121' THEN M.TESTEYMD ELSE  I.TESTPYMD END) , 'YYYYMMDD') ) 
+		                   - DAYS( CURRENT_DATE) < 0 ) 
+		       THEN '납기내 미완료'
+		       ELSE  ''
+		       END AS DUEDATEY -- 납기내완료
+--		, I.TESTPYMD -- 시험 완료 예정일
+--		, DECODE(M.STATCD, '22' , '' , '20', '',  M.TESTEYMD ) AS  TESTEYMD-- 시험 완료일
+--        , VARCHAR(DAYS(   TO_DATE( DECODE(TRIM(DECODE(M.STATCD, '22' , '' , '20', '',  M.TESTEYMD )), '' , NULL , M.TESTEYMD) , 'YYYYMMDD')) 
+--                - DAYS( TO_DATE( DECODE(TRIM(M.RCTDT), '' , NULL , SUBSTR(M.RCTDT, 1,8   )) , 'YYYYMMDD'))) 
+--               || '일'  AS PERIOD -- 접수부터 완료까지
+--		,   CASE WHEN   M.STATCD = '20' 
+--                   THEN ''
+--                   WHEN   M.STATCD = '22'
+--                   THEN ''         
+--				WHEN   ( DAYS(   TO_DATE( DECODE(TRIM(I.TESTPYMD), '' , NULL , I.TESTPYMD) , 'YYYYMMDD') ) - DAYS( TO_DATE( DECODE(TRIM(M.TESTEYMD), '' , NULL , M.TESTEYMD) , 'YYYYMMDD')) >= 0 ) 
+--                 THEN '납기내 완료'
+--			   WHEN   ( DAYS(   TO_DATE( DECODE(TRIM(I.TESTPYMD), '' , NULL , I.TESTPYMD) , 'YYYYMMDD') ) - DAYS( TO_DATE( DECODE(TRIM(M.TESTEYMD), '' , NULL , M.TESTEYMD) , 'YYYYMMDD')) < 0 ) 
+--			     THEN '납기내 미완료'
+--               WHEN   ( DAYS(   TO_DATE( DECODE(TRIM(I.TESTPYMD), '' , NULL , I.TESTPYMD) , 'YYYYMMDD') ) 
+--                           - DAYS( CURRENT_DATE) < 0 ) 
+--                 THEN '납기내 미완료'
+--                 ELSE  ''
+--               END AS DUEDATEY -- 납기내완료
+        , CASE 
+            -- WHEN DAYS(   TO_DATE( DECODE(TRIM(I.TESTPYMD), '' , NULL , I.TESTPYMD) , 'YYYYMMDD')) 
+                -- - DAYS(CURRENT TIMESTAMP) < 0 AND STATCD IN ('20', '22' ) THEN 'Y'
+                 WHEN DAYS(   TO_DATE( DECODE(TRIM(I.TESTPYMD), '' , NULL , I.TESTPYMD) , 'YYYYMMDD')) 
+                - DAYS(CURRENT TIMESTAMP) BETWEEN 0 AND  3 AND STATCD IN ('20', '22' ) THEN 'Y'
+--               WHEN   ( DAYS(   TO_DATE( DECODE(TRIM(I.TESTPYMD), '' , NULL , I.TESTPYMD) , 'YYYYMMDD') ) 
+--               - DAYS( TO_DATE( DECODE(TRIM(M.TESTEYMD), '' , NULL , M.TESTEYMD) , 'YYYYMMDD')) < 0 ) THEN 'R'
+                 WHEN  DAYS(   TO_DATE( DECODE(TRIM(I.TESTPYMD), '' , NULL , I.TESTPYMD) , 'YYYYMMDD')) 
+               - DAYS( CURRENT_DATE) < 0 AND STATCD IN ('20', '22' ) THEN 'R'
+                ELSE 'D'
+                END AS FONTCOLOR
+        ,   CASE WHEN   M.STATCD = '20' 
+                   THEN ''
+                   WHEN   M.STATCD = '22'
+                   THEN ''        
+        		WHEN   ( DAYS(   TO_DATE( DECODE(TRIM(I.TESTPYMD), '' , NULL , I.TESTPYMD) , 'YYYYMMDD') ) 
+                                - DAYS( TO_DATE( DECODE(TRIM(M.TESTEYMD), '' , NULL , M.TESTEYMD) , 'YYYYMMDD')) >= 0 ) 
+                 THEN '1'  ELSE  '' END  AS DUEDATEY_CNT
+        ,  CASE WHEN   ( DAYS(   TO_DATE( DECODE(TRIM(I.TESTPYMD), '' , NULL , I.TESTPYMD) , 'YYYYMMDD') ) 
+                                - DAYS( TO_DATE( DECODE(TRIM(M.TESTEYMD), '' , NULL , M.TESTEYMD) , 'YYYYMMDD')) >= 0 ) 
+           THEN '0' 
+            WHEN   ( DAYS(   TO_DATE( DECODE(TRIM(I.TESTPYMD), '' , NULL , I.TESTPYMD) , 'YYYYMMDD') ) 
+                           - DAYS( TO_DATE( DECODE(TRIM(M.TESTEYMD), '' , NULL , M.TESTEYMD) , 'YYYYMMDD')) < 0 ) 
+                 THEN '1'
+               WHEN   ( DAYS(   TO_DATE( DECODE(TRIM(I.TESTPYMD), '' , NULL , I.TESTPYMD) , 'YYYYMMDD') ) 
+                           - DAYS( CURRENT_DATE) < 0 ) 
+                 THEN '1'
+                 ELSE  '' END  AS DUEDATEN_CNT                
+		, M.JIGCOST -- Jig제작비용
+		, M.TRSCOST -- 운반비
+		, M.TRVCOST-- 출장비
+		, M.TESTCOST
+		, M.TOTALCOST
+		, M.VELOCITY
+		, M.RTNRSN		
+		, I.CHNSRSN
+		, M.NFLLWRSN
+		, M.BIGO
+		, M.SBID
+        , M.SBDT
+        , ( SELECT A.USERNAME
+              FROM SAPHEE.ZUSERF A
+              WHERE A.MANDT = M.MANDT
+                  AND A.USERNUMB = M.SBID      
+          ) AS SBNM
+FROM SAPHEE.ZQMT090 M
+LEFT JOIN SAPHEE.ZQMT091 I ON M.REQSEQ = I.REQSEQ AND M.TESTREV = I.TESTREV
+LEFT JOIN SAPHEE.ZQMT093 R ON M.REQSEQ = R.REQSEQ AND R.RNDSEQ = 1
+LEFT JOIN SAPHEE.ZQMT094 G ON M.MANDT = G.MANDT AND M.BLOCKCD = G.BLOCKCD
+LEFT JOIN SAPHEE.ZQMT094 G2 ON R.MANDT = G2.MANDT AND R.BLOCKCD = G2.BLOCKCD
+WHERE M.MANDT = #G_MANDT#  
+AND	 M.USEYN = '1'
+]]>	 
+<isNotNull col="REQDT_FM">
+<![CDATA[
+AND     SUBSTR(M.REQDT, 1,8) >= #REQDT_FM#
+]]>	 
+</isNotNull>
+<isNotNull col="REQDT_TO">
+<![CDATA[
+AND     SUBSTR(M.REQDT, 1,8) <= #REQDT_TO#
+]]> 
+</isNotNull>
+<isNotNull col="TESTPYMD_FM">
+<![CDATA[
+AND     I.TESTPYMD >= #TESTPYMD_FM#
+]]>	 
+</isNotNull>
+<isNotNull col="TESTPYMD_TO">
+<![CDATA[
+AND     I.TESTPYMD <= #TESTPYMD_TO#
+AND     I.TESTPYMD <> ''
+]]> 
+</isNotNull>
+<isNotNull col="STATCD">
+AND     SUBSTR(M.STATCD, 1,1) = SUBSTR(#STATCD#, 1,1) 
+</isNotNull>
+<isNotNull col="REQGBN">
+AND     M.REQGBN = #REQGBN# 
+</isNotNull>
+<isNotNull col="TESTGBN">
+AND     M.TESTGBN = #TESTGBN# 
+</isNotNull>
+<isNotNull col="GOODSGBN">
+AND     M.GOODSGBN = #GOODSGBN# 
+</isNotNull>
+<isNotNull col="RST">
+AND     M.RST = #RST# 
+</isNotNull>
+<isNotNull col="REQVENDNM">
+AND     UPPER(M.REQVENDNM) LIKE '%'||#REQVENDNM#||'%'
+</isNotNull>
+<isNotNull col="TESTERNMID">
+AND   ( UPPER(M.TESTERNM) LIKE '%'||#TESTERNMID#||'%' OR M.TESTERID LIKE '%'||#TESTERNMID#||'%' )
+</isNotNull>
+<isNotNull col="REQNMID">
+AND   ( UPPER(M.REQNM) LIKE '%'||#REQNMID#||'%' OR M.REQID LIKE '%'||#REQNMID#||'%' )
+</isNotNull>
+<isNotNull col="CPNNM">
+AND     UPPER(M.CPNNM) LIKE '%'||#CPNNM#||'%'
+</isNotNull>
+ORDER BY M.MODDT DESC
+WITH UR
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+
+</query>

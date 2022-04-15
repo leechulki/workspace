@@ -1,0 +1,441 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.ses.dao.Ses0171D"> 
+  
+	<!-- Header grid query -->
+	<resultMap id="selectListMap" type="hdel.sd.ses.domain.Ses0171"> 
+	    <result property="mandt" column="MANDT"/>
+	    <result property="qtnum" column="QTNUM"/>
+	    <result property="qtser" column="QTSER"/>
+	    <result property="qtseq" column="QTSEQ"/>
+	    <result property="shangh" column="SHANGH"/>
+	    <result property="matnr" column="MATNR"/>
+	    <result property="spec" column="SPEC"/>
+	    <result property="gtype" column="GTYPE"/>
+		<result property="type1" column="TYPE1"/>
+	    <result property="type2" column="TYPE2"/>
+	    <result property="type3" column="TYPE3"/>
+	    <result property="znumber" column="ZNUMBER"/>
+	    <result property="zuse" column="ZUSE"/>
+	    <result property="zopn" column="ZOPN"/>
+	    <result property="zlen" column="ZLEN"/>
+	    <result property="zuam" column="ZUAM"/>
+	    <result property="zcost" column="ZCOST"/>
+	    <result property="zcostm" column="ZCOSTM"/>
+	    <result property="zeam" column="ZEAM"/>
+	    <result property="shang" column="SHANG"/>
+	    <result property="zrmk" column="ZRMK"/>
+	    <result property="vkbur" column="VKBUR"/>
+	    <result property="vkgrp" column="VKGRP"/>
+	    <result property="auart" column="AUART"/>
+	    <result property="zprgflg" column="ZPRGFLG"/> 
+	    <result property="zuams" column="ZUAMS"/>
+	    <result property="zurate" column="ZURATE"/>	    
+	</resultMap>
+	
+	<select id="selectList" parameterType="hdel.sd.ses.domain.Ses0171ParamVO" resultMap="selectListMap">
+
+		SELECT   A.MANDT
+				,A.QTNUM
+				,A.QTSER
+				,A.QTSEQ
+				,A.SHANGH
+				,A.MATNR
+				,A.SPEC
+				,A.GTYPE
+				,A.TYPE1
+				,A.TYPE2
+				,A.TYPE3
+				,A.ZNUMBER
+				,A.ZUSE
+				,A.ZOPN
+				,A.ZLEN
+				,A.ZUAM
+				--상해단가 추가 : 2014.05.21 신미정수정, 정동명CJ 요청
+				,A.ZUAMS
+				,CASE WHEN A.ZURATE = 0 AND (A.SHANGH = '상해' OR A.SHANGH = '상해_E') THEN
+				 value(zlcode.code2,0) ELSE A.ZURATE END AS ZURATE
+				,A.ZCOST
+				,A.ZCOSTM
+				,A.ZEAM
+				,A.SHANG
+				,A.ZRMK
+				,B.VKBUR
+				,B.VKGRP
+				,B.AUART
+				,B.ZPRGFLG
+		  FROM  SAPHEE.ZSDT1047 A
+		        INNER JOIN SAPHEE.ZSDT1046 B
+		           ON B.MANDT = A.MANDT  AND B.QTNUM = A.QTNUM AND B.QTSER = A.QTSER
+			left join table(
+				select zlcode.mandt, z1046.qtnum, z1046.qtser, zlcode.code2
+				from saphee.zsdt1046 as z1046 
+				inner join saphee.zlcode as zlcode on z1046.mandt=zlcode.mandt and zlcode.code1='SD122'
+				where z1046.mandt=a.mandt and qtnum=a.qtnum and z1046.kunnr != '0000500684') as zlcode on a.mandt=zlcode.mandt and a.qtnum=zlcode.qtnum and a.qtser=zlcode.qtser	/*Turkey 간접비 0% 처리*/
+		 WHERE  A.MANDT = #{mandt} 
+		   AND  A.QTNUM = #{qtnum}
+		   AND  A.QTSER = #{qtser}
+		<if test="qtseq !=null and qtseq !=''">  AND A.QTSEQ = #{qtseq} </if>
+		WITH UR
+	</select>
+
+	<!-- Detail grid query -->
+	<resultMap id="selectListDetailMap" type="hdel.sd.ses.domain.Ses0171"> 
+	    <result property="mandt" column="MANDT"/>
+	    <result property="qtnum" column="QTNUM"/>
+	    <result property="qtser" column="QTSER"/>
+	    <result property="qtseq" column="QTSEQ"/>
+	    <result property="zcostzseq" column="ZCOSTZSEQ"/>
+	    <result property="zccd" column="ZCCD"/>
+	    <result property="zcgrp" column="ZCGRP"/>
+	    <result property="zcct" column="ZCCT"/>
+		<result property="zuam" column="ZUAM"/>
+		<result property="zuams" column="ZUAMS"/>
+		<result property="zuamc" column="ZUAMC"/>
+		<result property="zurate" column="ZURATE"/>
+	    <result property="zcost" column="ZCOST"/>
+	    <result property="zprcp" column="ZPRCP"/>
+	    <result property="zprdi" column="ZPRDI"/>
+	    <result property="zprds" column="ZPRDS"/>
+	</resultMap>
+	
+	<select id="selectListDetail" parameterType="hdel.sd.ses.domain.Ses0171ParamVO" resultMap="selectListDetailMap">
+		SELECT  ZSDT1050.MANDT			--. 클라이언트
+				 ,ZSDT1050.QTNUM			--. 견적번호
+				 ,ZSDT1050.QTSER		  --. 견적차수
+				 ,ZSDT1050.QTSEQ			--. 견적일련번호
+				 ,ZSDT1050.ZCOSTZSEQ	--. 원가일련번호
+				 ,ZSDT1050.ZCCD				--. 원가변형조건
+				 ,ZSDT1050.ZCGRP			--. 가격결정그룹
+				 ,ZSDT1050.ZCCT				--. 원가내역
+				 ,ZSDT1050.ZUAM				--. 단가
+				 ,ZSDT1050.ZUAMS			--. 상해단가
+				 ,CAST( ROUND( ZSDT1050.ZUAMS * CAST(#{ukurs} AS DECIMAL(10, 5)), CASE #{fcurr} WHEN 'CNY' THEN 0 ELSE 2 END) AS DECIMAL(10, 2))	AS ZUAMC  	--. 달러 환산 단가
+				 ,ZSDT1050.ZURATE			--. 간접비율		 
+				 ,ZSDT1050.ZCOST			--. 원가
+				 ,ZSDT1050.ZPRCP			--. 특성조합
+				 ,ZSDT1050.ZPRDI			--. 특성값(입력값)
+				 ,ZSDT1050.ZPRDS			--. 특성값(검색값)
+		  FROM  SAPHEE.ZSDT1050 ZSDT1050
+	     WHERE  ZSDT1050.MANDT = #{mandt}
+ 		   AND  ZSDT1050.QTNUM = #{qtnum}
+	       AND  ZSDT1050.QTSER = #{qtser}
+	       AND  ZSDT1050.QTSEQ = #{qtseq}
+		WITH UR
+	</select>
+
+
+	<!-- 견적원가의뢰승인  --> 
+	<update id="updateZSDT1054" parameterType="hdel.sd.ses.domain.Ses0171">
+		UPDATE SAPHEE.ZSDT1054
+		   SET ZRQSTAT = '30'
+		       <if test="zrqrlt != null">, ZRQRLT = LTRIM(''||RTRIM(#{zrqrlt}||''))	</if>
+			   <if test="zrqrlt == null">, ZRQRLT = ''								</if>
+		       , UDATE = HEX(CURRENT DATE)
+		       , UTIME = HEX(CURRENT TIME)
+		       <if test="user_id != null">, UUSER = LTRIM(''||RTRIM(#{user_id}||''))	</if> 
+			   <if test="user_id == null">, UUSER = ''							    </if> 
+		 WHERE MANDT = #{mandt}
+		   AND QTNUM = #{qtnum}
+		   AND QTSER = #{qtser}
+		   AND ZRQSEQ = #{zrqseq}
+		WITH UR
+	</update>
+
+	<!-- 견적원가 등록 및 수정  --> 
+	<insert id="insertZSDT1050" parameterType="hdel.sd.ses.domain.Ses0171">
+		MERGE INTO SAPHEE.ZSDT1050 AS T1
+		USING ( SELECT  CAST(#{mandt}    AS VARCHAR(3))   AS MANDT
+						, CAST(#{qtnum}  AS VARCHAR(10))  AS QTNUM
+						, CAST(#{qtser}  AS SMALLINT)     AS QTSER
+						, CAST(#{qtseq}  AS SMALLINT)  AS QTSEQ
+						, CAST(#{zcostzseq}     AS SMALLINT)  AS ZCOSTZSEQ				
+			      FROM SYSIBM.SYSDUMMY1 T2
+			  ) AS T2 ON T1.MANDT   = T2.MANDT
+					 AND T1.QTNUM  = T2.QTNUM
+					 AND T1.QTSER = T2.QTSER
+					 AND T1.QTSEQ = T2.QTSEQ
+					 AND T1.ZCOSTZSEQ = T2.ZCOSTZSEQ
+	
+		WHEN MATCHED THEN
+				UPDATE SET 
+						  T1.UDATE     = HEX(CURRENT DATE)
+						, T1.UTIME     = HEX(CURRENT TIME)	
+						, T1.UUSER     = #{user_id}		
+				  <if test="zccd  != null">, T1.ZCCD    = LTRIM(''||RTRIM(#{zccd}||'')) 	  </if>
+				  <if test="zcgrp != null">, T1.ZCGRP   = LTRIM(''||RTRIM(#{zcgrp}||''))   </if>
+				  <if test="zcct  != null">, T1.ZCCT    = LTRIM(''||RTRIM(#{zcct}||'')) 	  </if>
+				  <if test="zuam  != null and zuam != ''">, T1.ZUAM    = #{zuam} 						  </if>
+				  <if test="zuam  == null or zuam == ''">, T1.ZUAM    = 0								  </if>				  
+				  <if test="zuams  != null and zuams != ''">, T1.ZUAMS    = #{zuams} 						  </if>
+				  <if test="zuams  == null or zuams == ''">, T1.ZUAMS    = 0								  </if>
+				  <if test="zurate  != null and zurate != ''">, T1.ZURATE    = #{zurate} 						  </if>
+				  <if test="zurate  == null or zurate == ''">, T1.ZURATE    = 0								  </if>			  				  				  
+				  <if test="zcost != null and zcost != ''"> , T1.ZCOST   = #{zcost} 						  </if>
+				  <if test="zcost == null or zcost == ''"> , T1.ZCOST   = 0								  </if>
+				  <if test="zprcp != null">, T1.ZPRCP    = LTRIM(''||RTRIM(#{zprcp}||'')) </if>
+				  <if test="zprdi != null">, T1.ZPRDI    = LTRIM(''||RTRIM(#{zprdi}||'')) </if>
+				  <if test="zprds != null">, T1.ZPRDS    = LTRIM(''||RTRIM(#{zprds}||'')) </if>
+						, T1.WAERK     = #{waerk}
+		WHEN NOT MATCHED THEN
+				INSERT (  
+				          MANDT
+								 ,QTNUM
+								 ,QTSER
+								 ,QTSEQ
+								 ,ZCOSTZSEQ
+								 ,ZCCD
+								 ,ZCGRP
+								 ,ZCCT
+								 ,ZUAM
+								 ,ZUAMS
+								 ,ZURATE
+								 ,ZCOST
+								 ,ZPRCP
+								 ,ZPRDI
+								 ,ZPRDS
+								 ,CDATE
+								 ,CTIME
+								 ,CUSER
+								 ,UDATE
+								 ,UTIME
+								 ,UUSER
+								 ,WAERK
+						  ) VALUES (
+						  #{mandt}
+						 ,#{qtnum}
+						 ,#{qtser}
+						 ,#{qtseq}
+						 , ( SELECT VALUE(MAX(ZCOSTZSEQ)+1, 1)
+								 FROM SAPHEE.ZSDT1050
+							   WHERE MANDT = #{mandt}
+							   AND QTNUM = #{qtnum}
+							   AND QTSER = #{qtser}
+							   AND QTSEQ = #{qtseq}
+					        )
+						 <if test="zccd  != null">,LTRIM(''||RTRIM(#{zccd}||''))		</if>
+						 <if test="zccd  == null">,''								</if>
+						 <if test="zcgrp != null">,LTRIM(''||RTRIM(#{zcgrp}||''))	</if>
+						 <if test="zcgrp == null">,''								</if>
+						 <if test="zcct  != null">,LTRIM(''||RTRIM(#{zcct}||''))		</if>
+						 <if test="zcct  == null">,''								</if>
+						 <if test="zuam  != null and zuam != ''">,#{zuam}							</if>
+						 <if test="zuam  == null or  zuam == ''">,0									</if>
+						 <if test="zuams  != null and zuams != ''">,#{zuams}							</if>
+						 <if test="zuams  == null or  zuams == ''">,0									</if>
+						 <if test="zurate  != null and zurate != ''">,#{zurate}							</if>
+						 <if test="zurate  == null or  zurate == ''">,0									</if>
+						 <if test="zcost != null and zcost != ''">,#{zcost}							</if>
+						 <if test="zcost == null or  zcost == ''">,0								</if>
+						 <if test="zprcp != null">,LTRIM(''||RTRIM(#{zprcp}||''))	</if>
+						 <if test="zprcp == null">,''								</if>
+						 <if test="zprdi != null">,LTRIM(''||RTRIM(#{zprdi}||''))	</if>
+						 <if test="zprdi == null">,''								</if>
+						 <if test="zprds != null">,LTRIM(''||RTRIM(#{zprds}||''))	</if>
+						 <if test="zprds == null">,''								</if>
+						 ,HEX(CURRENT DATE)
+						 ,HEX(CURRENT TIME)
+						 ,#{user_id}
+						 ,''
+						 ,''
+						 ,#{user_id}
+						 ,#{waerk}
+					   )
+	</insert>
+
+	<!-- 견적HEADER Update --> 
+	<update id="updateFlagConfirmZSDT1046" parameterType="hdel.sd.ses.domain.Ses0171">
+		UPDATE SAPHEE.ZSDT1046		--  견적 Header
+		   SET
+				 UDATE    = HEX(CURRENT DATE) 															--  변경일자
+				,UTIME    = HEX(CURRENT TIME) 															--  변경시간
+				<if test="user_id != null">,UUSER    = LTRIM(''||RTRIM(#{user_id}||''))    		</if>	--  변경자ID
+				<if test="user_id == null">,UUSER    = ''    										</if>	--  변경자ID
+				,ZPRGFLG    = '42'		--  원가산출:42
+		 WHERE MANDT  		= #{mandt}         							-- 클라이언트
+		   AND QTNUM  		= #{qtnum}        							-- 견적번호
+		   AND QTSER  		= #{qtser}        							-- 견적차수
+	
+		  WITH UR
+  	</update>
+  	
+  	<!-- 견적HEADER Update -->
+  	<!-- 
+	<update id="updateFlagCancelZSDT1046" parameterType="hdel.sd.ses.domain.Ses0171">
+	
+	UPDATE SAPHEE.ZSDT1046		
+	   SET
+			 UDATE    = HEX(CURRENT DATE) 															
+			,UTIME    = HEX(CURRENT TIME) 															
+			<if test="USER_ID!=null">,UUSER    = LTRIM(''||RTRIM(#{USER_ID}||''))    		</if>
+			<if test="USER_ID==null">,UUSER    = ''    										</if>
+			,ZPRGFLG    = '42'	
+	 WHERE MANDT  		= #{mandt}
+	   AND QTNUM  		= #{qtnum}
+	   AND QTSER  		= #{qtser}
+
+	  WITH UR
+
+  	</update>
+  	 -->
+  	 
+  	<!-- 견적Detail 수기원가 합계 업데이트  -->			  	 
+	<update id="updateCostZSDT1047" parameterType="hdel.sd.ses.domain.Ses0171">
+		UPDATE SAPHEE.ZSDT1047
+				SET  UDATE = HEX(CURRENT DATE)
+				   , UTIME = HEX(CURRENT TIME)
+			<if test="zuam   != null and zuam != ''"> , ZUAM  = #{zuam}  </if>
+			<if test="zuams   != null and zuams != ''"> , ZUAMS  = #{zuams}  </if>
+			<if test="zurate   != null and zurate != ''"> , ZURATE  = #{zurate}  </if>			
+			<if test="zcost  != null and zcost != ''"> , ZCOST = #{zcost} </if>
+			<if test="zeam   != null and zeam != ''"> , ZEAM  = #{zeam}  </if>
+			<if test="shang  != null and shang != ''"> , SHANG  = #{shang} </if>
+				   , UUSER = #{user_id}
+	    WHERE MANDT = #{mandt}
+		  AND QTNUM	= #{qtnum}
+		  AND QTSER = #{qtser}
+		  AND QTSEQ = #{qtseq}
+	    WITH UR
+	</update>
+
+  	<!-- 견적Detail 수기원가 합계   --> 
+	<select id="selectSumCostZSDT1047" parameterType="hdel.sd.ses.domain.Ses0171" resultMap="selectListMap">
+		SELECT  SUM(ZUAM)  AS ZUAM
+			   ,SUM(ZCOST) AS ZCOST
+			   ,SUM(ZEAM)  AS ZEAM
+		  FROM SAPHEE.ZSDT1047
+	     WHERE MANDT = #{mandt}
+		   AND QTNUM = #{qtnum}
+		   AND QTSER = #{qtser}
+		GROUP BY MANDT, QTNUM, QTSER
+	    WITH UR
+	</select>
+
+	<update id="updateCostZSDT1046" parameterType="hdel.sd.ses.domain.Ses0171">
+		MERGE INTO SAPHEE.ZSDT1046 AS T1
+		USING ( SELECT    CAST(#{mandt}  AS VARCHAR(9))  AS MANDT
+						, CAST(#{qtnum}  AS VARCHAR(30)) AS QTNUM
+						, CAST(#{qtser}  AS SMALLINT)    AS QTSER
+						, VALUE(SUM(ZNUMBER), 0)         AS ZSUM_ZNUMBER
+						, VALUE(SUM(ZCOST),   0)         AS ZSUM_ZCOST
+						, VALUE(SUM(ZEAM),    0)         AS ZSUM_ZEAM
+						, CASE WHEN VALUE(SUM(ZEAM),  0) = 0 THEN 0
+							   WHEN VALUE(SUM(ZEAM),  0) != 0 AND VALUE(SUM(ZCOST), 0) * 100 / VALUE(SUM(ZEAM), 0) > 999 THEN 999
+			  				   ELSE ROUND(VALUE(SUM(ZCOST), 0) * 100 / VALUE(SUM(ZEAM), 0), 1) END AS ZSUM_SHANG
+					 FROM SAPHEE.ZSDT1047
+					WHERE MANDT = #{mandt}
+					  AND QTNUM	= #{qtnum}
+					  AND QTSER = #{qtser}
+				 ) AS T2 ON T1.MANDT = T2.MANDT
+						AND T1.QTNUM = T2.QTNUM
+						AND T1.QTSER = T2.QTSER
+	
+		WHEN MATCHED THEN
+			UPDATE SET  T1.ZSUM_ZCOST   = T2.ZSUM_ZCOST
+					  , T1.ZSUM_ZEAM    = T2.ZSUM_ZEAM
+					  , T1.ZSUM_SHANG   = T2.ZSUM_SHANG
+					  , T1.UDATE        = HEX(CURRENT DATE)
+					  , T1.UTIME        = HEX(CURRENT TIME)
+					  , T1.UUSER        = #{user_id}
+	
+		WHEN NOT MATCHED THEN
+				INSERT (    MANDT
+						  , QTNUM
+						  , QTSER
+						  , ZSUM_ZCOST
+						  , ZSUM_ZEAM
+						  , ZSUM_SHANG
+						  , CDATE
+						  , CTIME
+						  , CUSER
+						  ) VALUES (
+						    #{mandt}
+						  , #{qtnum}
+						  , #{qtser}
+						  , T2.ZSUM_ZCOST
+						  , T2.ZSUM_ZEAM
+						  , T2.ZSUM_SHANG
+						  , HEX(CURRENT DATE)
+						  , HEX(CURRENT TIME)
+						  , #{user_id}
+						  )
+	</update>
+
+  	<!-- 견적 수기원가 합계 업데이트  --> 
+	<update id="updateCostZSDT1046_OLD" parameterType="hdel.sd.ses.domain.Ses0171">
+		UPDATE SAPHEE.ZSDT1046
+				SET  UDATE = HEX(CURRENT DATE)
+				   , UTIME = HEX(CURRENT TIME)
+				   , UUSER = #{user_id}
+				   , ZSUM_ZCOST = #{zcost}
+				   , ZSUM_ZEAM  = #{zeam}
+				   , ZSUM_SHANG = #{shang}
+	    WHERE MANDT = #{mandt}
+		  AND QTNUM	= #{qtnum}
+		  AND QTSER = #{qtser}
+	    WITH UR
+	</update>
+
+	
+	<!-- 견적원가삭제  --> 
+	<delete id="deleteZSDT1050" parameterType="hdel.sd.ses.domain.Ses0171">
+		DELETE FROM SAPHEE.ZSDT1050
+		 WHERE MANDT  	 = #{mandt} 
+	       AND QTNUM  	 = #{qtnum}
+	       AND QTSEQ  	 = #{qtseq}
+	       AND ZCOSTZSEQ = #{zcostzseq}
+	</delete>
+
+	<!-- 견적통화, 견적일자  -->
+	<resultMap id="selectCurrencyQtMap" type="hdel.sd.ses.domain.Ses0171"> 
+	    <result property="mandt" column="MANDT"/>
+	    <result property="qtnum" column="QTNUM"/>
+	    <result property="qtser" column="QTSER"/>
+	    <result property="gdatu" column="GDATU"/>
+	    <result property="waerk" column="WAERK"/>
+	    <result property="auart" column="AUART"/>
+	</resultMap>
+	
+	<select id="selectCurrencyQt" parameterType="map" resultMap="selectCurrencyQtMap">
+		SELECT  mandt, qtnum, qtser, qtdat AS gdatu, waerk, auart
+		  FROM  saphee.zsdt1046
+	     WHERE  mandt = #{mandt}
+ 		   AND  qtnum = #{qtnum}
+	       AND  qtser = #{qtser}
+		WITH UR
+	</select>
+	
+	<!-- 수주통화, 수주일자  -->
+	<resultMap id="selectCurrencySoMap" type="hdel.sd.ses.domain.Ses0171"> 
+	    <result property="mandt" column="MANDT"/>
+	    <result property="gdatu" column="GDATU"/>
+	    <result property="waerk" column="WAERK"/>
+	    <result property="auart" column="AUART"/>
+	</resultMap>
+	
+	<select id="selectCurrencySo" parameterType="map" resultMap="selectCurrencySoMap">
+		SELECT  vbak.mandt, vbak.bstdk AS gdatu, zsdt0090.chwaerk AS waerk, vbak.auart
+		  FROM  saphee.zsdt0090 AS zsdt0090 INNER JOIN saphee.vbak AS vbak
+		  									   ON zsdt0090.mandt = vbak.mandt
+		  									  AND zsdt0090.vbeln = vbak.vbeln	
+	     WHERE  zsdt0090.mandt = #{mandt}
+ 		   AND  zsdt0090.pspid = #{pspid}
+	       AND  zsdt0090.seq   = #{seq}
+		WITH UR
+	</select>	
+	
+	<!-- Cost Table 배포 통화단위 -->
+	<select id="searchWaerkBase" parameterType="map" resultType="string">
+ <![CDATA[	
+		SELECT  waerk
+		  FROM  saphee.zsdt1112
+	     WHERE  mandt   = #{mandt}
+ 		   AND  basedt <= #{basedt}
+ 		 ORDER  BY basedt DESC
+ 		 FETCH  FIRST 1 ROW ONLY 
+		WITH UR
+]]>
+	</select>	
+</mapper>  

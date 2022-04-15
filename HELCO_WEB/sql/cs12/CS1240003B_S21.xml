@@ -1,0 +1,590 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	<![CDATA[
+		SELECT D5.MANDT, 
+		       D5.PJT,
+		       D5.HNO,
+		       D5.JJT,				--자재비
+		       D5.ETT,				--추가자재비
+		       D5.OYT,				--외주용역비
+		       D5.JGT,				--정기검사비
+		       D5.BNT,				--보수노무비
+		       D5.RCT1 AS RCT,		--직접비
+		       D5.ICT1 AS GMT,		--간접비 
+		       D5.TOT1 AS COST,	--총원가
+		       D5.INS AS INC,		--인센티브
+		       D5.ORT AS TOT,		--수주단가
+		       D5.TORT AS TTOT,
+		       D5.SIP1 AS RAT,		--시행율
+		       B.ZSPEC12 SPC,
+		       B.ZSPEC2 SPC2,
+		       B.ZSPEC9 PL,
+		       B.ZBOSUIN ISD,
+		       (SELECT CTEXT2 AS CODE_NAME FROM SAPHEE.ZLCODE 
+		         WHERE MANDT=#G_MANDT# AND LANG = 'ko' AND CODE1 = ('CS123') AND CODE2 <> 'E1' AND CODE2 = F.BLD) AS BLD,
+		       CASE WHEN A.CS302_TYN = 'AET' THEN '승강기방식'
+		            WHEN A.CS302_TYN = 'ACT' THEN '평면왕복식'
+		            WHEN A.CS302_TYN = 'AAN' THEN '다층순환식'
+		            ELSE '다층순환식'
+		       END AS TYN
+		  FROM 
+		       (SELECT MANDT, 
+           				PJT,	HNO,
+		              CNT, --건수 
+		              ROUND(JJT,0) AS JJT, --자재비 
+		              ROUND(OYT,0) AS OYT, --외주용역비 
+		              ROUND(JGT,0) AS JGT, --정기검사비 
+		              ROUND(BNT,0) AS BNT, --보수노무비 
+		              ROUND(INS,0) AS INS, --인센티브 
+		              --ROUND(RCT,0) AS RCT, --직접비 
+		              --ROUND(ICT,0) AS ICT, --간접비 
+		              --ROUND(RCT + ICT,0) AS TOT, --총원가
+                  ETT AS ETT,	--추가자재비 
+                  ROUND((JJT + OYT + JGT + BNT) , 0 ) AS RCT1,
+		              ROUND((JJT + OYT + JGT + BNT) * CAST(GJR/100 AS DECIMAL(10,5)) , 0 ) AS ICT1,
+		              ROUND((JJT + OYT + JGT + BNT) + ((JJT + OYT + JGT + BNT) * CAST(GJR/100 AS DECIMAL(10,5))),0) AS TOT1,
+		              GJR AS ICP, --간접비 비율 
+		              YMT AS DAN, --계약단가 
+		              YDA AS ORT, --수주단가
+		              TYDA AS TORT, --총수주단가(무상제거후..)
+		              ROUND(((JJT + OYT + JGT + BNT) + ((JJT + OYT + JGT + BNT) * CAST(GJR/100 AS DECIMAL(10,5))))/TYDA*100,1) AS SIP1, 
+		              '' AS TMP 
+		         FROM 
+		              (SELECT MANDT, 
+		                     PJT AS PJT, 
+                         HNO AS HNO,
+		                     MAX(UBM) AS UBM, 
+		                     MAX(ETT) AS ETT, 
+		                     COUNT(MANDT) AS CNT, 
+		                     SUM(JJT) AS JJT, 
+		                     SUM(CASE WHEN YEA=1 THEN OYT ELSE 0 END) AS OYT, 
+		                     SUM(JGT + ARA_AMT) AS JGT, 
+		                     SUM(BNT) AS BNT, 
+		                     SUM(CASE WHEN INS < 0 THEN 0 ELSE INS END) AS INS,
+		                     SUM(CASE WHEN YEA=1 THEN TYDA ELSE 0 END) AS TYDA,
+		                     SUM(YDA) AS YDA , 
+		                     MAX(GJR) AS GJR, 
+		                     SUM(YMT) AS YMT 
+		                FROM 
+		                     (SELECT LD2.MANDT, 
+		                            LD2.PJT, 
+		                            LD2.HNO, 
+		                            LD2.JUC, 
+		                            LD2.TYN, 
+		                            LD2.YON, 
+		                            LD2.UBM, 
+		                            LD2.MMN,
+		                            LD2.PL, 
+		                            LD2.TYDA, 
+		                            LD2.YDA, 
+		                            LD2.YMT, 
+		                            LD2.ZYEAR, 
+		                            LD2.YEA, 
+		                            LD2.ETT, 
+		                            CASE 
+		                                WHEN LD2. YBN = '1' 
+		                                THEN --FM일 경우 년차별 자재비 금액 
+		                                    CASE 
+		                                        WHEN LD2.YEA = 1 
+		                                        THEN BD.JJ01 
+		                                        WHEN LD2.YEA = 2 
+		                                        THEN BD.JJ02 
+		                                        WHEN LD2.YEA = 3 
+		                                        THEN BD.JJ03 
+		                                        WHEN LD2.YEA = 4 
+		                                        THEN BD.JJ04 
+		                                        WHEN LD2.YEA = 5 
+		                                        THEN BD.JJ05 
+		                                        WHEN LD2.YEA = 6 
+		                                        THEN BD.JJ06 
+		                                        ELSE 0 
+		                                    END 
+		                                ELSE 0 
+		                            END AS JJT, --자재비 
+		                            CASE 
+		                                WHEN LD2.YBN = '1' 
+		                                THEN TYDA * RD.CS647_FMR 
+		                                ELSE TYDA * RD.CS647_POG 
+		                            END AS OYT, --외주용역비 (총수주금액(무상개월수 제외함))
+		                            CASE 
+		                                WHEN LD2.YBN = '1' 
+		                                THEN 
+		                                    CASE 
+		                                        WHEN LD2.YEA = 1 
+		                                        THEN BD.I01 
+		                                        WHEN LD2.YEA = 2 
+		                                        THEN BD.I02 
+		                                        WHEN LD2.YEA = 3 
+		                                        THEN BD.I03 
+		                                        WHEN LD2.YEA = 4 
+		                                        THEN BD.I04 
+		                                        WHEN LD2.YEA = 5 
+		                                        THEN BD.I05 
+		                                        WHEN LD2.YEA = 6 
+		                                        THEN BD.I06 
+		                                        ELSE 0 
+		                                    END 
+		                                ELSE 0 
+		                            END AS JGT, --정기검사비 
+		                            CASE 
+		                                WHEN LD2.ARA IN ('E5','G9','G8') 
+		                                THEN RD.CS647_JGL1 
+		                                WHEN LD2.ARA = 'H2' 
+		                                THEN RD.CS647_JGL2 
+		                                ELSE RD.CS647_JGL3 
+		                            END AS ARA_AMT, --지역별 비용(출장비) 
+		                            RD.CS647_NBT * LD2.PER AS BNT, --보수노무비 
+		                            CASE 
+		                                WHEN LD2.YBN = '1' 
+		                                THEN 
+		                                    CASE 
+		                                        WHEN LD2.YEA = 1 
+		                                        THEN (LD2.PDN - BD.C01) * 0.5 * LD2.PL * LD2.YON 
+		                                        WHEN LD2.YEA = 2 
+		                                        THEN (LD2.PDN - BD.C02) * 0.5 * LD2.PL * LD2.YON 
+		                                        WHEN LD2.YEA = 3 
+		                                        THEN (LD2.PDN - BD.C03) * 0.5 * LD2.PL * LD2.YON 
+		                                        WHEN LD2.YEA = 4 
+		                                        THEN (LD2.PDN - BD.C04) * 0.5 * LD2.PL * LD2.YON 
+		                                        WHEN LD2.YEA = 5 
+		                                        THEN (LD2.PDN - BD.C05) * 0.5 * LD2.PL * LD2.YON 
+		                                        WHEN LD2.YEA = 6 
+		                                        THEN (LD2.PDN - BD.C06) * 0.5 * LD2.PL * LD2.YON 
+		                                        ELSE 0 
+		                                    END 
+		                                ELSE LD2.PDN --POG일 경우 팔레트당 기준단가의 값이 인센티브가 됨(2014.12.23) 
+		                            END AS INS, --인센티브(나중에 음수는 0으로 만들어주어야 함) 
+		                            RD.CS647_GJR AS GJR --간접비 비율 
+		                       FROM 
+		                            (SELECT LD1.MANDT, 
+		                                   LD1.PJT AS PJT, 
+		                                   LD1.HNO AS HNO, 
+		                                   LD1.AMT AS YMT, --계약단가 
+		                                   LD1.YON AS YON, --계약개월 
+		                                   CAST(LD1.UBM AS INTEGER) AS UBM, --총개월수
+		                                   CAST(LD1.MMN AS INTEGER) AS MMN,
+		                                   LD1.AMT * (CAST(LD1.UBM AS INTEGER) - CAST(LD1.MMN AS INTEGER)) AS TYDA,	--총수주예상금액(무상개월적용)
+		                                   LD1.AMT * LD1.YON AS YDA, --수주예상금액 
+		                                   LD1.KND AS YBN, --FA여부 
+		                                   LD1.PDN AS PDN, --팔레트당 기준단가 
+		                                   LD1.TYN AS TYN, --주차방식분류 
+		                                   LD1.PL AS PL, --팔렛트 수 
+		                                   LD1.YEA, --년차 
+		                                   LD1.ARA AS ARA, --지역코드 
+		                                   LD1.ZYEAR, 
+		                                   LD1.ETT, 
+		                                   CASE 
+		                                       WHEN LD1.TYN = 'AET' 
+		                                       THEN 
+		                                           CASE 
+		                                               WHEN LD1.PL < 30 
+		                                               THEN 'S20' 
+		                                               WHEN LD1.PL < 50 
+		                                               THEN 'S40' 
+		                                               ELSE 'S60' 
+		                                           END 
+		                                       WHEN LD1.TYN = 'ACT' 
+		                                       THEN 
+		                                           CASE 
+		                                               WHEN LD1.PL < 40 
+		                                               THEN 'P30' 
+		                                               WHEN LD1.PL < 60 
+		                                               THEN 'P50' 
+		                                               ELSE 'P70' 
+		                                           END 
+		                                       WHEN LD1.TYN = 'AAN' 
+		                                       THEN 
+		                                           CASE 
+		                                               WHEN LD1.PL < 20 
+		                                               THEN 'M15' 
+		                                               WHEN LD1.PL <= 30 
+		                                               THEN 'M25' 
+		                                               ELSE 'M35' 
+		                                           END 
+		                                       ELSE '' 
+		                                   END AS JUC , --주차구분분류 
+		                                   (SELECT MAX(CS648_PER) 
+		                                     FROM SAPHEE.ZCST648 
+		                                    WHERE 1=1 
+		                                          AND CS648_YEA = LD1.ZYEAR 
+		                                          AND CS648_JCD = LD1.TYN 
+		                                          AND CS648_MIN <= LD1.PL 
+		                                          AND CS648_MAX >= LD1.PL 
+		                                   ) AS PER --보수노무비 비율 
+		                              FROM 
+		                                   (SELECT A.MANDT, 
+		                                   		  SAPHEE.MONTH_BETWEEN(A.CS301_ETD, A.CS301_STD, '2') AS UBM , --계약개월수 
+		                                          A.CS301_MMN AS MMN, --무상개월수 
+		                                          B.CS302_PJT AS PJT, 
+		                                          B.CS302_HNO AS HNO, 
+		                                          CASE A.CS301_CPD 
+		                                              WHEN 'A' 
+		                                              THEN '1' 
+		                                              ELSE '2' 
+		                                          END AS KND, 
+		                                          CASE 
+		                                              WHEN A.CS301_CPD = 'A' 
+		                                              THEN B.CS302_FMT 
+		                                              ELSE B.CS302_PMT 
+		                                          END AS AMT, 
+		                                          A.CS301_TOT AS ETT, 
+		                                          B.CS302_TYN AS TYN, 
+		                                          B.CS302_PDN AS PDN, 
+		                                          CAST(C.ZSPEC9 AS INTEGER) AS PL, 
+		                                          D.ARA, 
+		                                          SAPHEE.MONTH_BETWEEN(E.CS624_ETD, E.CS624_STD, '2') AS YON, 
+		                                          E.CS624_SEQ2 AS YEA, 
+		                                          SUBSTR(A.CS301_STD,1,4) AS ZYEAR 
+		                                     FROM SAPHEE.ZCST301 A, 
+		                                          SAPHEE.ZCST302 B, 
+		                                          SAPHEE.ZMASTER02 C, 
+		                                          SAPHEE.ZCST111 D, 
+		                                          SAPHEE.ZCST624 E 
+		                                    WHERE 1=1 
+		                                          AND A.MANDT = #G_MANDT#
+		                                          AND A.CS301_TEM = #TEM# 
+		                                          AND A.CS301_RDT = #RDT# 
+		                                          AND A.CS301_SEQ = #SEQ#
+		                                          AND A.CS301_SIR = #SIR# 
+		                                          AND A.CS301_GBN = '2' --주차 
+		                                          AND A.CS301_TEM = B.CS302_TEM 
+		                                          AND A.CS301_RDT = B.CS302_RDT 
+		                                          AND A.CS301_SEQ = B.CS302_SEQ 
+		                                          AND A.CS301_SIR = B.CS302_SIR 
+		                                          AND B.MANDT = C.MANDT 
+		                                          AND B.CS302_PJT = C.POSID 
+		                                          AND B.CS302_HNO = SUBSTR(C.POSID_1,7,3) 
+		                                          AND B.MANDT = D.MANDT 
+		                                          AND B.CS302_PJT = D.PJT 
+		                                          AND B.CS302_HNO = D.HNO 
+		                                          AND B.MANDT = E.MANDT 
+		                                          AND B.CS302_TEM = E.CS624_TEM 
+		                                          AND B.CS302_RDT = E.CS624_RDT 
+		                                          AND B.CS302_SEQ = E.CS624_SEQ 
+		                                          AND B.CS302_SIR = E.CS624_SIR 
+		                                   ) LD1 
+		                             WHERE 1=1 
+		                            ) LD2 
+		                        LEFT OUTER JOIN 
+		                            (SELECT CS607_YEAR, 
+		                                   CS607_TYP, 
+		                                   (J01+J02+J03+J04+J05)/5 AS JJ01, 
+		                                   (J02+J03+J04+J05+J06)/5 AS JJ02, 
+		                                   (J03+J04+J05+J06+J07)/5 AS JJ03, 
+		                                   (J04+J05+J06+J07+J08)/5 AS JJ04, 
+		                                   (J05+J06+J07+J08+J09)/5 AS JJ05, 
+		                                   (J06+J07+J08+J09+J10)/5 AS JJ06, --년차별 자재비 
+		                                   I01, 
+		                                   I02, 
+		                                   I03, 
+		                                   I04, 
+		                                   I05, 
+		                                   I06, 
+		                                   I07, 
+		                                   I08, 
+		                                   I09, 
+		                                   I10, --년차별 정기검사비 
+		                                   C01, 
+		                                   C02, 
+		                                   C03, 
+		                                   C04, 
+		                                   C05, 
+		                                   C06, 
+		                                   C07, 
+		                                   C08, 
+		                                   C09, 
+		                                   C10 --년차별 수주단가 
+		                              FROM 
+		                                   (SELECT CS607_YEAR, 
+		                                          CS607_TYP, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 1 
+		                                                  THEN CS607_JAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS J01, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 2 
+		                                                  THEN CS607_JAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS J02, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 3 
+		                                                  THEN CS607_JAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS J03, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 4 
+		                                                  THEN CS607_JAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS J04, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 5 
+		                                                  THEN CS607_JAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS J05, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 6 
+		                                                  THEN CS607_JAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS J06, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 7 
+		                                                  THEN CS607_JAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS J07, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 8 
+		                                                  THEN CS607_JAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS J08, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 9 
+		                                                  THEN CS607_JAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS J09, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) =10 
+		                                                  THEN CS607_JAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS J10, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 1 
+		                                                  THEN CS607_IAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS I01, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 2 
+		                                                  THEN CS607_IAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS I02, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 3 
+		                                                  THEN CS607_IAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS I03, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 4 
+		                                                  THEN CS607_IAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS I04, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 5 
+		                                                  THEN CS607_IAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS I05, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 6 
+		                                                  THEN CS607_IAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS I06, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 7 
+		                                                  THEN CS607_IAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS I07, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 8 
+		                                                  THEN CS607_IAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS I08, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 9 
+		                                                  THEN CS607_IAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS I09, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) =10 
+		                                                  THEN CS607_IAMT 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS I10, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 1 
+		                                                  THEN CS607_CART_5 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS C01, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 2 
+		                                                  THEN CS607_CART_5 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS C02, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 3 
+		                                                  THEN CS607_CART_5 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS C03, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 4 
+		                                                  THEN CS607_CART_5 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS C04, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 5 
+		                                                  THEN CS607_CART_5 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS C05, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 6 
+		                                                  THEN CS607_CART_5 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS C06, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 7 
+		                                                  THEN CS607_CART_5 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS C07, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 8 
+		                                                  THEN CS607_CART_5 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS C08, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) = 9 
+		                                                  THEN CS607_CART_5 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS C09, 
+		                                          SUM 
+		                                          ( 
+		                                              CASE 
+		                                                  WHEN CAST(CS607_SEQ AS DECIMAL(2)) =10 
+		                                                  THEN CS607_CART_5 
+		                                                  ELSE 0 
+		                                              END 
+		                                          ) AS C10 
+		                                     FROM SAPHEE.ZCST607 
+		                                    WHERE 1=1 
+		                                          AND MANDT = #G_MANDT#
+		                                    GROUP BY CS607_YEAR, 
+		                                          CS607_TYP 
+		                                   ) DATA 
+		                             WHERE 1=1 
+		                            ) BD 
+		                            ON LD2.JUC = BD.CS607_TYP 
+		                            AND LD2.ZYEAR = BD.CS607_YEAR 
+		                        LEFT OUTER JOIN SAPHEE.ZCST647 RD 
+		                            ON LD2.MANDT = RD.MANDT 
+		                            AND RD.CS647_YEA = LD2.ZYEAR 
+		                      WHERE 1=1 
+		                     ) D3 
+		               WHERE 1=1 
+		               GROUP BY MANDT ,PJT, HNO
+		              ) D4 
+		        WHERE 1=1 
+		       ) D5
+           LEFT OUTER JOIN SAPHEE.ZCST302 A
+                        ON A.CS302_TEM = #TEM# 
+                       AND A.CS302_RDT = #RDT# 
+                       AND A.CS302_SEQ = #SEQ#
+                       AND A.CS302_SIR = #SIR# 
+                       AND A.MANDT = D5.MANDT
+                       AND A.CS302_PJT = D5.PJT
+                       AND A.CS302_HNO = D5.HNO ,
+           SAPHEE.ZMASTER02 B,
+           SAPHEE.ZCST111 F 
+           
+     WHERE D5.MANDT = B.MANDT
+   		 AND D5.PJT = B.POSID
+   		 AND D5.HNO = SUBSTR(B.POSID_1,7,3)
+   		 AND D5.MANDT = F.MANDT
+   		 AND D5.PJT = F.PJT
+   		 AND D5.HNO = F.HNO
+		WITH UR 
+	]]>
+	</statement>
+	<input default-name="ds_cond4">
+	</input>
+	<output default-name="ds_print4">
+	</output>
+</query>

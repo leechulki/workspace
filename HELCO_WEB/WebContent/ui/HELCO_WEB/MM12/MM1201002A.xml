@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form BKColor="user0" Height="22" Id="MM1201002A" Left="8" OnLoadCompleted="fn_OnLoadCompleted" PidAttrib="7" Title="구분코드/명&#32;검색" Top="8" Ver="1.0" Width="310" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_list_sman">
+				<Contents>
+					<colinfo id="SMAN_CD" size="256" type="STRING"/>
+					<colinfo id="SMAN_NM" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_cond_sman">
+				<Contents>
+					<colinfo id="SMAN_CD" size="10" type="STRING"/>
+					<colinfo id="SMAN_NM" size="105" type="STRING"/>
+					<record>
+						<SMAN_CD></SMAN_CD>
+						<SMAN_NM></SMAN_NM>
+					</record>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_error_sman">
+				<Contents>
+					<colinfo id="IDX" size="256" type="STRING"/>
+					<colinfo id="ERRMSG" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_cond_check">
+				<Contents>
+					<colinfo id="MANDT" size="256" type="STRING"/>
+					<colinfo id="LANG" size="256" type="STRING"/>
+					<colinfo id="PGMID" size="256" type="STRING"/>
+					<record>
+						<LANG></LANG>
+						<MANDT></MANDT>
+						<PGMID></PGMID>
+					</record>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_list_check">
+				<Contents>
+					<colinfo id="MANDT" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Static Height="16" Id="Static1" TabOrder="1" Text="구분코드/구분명" Top="32" Width="146"></Static>
+		<Button Height="18" Id="btn_popSman" ImageID="btn_icon_search" Left="116" OnClick="fn_OnClick_popup" TabOrder="2" Text="Button0" Top="1" Transparent="TRUE" Width="18"></Button>
+		<Edit Border="Flat" CheckLength="Byte" Height="20" Id="ed_sman_nm" ImeMode="none" Left="135" LeftMargin="4" MaxLength="105" RightMargin="4" Style="sty_ipt_search" TabOrder="3" Width="170"></Edit>
+		<Edit Border="Flat" Height="20" Id="ed_sman_cd" Left="1" LeftMargin="4" OnChanged="ed_sman_cd_OnChanged" OnKeyDown="ed_sman_cd_OnKeyDown" RightMargin="4" Style="sty_ipt_search" TabOrder="4" Width="114"></Edit>
+	</Form>
+	<Script><![CDATA[/*
+ ******************************************************************************************
+ * 기      능   : 담당자 팝업 조회기능 
+ * 작  성  자   : 
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */ 
+#include "LIB::commons.js";	// 공통 스크립트 
+#include "LIB::nsfRequest.js";	// 공통 스크립트  /* GNY 추가 */
+#include "LIB::common_hdel.js";	// 공통 스크립트  /* GNY 추가 */
+#include "LIB::common_sd.js";
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+
+// 필요 시 부모 화면에 선언되어야 할 폼변수
+ var F_SMAN_WIDTH 	= "";  	// 담당자코드 서브화면 폼 WIDTH
+ var F_SMAN_CD_WIDTH	= "";  	// 담당자코드 서브화면 코드 WIDTH
+ var F_SMAN_NM_WIDTH	= "";  	// 담당자코드 서브화면 코드명 WIDTH 
+ 
+var F_USER_GROUP_B = "";  			// 사용자권한 (G_USER_GROUP_B)
+var F_USER_ID = "";  
+var F_USER_NAME = "";
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) 
+{ 
+
+	fn_query_loginCheck();
+
+}
+
+/********************************************************************************
+* 기      능   :  담당자 조회   
+********************************************************************************/
+function fn_query_loginCheck() { 
+	//trace("@@@@@@@@@@@@@@@@@@@@@@ fn_query_loginCheck");
+	gfn_clearMsgBar();   
+	
+//	trace(ds_cond_sman.SaveXML()); 	
+	
+	ds_list_check.ClearData();
+	ds_cond_check.ClearData();
+	ds_cond_check.AddRow();
+	ds_cond_check.SetColumn(ds_cond_check.row, "MANDT", G_MANDT);
+	ds_cond_check.SetColumn(ds_cond_check.row, "LANG", G_LANG);
+	ds_cond_check.SetColumn(ds_cond_check.row, "PGMID", F_PGM_ID);
+
+	// 서비스호출
+	nsfRequest("query"									// srvId
+				, "com0030/loginCheck"						// url
+				, "ds_cond_check=ds_cond_check ds_list_check=ds_list_check"		// inDsList
+				, "ds_list_check=ds_list_check ds_error_sman=ds_error_sman"	// outDsList
+				, ""									// strParam
+				, "fn_afterQuery_loginCheck");				// CallBackFunc
+}
+
+/********************************************************************************
+* 기      능   :  담당자 조회 Callback  
+********************************************************************************/ 
+function fn_afterQuery_loginCheck(errCode, errMsg) {
+		//alert(" .... first search : "+ds_list_check.SaveXML());
+//trace("@@@@@@@@@@@@@@@@@@@@@@ fn_afterQuery_loginCheck");
+	if(ds_error_sman.rowcount() > 0) { 	// 호출결과처리
+		//trace("fn_Query FAILED!!! "
+		//       + "[idx : " 			+ ds_error.GetColumn(0,"IDX") + "] "
+		//       + "[error message : "+ ds_error.GetColumn(0,"ERRMSG") + "]"
+		//       );		       
+	} else {
+		//trace(ds_list_check.SaveXML());
+		
+		if (ds_list_check.RowCount() != 0) {
+			F_USER_ID = G_SAP_USER_PM_B;
+			//trace("G_SAP_USER_PM_B = " + G_SAP_USER_PM_B);
+		} else {
+			switch (G_VEND_WGBN) {
+				case "E" : 
+					F_USER_ID   = G_SAP_USER_PM_B;
+					F_USER_NAME = G_SAP_USER_PMNM_B;
+					break;
+				default  : 
+					F_USER_ID   = G_SAP_USER_ID;
+					F_USER_NAME = G_SAP_USER_NAME;
+					break;
+			}
+			//trace("G_SAP_USER_ID = " + G_SAP_USER_ID);
+		}
+		
+		F_USER_GROUP_B = G_USER_GROUP_B;
+	}
+	
+	//F_USER_ID = G_ORG_VEND_CODE_B;
+	fn_init();
+
+	// 폼사이즈 및 컨트롤 사이즈/위치 재조정
+	fn_setSize();  
+}
+
+// 폼 초기화
+function fn_init()
+{
+	//alert("@@@@@@@@@@@@@@@@@@@@@@ fn_init");
+	
+	fn_init_auth();  
+}
+
+// 사용자 권한별 설정
+function fn_init_auth()
+{  
+//trace("@@@@@@@@@@@@@@@@@@@@@@ fn_init_auth");
+	// 사용자권한에 따라 
+
+	switch (F_USER_GROUP_B)  
+	{
+		case "B10" : fn_init_sman(); break;  // 부서, 팀 제어 가능
+		case "B20" : fn_init_sman(); break;	// 팀 제어 가능
+		default:
+//alert(" 권한 default........G_USER_ID :"+G_USER_ID +"// F_USER_ID :"+F_USER_ID );
+			//ed_sman_cd.text = F_USER_ID;	// 리턴된 담당자코드로 검색조건 SET
+			//ed_sman_nm.text = G_USER_NAME;
+			/*if (parent.F_FRM_ID == "Ses0031" || parent.F_FRM_ID == "Ses0051") {
+				ed_sman_cd.text = parent.zkunnr;
+				ed_sman_nm.text = parent.zkunnrNm;
+			} else {
+				d_sman_cd.text = F_USER_ID;	// 리턴된 담당자코드로 검색조건 SET
+				ed_sman_nm.text = G_USER_NAME;
+			}*/
+			break;
+	} 
+
+	if (parent.F_FRM_ID == "Ses0031" || parent.F_FRM_ID == "Ses0051") {
+		ed_sman_cd.text = parent.zkunnr;
+		ed_sman_nm.text = parent.zkunnrNm;
+	}
+}
+
+/********************************************************************************
+* 기      능   : 담당자팝업 =  기본값 강제설정
+********************************************************************************/ 
+function fn_init_sman()
+{	 
+//alert(" 담당자  default.fn_init_sman.......G_USER_ID :"+G_USER_ID +"// F_USER_ID :"+F_USER_ID );
+	//ed_sman_cd.text = F_USER_ID;	// 리턴된 담당자코드로 검색조건 SET
+	//ed_sman_nm.text = F_USER_NAME; //G_USER_NAME; 에서 변경 2012.11.09
+		
+	//ed_sman_cd.Enable = false;
+	//btn_popSman.Enable = false;
+}
+
+/********************************************************************************
+* 기      능   : 공통코드가 조회된 후의 Callback 함수 
+********************************************************************************/
+function fn_completeInit(sCode, sDsObj, sCodeType) 
+{
+//	tit_createActionInfo();
+	
+//	SetTimer(100, 500);	
+}
+/********************************************************************************
+* 기      능   : form UnloadCompleted 
+********************************************************************************/
+function fn_OnUnloadCompleted(obj) 
+{
+
+}  
+
+/********************************************************************************
+* 기      능   :  담당자 조회   
+********************************************************************************/
+function fn_query_sman() { 
+
+	gfn_clearMsgBar();   
+	
+//	trace(ds_cond_sman.SaveXML()); 	
+	
+	// 출력데이타셋 초기화
+	ds_list_sman.ClearData();
+	ds_cond_sman.ClearData();
+	ds_cond_sman.AddRow();
+	ds_cond_sman.SetColumn(ds_cond_sman.row, "SMAN_CD", trim(ed_sman_cd.text));
+	ds_cond_sman.SetColumn(ds_cond_sman.row, "SMAN_NM", trim(ed_sman_nm.text));
+
+	// 서비스호출
+	nsfRequest("query"									// srvId
+				, "com0030/find"						// url
+				, "ds_cond_sman=ds_cond_sman ds_list_sman=ds_list_sman"		// inDsList
+				, "ds_list_sman=ds_list_sman ds_error_sman=ds_error_sman"	// outDsList
+				, ""									// strParam
+				, "fn_afterQuery_sman");				// CallBackFunc
+}
+
+
+/********************************************************************************
+* 기      능   :  담당자 조회 Callback  
+********************************************************************************/ 
+function fn_afterQuery_sman(errCode, errMsg) {
+		//alert(" .... first search : "+ds_list_sman.SaveXML());
+	if(ds_error_sman.rowcount() > 0) { 	// 호출결과처리
+		//trace("fn_Query FAILED!!! "
+		//       + "[idx : " 			+ ds_error.GetColumn(0,"IDX") + "] "
+		//       + "[error message : "+ ds_error.GetColumn(0,"ERRMSG") + "]"
+		//       );		       
+	} else {
+		//alert(" .... first search : "+ds_list_sman.SaveXML());
+		if (ds_list_sman.RowCount() = 1) { // 한 건 조회된 경우
+			// 조회해 온 값으로 담당자 검색정보 SET
+			ed_sman_cd.Text = ds_list_sman.GetColumn(ds_list_sman.row, "SMAN_CD");
+			ed_sman_nm.Text = ds_list_sman.GetColumn(ds_list_sman.row, "SMAN_NM");
+		} 
+		else if (ds_list_sman.RowCount() > 1) { // 다 건 조회된 경우	
+			fn_OnClick_popup(btn_popSman); // 담당자조회 팝업화면  호출
+		}
+	}
+}
+
+
+
+// 담당자코드에서 엔터키 누르면
+function ed_sman_cd_OnKeyDown(obj,nChar,bShift,bCtrl, bAlt,LLParam,HLParam) {
+	if (nChar == 13) {
+		// 입력된 조건이 없으면
+		// if (length(trim(ed_sman_cd.text)) == 0 && length(trim(ed_sman_nm.text)) == 0) {
+			// fn_OnClick_popup(btn_popSman);  // 팝업화면 호출
+		// } else {
+			// fn_query_sman();  				// 담당자조회 서비스 호출
+		// }
+	} else { // 다른 키 누르면 담당자명 clear
+		// Ctrl + C or trl + V
+		if (bCtrl == 1 ) 
+		{
+		} else
+		{
+			// ed_sman_nm.text = "";
+		}
+	}
+}
+
+// 담당자명에서 엔터키 누르면
+function ed_sman_nm_OnKeyDown(obj,nChar,bShift,bCtrl, bAlt,LLParam,HLParam) {
+	if (nChar == 13) {
+		// 입력된 조건이 없으면
+		if (length(trim(ed_sman_cd.text)) == 0 && length(trim(ed_sman_nm.text)) == 0) {
+			fn_OnClick_popup(btn_popSman);  // 팝업화면 호출
+		} else {
+			fn_query_sman();  				// 담당자조회 서비스 호출
+		}
+	} else { // 다른 키 누르면 담당자코드 clear
+		//ed_sman_cd.text = "";
+	}
+}
+
+function fn_OnClick_popup(obj)
+{
+	var arg = "fa_sman_cd= " 	+ quote(ed_sman_cd.text) // 담당자코드
+			 + " fa_sman_nm = " + quote(ed_sman_nm.text); // 담당자명 
+			
+			 	
+	var arr = gfn_openPopUpUrlHdel("MM12::MM1201002B.xml", true, arg);	
+	
+	//trace("arr : " + arr);
+	
+	if (arr != null && arr != 0) {
+		ed_sman_cd.text = arr[0];	// 리턴된 담당자코드로 검색조건 SET
+		ed_sman_nm.text = arr[1];	// 리턴된 담당자명으로 검색조건 SET	
+		ed_sman_nm.SetFocus();
+	} 
+} 
+
+// 폼사이즈 및 컨트롤 사이즈 재조정
+function fn_setSize()
+{  
+	//ed_sman_cd.Text = "";
+	//ed_sman_nm.Text = "";
+	
+ 	if (IsValidObject(F_SMAN_WIDTH)   ==false && F_SMAN_WIDTH>0	  ) this.Width 	= F_SMAN_WIDTH;
+ 	if (IsValidObject(F_SMAN_CD_WIDTH)==false && F_SMAN_CD_WIDTH>0) ed_sman_cd.Width= F_SMAN_CD_WIDTH;
+ 	if (IsValidObject(F_SMAN_NM_WIDTH)==false && F_SMAN_NM_WIDTH>0) ed_sman_nm.Width= F_SMAN_NM_WIDTH; 
+	
+	btn_popSman.left = ed_sman_cd.left 	+ ed_sman_cd.Width 	+ 1;
+	ed_sman_nm.left  = btn_popSman.left + btn_popSman.Width + 1;   
+}
+
+function ed_sman_cd_OnChanged(obj,strText)
+{
+	// 입력된 조건이 없으면
+	if (length(trim(ed_sman_cd.text)) == 0 && length(trim(ed_sman_nm.text)) == 0) {
+		//fn_OnClick_popup(btn_popSman);  // 팝업화면 호출
+	} else {
+		fn_query_sman();  				// 담당자조회 서비스 호출
+	}
+}
+
+/******************************************************
+// 포커스 인
+******************************************************/
+function fn_OnFocus(obj)
+{
+	// 공백이 포함되지 않도록 처리
+	ed_sman_cd.Text = trim(ed_sman_cd.Text);
+	ufn_OnFocus(obj);
+}
+
+/******************************************************
+// 포커스 아웃
+******************************************************/
+function fn_OnKillFocus(obj)
+{
+	// 공백이 포함되지 않도록 처리
+	ed_sman_cd.Text = trim(ed_sman_cd.Text);
+	ufn_OnKillFocus(obj);
+}
+
+/******************************************************
+// 담당자코드값 변경시 명칭 clear처리
+******************************************************/
+function ed_sman_cd_OnCharChanged(obj,strPreText,strPostText)
+{
+	if (strPreText != strPostText)
+		ed_sman_nm.Text = "";
+}
+]]></Script>
+</Window>

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[반납자재 리스트 출력]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT
+   T1.MBLNR4 AS MBLNR4
+ , T1.REQNR AS REQNR
+ , T1.REQITEM AS REQITEM
+ , T1.BUDAT4 AS BUDAT4
+ , T1.MATNR AS MATNR
+ , T1.MAKTX AS MAKTX
+ , T1.MEINS AS MEINS
+ , T1.MENGE AS MENGE
+ , T1.POSID AS POSID
+ , T1.SPT AS SPT
+ , T1.SE_NO AS SE_NO
+ , T1.SE_NO2 AS SE_NO2
+ , T1.WERKS AS WERKS
+ , T1.CTEXT2 AS CTEXT2
+ , ( SELECT MAX(REQNO) FROM SAPHEE.ZMMT031 
+                 WHERE MANDT = T1.MANDT 
+                  AND REQNR = T1.REQNR GROUP BY REQNR ) AS REQNO
+FROM (
+	SELECT
+	         M1.MANDT
+		   , M1.MBLNR4 AS MBLNR4
+		   , M1.REQNR AS REQNR
+		   , M1.REQITEM AS REQITEM		  
+		   , M1.BUDAT4 AS BUDAT4
+		   , M1.MATNR AS MATNR
+		   , M1.MAKTX AS MAKTX
+		   , M1.MEINS AS MEINS
+		   , CASE WHEN M6.SE_NO IS NULL AND M6.SE_NO = '' THEN M1.MENGE
+		          ELSE 1 END AS MENGE
+		   , M1.POSID AS POSID
+		   , C1.CS121_SPT AS SPT
+		   , M6.SE_NO AS SE_NO
+		   , M6.SE_NO2 AS SE_NO2
+		   , CASE WHEN ( 
+	 		        SELECT M4.MATNR FROM SAPHEE.ZMMT004 AS M4
+			               WHERE M4.MANDT = M1.MANDT 
+			               AND M4.MATNR = M1.MATNR AND M4.WERKS != '') IS NULL THEN '0' ELSE '1' END AS BANNAB -- 2019.08.13 반납자재 ZMMT004 데이터 이상으로 인한 조인조건 보완. j.h
+		   , SAPHEE.GET_VENDER_NAME(M1.MANDT,M1.LGORT) AS WERKS
+                               , (SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT= M1.MANDT AND LANG = 'ko'
+		       AND CODE1 = 'CS115'  AND CODE2 =  SAPHEE.GET_AREA(M1.MANDT,M1.LGORT)) AS CTEXT2
+	FROM SAPHEE.ZMMT001 AS M1 
+	LEFT OUTER JOIN SAPHEE.ZCST121 AS C1 ON M1.MANDT=C1.MANDT
+	         AND SUBSTR(M1.POSID,1,6) = C1.CS121_UPN
+	         AND C1.CS121_CST = ''
+	LEFT OUTER JOIN SAPHEE.ZMMT006 AS M6 ON M1.MANDT = M6.MANDT
+	         AND M1.REQNR = M6.REQNR
+	         AND M1.REQITEM = M6.REQITEM
+	         AND M1.MBLNR4 = M6.MBLNR
+	         AND M1.BUDAT4 = M6.BUDAT
+	         AND M1.MATNR = M6.MATNR
+	         AND M6.DEL_F = ''
+	WHERE M1.MANDT= #G_MANDT#
+		AND M1.MBLNR4 <> ''
+		AND M1.BUDAT4 = #BUDAT#
+		AND M1.LGORT = #LGORT#
+	) AS T1 
+WHERE 1=1 
+AND BANNAB = '1'
+FOR FETCH ONLY 
+WITH UR	]]></statement>
+	<input default-name="ds_rcond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="BUDAT" size="255" type="VARCHAR" description="" /> 
+		<col name="LGORT" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_rlist">
+		<col name="MBLNR4" size="30" type="VARCHAR" description="" /> 
+		<col name="BUDAT4" size="24" type="VARCHAR" description="" /> 
+		<col name="MATNR" size="54" type="VARCHAR" description="" /> 
+		<col name="MAKTX" size="120" type="VARCHAR" description="" /> 
+		<col name="MEINS" size="9" type="VARCHAR" description="" /> 
+		<col name="MENGE" size="16" type="DECIMAL" description="" /> 
+		<col name="POSID" size="72" type="VARCHAR" description="" /> 
+		<col name="SPT" size="150" type="VARCHAR" description="" /> 
+		<col name="SE_NO" size="45" type="VARCHAR" description="" /> 
+		<col name="WERKS" size="60" type="VARCHAR" description="" /> 
+	</output>
+</query>

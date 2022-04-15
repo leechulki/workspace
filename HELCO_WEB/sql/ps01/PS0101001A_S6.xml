@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT  POSID_1
+       ,KUSER
+       ,JUSER
+       ,(SELECT TELC FROM SAPHEE.ZHRT001 WHERE MANDT = #G_MANDT# AND DPT1 = 'C1' AND IRUM = KUSER FETCH FIRST 1 ROWS ONLY) KTELH
+       ,(SELECT TELC FROM SAPHEE.ZHRT001 WHERE MANDT = #G_MANDT# AND DPT1 = 'C1' AND IRUM = JUSER FETCH FIRST 1 ROWS ONLY) JTELH
+FROM (
+        SELECT
+               PP004.WOKNUM AS POSID_1
+              ,MAX(CASE WHEN PART = 11 OR PART = 12 THEN CRUSER ELSE '' END) KUSER
+              ,MAX(CASE WHEN PART = 21 OR PART = 22 OR PART = 23 THEN CRUSER ELSE '' END) JUSER
+        FROM (
+        
+              SELECT
+               MANDT
+              ,CRDAT
+        	  ,CRUSER
+              ,SEQNO
+              ,WOKNUM
+              ,MATNR
+              ,IDNRK
+              ,ITEM_SEQ
+              ,MATKL
+              ,PRCTYP
+              ,BOM_LEVEL
+              ,ROW_NUMBER() OVER(PARTITION BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,MATKL ORDER BY MANDT,WOKNUM,MATNR,IDNRK,ITEM_SEQ,CRDAT DESC,SEQNO DESC) AS ROWNO
+              ,CASE WHEN ZPART='M'             THEN 11
+                    WHEN ZPART='C'             THEN 12
+                    WHEN ZPART='1'             THEN 21
+                    WHEN ZPART='2'             THEN 22
+                    WHEN ZPART='3'             THEN 23
+                    WHEN SUBSTR(MATKL,2,1)='5' THEN 50
+                    WHEN SUBSTR(MATKL,2,1)='6' THEN 60
+                    WHEN SUBSTR(MATKL,2,1)='7' THEN 70
+                    WHEN SUBSTR(MATKL,2,1)='1' THEN 11
+                    WHEN SUBSTR(MATKL,2,1)='2' THEN 21
+                    WHEN SUBSTR(MATKL,2,1)='3' THEN 12 ELSE 90 END AS PART
+              FROM SAPHEE.ZPPT004
+              WHERE MANDT = #G_MANDT#
+                AND WOKNUM LIKE #POSID#||'%' 
+                AND BOM_LEVEL = '01'
+        
+            ) AS PP004
+            LEFT OUTER JOIN SAPHEE.ZPPT008   AS PP008 ON  PP008.MANDT   = PP004.MANDT
+                                                      AND PP004.CRDAT   = PP008.CRDAT 
+                                                      AND PP004.SEQNO   = PP008.SEQNO 
+                                                      AND PP004.WOKNUM  = PP008.WOKNUM
+                                                      AND PP004.MATNR   = PP008.MATNR 
+                                                      AND PP004.IDNRK   = PP008.IDNRK
+                                                      AND PP004.ITEM_SEQ= PP008.ITEM_SEQ
+                                                      AND PP004.MATKL= PP008.MATKL                                             
+                                                      AND PP008.SPEC_TYP <> '3'
+        WHERE ROWNO = 1
+        AND PRCTYP <> 'D'    -- 최종상태가 삭제(D)는 제외
+        AND PART BETWEEN 11 AND 23
+        GROUP BY PP004.WOKNUM
+) AS T
+FOR FETCH ONLY WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list6">
+	</output>
+</query>

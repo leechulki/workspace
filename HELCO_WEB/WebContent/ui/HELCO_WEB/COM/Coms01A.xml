@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window>
+	<Form Height="470" Id="Com0240" Left="8" OnKeyDown="fn_OnKeyDown" OnLoadCompleted="fn_OnLoadCompleted" OnUnloadCompleted="fn_OnUnloadCompleted" PidAttrib="7" Title="코드조회" Top="8" Ver="1.0" Width="400" WorkArea="true">
+		<Datasets>
+			<Dataset DataSetType="Dataset" Id="ds_list">
+				<Contents>
+					<colinfo id="BRNDSEQ" size="256" summ="default" type="STRING"/>
+					<colinfo id="ZPRDGBN" size="256" summ="default" type="STRING"/>
+					<colinfo id="BRNDCD" size="256" summ="default" type="STRING"/>
+					<colinfo id="BRNDNM" size="256" summ="default" type="STRING"/>
+					<colinfo id="GTYPE" size="256" summ="default" type="STRING"/>
+					<colinfo id="FRDAT" size="256" summ="default" type="STRING"/>
+					<colinfo id="TODAT" size="256" summ="default" type="STRING"/>
+					<colinfo id="SNDSYS" size="256" summ="default" type="STRING"/>
+					<colinfo id="BRNDDAY" size="256" summ="default" type="STRING"/>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_cond">
+				<Contents>
+					<colinfo id="MANDT" size="255" summ="default" type="STRING"/>
+					<colinfo id="QTNUM" size="255" summ="default" type="STRING"/>
+					<colinfo id="GTYPE" size="256" summ="default" type="STRING"/>
+					<colinfo id="ZPRDGBN" size="256" summ="default" type="STRING"/>
+					<colinfo id="BRNDCD" size="256" summ="default" type="STRING"/>
+					<record>
+						<BRNDCD></BRNDCD>
+						<GTYPE></GTYPE>
+						<MANDT></MANDT>
+						<QTNUM></QTNUM>
+						<ZPRDGBN></ZPRDGBN>
+					</record>
+				</Contents>
+			</Dataset>
+			<Dataset DataSetType="Dataset" Id="ds_error">
+				<Contents>
+					<colinfo id="IDX" size="256" type="STRING"/>
+					<colinfo id="ERRMSG" size="256" type="STRING"/>
+				</Contents>
+			</Dataset>
+		</Datasets>
+		<Div Height="36" Id="div_btn" TabOrder="1" Text="Div0" Url="WB01::CommBtnForm.xml" Width="400">
+			<Contents></Contents>
+		</Div>
+		<Grid AutoFitEndLine="Hide" BindDataset="ds_list" BkColor2="default" BoldHead="true" Border="Flat" Bottom="416" ColSizing="TRUE" Editable="TRUE" Enable="true" EndLineColor="default" HeadBorder="Flat" HeadHeight="20" Height="360" Id="grd_list" InputPanel="FALSE" Left="8" LineColor="user20" LineType="ExHORZ" OnCellDBLClick="grd_list_OnCellDblClick" OnHeadClick="grd_list_OnHeadClick" OnKeyDown="grd_list_OnKeyDown" OnRButtonDown="grd_list_OnRButtonDown" Right="386" RowHeight="20" Style="sty_grid" TabOrder="2" TabStop="true" Top="56" UseDBuff="true" UsePopupMenu="true" UseSelColor="true" Visible="true" VLineColor="default" WheelScrollRow="1" Width="378">
+			<contents>
+				<format id="Default">
+					<columns>
+						<col fix="left" width="192"/>
+						<col width="181"/>
+					</columns>
+					<head>
+						<cell align="center" col="0" color="user21" display="text" font="굴림,9" text="브랜드"/>
+						<cell align="center" col="1" color="user21" display="text" font="굴림,9" text="기종"/>
+					</head>
+					<body>
+						<cell align="center" bkcolor2="user22" col="0" colid="BRNDNM" display="text"/>
+						<cell align="center" bkcolor2="user22" col="1" colid="GTYPE" display="text"/>
+					</body>
+				</format>
+			</contents>
+		</Grid>
+		<Button Appearance="FLAT" ButtonStyle="TRUE" Color="user5" Cursor="HAND" DomainID="btn.confirm" Height="22" Id="btn_confirm" ImageID="btn_comm_confirm_k" Left="131" LeftMargin="20" OnClick="fn_OnClick_btn" TabOrder="3" Text="확인" Top="429" Width="52"></Button>
+		<Button Appearance="FLAT" ButtonStyle="TRUE" Color="user5" Cursor="HAND" DomainID="btn.cancel" Height="22" Id="btn_cancel" ImageID="btn_comm_cancel_k" Left="187" LeftMargin="20" OnClick="fn_OnClick_btn" TabOrder="4" Text="취소" Top="429" Width="52"></Button>
+	</Form>
+	<Script><![CDATA[/*
+ ******************************************************************************************
+ * 기      능   : 브랜드-기종 팝업
+ * 작  성  자   : 박수근
+ * 작성  일자   : 2020.06.30
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+*/
+#include "LIB::commons.js";	// 공통 스크립트 
+#include "LIB::nsfRequest.js";	// 공통 스크립트  /* GNY 추가 */
+#include "LIB::common_hdel.js";	// 공통 스크립트  /* GNY 추가 */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 사용될 전역변수를 선언
+// FORM에서 사용되는 전역변수는 대문자로 작성하며, F_XXX 의 형태를 갖도록 한다. 
+//=========================================================================================
+var F_TITLE = "브랜드-기종 팝업";
+
+//=========================================================================================
+// [ PART 2 ]
+// Form Loading / Unloading 시 작업 정의
+//=========================================================================================
+function fn_OnLoadCompleted(obj) {
+	gfn_initForm();
+	div_btn.fn_loadUseBtn("", F_TITLE, "", "");
+	// 월수주계획에서 실기종 값 파싱 처리한다.
+	var gtype = fa_gtype;
+	var index1 = IndexOf(gtype, "-");	
+	var index2 = IndexOf(gtype, "(");
+	if(index1 > -1) {
+	    gtype = Substr(gtype, 0, index1);
+	}
+	
+	if(index2 > -1) {
+	    gtype = Substr(gtype, 0, index2);
+	}
+	
+	ds_cond.SetColumn(0, "MANDT", fa_mandt);
+	ds_cond.SetColumn(0, "QTNUM", fa_qtnum);
+	ds_cond.SetColumn(0, "GTYPE", gtype);
+	ds_cond.SetColumn(0, "ZPRDGBN", fa_zprdgbn);
+	ds_cond.SetColumn(0, "BRNDCD", fa_brndcd);
+	
+	fn_query();
+}
+
+/********************************************************************************
+* 기      능   : 조회 (header 조회)
+********************************************************************************/
+function fn_query() { 
+	gfn_clearMsgBar();
+	gfn_clearGridSortMark(grd_list);
+	
+	ds_list.ClearData();
+	nsfRequest("query"
+			, "coms01a/search"
+			, "ds_cond=ds_cond ds_list=ds_list"
+			, "ds_list=ds_list ds_error=ds_error"
+			, ""
+			, "fn_afterQuery"
+			);
+}
+
+/********************************************************************************
+* 기      능   : 조회 Callback  
+********************************************************************************/
+function fn_afterQuery(svcId, errCode, errMsg) {
+	if(ds_error.rowcount() > 0) {
+		gfn_showMsg("CE00001");
+		gfn_openWSErrorWin(grd_list, ds_list_m, ds_error, "FLAG");
+	} else {
+		if (ds_list.RowCount() > 0) {
+			if(ds_list.GetRowCount() == 1) {
+				var arrCode = [ds_list.GetColumn(0, "BRNDSEQ")
+							  ,ds_list.GetColumn(0, "BRNDCD")
+							  ,ds_list.GetColumn(0, "BRNDNM")
+							  ,ds_list.GetColumn(0, "GTYPE")
+							  ,ds_list.GetColumn(0, "SNDSYS")];
+				close(arrCode);
+			}
+		}else{
+			fn_confirm();
+		}
+	}
+}
+
+/********************************************************************************
+* 기      능   : form UnloadCompleted 
+********************************************************************************/
+function fn_OnUnloadCompleted(obj) {
+	return gfn_isFormUnload(obj);
+}
+//=========================================================================================
+// [ PART 3 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,form닫기)
+//=========================================================================================
+
+/********************************************************************************
+* 기      능   : 닫기  
+********************************************************************************/
+function fn_close() {
+	close();
+}
+/********************************************************************************
+* 기      능   : 그리드 헤더 클릭시 정렬 처리 
+********************************************************************************/
+function grd_list_OnHeadClick(obj,nCell,nX,nY,nPivotIndex)
+{
+	if ( nCell == 0 ) {
+		gfn_selectGridCol("grd_list"); // 현재 처리할 format 기억
+	} else {
+		gfn_sortGrid(obj,nCell);
+	}
+} 
+ 
+function fn_OnClick_btn(obj)
+{
+	var fncName = "fn_" + substr(obj.id, 4); 
+	eval( fncName + "()");
+}
+
+/********************************************************************************
+* 기      능   : 액셀 (버튼 클릭 시)
+********************************************************************************/
+function fn_excel() {
+}
+
+/********************************************************************************
+* 기      능   : 확인버튼 클릭 시
+********************************************************************************/
+function fn_confirm() {
+	var arrCode = [ds_list.GetColumn(ds_list.currow, "BRNDSEQ")
+	              ,ds_list.GetColumn(ds_list.currow, "BRNDCD")
+	              ,ds_list.GetColumn(ds_list.currow, "BRNDNM")
+	              ,ds_list.GetColumn(ds_list.currow, "GTYPE")
+	              ,ds_list.GetColumn(ds_list.currow, "SNDSYS")];
+	close(arrCode);
+}
+
+/********************************************************************************
+// 취소버튼 클릭 시
+********************************************************************************/
+function fn_cancel(obj)
+{  
+	// 팝업화면을 닫는다.
+	this.Close();
+} 
+ 
+
+function grd_list_OnCellDblClick(obj,nRow,nCell,nX,nY,nPivotIndex)
+{
+	fn_confirm();
+}
+]]></Script>
+</Window>

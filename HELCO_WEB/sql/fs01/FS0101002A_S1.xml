@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[예산그룹관리 조회 - HEAD]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>0</result-count>
+    <statement>
+WITH TREE_DATA(LEVEL, MANDT, BDGR_NAME, BGCL, BDGT, BDGT_GRUP, ESCS_CODE, BGCL_DTIL, BGIT_CODE, BDGT_NUMB, BDGT_UPNB, BDGR_CDSQ, USE_YN) AS
+(
+    SELECT 1 AS LEVEL, MANDT, BDGR_NAME, BGCL, BDGT, BDGT_GRUP, ESCS_CODE, BGCL_DTIL, BGIT_CODE, BDGT_NUMB, BDGT_UPNB, BDGR_CDSQ, USE_YN
+    FROM   SAPHEE.ZFST0101
+    WHERE  MANDT = '183'
+      AND  BDGT_UPNB = ''
+    UNION ALL
+    SELECT TREE_DATA.LEVEL + 1 LEVEL, A.MANDT, A.BDGR_NAME, A.BGCL, A.BDGT, A.BDGT_GRUP, A.ESCS_CODE, A.BGCL_DTIL, A.BGIT_CODE, A.BDGT_NUMB, A.BDGT_UPNB, A.BDGR_CDSQ, A.USE_YN
+    FROM   SAPHEE.ZFST0101 AS A, TREE_DATA
+    WHERE  TREE_DATA.BDGT_NUMB = A.BDGT_UPNB
+      AND    A.BGCL_DTIL = '000000000000'
+<isNotNull col="DELE_CODE">
+    AND    A.ESCS_CODE NOT IN (#$DELE_CODE#)
+</isNotNull>
+)
+SELECT 
+        '1' AS FLAG
+       ,'' AS CHK
+       ,'' AS CHK1
+       ,A.MANDT         -- 클라이언트
+       ,A.LEVEL         -- 레벨
+       ,A.BGCL
+       ,A.BDGT_NUMB -- 시행예산그룹
+       ,A.BDGT_UPNB -- 상위시행예산그룹
+       ,A.ESCS_CODE -- 예산항목
+       ,A.BDGR_CDSQ
+       ,(SELECT CODE_NAME FROM SAPHEE.ZFST0100 WHERE MANDT = A.MANDT AND CODE_GROP = 'C01' AND CODE = A.BGCL ) AS NAME1 -- 예산항목명1
+       ,(SELECT CODE_NAME FROM SAPHEE.ZFST0100 WHERE MANDT = A.MANDT AND CODE_GROP = 'C10' AND CODE = SUBSTR(A.ESCS_CODE,1,3) AND CODE &lt;&gt; '000')  AS NAME2 -- 예산항목명2
+       ,(SELECT CODE_NAME FROM SAPHEE.ZFST0100 WHERE MANDT = A.MANDT AND CODE_GROP = 'C20' AND CODE = SUBSTR(A.ESCS_CODE,4,3) AND CODE &lt;&gt; '000')  AS NAME3 -- 예산항목명3
+       ,(SELECT CODE_NAME FROM SAPHEE.ZFST0100 WHERE MANDT = A.MANDT AND CODE_GROP = 'C30' AND CODE = SUBSTR(A.ESCS_CODE,7,3) AND CODE &lt;&gt; '000')  AS NAME4 -- 예산항목명4
+       ,A.BDGR_NAME -- 시행예산명
+FROM    TREE_DATA A  
+ORDER BY A.BDGR_CDSQ
+FOR FETCH ONLY
+WITH UR
+    </statement>
+    <input default-name="ds_0101002AS1_cond">
+    </input>
+    <output default-name="ds_0101002AS1_list">
+    </output>
+</query>

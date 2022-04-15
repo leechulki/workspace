@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+        PS21.PSPID
+       ,PS21.ZSITE_NM
+       ,PS21.POSID
+       ,VALUE((SELECT M.CTEXT2 FROM SAPHEE.ZLCODE M WHERE M.MANDT = PS21.MANDT AND M.CODE1 = 'PS001' AND M.LANG = #G_LANG# AND M.CODE2 = PS21.REASO),'') AS REASO
+       ,PS21.CHASU
+       ,PS21.REMOV
+       ,PS21.CHANG
+       ,PS21.DAYS1
+       ,PS21.TXT01
+       ,'설치부' AS QUART
+       ,CASE PS21.REAQU WHEN '01' THEN '영업부'
+                        WHEN '02' THEN '설계부'
+                        WHEN '03' THEN '설치부'
+                        WHEN '04' THEN '자재부'
+                        WHEN '05' THEN '생산부'
+                        WHEN '06' THEN '생산지원부'
+                        WHEN '07' THEN '해외영업부'
+                        WHEN '08' THEN '주차사업부'
+                        WHEN '09' THEN '물류사업부' ELSE '' END AS REAQU
+       ,PS21.CNAME
+       ,PS21.CDATE
+       ,PS21.ZSPEC1
+       ,PS21.ZSPEC2
+       ,PS21.ZZACTSS
+       ,PS21.TEXT30
+       ,PS21.TEMNO
+       ,PS21.NAMET
+       ,PS21.GUBUN
+       ,CASE WHEN PS21.GUBUN='1' THEN '신규' ELSE '변경' END AS GUBUN_NM
+   --    ,(SELECT RTRIM(X.ZTEAM) FROM SAPHEE.ZMASTER02 AS X 
+   --       WHERE X.MANDT = #G_MANDT# AND X.POSID = PS21.PSPID AND X.POSID_1 = PS21.POSID) AS ZTEAM		
+FROM (
+          SELECT
+                  PS21.MANDT            AS MANDT
+		         ,PS21.PSPID            AS PSPID
+                 ,MS01.ZSITE_NM         AS ZSITE_NM
+                 ,PS21.POSID            AS POSID
+				 ,PS21.REASO
+                 ,PS21.CHASU            AS CHASU
+                 ,PS21.REMOV            AS REMOV
+                 ,PS21.CHANG            AS CHANG
+                 ,CASE WHEN PS21.CHANG > '00000000' AND PS21.REMOV > '00000000'
+                            THEN DAYS(DATE(INSERT(INSERT(PS21.CHANG,5,0,'-'),8,0,'-'))) - DAYS(DATE(INSERT(INSERT(PS21.REMOV,5,0,'-'),8,0,'-')))
+                       ELSE 0 END AS DAYS1
+                 ,PS21.TXT01           AS TXT01
+                 ,PS21.REAQU           AS REAQU
+                 ,PS21.CNAME           AS CNAME
+                 ,PS21.CDATE           AS CDATE
+                 ,MS02.ZSPEC1          AS ZSPEC1
+                 ,MS02.ZSPEC2          AS ZSPEC2
+                 ,MS02.ZZACTSS         AS ZZACTSS
+                 ,MS02.TEXT30          AS TEXT30
+                 ,MS02.TEMNO           AS TEMNO
+                 ,MS02.NAMET           AS NAMET
+                 ,'2'                  AS GUBUN
+          FROM SAPHEE.ZPST0022 AS PS21
+              LEFT OUTER JOIN SAPHEE.ZMASTER01 AS MS01 ON  MS01.MANDT=PS21.MANDT
+                                                       AND MS01.POSID=PS21.PSPID
+              LEFT OUTER JOIN SAPHEE.ZMASTER02 AS MS02 ON  MS02.MANDT  =PS21.MANDT
+                                                       AND MS02.POSID  =PS21.PSPID
+                                                       AND MS02.POSID_1=PS21.POSID
+          WHERE PS21.MANDT = #G_MANDT#
+            AND PS21.CHASU > '0'
+            AND PS21.REMOV &lt;&gt; PS21.CHANG
+            AND MS02.MANDT = PS21.MANDT
+        <isEqual col="GUBUN" value="A">
+            AND PS21.POSID LIKE #POSID#||'%'                            -- 프로젝트
+        </isEqual>
+        <isEqual col="GUBUN" value="B">
+            AND PS21.CDATE BETWEEN #CDATEF# AND #CDATET#	              -- 기간
+        </isEqual>
+
+     ) AS PS21
+WHERE 1=1
+<isNotNull col="REAQU">
+AND PS21.REAQU = #REAQU#
+</isNotNull>
+<isEqual col="QUART" value="2">
+AND PS21.QUART = '1'
+</isEqual>
+<isEqual col="QUART" value="3">
+AND PS21.QUART &lt;&gt; '1'
+</isEqual>
+<isNotNull col="BLOCK">
+  AND PS21.BLOCK = #BLOCK#	   							      -- BLOCK
+</isNotNull>
+<isNotNull col="ZZACTSS">
+  AND PS21.ZZACTSS = #ZZACTSS#								  -- 사무소
+</isNotNull>
+<isNotNull col="ZZGUBUN">
+  AND PS21.GUBUN = #ZZGUBUN#
+</isNotNull>
+
+ORDER BY PS21.PSPID,PS21.POSID,PS21.CDATE,PS21.CHASU
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+SELECT
+	    A.PSPID
+	   ,(SELECT ZSITE_NM FROM SAPHEE.ZMASTER01 C WHERE C.MANDT = A.MANDT AND C.POSID = CASE WHEN LENGTH(A.PSPID) > 6 THEN SUBSTR(A.PSPID,2,6) ELSE A.PSPID END FETCH FIRST 1 ROWS ONLY) PSPID_NM
+	   ,B.ITEMTX
+	   ,C.J_1KFREPRE
+	   ,C.NAME1
+	   ,C.MCOD3||' '||STRAS AS ADDR
+	   ,SUBSTR(WRKLFN,1,3)||'-'||SUBSTR(WRKLFN,4,2)||'-'||SUBSTR(WRKLFN,6) AS WRKLFN
+	   ,(SELECT DISTINCT KTEXT FROM SAPHEE.ZMMT024 C WHERE C.MANDT = A.MANDT AND C.KOKRS = '1000' AND C.KOSTL = A.KOSTL FETCH FIRST 1 ROWS ONLY) KTEXT
+       ,J_TEMNO
+       ,J_NAME
+       ,A.CNFDT
+       ,A.WRK_HOGI
+FROM  SAPHEE.ZPST0117 A
+      LEFT OUTER JOIN
+      (
+         SELECT A.MANDT,
+                A.PSPID,
+                A.GUBUN,
+                A.HKONT,
+                A.SEQNO,
+                A.ITEMTX
+         FROM SAPHEE.ZPST0117L A,
+              (
+                SELECT MANDT,
+	                PSPID,
+	                GUBUN,
+	                HKONT,
+	                SEQNO,
+	                MIN(ITEMNO) AS ITEMNO,
+                	COUNT(*)-1 AS CNT
+                FROM SAPHEE.ZPST0117L
+                WHERE MANDT = #G_MANDT#
+                  AND   PSPID = #PSPID#
+                  AND   GUBUN = '1'
+                  AND   HKONT = #HKONT#
+                  AND   SEQNO = #SEQNO#
+                GROUP BY MANDT,PSPID,GUBUN,HKONT,SEQNO
+                ) B
+        WHERE A.MANDT = B.MANDT
+        AND A.PSPID = B.PSPID
+        AND A.GUBUN = B.GUBUN
+        AND A.HKONT = B.HKONT
+        AND A.SEQNO = B.SEQNO
+        AND A.ITEMNO = B.ITEMNO
+      ) B
+        ON A.MANDT = B.MANDT
+        AND A.PSPID = B.PSPID
+        AND A.GUBUN = B.GUBUN
+        AND A.HKONT = B.HKONT
+        AND A.SEQNO = B.SEQNO
+        LEFT OUTER JOIN SAPHEE.ZMMT012 AS C
+        ON A.MANDT = C.MANDT
+        AND A.WRKLFN = C.LIFNR
+WHERE A.MANDT = #G_MANDT#
+AND   A.PSPID = #PSPID#
+AND   A.GUBUN = '1'
+AND   A.HKONT = #HKONT#
+AND   A.SEQNO = #SEQNO#
+
+FOR FETCH ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond_p">
+	</input>
+	<output default-name="ds_master2">
+	</output>
+</query>

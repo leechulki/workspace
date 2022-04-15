@@ -1,0 +1,476 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.com.dao.ComboD">
+
+	<resultMap id="ComboResultMap" type="hdel.sd.com.domain.ComboVO">
+	    <result property="code"     column="CODE"/>
+	    <result property="codeName" column="CODENAME"/>
+	    <result property="filter1"  column="FILTER1"/>
+	</resultMap>
+	
+	<select id="selectXml" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		<![CDATA[
+			SELECT  CODE2  AS CODE
+				  , CTEXT2 AS CODENAME
+				  , DTEXT1 AS FILTER1
+			 FROM SAPHEE.ZLCODE
+			WHERE 
+			           MANDT=#{mandt}
+			    AND LANG = #{lang}
+			    AND CODE1 = #{sCode}
+			    AND CODE2 <> 'E1'
+		]]>
+	</select>
+	
+	<select id="selectClass" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		SELECT	CLASS AS CODE
+			 ,	CASE CLASS
+				WHEN 'ELV_01'	THEN 'Elevator'
+				WHEN 'ELV_02'	THEN 'Ship'
+				WHEN 'AP_01'	THEN 'Parking'
+				WHEN 'ESC_01'	THEN 'Escalator'
+				WHEN 'MW_01'	THEN 'Moving Walk'
+				WHEN 'PSD_01'	THEN 'PSD'
+				WHEN 'SHN_01'	THEN 'Elevator (SHG)'
+				WHEN 'SHN_02'	THEN 'Escalator (SHG)'
+				WHEN 'SV_01'	THEN 'Monitoring'
+				WHEN 'SP_01'	THEN 'Spare Part'
+				WHEN 'DW_01'	THEN 'D/W'
+				WHEN 'COST_EL'	THEN 'Cost'
+				WHEN 'WL_01'	THEN 'W/L'
+				ELSE 'Etc'
+				END AS CODENAME
+		  FROM	SAPHEE.KLAH
+		 WHERE	MANDT = #{mandt}
+		   AND	KLART = '300'
+		<if test="mclass !=null and mclass !=''">  AND CLASS = #{mclass} </if>
+		 ORDER
+			BY	CLINT
+	</select>
+	<select id="selectVkburByDc" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		with cs as (
+			select vkbur, bezei
+			from saphee.tvkbt as tvkbt
+			where mandt=#{mandt}
+				and spras='3'
+				and exists (select vkbur from saphee.zcst_mvkgur where mandt=tvkbt.mandt and vkbur=tvkbt.vkbur)
+				<if test="vkbur !=null and vkbur !=''"> and vkbur = #{vkbur} </if>
+		)
+		, sd as (
+			select vkbur, bezei
+			from saphee.tvkbt as tvkbt
+			where mandt=#{mandt}
+				and spras='3'
+				and not exists (select vkbur from cs where vkbur=tvkbt.vkbur)
+				<if test="vkbur !=null and vkbur !=''"> and vkbur = #{vkbur}</if>
+		)
+		, dept as (
+			select vkbur from saphee.tvbvk as tvbvk where tvbvk.mandt=#{mandt} and tvbvk.vkgrp=#{vkgrp}
+			<if test="vkgrp==null or vkgrp==''">
+			union all
+			select vkbur from sd fetch first 1 rows only
+			</if>
+		)
+		select vkbur as code, bezei as codename from cs where exists (select vkbur from cs where exists (select vkbur from dept where vkbur=cs.vkbur))
+		union all
+		select vkbur as code, bezei as codename from sd where exists (select vkbur from sd where exists (select vkbur from dept where vkbur=sd.vkbur))
+		with ur
+	</select>
+	<select id="selectVkgrpByDc" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		with cs as (
+			select mandt, vkbur, bezei
+			from saphee.tvkbt as tvkbt
+			where mandt=#{mandt}
+				and exists (select vkbur from saphee.zcst_mvkgur where mandt=#{mandt} and vkbur=tvkbt.vkbur)
+		)
+		, sd as (
+			select mandt, vkbur, bezei
+			from saphee.tvkbt as tvkbt
+			where mandt=#{mandt}
+				and not exists (select vkbur from cs where vkbur=tvkbt.vkbur)
+		)
+		, dept as (
+			select vkbur from saphee.tvbvk as tvbvk where tvbvk.mandt=#{mandt} and tvbvk.vkgrp=#{vkgrp}
+			<if test="vkgrp==null or vkgrp==''">
+			union all
+			select vkbur from sd fetch first 1 rows only
+			</if>
+		)
+		, dcdpt as (
+			select * from cs where exists(select vkbur from cs where exists (select vkbur from dept where vkbur=cs.vkbur))
+			union all
+			select * from sd where exists(select vkbur from sd where exists (select vkbur from dept where vkbur=sd.vkbur))
+		)
+		select tvgrt.vkgrp as code, tvgrt.bezei as codename    -- 부서코드, 팀코드, 팀명
+		from dcdpt
+			inner join saphee.tvbvk as tvbvk on dcdpt.mandt=tvbvk.mandt and dcdpt.vkbur=tvbvk.vkbur
+			inner join saphee.tvgrt as tvgrt on tvbvk.mandt=tvgrt.mandt and tvbvk.vkgrp=tvgrt.vkgrp and tvgrt.spras='3'
+		<if test="vkbur !=null and vkbur !=''">where dcdpt.vkbur=#{vkbur}</if>
+		with ur
+	</select>
+	<select id="selectVkbur" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		SELECT VKBUR AS CODE, BEZEI AS CODENAME  --부서코드 , 부서명 
+		FROM   SAPHEE.TVKBT
+		WHERE  MANDT = #{mandt}
+		AND SPRAS = '3'
+		<if test="vkbur !=null and vkbur !=''"> AND VKBUR = #{vkbur} </if>
+		WITH UR
+	</select>
+
+	<select id="selectVkgrpAll" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		SELECT B.VKGRP AS CODE, BEZEI AS CODENAME    -- 부서코드, 팀코드, 팀명
+		FROM    SAPHEE.TVBVK AS A INNER JOIN SAPHEE.TVGRT AS B
+		                                               ON   A.MANDT = B.MANDT 
+		                                            AND A.VKGRP = B.VKGRP
+		WHERE A.MANDT = #{mandt}
+		AND      B.SPRAS = '3'
+		WITH UR
+	</select>
+	
+	<select id="selectVkgrp" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		SELECT B.VKGRP AS CODE, BEZEI AS CODENAME    -- 부서코드, 팀코드, 팀명
+		FROM    SAPHEE.TVBVK AS A INNER JOIN SAPHEE.TVGRT AS B
+		                                               ON   A.MANDT = B.MANDT 
+		                                            AND A.VKGRP = B.VKGRP
+		WHERE A.MANDT = #{mandt}
+		AND      B.SPRAS = '3' 
+		<if test="vkbur !=null and vkbur !=''"> AND A.VKBUR = #{vkbur} </if>
+		WITH UR
+	</select>
+	
+	<select id="selectSman" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		SELECT KUNNR AS CODE,NAME1 AS CODENAME  -- 담당자코드,  담당자명
+		FROM    SAPHEE.KNA1
+		WHERE  MANDT = #{mandt}
+		AND       KTOKD = 'Z201'
+		AND       LEFT(KUNNR, 1) = 'H'			   --부서담당자 (H), 대리점(A)
+		WITH UR
+	</select>
+	
+	<select id="selectBuyr" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		SELECT KUNNR AS CODE,NAME1 AS CODENAME  -- 거래선 코드, 거래선 명
+		FROM    SAPHEE.KNA1
+		WHERE  MANDT = #{mandt}
+		AND       ( KTOKD = 'Z001' OR KTOKD = 'Z002' )
+		WITH UR
+	</select>
+	
+	<select id="selectAuart" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		SELECT AUART AS CODE,AUART AS CODENAME             -- 오더유형
+		FROM    SAPHEE.TVAK
+		WHERE  MANDT = #{mandt}
+		AND       ( FKARA = 'ZF1' OR FKARA = 'ZF2' )
+		WITH UR
+	</select> 
+	
+	<!-- 2012.05.30 : GRY : 추가 : 공통코드 조회 (코드명 = 코드명) -->
+	<select id="selectListDD07T" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		SELECT A.DOMVALUE_L AS CODE 
+       		  ,CASE CAST(#{domname} AS VARCHAR(90))
+       		  		WHEN 'ZGTYPE' THEN A.DOMVALUE_L 
+       		  					  ELSE A.DDTEXT 
+       		         END AS CODENAME 
+    	  FROM SAPHEE.DD07T A
+   		 WHERE 1=1
+		   AND A.DDLANGUAGE = '3'
+		   AND A.DOMNAME = #{domname}
+   		 <if test="domvalue_l !=null and domvalue_l !=''"> AND A.DOMVALUE_L = #{domvalue_l} </if>
+   		 ORDER BY VALPOS
+		WITH UR
+	</select> 
+	
+	<!-- 2012.05.30 : GRY : 추가 : 공통코드 조회 (코드명 = 코드 + '  ' + 코드명) -->
+	<select id="selectListConcatDD07T" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		SELECT A.DOMVALUE_L AS CODE
+       		  ,A.DOMVALUE_L || '  ' || A.DDTEXT     AS CODENAME
+    	  FROM SAPHEE.DD07T A
+   		 WHERE 1=1
+		   AND A.DDLANGUAGE = '3'
+   		 <if test="domvalue_l !=null and domvalue_l !=''"> AND A.DOMVALUE_L = #{domvalue_l} </if>
+   		 ORDER BY VALPOS
+		WITH UR
+	</select>
+	
+	<!-- 2012.06.26 : 이지훈 : 추가 -->
+	<select id="selectLand" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		SELECT LAND1 AS CODE, LANDX50 AS CODENAME  -- 국가 코드, 국가 명
+		FROM   SAPHEE.T005T
+		WHERE MANDT = #{mandt}
+		AND      SPRAS = '3'
+		WITH UR
+	</select>
+	
+	<!-- 2012.06.28 : 이지훈 : 추가 -->
+	<select id="selectGtype" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		-- 부서로만 지정
+		SELECT	GTYPE	AS CODE
+			 ,	GTYPE	AS CODENAME
+		  FROM	SAPHEE.ZSDTGTYPE
+		 WHERE	MANDT	= #{mandt}
+		   AND	VKBUR	LIKE '%' || #{vkbur} || '%'
+		   AND	VKGRP	= ''
+		   AND	VKGRP2	= ''
+		UNION
+		-- 특정팀만 지정
+		SELECT	GTYPE	AS CODE
+			 ,	GTYPE	AS CODENAME
+		  FROM	SAPHEE.ZSDTGTYPE
+		 WHERE	MANDT	= #{mandt}
+		   AND	VKGRP	LIKE '%' || #{vkgrp} || '%'
+		UNION
+		-- 부서(특정팀만 제외)
+		SELECT	GTYPE	AS CODE
+			 ,	GTYPE	AS CODENAME
+		  FROM	SAPHEE.ZSDTGTYPE
+		 WHERE	MANDT	= #{mandt}
+		   AND	VKBUR	LIKE '%' || #{vkbur} || '%'
+		   AND	VKGRP	= ''
+		   AND	VKGRP2	NOT LIKE '%' || #{vkgrp} || '%'
+		UNION
+		-- 부서(특정팀만 지정 and 특정팀만 제외)
+		SELECT	GTYPE	AS CODE
+			 ,	GTYPE	AS CODENAME
+		  FROM	SAPHEE.ZSDTGTYPE
+		 WHERE	MANDT	= #{mandt}
+		   AND	VKBUR	LIKE '%' || #{vkbur} || '%'
+		   AND	VKGRP	LIKE '%' || #{vkgrp} || '%'
+		   AND	VKGRP2	NOT LIKE '%' || #{vkgrp} || '%'
+		UNION
+		-- 부서(특정인만 지정)
+		SELECT	GTYPE	AS CODE
+			 ,	GTYPE	AS CODENAME
+		  FROM	SAPHEE.ZSDTGTYPE
+		 WHERE	MANDT	= #{mandt}
+		   AND	ZKUNNR	LIKE '%' || #{zkunnr} || '%'
+		WITH UR
+	</select>
+	
+	<select id="selectGtypeConcat" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		-- 부서로만 지정
+		SELECT	GTYPE	AS CODE
+			 ,	GTYPE || ' ' || NAME	AS CODENAME
+		  FROM	SAPHEE.ZSDTGTYPE
+		 WHERE	MANDT	= #{mandt}
+		   AND	VKBUR	LIKE '%' || #{vkbur} || '%'
+		   AND	VKGRP	= ''
+		   AND	VKGRP2	= ''
+		UNION
+		-- 특정팀만 지정
+		SELECT	GTYPE	AS CODE
+			 ,	GTYPE || ' ' || NAME	AS CODENAME
+		  FROM	SAPHEE.ZSDTGTYPE
+		 WHERE	MANDT	= #{mandt}
+		   AND	VKGRP	LIKE '%' || #{vkgrp} || '%'
+		UNION
+		-- 부서(특정팀만 제외)
+		SELECT	GTYPE	AS CODE
+			 ,	GTYPE || ' ' || NAME	AS CODENAME
+		  FROM	SAPHEE.ZSDTGTYPE
+		 WHERE	MANDT	= #{mandt}
+		   AND	VKBUR	LIKE '%' || #{vkbur} || '%'
+		   AND	VKBUR	= ''
+		   AND	VKGRP2	NOT LIKE '%' || #{vkgrp} || '%'
+		UNION
+		-- 부서(특정팀만 지정 and 특정팀만 제외)
+		SELECT	GTYPE	AS CODE
+			 ,	GTYPE || ' ' || NAME	AS CODENAME
+		  FROM	SAPHEE.ZSDTGTYPE
+		 WHERE	MANDT	= #{mandt}
+		   AND	VKBUR	LIKE '%' || #{vkbur} || '%'
+		   AND	VKGRP	LIKE '%' || #{vkgrp} || '%'
+		   AND	VKGRP2	NOT LIKE '%' || #{vkgrp} || '%'
+		UNION
+		-- 부서(특정인만 지정)
+		SELECT	GTYPE	AS CODE
+			 ,	GTYPE || ' ' || NAME	AS CODENAME
+		  FROM	SAPHEE.ZSDTGTYPE
+		 WHERE	MANDT	= #{mandt}
+		   AND	ZKUNNR	LIKE '%' || #{zkunnr} || '%'
+		WITH UR
+	</select>
+	
+	<!-- 2012.07.23 : 이지훈 : 추가 -->
+	<select id="selectJAACTT" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		SELECT J_1AACT AS CODE, TEXT30 AS CODENAME 
+		  FROM SAPHEE.J_1AACTT
+		WHERE  MANDT = #{mandt}
+		     and SPRAS = '3'
+		WITH UR
+	</select>
+	
+	<!-- 2012.07.23 : 이지훈 : 추가 -->
+	<select id="selectDD07V" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		<![CDATA[
+			SELECT DOMVALUE_L AS CODE, DDTEXT AS CODENAME 
+			                               FROM SAPHEE.DD07V
+			                              WHERE DOMNAME = #{sCode}
+			                                AND DDLANGUAGE = '3'
+											AND DOMVALUE_L <> ''
+			WITH UR
+		]]>
+	</select>
+	
+	<!-- 2012.07.31 : GRY : 추가 : 지급조건 조회 -->
+	<select id="selectListZterm" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+	SELECT ZTERM AS CODE, TEXT1 AS CODENAME  -- 지급조건 , 내역
+	  FROM SAPHEE.T052U
+	 WHERE MANDT = #{mandt}
+	   AND SPRAS = '3' 
+	  WITH UR
+	</select>
+	
+	<!-- 2012.07.31 : GRY : 추가 : 인도조건 조회 -->
+	<select id="selectListInco" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+	SELECT INCO1 AS CODE, BEZEI AS CODENAME   -- 인도조건 , 내역
+	  FROM SAPHEE.TINCT
+	 WHERE MANDT = #{mandt}
+	   AND SPRAS = '3'
+	  WITH UR
+	</select>
+	
+	<!-- 2012.07.31 : GRY : 추가 : 종별구분 조회 -->
+	<select id="selectListMlbez" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+	SELECT MLSTN AS CODE, MSTXT AS CODENAME  -- 종별구분코드, 내역
+	  FROM SAPHEE.T433T
+	 WHERE MANDT = #{mandt}
+	   AND SPRAS = '3'
+	  WITH UR
+	</select>
+	
+	<!-- 2012.08.02 : GRY : 추가 : 오더유형, 오더유형명 조회 -->
+	<select id="selectAuartNm" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+	SELECT  AUART AS CODE			-- 오더유형
+		  , BEZEI AS CODENAME       -- 오더유형내역
+	  FROM SAPHEE.TVAKT
+	 WHERE MANDT = #{mandt}
+	   AND SPRAS = '3'  
+	  WITH UR
+	</select> 
+	
+	<!-- 2012.09.06 : GRY : 추가 : 보수협력사 조회(지역) -->
+	<select id="selectBosuArea" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+	SELECT CODE2 AS CODE
+		  ,CTEXT2 AS CODENAME
+	  FROM SAPHEE.ZLCODE
+	 WHERE MANDT= #{mandt}
+	   AND LANG = #{lang}
+	   AND CODE1 = 'CS115'
+	   AND (CODE2 = 'E5' OR CODE2 BETWEEN 'G0' AND 'H9')
+	 ORDER BY CODE
+	 WITH UR
+	</select> 
+	
+	<!-- 2012.09.06 : GRY : 추가 : 보수협력사 조회(지역 협력사) -->
+	<select id="selectBosuAreaDetail" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+	SELECT M005.LGORT CODE
+    	  ,M012.NAME1 CODENAME
+	  FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT012 M012, SAPHEE.ZMMT005 M005
+	 WHERE B010.MANDT = M012.MANDT
+       AND B010.LIFNR = M012.LIFNR
+       AND B010.MANDT = M005.MANDT
+       AND B010.LIFNR = M005.LIFNR
+       AND B010.MANDT = #{mandt}
+       AND B010.BSU_ARA = #{sCode}
+	  WITH UR	
+	</select> 
+	
+	<!-- 2012.09.06 : GRY : 추가 : 보수협력사 조회(PM) -->
+	<select id="selectBosuPm" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+	SELECT CCSB1EMP CODE
+          ,CCSB1EPN CODENAME
+	  FROM SAPHEE.ZTBCSB1
+	 WHERE MANDT = #{mandt}
+	   AND CCSB1DIV = '37004'
+	   AND CCSB1RTD=''
+	 ORDER BY CCSB1EPN
+	  WITH UR
+	</select> 
+	
+	<!-- 2012.09.06 : GRY : 추가 : 보수협력사 조회(PM) -->
+	<select id="selectBosuPmDetail" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+	SELECT M005.LGORT CODE
+    	  ,M012.NAME1 CODENAME
+	  FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT012 M012, SAPHEE.ZMMT005 M005
+	 WHERE B010.MANDT = M012.MANDT
+       AND B010.LIFNR = M012.LIFNR
+       AND B010.MANDT = M005.MANDT
+       AND B010.LIFNR = M005.LIFNR
+       AND B010.MANDT = #{mandt}
+	   AND (B010.BSU_PM = #{sCode} OR B010.BSU_PM_J = #{sCode})
+	  WITH UR	
+	</select> 
+	
+	<!-- 2012.09.06 : GRY : 추가 : 보수협력사 조회(팀) -->
+	<select id="selectBosuTeam" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+	SELECT CODE2 AS CODE
+		  ,CTEXT2 AS CODENAME
+ 	  FROM SAPHEE.ZLCODE
+	 WHERE MANDT=#{mandt}
+       AND LANG = #{lang} 
+       AND CODE1 = 'VKGRP'
+       AND CODE2 LIKE 'E5%'
+     ORDER BY CODE
+      WITH UR
+	</select> 
+	
+	<!-- 2012.09.06 : GRY : 추가 : 보수협력사 조회(팀) -->
+	<select id="selectBosuTeamDetail" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+	SELECT M005.LGORT CODE
+    	  ,M012.NAME1 CODENAME
+	  FROM SAPHEE.ZWBT010 B010, SAPHEE.ZMMT012 M012, SAPHEE.ZMMT005 M005
+	 WHERE B010.MANDT = M012.MANDT
+       AND B010.LIFNR = M012.LIFNR
+       AND B010.MANDT = M005.MANDT
+       AND B010.LIFNR = M005.LIFNR
+       AND B010.MANDT = #{mandt}
+       AND B010.VKGRP = #{sCode}
+	  WITH UR	
+	</select> 
+	
+	<!-- 2012.06.28 : 이지훈 : 추가 -->
+	<select id="selectRtype" parameterType="hdel.sd.com.domain.ComboParamVO" resultMap="ComboResultMap">
+		-- 부서로만 지정
+		SELECT	RTYPE	AS CODE
+			 ,	RTYPE	AS CODENAME
+		  FROM	SAPHEE.ZSDTRTYPE
+		 WHERE	MANDT	= #{mandt}
+		   AND	VKBUR	LIKE '%' || #{vkbur} || '%'
+		   AND	VKGRP	= ''
+		   AND	VKGRP2	= ''
+		UNION
+		-- 특정팀만 지정
+		SELECT	RTYPE	AS CODE
+			 ,	RTYPE	AS CODENAME
+		  FROM	SAPHEE.ZSDTRTYPE
+		 WHERE	MANDT	= #{mandt}
+		   AND	VKGRP	LIKE '%' || #{vkgrp} || '%'
+		UNION
+		-- 부서(특정팀만 제외)
+		SELECT	RTYPE	AS CODE
+			 ,	RTYPE	AS CODENAME
+		  FROM	SAPHEE.ZSDTRTYPE
+		 WHERE	MANDT	= #{mandt}
+		   AND	VKBUR	LIKE '%' || #{vkbur} || '%'
+		   AND	VKGRP	= ''
+		   AND	VKGRP2	NOT LIKE '%' || #{vkgrp} || '%'
+		UNION
+		-- 부서(특정팀만 지정 and 특정팀만 제외)
+		SELECT	RTYPE	AS CODE
+			 ,	RTYPE	AS CODENAME
+		  FROM	SAPHEE.ZSDTRTYPE
+		 WHERE	MANDT	= #{mandt}
+		   AND	VKBUR	LIKE '%' || #{vkbur} || '%'
+		   AND	VKGRP	LIKE '%' || #{vkgrp} || '%'
+		   AND	VKGRP2	NOT LIKE '%' || #{vkgrp} || '%'
+		UNION
+		-- 부서(특정인만 지정)
+		SELECT	RTYPE	AS CODE
+			 ,	RTYPE	AS CODENAME
+		  FROM	SAPHEE.ZSDTRTYPE
+		 WHERE	MANDT	= #{mandt}
+		   AND	ZKUNNR	LIKE '%' || #{zkunnr} || '%'
+		WITH UR
+	</select>
+</mapper>  

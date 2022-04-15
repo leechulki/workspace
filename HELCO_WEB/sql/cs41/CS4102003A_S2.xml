@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+-- 2020.08.26 튜닝
+SELECT   T1.CS131_ARA 
+        ,T1.ARA_NM
+        ,T1.CS131_ABG
+        ,T1.ABG_NM
+        ,VALUE(T2.CS131_DESU,0)     CS131_DESU
+        ,VALUE(T2.CS131_DANGA,0)    CS131_DANGA
+        ,VALUE(T2.CS131_MECHUL,0)   CS131_MECHUL
+        ,VALUE(T2.CS136_DESU,0)     CS136_DESU
+        ,VALUE(T2.CS136_DANGA,0)    CS136_DANGA
+        ,VALUE(T2.CS136_GISUNBI,0)  CS136_GISUNBI
+        ,VALUE(T2.MECHULDEGISUNG,0) MECHULDEGISUNG
+FROM   (SELECT 'V' GBN
+               ,A.CS131_ARA
+               ,A.ARA_NM
+               ,B.CS131_ABG
+               ,B.ABG_NM
+        FROM  ( SELECT CODE2 CS131_ARA
+                      ,CTEXT2 ARA_NM
+                FROM SAPHEE.ZLCODE
+                WHERE MANDT = #G_MANDT#
+                AND LANG = #G_LANG#
+                AND CODE1 = 'CS115'
+                AND CODE2 <> 'E1'
+               ) A,
+               (SELECT 'W' CS131_ABG
+                       ,'소계' ABG_NM
+                FROM SYSIBM.SYSDUMMY1
+                UNION ALL
+                SELECT CODE2 CS131_ABG
+                       ,CTEXT2 ABG_NM
+                FROM SAPHEE.ZLCODE
+                WHERE MANDT = #G_MANDT#
+                AND LANG = #G_LANG#
+                AND CODE1 = 'CS112'
+               ) B
+
+        UNION ALL
+        SELECT 'Z' GBN, 'ZZ' CS131_ARA, '전체 계' ARA_NM,'Z' CS131_ABG,'' ABG_NM FROM SYSIBM.SYSDUMMY1
+        UNION ALL
+        SELECT 'Y' GBN, 'YY' CS131_ARA, '지방 계' ARA_NM,'Y' CS131_ABG,'' ABG_NM FROM SYSIBM.SYSDUMMY1
+        ORDER BY GBN,CS131_ARA,CS131_ABG
+       ) T1
+       LEFT OUTER JOIN
+       (
+        -- 지역별, 빌딩구분별 계
+        SELECT    A.CS131_ARA
+                 ,A.CS131_ABG
+                 ,VALUE(A.CS131_DESU,0) CS131_DESU
+                 ,CASE WHEN A.CS131_DESU > 0
+         		       THEN CEIL(DOUBLE(A.CS131_MECHUL)/DOUBLE(A.CS131_DESU))
+        			   ELSE 0
+         		  END CS131_DANGA
+                 ,VALUE(A.CS131_MECHUL,0) CS131_MECHUL
+                 ,A.CS136_DESU
+                 ,CASE WHEN A.CS136_DESU > 0
+         		       THEN CEIL(DOUBLE(A.CS136_GISUNBI)/DOUBLE(A.CS136_DESU))
+         			   ELSE 0
+         		  END CS136_DANGA
+                 ,A.CS136_GISUNBI
+                 ,CASE WHEN A.CS136_DESU * A.CS131_MECHUL > 0
+         		       THEN ROUND((DOUBLE(A.CS136_GISUNBI)*DOUBLE(A.CS131_DESU))/(DOUBLE(A.CS131_MECHUL)*DOUBLE(A.CS136_DESU)),2)*100
+         			   ELSE 0
+         		  END MECHULDEGISUNG
+        FROM   (SELECT   CASE WHEN CS136A.CS136_ARA = '' OR CS136A.CS136_ARA IS NULL THEN 'ZZ'
+                              ELSE CS136A.CS136_ARA
+                		 END CS131_ARA
+                        ,CASE WHEN (CS136A.CS136_ABG = '' OR CS136A.CS136_ABG IS NULL) AND CS136A.CS136_ARA IS NOT NULL THEN 'W'
+                		      WHEN (CS136A.CS136_ABG = '' OR CS136A.CS136_ABG IS NULL) AND (CS136A.CS136_ARA = '' OR CS136A.CS136_ARA IS NULL) THEN 'Z'
+                		      ELSE CS136A.CS136_ABG
+                		 END CS131_ABG
+                        ,SUM(CS131A.CS131_DESU) CS131_DESU
+                        ,SUM(CS131A.CS131_MECHUL) CS131_MECHUL
+                        ,SUM(CS136A.CS136_DESU) CS136_DESU
+                        ,SUM(CS136A.CS136_GISUNBI) CS136_GISUNBI
+                 FROM   (SELECT CS131B.MANDT
+                               ,CS131B.CS131_ARA
+                               ,CS131B.CS131_ABG
+                               ,COUNT(*) CS131_DESU
+                               ,SUM(DOUBLE(VALUE(CS131B.CS131_AMT,0))) CS131_MECHUL
+                         FROM  SAPHEE.ZCST131 CS131B
+                         WHERE CS131B.MANDT = #G_MANDT#
+                         AND   CS131B.CS131_MYM BETWEEN #YYYYMMF# AND #YYYYMMT#
+                         AND   CS131B.VBELN > ''
+                         AND   CS131B.CS131_MYB = ''
+                         AND   CS131B.CS131_GND IN ('A','B','C','D','E')
+                         GROUP BY CS131B.MANDT,CS131B.CS131_ARA,CS131B.CS131_ABG
+                        ) CS131A
+                        RIGHT OUTER JOIN
+                        (
+                         SELECT X.MANDT,X.CS136_ARA,X.CS136_ABG,SUM(X.CS136_DESU) CS136_DESU,SUM(X.CS136_GISUNBI) CS136_GISUNBI
+                         FROM
+                         (
+                          SELECT   CS136B.MANDT
+                                  ,CS136B.CS136_ARA
+                                  ,CS136B.CS136_ABG
+                                  ,CASE CS136B.CS136_GBU WHEN '1' THEN 0 ELSE COUNT(*) END CS136_DESU
+                                  ,SUM(DOUBLE(CASE CS136B.CS136_GBU WHEN '1' THEN 0 ELSE VALUE(CS136B.CS136_BAM,0) END)
+                                      +DOUBLE(CASE CS136B.CS136_GBU WHEN '1' THEN 0 ELSE VALUE(CS136B.CS136_IY1,0) END)
+                                      +DOUBLE(CASE CS136B.CS136_GBU WHEN '1' THEN 0 ELSE VALUE(CS136B.CS136_IY2,0) END)
+                                      +DOUBLE(CASE CS136B.CS136_GBU WHEN '1' THEN 0 ELSE VALUE(CS136B.CS136_IY3,0) END)
+                                      +DOUBLE(CASE CS136B.CS136_GBU WHEN '1' THEN 0 ELSE VALUE(CS136B.CS136_IY4,0) END)
+                                      +DOUBLE(CASE CS136B.CS136_GBU WHEN '1' THEN 0 ELSE VALUE(CS136B.CS136_RET,0) END)) CS136_GISUNBI
+                          FROM   SAPHEE.ZCST136 CS136B
+                                 LEFT OUTER JOIN SAPHEE.ZCST131 CS131C ON CS131C.MANDT = CS136B.MANDT
+                                                 AND CS131C.CS131_UPN = CS136B.CS136_UPN
+                                                 AND CS131C.CS131_CST = CS136B.CS136_CST
+                                                 AND CS131C.CS131_PJT = CS136B.CS136_PJT
+                                                 AND CS131C.CS131_HNO = CS136B.CS136_HNO
+                                                 AND CS131C.CS131_SEQ = CS136B.CS136_SEQ
+                                                 AND CS131C.CS131_GND = CS136B.CS136_GND
+                                                 AND CS131C.CS131_MYM = CS136B.CS136_JYM
+                                                 AND CS131C.CS131_ISR = CS136B.CS136_ISR
+                          WHERE  CS136B.MANDT = #G_MANDT#
+                          AND    CS136B.CS136_GYM BETWEEN #YYYYMMF# AND #YYYYMMT#
+                          AND    CS136B.CS136_PST = 'A6'
+                          AND    ((CS136B.CS136_GBU = '3' AND CS136B.CS136_BDGBN = '' AND CS136B.CS136_GNO > '') OR 
+                                  (CS136B.CS136_GBU = '1') OR
+                                  (CS136B.CS136_GBU = '3' AND CS136B.CS136_BDGBN = 'X'))
+                          AND    ((CS136B.CS136_GBU = '3' AND CS136B.CS136_BDGBN = '' AND CS136B.CS136_MGB = ''  ) OR 
+                                  (CS136B.CS136_GBU = '1') OR
+                                  (CS136B.CS136_GBU = '3' AND CS136B.CS136_BDGBN = 'X'))
+                          AND    (CS131C.VBELN IS NULL OR CS131C.VBELN > '')
+                          AND    VALUE(CS131C.CS131_MYB,'') = ''
+                          AND    ((CS136B.CS136_GBU = '3' AND CS136B.CS136_GGB = '' AND CS136B.CS136_BDGBN = '') OR
+                                  ((CS136B.CS136_GBU = '1' AND CS136B.CS136_GGB = '9' AND CS136B.CS136_MSA = '09') OR
+                                   (CS136B.CS136_GBU = '3' AND CS136B.CS136_GGB = '9' AND CS136B.CS136_MSA = '09' AND CS136B.CS136_BDGBN = 'X')
+                                  )
+                                 )
+                          GROUP BY  CS136B.MANDT,CS136B.CS136_ARA,CS136B.CS136_ABG,CS136B.CS136_GBU
+                         ) X
+                         GROUP BY X.MANDT,X.CS136_ARA,X.CS136_ABG
+                        ) CS136A
+                        ON CS136A.MANDT = CS131A.MANDT
+                        AND CS136A.CS136_ARA = CS131A.CS131_ARA
+                        AND CS136A.CS136_ABG = CS131A.CS131_ABG
+                GROUP BY ROLLUP(CS136A.CS136_ARA,CS136A.CS136_ABG)
+               ) A
+
+         UNION ALL
+
+         -- 지방계
+         SELECT   A.CS131_ARA
+                 ,A.CS131_ABG
+                 ,VALUE(A.CS131_DESU,0) CS131_DESU
+                 ,CASE WHEN A.CS131_DESU > 0
+         		       THEN CEIL(DOUBLE(A.CS131_MECHUL)/DOUBLE(A.CS131_DESU))
+         			   ELSE 0
+         		  END CS131_DANGA
+                 ,VALUE(A.CS131_MECHUL,0) CS131_MECHUL
+                 ,A.CS136_DESU
+                 ,CASE WHEN A.CS136_DESU > 0
+         		       THEN CEIL(DOUBLE(A.CS136_GISUNBI)/DOUBLE(A.CS136_DESU))
+         			   ELSE 0
+         		  END CS136_DANGA
+                 ,A.CS136_GISUNBI
+                 ,CASE WHEN A.CS136_DESU * A.CS131_MECHUL > 0
+         		       THEN ROUND((DOUBLE(A.CS136_GISUNBI)*DOUBLE(A.CS131_DESU))/(DOUBLE(A.CS131_MECHUL)*DOUBLE(A.CS136_DESU)),2)*100
+         			   ELSE 0
+         		  END MECHULDEGISUNG
+        FROM   ( SELECT  'YY' CS131_ARA
+                        ,'Y' CS131_ABG
+                        ,SUM(CS131A.CS131_DESU) CS131_DESU
+                        ,SUM(CS131A.CS131_MECHUL) CS131_MECHUL
+                        ,SUM(CS136A.CS136_DESU) CS136_DESU
+                        ,SUM(CS136A.CS136_GISUNBI) CS136_GISUNBI
+                 FROM   (SELECT CS131B.MANDT
+                               ,CS131B.CS131_ARA
+                               ,CS131B.CS131_ABG
+                               ,COUNT(*) CS131_DESU
+                               ,SUM(DOUBLE(VALUE(CS131B.CS131_AMT,0))) CS131_MECHUL
+                         FROM  SAPHEE.ZCST131 CS131B
+                         WHERE CS131B.MANDT = #G_MANDT#
+                         AND   CS131B.CS131_MYM BETWEEN #YYYYMMF# AND #YYYYMMT#
+                         AND   CS131B.VBELN > ''
+                         AND   CS131B.CS131_MYB = ''
+                         AND   CS131B.CS131_ARA <> 'E5'
+                         AND   CS131B.CS131_GND IN ('A','B','C','D','E')
+                         GROUP BY CS131B.MANDT,CS131B.CS131_ARA,CS131B.CS131_ABG
+                        ) CS131A
+                        RIGHT OUTER JOIN
+                        (
+                         SELECT X.MANDT,X.CS136_ARA,X.CS136_ABG,SUM(X.CS136_DESU) CS136_DESU,SUM(X.CS136_GISUNBI) CS136_GISUNBI
+                         FROM
+                         (
+                          SELECT   CS136B.MANDT
+                                  ,CS136B.CS136_ARA
+                                  ,CS136B.CS136_ABG
+                                  ,CASE MAX(CS136B.CS136_GBU) WHEN '1' THEN 0 ELSE COUNT(*) END CS136_DESU
+                                  ,SUM(DOUBLE(CASE CS136B.CS136_GBU WHEN '1' THEN 0 ELSE VALUE(CS136B.CS136_BAM,0) END)
+                                      +DOUBLE(CASE CS136B.CS136_GBU WHEN '1' THEN 0 ELSE VALUE(CS136B.CS136_IY1,0) END)
+                                      +DOUBLE(CASE CS136B.CS136_GBU WHEN '1' THEN 0 ELSE VALUE(CS136B.CS136_IY2,0) END)
+                                      +DOUBLE(CASE CS136B.CS136_GBU WHEN '1' THEN 0 ELSE VALUE(CS136B.CS136_IY3,0) END)
+                                      +DOUBLE(CASE CS136B.CS136_GBU WHEN '1' THEN 0 ELSE VALUE(CS136B.CS136_IY4,0) END)
+                                      +DOUBLE(CASE CS136B.CS136_GBU WHEN '1' THEN 0 ELSE VALUE(CS136B.CS136_RET,0) END)) CS136_GISUNBI
+                          FROM   SAPHEE.ZCST136 CS136B
+                                 LEFT OUTER JOIN SAPHEE.ZCST131 CS131C ON CS131C.MANDT = CS136B.MANDT
+                                                 AND CS131C.CS131_UPN = CS136B.CS136_UPN
+                                                 AND CS131C.CS131_CST = CS136B.CS136_CST
+                                                 AND CS131C.CS131_PJT = CS136B.CS136_PJT
+                                                 AND CS131C.CS131_HNO = CS136B.CS136_HNO
+                                                 AND CS131C.CS131_SEQ = CS136B.CS136_SEQ
+                                                 AND CS131C.CS131_GND = CS136B.CS136_GND
+                                                 AND CS131C.CS131_MYM = CS136B.CS136_JYM
+                                                 AND CS131C.CS131_ISR = CS136B.CS136_ISR
+                          WHERE  CS136B.MANDT = #G_MANDT#
+                          AND    CS136B.CS136_GYM BETWEEN #YYYYMMF# AND #YYYYMMT#
+                          AND    CS136B.CS136_PST = 'A6'
+                          AND    CS136B.CS136_GNO > ''
+                          AND    CS136B.CS136_ARA <> 'E5'
+                          AND    ((CS136B.CS136_MGB = '' AND CS136B.CS136_GBU = '3' AND CS136B.CS136_BDGBN = '') OR 
+                                  (CS136B.CS136_GBU = '1') OR
+                                  (CS136B.CS136_GBU = 'C' AND CS136B.CS136_BDGBN = 'X') )
+                          AND    (CS131C.VBELN IS NULL OR CS131C.VBELN > '')
+                          AND    VALUE(CS131C.CS131_MYB,'') = ''
+                          AND    ((CS136B.CS136_GBU = '3' AND CS136B.CS136_GGB = '') OR
+                                  ((CS136B.CS136_GBU = '1' AND CS136B.CS136_GGB = '9' AND CS136B.CS136_MSA = '09') OR
+                                   (CS136B.CS136_GBU = '3' AND CS136B.CS136_GGB = '9' AND CS136B.CS136_MSA = '09' AND CS136B.CS136_BDGBN = 'X')
+                                  )
+                                 )
+                          GROUP BY  CS136B.MANDT,CS136B.CS136_ARA,CS136B.CS136_ABG
+                         ) X
+                         GROUP BY X.MANDT,X.CS136_ARA,X.CS136_ABG
+                        ) CS136A
+                        ON CS136A.MANDT = CS131A.MANDT
+                        AND CS136A.CS136_ARA = CS131A.CS131_ARA
+                        AND CS136A.CS136_ABG = CS131A.CS131_ABG
+                GROUP BY CS131A.MANDT
+               ) A
+       ) T2
+       ON T1.CS131_ARA = T2.CS131_ARA
+       AND T1.CS131_ABG = T2.CS131_ABG
+       ORDER BY T1.GBN,T1.CS131_ARA,T1.CS131_ABG
+
+WITH UR	]]></statement>
+	<input default-name="ds_cond">
+		<col name="G_MANDT" size="255" type="VARCHAR" description="" /> 
+		<col name="YYYYMMF" size="255" type="VARCHAR" description="" /> 
+		<col name="YYYYMMT" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="CS131_ARA" size="15" type="VARCHAR" description="" /> 
+		<col name="ARA_NM" size="60" type="VARCHAR" description="" /> 
+		<col name="CS131_ABG" size="15" type="VARCHAR" description="" /> 
+		<col name="ABG_NM" size="60" type="VARCHAR" description="" /> 
+		<col name="CS131_DESU" size="11" type="INTEGER" description="" /> 
+		<col name="CS131_DANGA" size="22" type="DOUBLE" description="" /> 
+		<col name="CS131_MECHUL" size="22" type="DOUBLE" description="" /> 
+		<col name="CS136_DESU" size="11" type="INTEGER" description="" /> 
+		<col name="CS136_DANGA" size="22" type="DOUBLE" description="" /> 
+		<col name="CS136_GISUNBI" size="22" type="DOUBLE" description="" /> 
+		<col name="MECHULDEGISUNG" size="22" type="DOUBLE" description="" /> 
+	</output>
+</query>

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT  MANDT
+       ,POSID
+       ,MAX(LIFNR) LIFNR
+       ,MAX(PINYN) PINYN
+       ,SUM(VALUE) VALUE
+       ,SUM(XVALUE) XVALUE
+FROM (
+SELECT MANDT
+,POSID
+,LIFNR
+,PINYN
+       ,CASE WHEN  ZSPEC2 > '' THEN 
+                   (CASE WHEN LOCATE('/',SUBSTR(SUBSTR(ZSPEC2, LOCATE( '-', ZSPEC2 )+1),LOCATE('-',SUBSTR(ZSPEC2, LOCATE( '-', ZSPEC2 )+1))+1)) >0 THEN
+                              INT(SUBSTR(SUBSTR(SUBSTR(ZSPEC2, LOCATE( '-', ZSPEC2 )+1),LOCATE('-',SUBSTR(ZSPEC2, LOCATE( '-', ZSPEC2 )+1))+1),LOCATE('/',SUBSTR(SUBSTR(ZSPEC2, LOCATE( '-', ZSPEC2 )+1),LOCATE('-',SUBSTR(ZSPEC2, LOCATE( '-', ZSPEC2 )+1))+1))+1))
+                         ELSE
+                              INT(SUBSTR(SUBSTR(ZSPEC2, LOCATE( '-', ZSPEC2 )+1),LOCATE('-',SUBSTR(ZSPEC2, LOCATE( '-', ZSPEC2 )+1))+1))
+                         END
+                   )
+              ELSE 0 
+              END AS VALUE
+,XVALUE
+ FROM (
+ SELECT B.MANDT
+       ,B.POSID
+       ,B.LIFNR 
+       --,VALUE((SELECT MAX(PINYN) FROM SAPHEE.ZPST0133 WHERE MANDT = B.MANDT AND POSID = B.POSID),'N')  AS PINYN
+	   ,VALUE((SELECT MAX(PINYN) FROM SAPHEE.ZPSTW0133 WHERE MANDT = B.MANDT AND PSPID = B.POSID),'N')  AS PINYN
+       ,CASE WHEN  B.ZSPEC2 > '' THEN
+			CASE SUBSTR(B.ZSPEC2,LENGTH(B.ZSPEC2)-1,2) WHEN '/T' THEN SUBSTR(B.ZSPEC2,1,LENGTH(B.ZSPEC2)-2) ELSE B.ZSPEC2 END
+			ELSE '' END AS ZSPEC2
+       ,INT(VALUE(P.XVALUE,'0')) XVALUE         
+FROM SAPHEE.ZMASTER02 AS B 
+ --LEFT OUTER JOIN SAPHEE.ZPST0133 P ON B.MANDT = P.MANDT AND B.POSID = P.POSID AND B.POSID_1 = P.POSID_1
+ LEFT OUTER JOIN SAPHEE.ZPSTW0133 P ON B.MANDT = P.MANDT AND B.POSID = P.PSPID AND B.POSID_1 = P.POSID 
+WHERE B.MANDT = #G_MANDT#
+AND B.POSID = #PSPID#
+AND B.POSID_1 LIKE '______L%'
+AND B.TXT30 <> '취소'
+) T
+) T
+GROUP BY MANDT, POSID
+FOR FETCH ONLY
+WITH UR
+
+--SELECT  SD.MANDT
+--       ,SD.POSID
+--       ,(SELECT LIFNR FROM SAPHEE.ZMASTER02 MM WHERE MM.MANDT = SD.MANDT AND MM.POSID = SD.POSID ORDER BY POSID_1 FETCH FIRST 1 ROWS ONLY) AS LIFNR
+--       ,VALUE((SELECT MAX(PINYN) FROM SAPHEE.ZPST0133 WHERE MANDT = SD.MANDT AND POSID = SD.POSID),'N')  AS PINYN
+--       ,SUM(SD.VALUE) AS VALUE
+--       ,VALUE((SELECT SUM(INT(XVALUE)) FROM SAPHEE.ZPST0133 WHERE MANDT = SD.MANDT AND POSID = SD.POSID),0) AS XVALUE
+--FROM  (
+--       SELECT  M.MANDT
+--              ,M.POSID
+--              ,ROWNUMBER() OVER(PARTITION BY S.HOGI  ORDER BY S.HOGI , S.SEQ DESC ) AS RN
+--              ,(CASE WHEN VALUE(S.VALUE,'0') = '' THEN 0 ELSE  INT(VALUE(S.VALUE,'0')) END) AS VALUE
+--       FROM  SAPHEE.ZSDT0005 AS S
+--            ,SAPHEE.ZMASTER02 M
+--       WHERE S.MANDT = M.MANDT
+--       AND M.MANDT = #G_MANDT#
+--       AND M.POSID = #PSPID#
+--       AND M.ZZGUBUN IN ('10','13')        -- 제품구분(10:EL,13:EL선박)
+--       AND M.PRART IN ('01','11')          -- 프로젝트유형(01:승강기(국내),11:교체공사)
+--       AND S.HOGI = M.POSID_1
+--       AND S.CHARACTERISTIC = 'EL_ASTQ'    -- 정지층수
+--      ) AS SD
+--WHERE SD.RN = 1
+--GROUP BY SD.MANDT,SD.POSID
+--
+--FOR FETCH ONLY
+--WITH UR	]]></statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_pin">
+	</output>
+</query>

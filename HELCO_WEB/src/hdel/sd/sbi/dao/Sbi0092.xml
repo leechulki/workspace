@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="hdel.sd.sbi.dao.Sbi0092D"> 
+
+	<select id="selectZsdt1140List" parameterType="hashMap" resultType="hdel.sd.sbi.domain.ZSDT1140">
+	<![CDATA[
+		SELECT MANDT
+		      ,BRNDSEQ
+		      ,ZPRDGBN
+		      ,BRNDCD
+		      ,FRDAT
+		      ,TODAT
+		      ,SNDSYS
+		      ,AEDAT
+		      ,AENAM
+		FROM   SAPHEE.ZSDT1140
+		WHERE  MANDT = #{MANDT}
+	]]>
+<if test="BRNDSEQ != null and BRNDSEQ != '' ">AND  BRNDSEQ = #{BRNDSEQ}</if>
+        ORDER BY BRNDSEQ
+		WITH UR
+	</select>
+
+    <insert id="insertZsdt1140" parameterType="hdel.sd.sbi.domain.ZSDT1140">
+	<![CDATA[
+	    INSERT INTO SAPHEE.ZSDT1140
+	    (
+	    MANDT
+	   ,BRNDSEQ
+	   ,ZPRDGBN
+	   ,BRNDCD
+	   ,FRDAT
+	   ,TODAT
+	   ,SNDSYS
+	   ,ERDAT
+	   ,ERZET
+	   ,ERNAM
+	   ,AEDAT
+	   ,AEZET
+	   ,AENAM
+	    )
+	    VALUES
+	    (
+	    #{MANDT}
+	   ,#{BRNDSEQ}
+	   ,#{ZPRDGBN}
+	   ,#{BRNDCD}
+	   ,#{FRDAT}
+	   ,#{TODAT}
+	   ,#{SNDSYS}
+	   ,HEX(CURRENT DATE)
+	   ,HEX(CURRENT TIME)
+	   ,#{ERNAM}
+	   ,HEX(CURRENT DATE)
+	   ,HEX(CURRENT TIME)
+	   ,#{AENAM}
+	    )
+    ]]>
+	</insert>
+
+    <insert id="insertZeaitZsdt1140" parameterType="hdel.sd.sbi.domain.ZSDT1140">
+	<![CDATA[
+	    INSERT INTO SAPHEE.ZEAITZSDT1140
+	    (
+	    MANDT
+	   ,IFDOCNO
+	   ,IF_FLAG
+	   ,BRNDSEQ
+	   ,ZPRDGBN
+	   ,BRNDCD
+	   ,BRNDNM
+	   ,FRDAT
+	   ,TODAT
+	   ,SNDSYS
+	    )
+	    VALUES
+	    (
+	    #{MANDT}
+	   ,(SELECT NVL(MAX(IFDOCNO), '1000000000') + 1 FROM   SAPHEE.ZEAITZSDT1140)
+	   ,#{FLAG}
+	   ,#{BRNDSEQ}
+	   ,#{ZPRDGBN}
+	   ,#{BRNDCD}
+	   ,(
+		SELECT ATWTB
+		FROM                SAPHEE.KSML AS A
+		INNER JOIN          SAPHEE.CABN AS B	ON A.MANDT = B.MANDT	AND A.IMERK = B.ATINN
+		LEFT OUTER JOIN	    SAPHEE.CABNT AS C	ON B.MANDT = C.MANDT	AND B.ATINN = C.ATINN	AND C.SPRAS = #{SPRAS}
+		INNER JOIN          SAPHEE.KLAH AS D	ON A.MANDT = D.MANDT	AND A.CLINT = D.CLINT
+		LEFT OUTER JOIN     SAPHEE.CAWN AS E	ON B.MANDT = E.MANDT	AND B.ATINN = E.ATINN
+		LEFT OUTER JOIN     SAPHEE.CAWNT AS F	ON A.MANDT = F.MANDT AND E.ATINN = F.ATINN AND E.ATZHL = F.ATZHL AND F.SPRAS = #{SPRAS}
+		WHERE   A.MANDT = #{MANDT}
+			AND A.KLART = '300'
+			AND D.CLASS = 'ELV_01'
+			AND B.ATNAM = 'EL_ABRAND'
+			AND E.ATWRT = #{BRNDCD}
+	    )
+	   ,#{FRDAT}
+	   ,#{TODAT}
+	   ,#{SNDSYS}
+	    )
+    ]]>
+	</insert>
+
+    <update id="updateZsdt1140" parameterType="hdel.sd.sbi.domain.ZSDT1140">
+	<![CDATA[
+		UPDATE SAPHEE.ZSDT1140
+		SET FRDAT  = #{FRDAT}
+		   ,TODAT  = #{TODAT}
+		   ,SNDSYS = #{SNDSYS}
+		   ,AEDAT = HEX(CURRENT DATE)
+		   ,AEZET = HEX(CURRENT TIME)
+		   ,AENAM = #{AENAM}
+		WHERE MANDT = #{MANDT}
+		  AND BRNDSEQ = #{BRNDSEQ}
+		  AND ZPRDGBN = #{ZPRDGBN}
+		  AND BRNDCD  = #{BRNDCD}
+    ]]>
+	</update>
+
+    <update id="updateTodatZsdt1140" parameterType="hdel.sd.sbi.domain.ZSDT1140">
+		UPDATE SAPHEE.ZSDT1140 A
+		SET 
+		    A.TODAT = VARCHAR_FORMAT(TO_DATE(#{FRDAT}, 'YYYY-MM-DD') - 1 DAYS, 'YYYYMMDD')
+		   ,A.AEDAT = HEX(CURRENT DATE)
+		   ,A.AEZET = HEX(CURRENT TIME)
+		   ,A.AENAM = #{AENAM}
+		WHERE A.MANDT = #{MANDT}
+		  AND A.BRNDSEQ = (
+						  SELECT MAX(BRNDSEQ) AS BRNDSEQ
+						  FROM   SAPHEE.ZSDT1140
+						  WHERE  MANDT = #{MANDT}
+						    AND  BRNDSEQ <![CDATA[ < ]]> #{BRNDSEQ}
+						    AND  ZPRDGBN = #{ZPRDGBN}
+						    AND  BRNDCD  = #{BRNDCD}
+		                   )
+		  AND A.ZPRDGBN = #{ZPRDGBN}
+		  AND A.BRNDCD  = #{BRNDCD}
+	</update>
+
+    <update id="updateLastTodatZsdt1140" parameterType="hdel.sd.sbi.domain.ZSDT1140">
+		UPDATE SAPHEE.ZSDT1140 A
+		SET 
+		    A.TODAT = '99991231'
+		   ,A.AEDAT = HEX(CURRENT DATE)
+		   ,A.AEZET = HEX(CURRENT TIME)
+		   ,A.AENAM = #{AENAM}
+		WHERE A.MANDT = #{MANDT}
+		  AND A.BRNDSEQ = (
+						  SELECT MAX(BRNDSEQ) AS BRNDSEQ
+						  FROM   SAPHEE.ZSDT1140
+						  WHERE  MANDT = #{MANDT}
+						    AND  BRNDSEQ <![CDATA[ < ]]> #{BRNDSEQ}
+						    AND  ZPRDGBN = #{ZPRDGBN}
+						    AND  BRNDCD  = #{BRNDCD}
+		                   )
+		  AND A.ZPRDGBN = #{ZPRDGBN}
+		  AND A.BRNDCD  = #{BRNDCD}
+	</update>
+
+	<select id="selectPreMaxUpdateBrndZsdt1140" parameterType="hdel.sd.sbi.domain.ZSDT1140" resultType="hdel.sd.sbi.domain.ZSDT1140">
+		SELECT A.MANDT
+		      ,A.BRNDSEQ
+		      ,A.ZPRDGBN
+		      ,A.BRNDCD
+		      ,A.FRDAT
+		      ,VARCHAR_FORMAT(TO_DATE(#{FRDAT}, 'YYYY-MM-DD') - 1 DAYS, 'YYYYMMDD') AS TODAT
+		      ,A.SNDSYS
+			  ,HEX(CURRENT DATE) AS AEDAT
+              ,CAST(#{ERNAM} AS VARCHAR(36)) AS ERNAM
+		FROM   SAPHEE.ZSDT1140 AS A
+		WHERE A.MANDT = #{MANDT}
+		  AND A.BRNDSEQ = (
+						  SELECT MAX(BRNDSEQ) AS BRNDSEQ
+						  FROM   SAPHEE.ZSDT1140
+						  WHERE  MANDT = #{MANDT}
+						    AND  BRNDSEQ <![CDATA[ < ]]> #{BRNDSEQ}
+						    AND  ZPRDGBN = #{ZPRDGBN}
+						    AND  BRNDCD  = #{BRNDCD}
+		                   )
+		  AND A.ZPRDGBN = #{ZPRDGBN}
+		  AND A.BRNDCD  = #{BRNDCD}
+		WITH UR
+	</select>
+
+
+	<select id="selectPreMaxDeleteBrndZsdt1140" parameterType="hdel.sd.sbi.domain.ZSDT1140" resultType="hdel.sd.sbi.domain.ZSDT1140">
+		SELECT A.MANDT
+		      ,A.BRNDSEQ
+		      ,A.ZPRDGBN
+		      ,A.BRNDCD
+		      ,A.FRDAT
+		      ,CAST('99991231' AS VARCHAR(8)) AS TODAT
+		      ,A.SNDSYS
+			  ,HEX(CURRENT DATE) AS AEDAT
+              ,CAST(#{ERNAM} AS VARCHAR(36)) AS ERNAM
+		FROM   SAPHEE.ZSDT1140 AS A
+		WHERE A.MANDT = #{MANDT}
+		  AND A.BRNDSEQ = (
+						  SELECT MAX(BRNDSEQ) AS BRNDSEQ
+						  FROM   SAPHEE.ZSDT1140
+						  WHERE  MANDT = #{MANDT}
+						    AND  BRNDSEQ <![CDATA[ < ]]> #{BRNDSEQ}
+						    AND  ZPRDGBN = #{ZPRDGBN}
+						    AND  BRNDCD  = #{BRNDCD}
+		                   )
+		  AND A.ZPRDGBN = #{ZPRDGBN}
+		  AND A.BRNDCD  = #{BRNDCD}
+		WITH UR
+	</select>
+
+    <delete id="deleteZsdt1140" parameterType="hdel.sd.sbi.domain.ZSDT1140">
+	<![CDATA[
+		DELETE FROM SAPHEE.ZSDT1140
+		WHERE MANDT = #{MANDT}
+		  AND BRNDSEQ = #{BRNDSEQ}
+		  AND ZPRDGBN = #{ZPRDGBN}
+		  AND BRNDCD  = #{BRNDCD}
+    ]]>
+	</delete>
+
+	<select id="selectBrnFrDat" parameterType="hdel.sd.sbi.domain.ZSDT1140" resultType="String">
+	<![CDATA[
+		SELECT NVL(FRDAT, '00000000')  AS FRDAT
+		FROM   SAPHEE.ZSDT1140
+		WHERE  MANDT = #{MANDT}
+		  AND  BRNDSEQ = #{BRNDSEQ}
+		  AND ZPRDGBN = #{ZPRDGBN}
+		  AND BRNDCD  = #{BRNDCD}
+		WITH UR
+	]]>
+	</select>
+
+	<select id="selectBrndSeqZsdt1140Cnt" parameterType="HashMap" resultType="int">
+	<![CDATA[
+		SELECT COUNT(MANDT)
+		FROM   SAPHEE.ZSDT1140
+		WHERE  MANDT = #{MANDT}
+		  AND  BRNDSEQ = #{BRNDSEQ}
+		WITH UR
+	]]>
+	</select>
+	
+</mapper>

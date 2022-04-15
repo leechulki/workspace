@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+ SELECT  MAX(PSPID) AS PSPID
+       ,MAX(ZSITE_NM) AS ZSITE_NM
+       ,SUBSTR(POSID,7,3) AS POSID
+       ,SUBSTR(MAX(DATE4),5,2)||'월'||SUBSTR(MAX(DATE4),7,2)||'일' AS DATE4
+       ,FLOOR
+      ,'1' AS SPEC_GBN 
+       , GUBUN
+       ,'' AS TYPE
+  ,'현대E/L' AS COMP
+       ,MAX(LIFNR) AS LIFNR
+       ,MAX(PERNO) AS PERNO
+       ,MAX(REQ_CELL) AS REQ_CELL
+       ,MAX(J_1KFREPRE) AS J_1KFREPRE
+       ,MAX(TELF1     ) AS TELF1     
+       ,MAX(ZZACTSS   ) AS ZZACTSS   
+       ,MAX(ADDR      ) AS ADDR      
+       ,MAX(ZSITE_TEL ) AS ZSITE_TEL 
+       ,MAX(CHK_KIND ) AS CHK_KIND 
+       ,CAST(#NAMEC#  AS VARCHAR(100)) ||' FAX:'||MAX(TELFX)||' ' AS NAMEC 
+       ,NAMET
+       , CELLP
+       ,'' AS HOGIT
+       ,'' AS TXT
+        ,MAX(TXT03) AS TXT03
+        ,SUBSTR(MAX(DATE5),5,2)||'월'||SUBSTR(MAX(DATE5),7,2)||'일' AS DATE5 
+FROM (
+        SELECT
+                P.MANDT
+               ,P.PSPID
+               ,P.POSID
+               ,P.DATE4
+               ,M1.ZSITE_NM
+               ,M2.ZSPEC2
+               ,P.LIFNR
+               ,(SELECT NAMET FROM SAPHEE.ZPST0002 WHERE MANDT = P.MANDT AND TEMNO = P2.PERNO) AS PERNO
+               ,P2.REQ_CELL
+               ,M.J_1KFREPRE
+               ,M.TELF1
+               ,(SELECT CTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = P.MANDT AND CODE1 = 'PS003' AND LANG = #G_LANG#   AND CODE2 = M1.ZZACTSS) AS ZZACTSS
+               ,M1.ADDR1||' '||M1.ADDR2 AS ADDR
+               ,M1.ZSITE_TEL
+               ,CASE WHEN M1.ISREMD = 'Y' THEN 'C' ELSE P2.CHK_KIND END CHK_KIND
+			    ,CASE WHEN (SUBSTR(M2.POSID_1,7,1) = 'S' OR SUBSTR(M2.POSID_1,7,1) = 'W') AND M2.ZSPEC2 > '' THEN  (SUBSTR(M2.ZSPEC2,1,LOCATE( '-', M2.ZSPEC2 )-1)) ELSE '0' END ESMW 
+                ,CASE WHEN M2.ZZGUBUN = '11' THEN 'ES'
+                           WHEN M2.ZZGUBUN = '12' THEN 'MW' ELSE '' END AS GUBUN
+                 ,(SELECT CELLP FROM SAPHEE.ZPST0011  AS X WHERE M2.MANDT = X.MANDT AND M2.TEMNO = X.TEMNO) AS CELLP , M2.NAMET
+			         ,(SELECT TELFX FROM SAPHEE.ZMMT012 AS M WHERE M.MANDT = P.MANDT AND M.LIFNR = P.CODE2) AS TELFX
+        ,P.TXT03
+        , ( SELECT X.DATE5  FROM SAPHEE.ZPST0042 AS X WHERE X.MANDT = P.MANDT AND X.PSPID = P.PSPID AND X.POSID = P.POSID ORDER BY CHASU FETCH FIRST 1 ROWS ONLY ) AS DATE5      
+        ,(SELECT SA.WORMO 
+              FROM SAPHEE.ZSDT0091 AS SA
+             WHERE SA.MANDT = P.MANDT
+                 AND SA.PSPID = P.PSPID
+	   AND SA.HOGI = P.POSID
+                 AND SA.SEQ = ( SELECT MAX( Z.SEQ )
+                                            FROM SAPHEE.ZSDT0005 AS Z
+                                          WHERE Z.MANDT = SA.MANDT
+                                               AND Z.HOGI = SA.HOGI
+                                                      ) ) AS WORMO  
+			  
+			,(SELECT SD.VALUE FROM SAPHEE.ZSDT0005 AS SD 
+			                               WHERE  P.MANDT = SD.MANDT  AND P.PSPID = SUBSTR(SD.HOGI,1,6)   AND P.POSID = SD.HOGI
+				                                AND SD.CHARACTERISTIC IN ( 'ES_ACTC' , 'MW_ACTC')
+			                                    AND SD.SEQ =  ( SELECT MAX( Z.SEQ )
+                                               FROM SAPHEE.ZSDT0005 AS Z
+                                           WHERE Z.MANDT = SD.MANDT
+                                                AND Z.HOGI =SD.HOGI
+											    AND Z.CHARACTERISTIC = SD.CHARACTERISTIC )) AS FLOOR
+     
+
+        FROM  SAPHEE.ZPST0024 AS P
+			
+                LEFT OUTER JOIN SAPHEE.ZMMT012 AS M
+                ON P.MANDT = M.MANDT
+                AND P.LIFNR = M.LIFNR
+                AND M.KTOKK = ''
+             ,SAPHEE.ZMASTER02 AS M2
+             ,SAPHEE.ZMASTER01 AS M1			 
+             ,SAPHEE.ZPST0036 AS P2
+
+        WHERE P.MANDT = #G_MANDT#
+        AND P.MANDT = M1.MANDT
+        AND P.PSPID = M1.POSID
+        AND P.MANDT = M2.MANDT
+        AND P.PSPID = M2.POSID
+        AND P.POSID = M2.POSID_1
+        AND P.MANDT = P2.MANDT
+        AND P.PSPID = P2.PSPID
+        AND P.POSID = P2.POSID
+        AND P.DATE1 != '00000000'
+        AND P2.CHK_KIND = 'A'
+            <isNotNull col="GUBUN">
+        #GUBUN+#
+           </isNotNull>
+ 
+    ) AS T
+GROUP BY  WORMO ,POSID ,FLOOR , GUBUN ,  CELLP ,NAMET
+
+
+ORDER BY PSPID DESC
+
+FOR FETCH ONLY
+WITH UR	</statement>
+	<input default-name="ds_cond_p">
+	</input>
+	<output default-name="ds_list_p">
+	</output>
+</query>

@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT 
+     X.PJT PJT,
+     X.NAM NAM,
+     X.ADR ADR,
+     X.TXT TXT,
+     X.USR USR,
+     X.PHO PHO,
+     X.BMT BMT,
+     X.YDT YDT,
+     X.MDT MDT,
+     X.TEM TEM,
+     X.TEM_NM TEM_NM,
+     X.RQT RQT,
+     X.REF REF,
+     X.DTEXT2 DTEXT2,
+     X.DTEXT3 DTEXT3,
+     X.DTEXT4 DTEXT4,
+     X.SEQ SEQ,
+     X.NUM NUM
+FROM (
+          -- 저장이력없는 초기데이터
+            SELECT
+	    X.PJT PJT,
+	    X.NAM NAM,
+                  X.ADR ADR,
+	    '승강설비 무상점검 만료에 따른 유상점검 계약 체결 요청의 건' TXT,
+	    CAST(#USR# AS CHAR(10)) USR,
+                  (SELECT USERMBPN
+                        FROM SAPHEE.ZUSERF
+	     WHERE MANDT= #G_MANDT#
+	     AND USERNUMB = #USR#) PHO,
+      X.BMT BMT,
+      SUBSTR(HEX(CURRENT DATE),3,2)YDT,
+      SUBSTR(HEX(CURRENT DATE),5,2)MDT,
+      CAST(#TEM# AS CHAR(3))TEM,
+      CAST(#TEM_NM# AS CHAR(30))TEM_NM,
+      '' RQT,
+      '' REF,
+      (SELECT DTEXT2 FROM SAPHEE.ZLCODE WHERE MANDT = '183' AND CODE1 = 'CS181' AND CODE2 = #TEM#) DTEXT2,
+      (SELECT DTEXT3 FROM SAPHEE.ZLCODE WHERE MANDT = '183' AND CODE1 = 'CS181' AND CODE2 = #TEM#) DTEXT3,
+      (SELECT DTEXT4 FROM SAPHEE.ZLCODE WHERE MANDT = '183' AND CODE1 = 'CS181' AND CODE2 = #TEM#) DTEXT4,
+--      (SELECT SAPHEE.FILLINZERO(INT(COALESCE(MAX(CS316_SEQ),'00'))+1,2) SEQ FROM SAPHEE.ZCST316 WHERE MANDT -- = #G_MANDT# AND CS316_TEM = #TEM# AND CS316_YDT = #YDT# AND CS316_MDT = #MDT#) SEQ,
+       (SELECT VALUE(COALESCE(MAX(CS316_SEQ),'00'),'01') SEQ FROM SAPHEE.ZCST316 WHERE MANDT = #G_MANDT# AND CS316_TEM = #TEM# AND CS316_YDT = #YDT# AND CS316_MDT = #MDT#) SEQ, 
+      '현엘-'||#TEM#||'-'||SUBSTR(HEX(CURRENT DATE),3,2)||'-'||SUBSTR(HEX(CURRENT DATE),5,2)||'-'||(CAST((SELECT SAPHEE.FILLINZERO( INT(COALESCE(MAX(CS316_SEQ),'00'))+1,2)SEQ FROM SAPHEE.ZCST316 WHERE MANDT = #G_MANDT# AND CS316_TEM = #TEM# AND CS316_YDT = #YDT# AND CS316_MDT = #MDT#)AS CHAR(2))) NUM
+FROM 
+  (
+    SELECT
+       B.CS116_PJT PJT,
+       MAX(A.KUNNR_NM) NAM,
+       MAX(A.ADDR1) ADR,
+       MIN(B.CS116_BMT) BMT
+    FROM
+       SAPHEE.ZMASTER01 A  LEFT OUTER JOIN SAPHEE.ZCST116 B
+	                         ON A.POSID = B.CS116_PJT			  
+   WHERE B.MANDT = #G_MANDT#
+    AND A.POSID= #PJT#
+    	
+   GROUP BY B.CS116_PJT
+  ) X
+  
+
+UNION ALL
+-- 저장이력 있는 경우
+SELECT 
+	A.CS316_PJT PJT,
+	A.CS316_NAM NAM,
+	A.CS316_ADR ADR,
+	A.CS316_TXT TXT,
+	A.CS316_USR USR,
+	A.CS316_PHO PHO,
+	A.CS316_BMT BMT,
+	A.CS316_YDT YDT,
+	A.CS316_MDT MDT,
+	A.CS316_TEM TEM,
+	CAST(#TEM_NM# AS CHAR(30))TEM_NM,	
+	A.CS316_RQT RQT,
+	A.CS316_REF REF,
+	B.DTEXT2 DTEXT2,
+	B.DTEXT3 DTEXT3,
+	B.DTEXT4 DTEXT4,
+              A.CS316_SEQ SEQ,
+	'현엘-'||#TEM#||'-'||SUBSTR(HEX(CURRENT DATE),3,2)||'-'||SUBSTR(HEX(CURRENT DATE),5,2)||'-'||(CAST((SELECT  MAX(CS316_SEQ)SEQ FROM SAPHEE.ZCST316 WHERE MANDT = #G_MANDT# AND CS316_TEM = #TEM# AND CS316_YDT = #YDT# AND CS316_MDT = #MDT#)AS CHAR(2))) NUM             
+FROM SAPHEE.ZCST316 A 
+	LEFT OUTER JOIN SAPHEE.ZLCODE B
+	ON A.CS316_TEM = B.CODE2
+	AND B.CODE1 = 'CS181'
+WHERE A.MANDT = #G_MANDT#
+    AND A.CS316_TEM = #TEM#
+    AND A.CS316_YDT = #YDT#
+    AND A.CS316_MDT = #MDT#
+    AND A.CS316_PJT = #PJT#
+    --AND A.CS316_SEQ = #SEQ#
+   )X
+   
+ORDER BY YDT,MDT,BMT,SEQ ASC
+FETCH FIRST 1 ROW ONLY
+WITH UR	]]></statement>
+	<input default-name="ds_cond2">
+	</input>
+	<output default-name="ds_save">
+	</output>
+</query>

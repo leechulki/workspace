@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--======기간값으로 조회가 불가하여 최인식 차장이 가끔 전체로 검색한다고 제약조건 해지한건으로 
+--======더이상 튜닝 요청하지 말아주세요!!!!!!!!!!!!!!!!
+--======벌써 3번째입니다.
+SELECT X.FLAG,
+       X.CHK,
+       X.PJT,
+       X.HNO,
+       X.SNM,
+       X.KUNNR_NM,
+       X.ADDR,
+       X.ARA,
+       X.ARA_NM,
+       X.VKGRP,
+       X.VKGRP_NM,
+       X.VKBUR_NM,
+       X.BSU,
+       X.BSU_NM,
+       X.SID,
+       X.RGD,
+       X.MSU,
+       X.JUJ_ID,
+       X.JUJ,
+       X.BUJ_ID,
+       X.BUJ,
+       X.DIPBXNUMB,
+       X.ISD,
+       X.EL_DEPH,
+       X.EL_DEPHF,
+       X.EL_DEPHYB,
+       X.HST,
+       X.REMARK,
+       (SELECT INPUT_VAL
+        FROM SAPHEE.ZQMT056H ZQ056
+        WHERE ZQ056.MANDT = X.MANDT
+          AND ZQ056.POSID = X.POSID_1
+          AND ZQ056.CHKDT = X.CHKDT
+          AND ZQ056.EL_TYPE = 'EL'
+          AND ZQ056.LCD = '06'
+          AND ZQ056.MCD = '02'
+          AND ZQ056.SCD = '01'
+            FETCH FIRST 1 ROWS ONLY
+       ) AS DIPBXNUMB1_PS, -- 비상통화장치 전화번호(검사)
+       (SELECT DIPBXNUMB
+        FROM SAPHEE.ZPSTW1401 ZP1401
+        WHERE ZP1401.MANDT = X.MANDT
+          AND ZP1401.PSPID = X.PJT
+          AND ZP1401.POSID = X.POSID_1
+          AND ZP1401.GBN = 'C'
+            FETCH FIRST 1 ROWS ONLY
+       ) AS DIPBXNUMB2_PS -- 비상통화장치 전화번호(설치)
+FROM
+(           	
+	SELECT
+		   A.MANDT,
+	       '' FLAG,
+	       '' CHK,
+	       A.PJT,
+	       A.HNO,
+	       C.ZSITE_NM SNM,
+	      -- C.KUNNR_NM KUNNR_NM,
+	       VALUE(D.CS121_NAM,C.KUNNR_NM) KUNNR_NM,
+	       C.ADDR1||' '||C.ADDR2 ADDR,
+	       A.ARA,
+	       SAPHEE.CODE_CONV(A.MANDT,'ko','CS115',A.ARA) ARA_NM,
+	       B.VKGRP,
+	       SAPHEE.CODE_CONV(A.MANDT,'ko','VKGRP',B.VKGRP) VKGRP_NM,
+	       SAPHEE.CODE_CONV(A.MANDT,'ko','VKBUR',SUBSTR(B.VKGRP,1,2)||'00') VKBUR_NM,
+	       A.BSU,
+	       B.ABR_NM BSU_NM,
+	       A.SID,
+	       A.RGD,
+	       A.MSU,
+	       A.JUJ JUJ_ID,
+	       (SELECT CCSB1EPN FROM SAPHEE.ZTBCSB1 WHERE MANDT = #G_MANDT# AND COALESCE(CCSB1RTD,'') = '' AND CCSB1EMP = A.JUJ) AS JUJ,   
+	       A.BUJ BUJ_ID,
+	       (SELECT CCSB1EPN FROM SAPHEE.ZTBCSB1 WHERE MANDT = #G_MANDT# AND COALESCE(CCSB1RTD,'') = '' AND CCSB1EMP = A.BUJ) AS BUJ,
+	       REPLACE(A.DIPBXNUMB,'-','') DIPBXNUMB,
+	       E.CS101_ISD ISD,
+	       (SELECT VALUE(VALUE,'')  FROM SAPHEE.ZSDT0005 WHERE MANDT = A.MANDT AND HOGI = CONCAT(A.PJT, A.HNO) AND CHARACTERISTIC = 'EL_DEPH' ORDER BY SEQ DESC FETCH FIRST 1 ROW ONLY) EL_DEPH,
+	       (SELECT VALUE(VALUE,'')  FROM SAPHEE.ZSDT0005 WHERE MANDT = A.MANDT AND HOGI = CONCAT(A.PJT, A.HNO) AND CHARACTERISTIC = 'EL_DEPHF' ORDER BY SEQ DESC FETCH FIRST 1 ROW ONLY) EL_DEPHF,
+	       (SELECT VALUE(VALUE,'')  FROM SAPHEE.ZSDT0005 WHERE MANDT = A.MANDT AND HOGI = CONCAT(A.PJT, A.HNO) AND CHARACTERISTIC = 'EL_DEPHYB' ORDER BY SEQ DESC FETCH FIRST 1 ROW ONLY) EL_DEPHYB,
+	       CASE WHEN A.HST = 'F' THEN '실패' ELSE '' END HST,
+	       VALUE(F.REMARK,'') AS REMARK,
+           (SELECT MAX(CHKDT) FROM SAPHEE.ZQMT055H WHERE MANDT = A.MANDT AND POSID = A.PJT || A.HNO AND EL_TYPE = 'EL') AS CHKDT,
+           A.PJT || A.HNO AS POSID_1		   
+	  FROM
+	       SAPHEE.ZCST111 A  LEFT OUTER JOIN SAPHEE.ZCST121 D ON D.MANDT = A.MANDT AND A.UPN = CS121_UPN AND A.CST = CS121_CST AND A.UPN != ''
+	                         LEFT OUTER JOIN SAPHEE.ZCST101 E ON A.MANDT = E.MANDT AND A.PJT = E.CS101_PJT AND A.HNO = E.CS101_HNO
+	                         LEFT OUTER JOIN SAPHEE.ZCST118 F ON A.MANDT = F.MANDT AND A.PJT = F.PJT AND A.HNO = F.HNO,
+	       SAPHEE.ZWBT010 B,
+	       SAPHEE.ZMASTER01 C
+	       
+	       					 
+	 WHERE
+	       A.MANDT = #G_MANDT#
+	   AND A.MANDT = B.MANDT
+	   AND A.BSU = B.LGORT
+	   AND A.MANDT = C.MANDT
+	   AND A.PJT = C.POSID
+	 --  AND A.EXC = ''
+	<isNotNull col="DIPBXNUMB">
+	   AND A.DIPBXNUMB LIKE '%'||#DIPBXNUMB#||'%'
+	</isNotNull>
+	<isNotNull col="PJT">
+	   AND A.PJT = #PJT#
+	</isNotNull>
+	<isNotNull col="ARA">
+	   AND A.ARA = #ARA#
+	</isNotNull>
+	<isNotNull col="BSU">
+	   AND A.BSU = #BSU#
+	</isNotNull>
+	<isNotNull col="BPM">
+	   AND A.BPM = #BPM#
+	</isNotNull>
+	<isNotNull col="TEM">
+	   AND B.VKGRP = #TEM#
+	</isNotNull>
+	<isNull col="TEM">
+		<isNotNull col="DPT">
+			AND B.VKGRP IN (SELECT CODE2 AS CODE
+	                          FROM SAPHEE.ZLCODE
+	                         WHERE MANDT = #G_MANDT#
+	                           AND LANG  = #G_LANG# 
+	                           AND CODE1 = 'VKGRP'
+	                           AND DTEXT1 = #DPT#)										
+		</isNotNull>
+	</isNull>
+	<isEqual col="GBN2" value="AA">
+				<isEqual col="GBN" value="A">
+				   AND A.SID > ''
+				</isEqual>
+				<isEqual col="GBN" value="B">
+				   AND A.SID = ''
+				   AND A.MSU = ''
+				</isEqual>
+				<isEqual col="GBN" value="C">
+				   AND A.SID = ''
+				   AND A.MSU != ''
+				</isEqual>
+	</isEqual>
+	<isEqual col="GBN2" value="BB">
+				<isEqual col="GBN" value="A">
+				   AND A.DIPBXNUMB > ''
+				</isEqual>
+				<isEqual col="GBN" value="B">
+				   AND A.DIPBXNUMB = ''
+				</isEqual>
+				<isEqual col="GBN" value="C">
+				   AND A.DIPBXNUMB = ''
+				</isEqual>
+	</isEqual>
+	   AND B.LGORT > ''
+	<isNotNull col="FAIL">
+	   AND A.HST NOT IN ('D','F')
+	</isNotNull>
+	   AND A.HST NOT IN ('D')
+	   AND SUBSTR(A.HNO,1,1) IN ('L','S','W')
+	ORDER BY
+	       A.PJT,
+	       A.HNO
+) X
+WHERE 
+	X.MANDT = #G_MANDT#
+WITH UR	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>
